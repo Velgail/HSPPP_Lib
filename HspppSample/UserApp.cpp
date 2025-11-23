@@ -7,33 +7,15 @@ int hspMain() {
     // ウィンドウ作成
     screen(0, 800, 600, 0, "HSPPP Sample Window");
 
-    int x = 100;
-    int y = 100;
+    // 簡単な描画処理（現在はスタブなので何も表示されない）
+    color(255, 255, 255);
+    boxf();  // 背景を白で塗りつぶし
 
-    // メインループ
-    // await() が 0 を返したらウィンドウが閉じられた等の終了合図
-    while (true) {
-        // 描画開始 (Back Buffer)
-        redraw(0);
+    color(0, 0, 0);
+    pos(100, 100);
+    mes("Hello, HSPPP World!");
 
-        // 背景クリア
-        color(255, 255, 255);
-        boxf(); // 全画面
-
-        // 文字描画
-        color(0, 0, 0);
-        pos(x, y);
-        mes("Hello, HSPPP World!");
-
-        // 描画反映 (Front Buffer / Present)
-        redraw(1);
-
-        // 16ms待機 ＆ Windowsメッセージ処理
-        // ここでウィンドウの「閉じる」ボタン等が処理される
-        if (await(16) == 0) {
-            break;
-        }
-    }
-
+    // hspMainを抜けると、HSPのstop命令と同じ動作になる
+    // ウィンドウは表示され続け、×ボタンで終了できる
     return 0;
 }

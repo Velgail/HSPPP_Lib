@@ -17,10 +17,9 @@ export namespace hsppp {
     // p1: 0=描画予約(Offscreen), 1=画面反映(Present)
     export void redraw(int p1 = 1);
 
-    // 待機＆メッセージ処理
-    // 戻り値: 0=終了要求(WM_QUIT等), 1=継続
-    // HSPのawaitは時間経過を待つが、ここではメッセージポンプの役割が主
-    export int await(int time_ms);
+    // 待機＆メッセージ処理 (HSP互換)
+    // 指定されたミリ秒だけ待機し、その間ウィンドウメッセージを処理する
+    export void await(int time_ms);
 
     // --- Drawing Functions ---
     export void color(int r, int g, int b);

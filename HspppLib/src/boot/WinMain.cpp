@@ -18,11 +18,19 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 
     // 2. ユーザーコード (hspMain) の実行
     // ユーザーはここから screen() などを呼び出す
-    int ret = hspMain();
+    hspMain();
 
-    // 3. エンジンの終了処理
+    // 3. hspMain を抜けた後は、HSPの stop 命令相当の動作
+    // WM_QUIT が来るまでメッセージループを回し続ける
+    MSG msg;
+    while (GetMessage(&msg, nullptr, 0, 0)) {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+    }
+
+    // 4. エンジンの終了処理
     // (リソース開放など)
     hsppp::internal::close_system();
 
-    return ret;
+    return static_cast<int>(msg.wParam);
 }

@@ -40,6 +40,7 @@ namespace {
     COLORREF g_currentColor = RGB(0, 0, 0);
     bool g_shouldQuit = false;
     const wchar_t* g_windowClassName = L"HspppWindowClass";
+    DWORD g_lastAwaitTime = 0; // 前回のawait呼び出し時刻
 }
 
 // ウィンドウプロシージャ
@@ -136,27 +137,54 @@ void redraw(int p1) {
     }
 }
 
-// 待機＆メッセージ処理
-int await(int time_ms) {
-    // メッセージポンプの実装
+// 待機＆メッセージ処理 (HSP互換)
+// 前回のawait呼び出しから指定時間が経過するまで待機する
+void await(int time_ms) {
     MSG msg;
-    DWORD startTime = GetTickCount();
+    DWORD currentTime = GetTickCount();
 
-    while (GetTickCount() - startTime < (DWORD)time_ms) {
-        if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
+    // 初回呼び出し、または時刻が巻き戻った場合は現在時刻を基準にする
+    if (g_lastAwaitTime == 0 || currentTime < g_lastAwaitTime) {
+        g_lastAwaitTime = currentTime;
+    }
+
+    // 前回からの経過時間を計算
+    DWORD elapsed = currentTime - g_lastAwaitTime;
+
+    // 指定時間に満たない場合は待機
+    if (elapsed < (DWORD)time_ms) {
+        DWORD waitTime = time_ms - elapsed;
+        DWORD endTime = currentTime + waitTime;
+
+        // 待機中もメッセージを処理
+        while (GetTickCount() < endTime) {
+            if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
+                if (msg.message == WM_QUIT) {
+                    g_shouldQuit = true;
+                    return;
+                }
+                TranslateMessage(&msg);
+                DispatchMessage(&msg);
+            }
+            else {
+                Sleep(1);
+            }
+        }
+    }
+    else {
+        // すでに指定時間を超過している場合もメッセージ処理だけ行う
+        while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
             if (msg.message == WM_QUIT) {
                 g_shouldQuit = true;
-                return 0;
+                return;
             }
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
-        else {
-            Sleep(1);
-        }
     }
 
-    return g_shouldQuit ? 0 : 1;
+    // 次回のawaitのために現在時刻を記録
+    g_lastAwaitTime = GetTickCount();
 }
 
 // 描画色設定

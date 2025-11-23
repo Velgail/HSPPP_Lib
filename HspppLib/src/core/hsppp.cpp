@@ -38,12 +38,45 @@ namespace {
     bool g_shouldQuit = false;
     DWORD g_lastAwaitTime = 0; // 前回のawait呼び出し時刻
 
+    // 描画モード管理（HSP互換）
+    int g_redrawMode = 1;      // 0: 仮想画面のみ, 1: 即座に反映（デフォルト）
+    bool g_isDrawing = false;  // BeginDraw中かどうか
+
     // 遅延初期化: カレントサーフェスがなければデフォルトウィンドウを作成
     void ensureDefaultScreen() {
         auto current = g_currentSurface.lock();
         if (!current) {
             // デフォルトウィンドウを作成: screen 0, 640, 480, 0 (normal)
             hsppp::screen(0, 640, 480, 0, -1, -1, 0, 0, "HSPPP Window");
+        }
+    }
+
+    // 描画開始（内部ヘルパー）
+    void beginDrawIfNeeded() {
+        if (!g_isDrawing) {
+            auto currentSurface = g_currentSurface.lock();
+            if (currentSurface) {
+                currentSurface->beginDraw();
+                g_isDrawing = true;
+            }
+        }
+    }
+
+    // 描画終了＆画面反映（内部ヘルパー）
+    void endDrawAndPresent() {
+        if (g_isDrawing) {
+            auto currentSurface = g_currentSurface.lock();
+            if (currentSurface) {
+                currentSurface->endDraw();
+
+                // HspWindowの場合は画面に転送
+                auto pWindow = std::dynamic_pointer_cast<HspWindow>(currentSurface);
+                if (pWindow) {
+                    pWindow->present();
+                }
+
+                g_isDrawing = false;
+            }
         }
     }
 }
@@ -132,27 +165,35 @@ namespace hsppp {
         g_shouldQuit = false;
     }
 
-    // 描画制御
+    // 描画制御（HSP互換）
     void redraw(int p1) {
         // 遅延初期化: ウィンドウがなければデフォルト作成
         ensureDefaultScreen();
 
-        // weak_ptrからshared_ptrを取得（安全にアクセス）
-        auto currentSurface = g_currentSurface.lock();
-        if (!currentSurface) return;
+        // p1の値に応じて描画モードを設定
+        // 0: モード0に設定（仮想画面のみ）
+        // 1: モード1に設定＋画面更新
+        // 2: モード0に設定のみ（画面更新なし）
+        // 3: モード1に設定のみ（画面更新なし）
 
-        if (p1 == 0) {
-            // 描画開始
-            currentSurface->beginDraw();
+        bool shouldUpdate = (p1 % 2 == 1);  // 奇数なら画面更新
+        int newMode = p1 % 2;                // 0 or 1
+
+        if (newMode == 0) {
+            // モード0に切り替え: 仮想画面のみに描画
+            // 既に描画中でなければBeginDrawを呼ぶ
+            if (!g_isDrawing) {
+                beginDrawIfNeeded();
+            }
+            g_redrawMode = 0;
         }
         else {
-            // 描画終了＆画面反映
-            currentSurface->endDraw();
+            // モード1に切り替え: 即座に反映
+            g_redrawMode = 1;
 
-            // HspWindowの場合は画面に転送（dynamic_pointer_castで安全にキャスト）
-            auto pWindow = std::dynamic_pointer_cast<HspWindow>(currentSurface);
-            if (pWindow) {
-                pWindow->present();
+            // shouldUpdateがtrueなら即座に画面更新
+            if (shouldUpdate && g_isDrawing) {
+                endDrawAndPresent();
             }
         }
     }
@@ -234,7 +275,17 @@ namespace hsppp {
         ensureDefaultScreen();
 
         auto currentSurface = g_currentSurface.lock();
-        if (currentSurface) {
+        if (!currentSurface) return;
+
+        // 描画モードに応じて処理
+        if (g_redrawMode == 1) {
+            // モード1: 即座に反映
+            beginDrawIfNeeded();
+            currentSurface->mes(text);
+            endDrawAndPresent();
+        }
+        else {
+            // モード0: 仮想画面のみ（BeginDraw済み）
             currentSurface->mes(text);
         }
     }
@@ -245,7 +296,17 @@ namespace hsppp {
         ensureDefaultScreen();
 
         auto currentSurface = g_currentSurface.lock();
-        if (currentSurface) {
+        if (!currentSurface) return;
+
+        // 描画モードに応じて処理
+        if (g_redrawMode == 1) {
+            // モード1: 即座に反映
+            beginDrawIfNeeded();
+            currentSurface->boxf(x1, y1, x2, y2);
+            endDrawAndPresent();
+        }
+        else {
+            // モード0: 仮想画面のみ（BeginDraw済み）
             currentSurface->boxf(x1, y1, x2, y2);
         }
     }
@@ -256,8 +317,17 @@ namespace hsppp {
         ensureDefaultScreen();
 
         auto currentSurface = g_currentSurface.lock();
-        if (currentSurface) {
-            // 画面全体を塗りつぶす
+        if (!currentSurface) return;
+
+        // 描画モードに応じて処理
+        if (g_redrawMode == 1) {
+            // モード1: 即座に反映
+            beginDrawIfNeeded();
+            currentSurface->boxf(0, 0, currentSurface->getWidth(), currentSurface->getHeight());
+            endDrawAndPresent();
+        }
+        else {
+            // モード0: 仮想画面のみ（BeginDraw済み）
             currentSurface->boxf(0, 0, currentSurface->getWidth(), currentSurface->getHeight());
         }
     }

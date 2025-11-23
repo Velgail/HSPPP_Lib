@@ -5,7 +5,7 @@ export module hsppp;
 // import <string>;
 // import <format>;
 
-export namespace hsppp {
+namespace hsppp {
 
     // --- Core Functions (HSP compatible) ---
 

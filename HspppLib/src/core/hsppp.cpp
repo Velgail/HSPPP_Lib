@@ -1,11 +1,18 @@
 // HspppLib/src/core/hsppp.cpp
-module hsppp;
+
+// グローバルモジュールフラグメント
+// モジュール化されていないヘッダーはここでincludeする
+module;
 
 #include <windows.h>
-#include <string>
-#include <vector>
 #include <d2d1.h>
 #include <dwrite.h>
+
+export module hsppp;
+
+// モジュール化された標準ライブラリ
+import <string>;
+import <vector>;
 
 #pragma comment(lib, "d2d1.lib")
 #pragma comment(lib, "dwrite.lib")

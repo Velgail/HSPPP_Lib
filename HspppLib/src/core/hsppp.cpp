@@ -7,12 +7,11 @@ module;
 #include <windows.h>
 #include <d2d1.h>
 #include <dwrite.h>
+#include <string>
+#include <vector>
 
-export module hsppp;
-
-// モジュール化された標準ライブラリ
-import <string>;
-import <vector>;
+// モジュール実装
+module hsppp;
 
 #pragma comment(lib, "d2d1.lib")
 #pragma comment(lib, "dwrite.lib")

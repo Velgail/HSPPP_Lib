@@ -88,7 +88,7 @@ void HspSurface::boxf(int x1, int y1, int x2, int y2) {
         static_cast<FLOAT>(y2)
     );
 
-    m_pBitmapTarget->FillRectangle(rect, m_pBrush);
+    m_pBitmapTarget->FillRectangle(rect, m_pBrush.Get());
 }
 
 void HspSurface::mes(const char* text) {
@@ -109,9 +109,9 @@ void HspSurface::mes(const char* text) {
     m_pBitmapTarget->DrawText(
         wideText.c_str(),
         static_cast<UINT32>(wideText.length()),
-        m_pTextFormat,
+        m_pTextFormat.Get(),
         layoutRect,
-        m_pBrush
+        m_pBrush.Get()
     );
 }
 

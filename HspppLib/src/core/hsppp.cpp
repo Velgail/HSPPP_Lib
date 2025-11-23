@@ -8,6 +8,7 @@ module;
 #include <windows.h>
 #include <d2d1.h>
 #include <dwrite.h>
+#include <wrl/client.h>
 #include <string>
 #include <map>
 #include <memory>
@@ -24,13 +25,13 @@ module hsppp;
 namespace {
     using namespace hsppp::internal;
 
-    // Direct2D / DirectWrite リソース
-    ID2D1Factory* g_pD2DFactory = nullptr;
-    IDWriteFactory* g_pDWriteFactory = nullptr;
+    // Direct2D / DirectWrite リソース（COMスマートポインタで管理）
+    ComPtr<ID2D1Factory> g_pD2DFactory;
+    ComPtr<IDWriteFactory> g_pDWriteFactory;
 
     // Surface管理
     std::map<int, std::shared_ptr<HspSurface>> g_surfaces;
-    HspSurface* g_currentSurface = nullptr;
+    std::weak_ptr<HspSurface> g_currentSurface;  // weak_ptrで安全に管理
 
     // システム状態
     bool g_shouldQuit = false;
@@ -79,26 +80,28 @@ namespace hsppp {
         // Surfaceマップに追加
         g_surfaces[id] = window;
 
-        // カレントサーフェスとして設定
-        g_currentSurface = window.get();
+        // カレントサーフェスとして設定（weak_ptrを使用）
+        g_currentSurface = window;
 
         g_shouldQuit = false;
     }
 
     // 描画制御
     void redraw(int p1) {
-        if (!g_currentSurface) return;
+        // weak_ptrからshared_ptrを取得（安全にアクセス）
+        auto currentSurface = g_currentSurface.lock();
+        if (!currentSurface) return;
 
         if (p1 == 0) {
             // 描画開始
-            g_currentSurface->beginDraw();
+            currentSurface->beginDraw();
         }
         else {
             // 描画終了＆画面反映
-            g_currentSurface->endDraw();
+            currentSurface->endDraw();
 
-            // HspWindowの場合は画面に転送
-            HspWindow* pWindow = dynamic_cast<HspWindow*>(g_currentSurface);
+            // HspWindowの場合は画面に転送（dynamic_pointer_castで安全にキャスト）
+            auto pWindow = std::dynamic_pointer_cast<HspWindow>(currentSurface);
             if (pWindow) {
                 pWindow->present();
             }
@@ -156,37 +159,42 @@ namespace hsppp {
 
     // 描画色設定
     void color(int r, int g, int b) {
-        if (g_currentSurface) {
-            g_currentSurface->color(r, g, b);
+        auto currentSurface = g_currentSurface.lock();
+        if (currentSurface) {
+            currentSurface->color(r, g, b);
         }
     }
 
     // 描画位置設定
     void pos(int x, int y) {
-        if (g_currentSurface) {
-            g_currentSurface->pos(x, y);
+        auto currentSurface = g_currentSurface.lock();
+        if (currentSurface) {
+            currentSurface->pos(x, y);
         }
     }
 
     // 文字列描画
     void mes(const char* text) {
-        if (g_currentSurface) {
-            g_currentSurface->mes(text);
+        auto currentSurface = g_currentSurface.lock();
+        if (currentSurface) {
+            currentSurface->mes(text);
         }
     }
 
     // 矩形塗りつぶし（座標指定版）
     void boxf(int x1, int y1, int x2, int y2) {
-        if (g_currentSurface) {
-            g_currentSurface->boxf(x1, y1, x2, y2);
+        auto currentSurface = g_currentSurface.lock();
+        if (currentSurface) {
+            currentSurface->boxf(x1, y1, x2, y2);
         }
     }
 
     // 矩形塗りつぶし（全画面版）
     void boxf() {
-        if (g_currentSurface) {
+        auto currentSurface = g_currentSurface.lock();
+        if (currentSurface) {
             // 画面全体を塗りつぶす
-            g_currentSurface->boxf(0, 0, g_currentSurface->getWidth(), g_currentSurface->getHeight());
+            currentSurface->boxf(0, 0, currentSurface->getWidth(), currentSurface->getHeight());
         }
     }
 
@@ -203,18 +211,21 @@ namespace hsppp {
                 return;
             }
 
-            // Direct2D Factory の作成
-            HRESULT hr = D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &g_pD2DFactory);
+            // Direct2D Factory の作成（ComPtrで自動管理）
+            HRESULT hr = D2D1CreateFactory(
+                D2D1_FACTORY_TYPE_SINGLE_THREADED,
+                g_pD2DFactory.GetAddressOf()
+            );
             if (FAILED(hr)) {
                 MessageBoxW(nullptr, L"Failed to create Direct2D factory", L"Error", MB_OK | MB_ICONERROR);
                 return;
             }
 
-            // DirectWrite Factory の作成
+            // DirectWrite Factory の作成（ComPtrで自動管理）
             hr = DWriteCreateFactory(
                 DWRITE_FACTORY_TYPE_SHARED,
                 __uuidof(IDWriteFactory),
-                reinterpret_cast<IUnknown**>(&g_pDWriteFactory)
+                &g_pDWriteFactory
             );
             if (FAILED(hr)) {
                 MessageBoxW(nullptr, L"Failed to create DirectWrite factory", L"Error", MB_OK | MB_ICONERROR);
@@ -225,17 +236,11 @@ namespace hsppp {
         void close_system() {
             // すべてのサーフェスを解放
             g_surfaces.clear();
-            g_currentSurface = nullptr;
+            g_currentSurface.reset();  // weak_ptrをリセット
 
-            // Direct2D/DirectWrite リソースの解放
-            if (g_pDWriteFactory) {
-                g_pDWriteFactory->Release();
-                g_pDWriteFactory = nullptr;
-            }
-            if (g_pD2DFactory) {
-                g_pD2DFactory->Release();
-                g_pD2DFactory = nullptr;
-            }
+            // ComPtrは自動的にReleaseされるので明示的な解放は不要
+            g_pDWriteFactory.Reset();
+            g_pD2DFactory.Reset();
 
             // WindowManagerはスタティック変数なので明示的な削除は不要
             // デストラクタでウィンドウクラスの登録解除が行われる

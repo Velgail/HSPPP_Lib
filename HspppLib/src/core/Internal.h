@@ -6,8 +6,13 @@
 #include <windows.h>
 #include <d2d1.h>
 #include <dwrite.h>
+#include <wrl/client.h>
 #include <string>
 #include <memory>
+
+// COMスマートポインタのエイリアス
+template<typename T>
+using ComPtr = Microsoft::WRL::ComPtr<T>;
 
 namespace hsppp {
 namespace internal {
@@ -24,11 +29,11 @@ class HspWindow;
 class HspSurface {
 protected:
     // オフスクリーンバッファ（描画先）
-    ID2D1BitmapRenderTarget* m_pBitmapTarget;
+    ComPtr<ID2D1BitmapRenderTarget> m_pBitmapTarget;
 
     // 描画リソース
-    ID2D1SolidColorBrush* m_pBrush;
-    IDWriteTextFormat* m_pTextFormat;
+    ComPtr<ID2D1SolidColorBrush> m_pBrush;
+    ComPtr<IDWriteTextFormat> m_pTextFormat;
 
     // HSPのステート
     int m_currentX;
@@ -44,10 +49,11 @@ protected:
 
 public:
     HspSurface(int width, int height);
-    virtual ~HspSurface();
+    virtual ~HspSurface() = default;  // ComPtrが自動解放するのでdefault
 
     // 初期化（派生クラスで実装する必要がある）
-    virtual bool initialize(ID2D1Factory* pD2DFactory, IDWriteFactory* pDWriteFactory);
+    virtual bool initialize(const ComPtr<ID2D1Factory>& pD2DFactory,
+                           const ComPtr<IDWriteFactory>& pDWriteFactory);
 
     // 描画ターゲットとして設定する
     virtual void activate();
@@ -66,7 +72,7 @@ public:
     // ゲッター
     int getWidth() const { return m_width; }
     int getHeight() const { return m_height; }
-    ID2D1BitmapRenderTarget* getBitmapTarget() const { return m_pBitmapTarget; }
+    const ComPtr<ID2D1BitmapRenderTarget>& getBitmapTarget() const { return m_pBitmapTarget; }
 };
 
 // 派生クラス: HspWindow
@@ -74,15 +80,16 @@ public:
 class HspWindow : public HspSurface {
 private:
     HWND m_hwnd;
-    ID2D1HwndRenderTarget* m_pHwndTarget; // 表示用ターゲット
+    ComPtr<ID2D1HwndRenderTarget> m_pHwndTarget; // 表示用ターゲット
     std::wstring m_title;
 
 public:
     HspWindow(int width, int height, const char* title);
-    virtual ~HspWindow();
+    virtual ~HspWindow();  // HWNDの破棄が必要なので実装する
 
     // 初期化
-    bool initialize(ID2D1Factory* pD2DFactory, IDWriteFactory* pDWriteFactory) override;
+    bool initialize(const ComPtr<ID2D1Factory>& pD2DFactory,
+                   const ComPtr<IDWriteFactory>& pDWriteFactory) override;
 
     // ウィンドウ作成
     bool createWindow(HINSTANCE hInstance, const wchar_t* className, DWORD style);

@@ -46,22 +46,10 @@ HspSurface::HspSurface(int width, int height)
 {
 }
 
-HspSurface::~HspSurface() {
-    if (m_pBrush) {
-        m_pBrush->Release();
-        m_pBrush = nullptr;
-    }
-    if (m_pTextFormat) {
-        m_pTextFormat->Release();
-        m_pTextFormat = nullptr;
-    }
-    if (m_pBitmapTarget) {
-        m_pBitmapTarget->Release();
-        m_pBitmapTarget = nullptr;
-    }
-}
+// デストラクタはdefaultなので実装不要（ComPtrが自動解放）
 
-bool HspSurface::initialize(ID2D1Factory* pD2DFactory, IDWriteFactory* pDWriteFactory) {
+bool HspSurface::initialize(const ComPtr<ID2D1Factory>& pD2DFactory,
+                            const ComPtr<IDWriteFactory>& pDWriteFactory) {
     // 基底クラスでは何もしない（派生クラスで実装）
     return false;
 }
@@ -151,18 +139,17 @@ HspWindow::HspWindow(int width, int height, const char* title)
 {
 }
 
+// デストラクタはdefaultだが、HWNDの破棄は手動で行う必要がある
 HspWindow::~HspWindow() {
-    if (m_pHwndTarget) {
-        m_pHwndTarget->Release();
-        m_pHwndTarget = nullptr;
-    }
     if (m_hwnd) {
         DestroyWindow(m_hwnd);
         m_hwnd = nullptr;
     }
+    // ComPtrは自動解放される
 }
 
-bool HspWindow::initialize(ID2D1Factory* pD2DFactory, IDWriteFactory* pDWriteFactory) {
+bool HspWindow::initialize(const ComPtr<ID2D1Factory>& pD2DFactory,
+                          const ComPtr<IDWriteFactory>& pDWriteFactory) {
     if (!pD2DFactory || !pDWriteFactory) return false;
 
     // HwndRenderTargetの作成（表示用）
@@ -175,7 +162,7 @@ bool HspWindow::initialize(ID2D1Factory* pD2DFactory, IDWriteFactory* pDWriteFac
     HRESULT hr = pD2DFactory->CreateHwndRenderTarget(
         props,
         hwndProps,
-        &m_pHwndTarget
+        m_pHwndTarget.GetAddressOf()
     );
 
     if (FAILED(hr)) {
@@ -190,7 +177,7 @@ bool HspWindow::initialize(ID2D1Factory* pD2DFactory, IDWriteFactory* pDWriteFac
 
     hr = m_pHwndTarget->CreateCompatibleRenderTarget(
         size,
-        &m_pBitmapTarget
+        m_pBitmapTarget.GetAddressOf()
     );
 
     if (FAILED(hr)) {
@@ -200,7 +187,7 @@ bool HspWindow::initialize(ID2D1Factory* pD2DFactory, IDWriteFactory* pDWriteFac
     // ブラシの作成
     hr = m_pBitmapTarget->CreateSolidColorBrush(
         m_currentColor,
-        &m_pBrush
+        m_pBrush.GetAddressOf()
     );
 
     if (FAILED(hr)) {
@@ -216,7 +203,7 @@ bool HspWindow::initialize(ID2D1Factory* pD2DFactory, IDWriteFactory* pDWriteFac
         DWRITE_FONT_STRETCH_NORMAL,
         14.0f,
         L"ja-jp",
-        &m_pTextFormat
+        m_pTextFormat.GetAddressOf()
     );
 
     return SUCCEEDED(hr);
@@ -263,9 +250,9 @@ void HspWindow::present() {
     // オフスクリーンバッファから画面への転送
     m_pHwndTarget->BeginDraw();
 
-    // ビットマップを取得
-    ID2D1Bitmap* pBitmap = nullptr;
-    HRESULT hr = m_pBitmapTarget->GetBitmap(&pBitmap);
+    // ビットマップを取得（ComPtrで安全に管理）
+    ComPtr<ID2D1Bitmap> pBitmap;
+    HRESULT hr = m_pBitmapTarget->GetBitmap(pBitmap.GetAddressOf());
 
     if (SUCCEEDED(hr) && pBitmap) {
         // ビットマップを画面に描画
@@ -277,13 +264,13 @@ void HspWindow::present() {
         );
 
         m_pHwndTarget->DrawBitmap(
-            pBitmap,
+            pBitmap.Get(),
             destRect,
             1.0f,
             D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR
         );
 
-        pBitmap->Release();
+        // ComPtrなので自動解放される
     }
 
     hr = m_pHwndTarget->EndDraw();

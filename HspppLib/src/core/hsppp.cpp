@@ -37,6 +37,15 @@ namespace {
     // システム状態
     bool g_shouldQuit = false;
     DWORD g_lastAwaitTime = 0; // 前回のawait呼び出し時刻
+
+    // 遅延初期化: カレントサーフェスがなければデフォルトウィンドウを作成
+    void ensureDefaultScreen() {
+        auto current = g_currentSurface.lock();
+        if (!current) {
+            // デフォルトウィンドウを作成: screen 0, 640, 480, 0 (normal)
+            hsppp::screen(0, 640, 480, 0, -1, -1, 0, 0, "HSPPP Window");
+        }
+    }
 }
 
 namespace hsppp {
@@ -125,6 +134,9 @@ namespace hsppp {
 
     // 描画制御
     void redraw(int p1) {
+        // 遅延初期化: ウィンドウがなければデフォルト作成
+        ensureDefaultScreen();
+
         // weak_ptrからshared_ptrを取得（安全にアクセス）
         auto currentSurface = g_currentSurface.lock();
         if (!currentSurface) return;
@@ -196,6 +208,9 @@ namespace hsppp {
 
     // 描画色設定
     void color(int r, int g, int b) {
+        // 遅延初期化: ウィンドウがなければデフォルト作成
+        ensureDefaultScreen();
+
         auto currentSurface = g_currentSurface.lock();
         if (currentSurface) {
             currentSurface->color(r, g, b);
@@ -204,6 +219,9 @@ namespace hsppp {
 
     // 描画位置設定
     void pos(int x, int y) {
+        // 遅延初期化: ウィンドウがなければデフォルト作成
+        ensureDefaultScreen();
+
         auto currentSurface = g_currentSurface.lock();
         if (currentSurface) {
             currentSurface->pos(x, y);
@@ -212,6 +230,9 @@ namespace hsppp {
 
     // 文字列描画
     void mes(std::string_view text) {
+        // 遅延初期化: ウィンドウがなければデフォルト作成
+        ensureDefaultScreen();
+
         auto currentSurface = g_currentSurface.lock();
         if (currentSurface) {
             currentSurface->mes(text);
@@ -220,6 +241,9 @@ namespace hsppp {
 
     // 矩形塗りつぶし（座標指定版）
     void boxf(int x1, int y1, int x2, int y2) {
+        // 遅延初期化: ウィンドウがなければデフォルト作成
+        ensureDefaultScreen();
+
         auto currentSurface = g_currentSurface.lock();
         if (currentSurface) {
             currentSurface->boxf(x1, y1, x2, y2);
@@ -228,6 +252,9 @@ namespace hsppp {
 
     // 矩形塗りつぶし（全画面版）
     void boxf() {
+        // 遅延初期化: ウィンドウがなければデフォルト作成
+        ensureDefaultScreen();
+
         auto currentSurface = g_currentSurface.lock();
         if (currentSurface) {
             // 画面全体を塗りつぶす

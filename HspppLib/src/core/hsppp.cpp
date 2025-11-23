@@ -2,6 +2,34 @@
 module hsppp;
 
 #include <windows.h>
+#include <string>
+#include <vector>
+
+// ヘルパー関数: UTF-8文字列をUTF-16(wchar_t)に変換
+namespace {
+    std::wstring Utf8ToWide(const char* utf8str) {
+        if (!utf8str || *utf8str == '\0') {
+            return L"";
+        }
+
+        // 必要なバッファサイズを取得
+        int wideSize = MultiByteToWideChar(CP_UTF8, 0, utf8str, -1, nullptr, 0);
+        if (wideSize == 0) {
+            return L"";
+        }
+
+        // 変換
+        std::wstring wideStr(wideSize, 0);
+        MultiByteToWideChar(CP_UTF8, 0, utf8str, -1, &wideStr[0], wideSize);
+
+        // 末尾のnull文字を除去
+        if (!wideStr.empty() && wideStr.back() == L'\0') {
+            wideStr.pop_back();
+        }
+
+        return wideStr;
+    }
+}
 
 // グローバル変数（一時的なスタブ実装用）
 namespace {
@@ -11,7 +39,7 @@ namespace {
     int g_currentY = 0;
     COLORREF g_currentColor = RGB(0, 0, 0);
     bool g_shouldQuit = false;
-    const char* g_windowClassName = "HspppWindowClass";
+    const wchar_t* g_windowClassName = L"HspppWindowClass";
 }
 
 // ウィンドウプロシージャ
@@ -54,6 +82,9 @@ void screen(int id, int width, int height, int mode, const char* title) {
 
     g_shouldQuit = false;
 
+    // UTF-8タイトルをUTF-16に変換
+    std::wstring wideTitle = Utf8ToWide(title);
+
     // ウィンドウスタイルの決定
     DWORD dwStyle = WS_OVERLAPPEDWINDOW;
     if (mode == 1) {
@@ -68,11 +99,11 @@ void screen(int id, int width, int height, int mode, const char* title) {
     int windowWidth = rect.right - rect.left;
     int windowHeight = rect.bottom - rect.top;
 
-    // ウィンドウの作成
-    g_hwnd = CreateWindowExA(
+    // ウィンドウの作成（Unicode版）
+    g_hwnd = CreateWindowExW(
         0,                      // 拡張スタイル
         g_windowClassName,      // ウィンドウクラス名
-        title,                  // ウィンドウタイトル
+        wideTitle.c_str(),      // ウィンドウタイトル（UTF-16）
         dwStyle,                // ウィンドウスタイル
         CW_USEDEFAULT,          // X座標
         CW_USEDEFAULT,          // Y座標
@@ -86,7 +117,7 @@ void screen(int id, int width, int height, int mode, const char* title) {
 
     if (!g_hwnd) {
         // ウィンドウ作成失敗
-        MessageBoxA(nullptr, "Failed to create window", "Error", MB_OK | MB_ICONERROR);
+        MessageBoxW(nullptr, L"Failed to create window", L"Error", MB_OK | MB_ICONERROR);
         return;
     }
 
@@ -166,9 +197,9 @@ void init_system() {
     // インスタンスハンドルの取得
     g_hInstance = GetModuleHandle(nullptr);
 
-    // ウィンドウクラスの登録
-    WNDCLASSEXA wc = {};
-    wc.cbSize = sizeof(WNDCLASSEXA);
+    // ウィンドウクラスの登録（Unicode版）
+    WNDCLASSEXW wc = {};
+    wc.cbSize = sizeof(WNDCLASSEXW);
     wc.style = CS_HREDRAW | CS_VREDRAW;
     wc.lpfnWndProc = WindowProc;
     wc.hInstance = g_hInstance;
@@ -176,8 +207,8 @@ void init_system() {
     wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
     wc.lpszClassName = g_windowClassName;
 
-    if (!RegisterClassExA(&wc)) {
-        MessageBoxA(nullptr, "Failed to register window class", "Error", MB_OK | MB_ICONERROR);
+    if (!RegisterClassExW(&wc)) {
+        MessageBoxW(nullptr, L"Failed to register window class", L"Error", MB_OK | MB_ICONERROR);
     }
 }
 
@@ -188,8 +219,8 @@ void close_system() {
         g_hwnd = nullptr;
     }
 
-    // ウィンドウクラスの登録解除
-    UnregisterClassA(g_windowClassName, g_hInstance);
+    // ウィンドウクラスの登録解除（Unicode版）
+    UnregisterClassW(g_windowClassName, g_hInstance);
 
     // COM終了処理
     CoUninitialize();

@@ -51,10 +51,21 @@ namespace {
         }
     }
 
+    // カレントサーフェスを取得（なければ自動的にデフォルトウィンドウを作成）
+    std::shared_ptr<HspSurface> getCurrentSurface() {
+        auto current = g_currentSurface.lock();
+        if (!current) {
+            // デフォルトウィンドウを自動作成
+            ensureDefaultScreen();
+            current = g_currentSurface.lock();
+        }
+        return current;
+    }
+
     // 描画開始（内部ヘルパー）
     void beginDrawIfNeeded() {
         if (!g_isDrawing) {
-            auto currentSurface = g_currentSurface.lock();
+            auto currentSurface = getCurrentSurface();
             if (currentSurface) {
                 currentSurface->beginDraw();
                 g_isDrawing = true;
@@ -167,8 +178,9 @@ namespace hsppp {
 
     // 描画制御（HSP互換）
     void redraw(int p1) {
-        // 遅延初期化: ウィンドウがなければデフォルト作成
-        ensureDefaultScreen();
+        // カレントサーフェス取得（自動的にデフォルトウィンドウ作成）
+        auto currentSurface = getCurrentSurface();
+        if (!currentSurface) return;
 
         // p1の値に応じて描画モードを設定
         // 0: モード0に設定（仮想画面のみ）
@@ -249,10 +261,7 @@ namespace hsppp {
 
     // 描画色設定
     void color(int r, int g, int b) {
-        // 遅延初期化: ウィンドウがなければデフォルト作成
-        ensureDefaultScreen();
-
-        auto currentSurface = g_currentSurface.lock();
+        auto currentSurface = getCurrentSurface();
         if (currentSurface) {
             currentSurface->color(r, g, b);
         }
@@ -260,10 +269,7 @@ namespace hsppp {
 
     // 描画位置設定
     void pos(int x, int y) {
-        // 遅延初期化: ウィンドウがなければデフォルト作成
-        ensureDefaultScreen();
-
-        auto currentSurface = g_currentSurface.lock();
+        auto currentSurface = getCurrentSurface();
         if (currentSurface) {
             currentSurface->pos(x, y);
         }
@@ -271,10 +277,7 @@ namespace hsppp {
 
     // 文字列描画
     void mes(std::string_view text) {
-        // 遅延初期化: ウィンドウがなければデフォルト作成
-        ensureDefaultScreen();
-
-        auto currentSurface = g_currentSurface.lock();
+        auto currentSurface = getCurrentSurface();
         if (!currentSurface) return;
 
         // 描画モードに応じて処理
@@ -292,10 +295,7 @@ namespace hsppp {
 
     // 矩形塗りつぶし（座標指定版）
     void boxf(int x1, int y1, int x2, int y2) {
-        // 遅延初期化: ウィンドウがなければデフォルト作成
-        ensureDefaultScreen();
-
-        auto currentSurface = g_currentSurface.lock();
+        auto currentSurface = getCurrentSurface();
         if (!currentSurface) return;
 
         // 描画モードに応じて処理
@@ -313,10 +313,7 @@ namespace hsppp {
 
     // 矩形塗りつぶし（全画面版）
     void boxf() {
-        // 遅延初期化: ウィンドウがなければデフォルト作成
-        ensureDefaultScreen();
-
-        auto currentSurface = g_currentSurface.lock();
+        auto currentSurface = getCurrentSurface();
         if (!currentSurface) return;
 
         // 描画モードに応じて処理

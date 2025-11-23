@@ -6,12 +6,38 @@ import <string_view>;
 
 namespace hsppp {
 
+    // --- Screen Mode Flags (HSP Compatible) ---
+    export inline constexpr int screen_normal    = 0;    // フルカラーモード
+    export inline constexpr int screen_palette   = 1;    // パレットモード（256色）※未実装
+    export inline constexpr int screen_hide      = 2;    // 非表示ウィンドウ
+    export inline constexpr int screen_fixedsize = 4;    // サイズ固定
+    export inline constexpr int screen_tool      = 8;    // ツールウィンドウ
+    export inline constexpr int screen_frame     = 16;   // 深い縁のあるウィンドウ
+
     // --- Core Functions (HSP compatible) ---
 
-    // ウィンドウ初期化
-    // mode: 0=通常, 1=枠なし... (HSP互換)
-    // string_view を使用してnullポインタの危険性を排除
-    export void screen(int id, int width, int height, int mode = 0, std::string_view title = "HSPPP Window");
+    // ウィンドウ初期化（HSP完全互換）
+    // screen p1, p2, p3, p4, p5, p6, p7, p8, title
+    // p1: ウィンドウID (0～)
+    // p2: 画面サイズX (デフォルト: 640)
+    // p3: 画面サイズY (デフォルト: 480)
+    // p4: 画面モード (デフォルト: 0)
+    // p5: ウィンドウ位置X (デフォルト: -1=システム規定)
+    // p6: ウィンドウ位置Y (デフォルト: -1=システム規定)
+    // p7: クライアントサイズX (デフォルト: 0=p2と同じ)
+    // p8: クライアントサイズY (デフォルト: 0=p3と同じ)
+    // title: ウィンドウタイトル (HSP拡張)
+    export void screen(
+        int p1 = 0,
+        int p2 = 640,
+        int p3 = 480,
+        int p4 = 0,
+        int p5 = -1,
+        int p6 = -1,
+        int p7 = 0,
+        int p8 = 0,
+        std::string_view title = "HSPPP Window"
+    );
 
     // 描画制御
     // p1: 0=描画予約(Offscreen), 1=画面反映(Present)

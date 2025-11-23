@@ -218,25 +218,38 @@ bool HspWindow::initialize(const ComPtr<ID2D1Factory>& pD2DFactory,
     return SUCCEEDED(hr);
 }
 
-bool HspWindow::createWindow(HINSTANCE hInstance, std::wstring_view className, DWORD style) {
+bool HspWindow::createWindow(
+    HINSTANCE hInstance,
+    std::wstring_view className,
+    DWORD style,
+    DWORD exStyle,
+    int x,
+    int y,
+    int clientWidth,
+    int clientHeight
+) {
     // クライアント領域のサイズを指定されたサイズにするため、
     // ウィンドウ全体のサイズを計算
-    RECT rect = { 0, 0, m_width, m_height };
-    AdjustWindowRect(&rect, style, FALSE);
+    RECT rect = { 0, 0, clientWidth, clientHeight };
+    AdjustWindowRectEx(&rect, style, FALSE, exStyle);
     int windowWidth = rect.right - rect.left;
     int windowHeight = rect.bottom - rect.top;
 
     // wstring_view から wstring に変換してnull終端を保証
     std::wstring classNameStr(className);
 
+    // ウィンドウ位置の決定（-1の場合はシステム規定）
+    int posX = (x < 0) ? CW_USEDEFAULT : x;
+    int posY = (y < 0) ? CW_USEDEFAULT : y;
+
     // ウィンドウの作成
     m_hwnd = CreateWindowExW(
-        0,                      // 拡張スタイル
+        exStyle,                // 拡張スタイル
         classNameStr.c_str(),   // ウィンドウクラス名（null終端保証）
         m_title.c_str(),        // ウィンドウタイトル
         style,                  // ウィンドウスタイル
-        CW_USEDEFAULT,          // X座標
-        CW_USEDEFAULT,          // Y座標
+        posX,                   // X座標
+        posY,                   // Y座標
         windowWidth,            // 幅
         windowHeight,           // 高さ
         nullptr,                // 親ウィンドウ
@@ -249,9 +262,8 @@ bool HspWindow::createWindow(HINSTANCE hInstance, std::wstring_view className, D
         return false;
     }
 
-    // ウィンドウを表示
-    ShowWindow(m_hwnd, SW_SHOW);
-    UpdateWindow(m_hwnd);
+    // ウィンドウの表示はscreen()側で行う（screen_hideフラグの処理のため）
+    // ShowWindow/UpdateWindowは呼ばない
 
     return true;
 }

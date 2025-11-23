@@ -41,24 +41,49 @@ namespace {
 
 namespace hsppp {
 
-    // ウィンドウ初期化
-    void screen(int id, int width, int height, int mode, std::string_view title) {
+    // ウィンドウ初期化（HSP完全互換）
+    void screen(int p1, int p2, int p3, int p4, int p5, int p6, int p7, int p8, std::string_view title) {
         using namespace internal;
 
         // 既存のサーフェスを削除
-        if (g_surfaces.find(id) != g_surfaces.end()) {
-            g_surfaces.erase(id);
+        if (g_surfaces.find(p1) != g_surfaces.end()) {
+            g_surfaces.erase(p1);
+        }
+
+        // ID0はデフォルトでサイズ固定
+        int mode = p4;
+        if (p1 == 0) {
+            mode |= screen_fixedsize;
         }
 
         // ウィンドウスタイルの決定
-        DWORD dwStyle = WS_OVERLAPPEDWINDOW;
-        if (mode == 1) {
-            // 枠なしウィンドウ
-            dwStyle = WS_POPUP | WS_VISIBLE;
+        DWORD dwStyle = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
+        DWORD dwExStyle = 0;
+
+        // サイズ固定でない場合は、サイズ変更可能なスタイルを追加
+        if (!(mode & screen_fixedsize)) {
+            dwStyle |= WS_THICKFRAME | WS_MAXIMIZEBOX;
         }
 
+        // ツールウィンドウ
+        if (mode & screen_tool) {
+            dwExStyle |= WS_EX_TOOLWINDOW;
+        }
+
+        // 深い縁のあるウィンドウ
+        if (mode & screen_frame) {
+            dwExStyle |= WS_EX_CLIENTEDGE;
+        }
+
+        // 非表示ウィンドウ（初期状態では非表示、後でgselで表示可能）
+        bool isHidden = (mode & screen_hide) != 0;
+
+        // クライアントサイズの決定（p7, p8が0なら p2, p3と同じ）
+        int clientWidth = (p7 > 0) ? p7 : p2;
+        int clientHeight = (p8 > 0) ? p8 : p3;
+
         // HspWindowインスタンスの作成
-        auto window = std::make_shared<HspWindow>(width, height, title);
+        auto window = std::make_shared<HspWindow>(p2, p3, title);
 
         // ウィンドウマネージャーの取得
         WindowManager& windowManager = WindowManager::getInstance();
@@ -67,7 +92,12 @@ namespace hsppp {
         if (!window->createWindow(
             windowManager.getHInstance(),
             windowManager.getClassName(),
-            dwStyle)) {
+            dwStyle,
+            dwExStyle,
+            p5,
+            p6,
+            clientWidth,
+            clientHeight)) {
             MessageBoxW(nullptr, L"Failed to create window", L"Error", MB_OK | MB_ICONERROR);
             return;
         }
@@ -79,10 +109,16 @@ namespace hsppp {
         }
 
         // Surfaceマップに追加
-        g_surfaces[id] = window;
+        g_surfaces[p1] = window;
 
         // カレントサーフェスとして設定（weak_ptrを使用）
         g_currentSurface = window;
+
+        // 非表示フラグが立っていなければウィンドウを表示
+        if (!isHidden) {
+            ShowWindow(window->getHwnd(), SW_SHOW);
+            UpdateWindow(window->getHwnd());
+        }
 
         g_shouldQuit = false;
     }

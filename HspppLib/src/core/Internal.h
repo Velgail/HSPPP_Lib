@@ -93,7 +93,16 @@ public:
                    const ComPtr<IDWriteFactory>& pDWriteFactory) override;
 
     // ウィンドウ作成（安全な wstring_view を使用）
-    bool createWindow(HINSTANCE hInstance, std::wstring_view className, DWORD style);
+    bool createWindow(
+        HINSTANCE hInstance,
+        std::wstring_view className,
+        DWORD style,
+        DWORD exStyle,
+        int x,
+        int y,
+        int clientWidth,
+        int clientHeight
+    );
 
     // オフスクリーンバッファの内容を画面に転送
     void present();

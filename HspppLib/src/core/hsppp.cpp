@@ -4,6 +4,11 @@ module hsppp;
 #include <windows.h>
 #include <string>
 #include <vector>
+#include <d2d1.h>
+#include <dwrite.h>
+
+#pragma comment(lib, "d2d1.lib")
+#pragma comment(lib, "dwrite.lib")
 
 // ヘルパー関数: UTF-8文字列をUTF-16(wchar_t)に変換
 namespace {
@@ -41,6 +46,18 @@ namespace {
     bool g_shouldQuit = false;
     const wchar_t* g_windowClassName = L"HspppWindowClass";
     DWORD g_lastAwaitTime = 0; // 前回のawait呼び出し時刻
+
+    // Direct2D / DirectWrite リソース
+    ID2D1Factory* g_pD2DFactory = nullptr;
+    ID2D1HwndRenderTarget* g_pRenderTarget = nullptr;
+    IDWriteFactory* g_pDWriteFactory = nullptr;
+    IDWriteTextFormat* g_pTextFormat = nullptr;
+    ID2D1SolidColorBrush* g_pBrush = nullptr;
+
+    // 描画状態
+    bool g_isDrawing = false; // BeginDraw/EndDraw の状態管理
+    int g_windowWidth = 0;
+    int g_windowHeight = 0;
 }
 
 // ウィンドウプロシージャ
@@ -75,6 +92,16 @@ namespace hsppp {
 
 // ウィンドウ初期化
 void screen(int id, int width, int height, int mode, const char* title) {
+    // 既存のRenderTargetを解放
+    if (g_pBrush) {
+        g_pBrush->Release();
+        g_pBrush = nullptr;
+    }
+    if (g_pRenderTarget) {
+        g_pRenderTarget->Release();
+        g_pRenderTarget = nullptr;
+    }
+
     // 既存のウィンドウがあれば破棄
     if (g_hwnd) {
         DestroyWindow(g_hwnd);
@@ -82,6 +109,8 @@ void screen(int id, int width, int height, int mode, const char* title) {
     }
 
     g_shouldQuit = false;
+    g_windowWidth = width;
+    g_windowHeight = height;
 
     // UTF-8タイトルをUTF-16に変換
     std::wstring wideTitle = Utf8ToWide(title);
@@ -122,6 +151,33 @@ void screen(int id, int width, int height, int mode, const char* title) {
         return;
     }
 
+    // Direct2D RenderTarget の作成
+    if (g_pD2DFactory) {
+        D2D1_RENDER_TARGET_PROPERTIES props = D2D1::RenderTargetProperties();
+        D2D1_HWND_RENDER_TARGET_PROPERTIES hwndProps = D2D1::HwndRenderTargetProperties(
+            g_hwnd,
+            D2D1::SizeU(width, height)
+        );
+
+        HRESULT hr = g_pD2DFactory->CreateHwndRenderTarget(
+            props,
+            hwndProps,
+            &g_pRenderTarget
+        );
+
+        if (FAILED(hr)) {
+            MessageBoxW(nullptr, L"Failed to create render target", L"Error", MB_OK | MB_ICONERROR);
+        }
+
+        // デフォルトのブラシを作成（黒色）
+        if (g_pRenderTarget) {
+            g_pRenderTarget->CreateSolidColorBrush(
+                D2D1::ColorF(0.0f, 0.0f, 0.0f, 1.0f),
+                &g_pBrush
+            );
+        }
+    }
+
     // ウィンドウを表示
     ShowWindow(g_hwnd, SW_SHOW);
     UpdateWindow(g_hwnd);
@@ -129,11 +185,26 @@ void screen(int id, int width, int height, int mode, const char* title) {
 
 // 描画制御
 void redraw(int p1) {
-    // TODO: バックバッファの制御を実装
-    if (p1 == 1 && g_hwnd) {
-        // Present処理のスタブ
-        InvalidateRect(g_hwnd, nullptr, FALSE);
-        UpdateWindow(g_hwnd);
+    if (!g_pRenderTarget) return;
+
+    if (p1 == 0) {
+        // 描画開始
+        if (!g_isDrawing) {
+            g_pRenderTarget->BeginDraw();
+            g_isDrawing = true;
+        }
+    }
+    else {
+        // 描画終了＆画面反映
+        if (g_isDrawing) {
+            HRESULT hr = g_pRenderTarget->EndDraw();
+            g_isDrawing = false;
+
+            // デバイスロスト時は再作成が必要（今は無視）
+            if (hr == D2DERR_RECREATE_TARGET) {
+                // TODO: RenderTargetの再作成
+            }
+        }
     }
 }
 
@@ -190,6 +261,11 @@ void await(int time_ms) {
 // 描画色設定
 void color(int r, int g, int b) {
     g_currentColor = RGB(r, g, b);
+
+    // ブラシの色を更新
+    if (g_pBrush && g_pRenderTarget) {
+        g_pBrush->SetColor(D2D1::ColorF(r / 255.0f, g / 255.0f, b / 255.0f, 1.0f));
+    }
 }
 
 // 描画位置設定
@@ -200,20 +276,48 @@ void pos(int x, int y) {
 
 // 文字列描画
 void mes(const char* text) {
-    // TODO: Direct2D実装
-    // 現在はスタブ
+    if (!g_pRenderTarget || !g_pBrush || !g_pTextFormat) return;
+    if (!g_isDrawing) return; // 描画中でなければ何もしない
+
+    // UTF-8からUTF-16に変換
+    std::wstring wideText = Utf8ToWide(text);
+
+    // テキスト描画領域（とりあえず大きめに）
+    D2D1_RECT_F layoutRect = D2D1::RectF(
+        static_cast<FLOAT>(g_currentX),
+        static_cast<FLOAT>(g_currentY),
+        static_cast<FLOAT>(g_currentX + 1000),
+        static_cast<FLOAT>(g_currentY + 1000)
+    );
+
+    g_pRenderTarget->DrawText(
+        wideText.c_str(),
+        static_cast<UINT32>(wideText.length()),
+        g_pTextFormat,
+        layoutRect,
+        g_pBrush
+    );
 }
 
 // 矩形塗りつぶし（座標指定版）
 void boxf(int x1, int y1, int x2, int y2) {
-    // TODO: Direct2D実装
-    // 現在はスタブ
+    if (!g_pRenderTarget || !g_pBrush) return;
+    if (!g_isDrawing) return; // 描画中でなければ何もしない
+
+    D2D1_RECT_F rect = D2D1::RectF(
+        static_cast<FLOAT>(x1),
+        static_cast<FLOAT>(y1),
+        static_cast<FLOAT>(x2),
+        static_cast<FLOAT>(y2)
+    );
+
+    g_pRenderTarget->FillRectangle(rect, g_pBrush);
 }
 
 // 矩形塗りつぶし（全画面版）
 void boxf() {
-    // TODO: 画面サイズを取得して boxf(0, 0, width, height) を呼ぶ
-    // 現在はスタブ
+    // 画面全体を塗りつぶす
+    boxf(0, 0, g_windowWidth, g_windowHeight);
 }
 
 namespace internal {
@@ -225,6 +329,36 @@ void init_system() {
     // インスタンスハンドルの取得
     g_hInstance = GetModuleHandle(nullptr);
 
+    // Direct2D Factory の作成
+    HRESULT hr = D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &g_pD2DFactory);
+    if (FAILED(hr)) {
+        MessageBoxW(nullptr, L"Failed to create Direct2D factory", L"Error", MB_OK | MB_ICONERROR);
+    }
+
+    // DirectWrite Factory の作成
+    hr = DWriteCreateFactory(
+        DWRITE_FACTORY_TYPE_SHARED,
+        __uuidof(IDWriteFactory),
+        reinterpret_cast<IUnknown**>(&g_pDWriteFactory)
+    );
+    if (FAILED(hr)) {
+        MessageBoxW(nullptr, L"Failed to create DirectWrite factory", L"Error", MB_OK | MB_ICONERROR);
+    }
+
+    // デフォルトのテキストフォーマット作成
+    if (g_pDWriteFactory) {
+        g_pDWriteFactory->CreateTextFormat(
+            L"MS Gothic",                       // フォント名
+            nullptr,                            // フォントコレクション
+            DWRITE_FONT_WEIGHT_NORMAL,
+            DWRITE_FONT_STYLE_NORMAL,
+            DWRITE_FONT_STRETCH_NORMAL,
+            14.0f,                              // フォントサイズ
+            L"ja-jp",                           // ロケール
+            &g_pTextFormat
+        );
+    }
+
     // ウィンドウクラスの登録（Unicode版）
     WNDCLASSEXW wc = {};
     wc.cbSize = sizeof(WNDCLASSEXW);
@@ -232,7 +366,7 @@ void init_system() {
     wc.lpfnWndProc = WindowProc;
     wc.hInstance = g_hInstance;
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
+    wc.hbrBackground = nullptr; // Direct2Dで描画するため背景ブラシは不要
     wc.lpszClassName = g_windowClassName;
 
     if (!RegisterClassExW(&wc)) {
@@ -241,6 +375,28 @@ void init_system() {
 }
 
 void close_system() {
+    // Direct2D/DirectWrite リソースの解放
+    if (g_pBrush) {
+        g_pBrush->Release();
+        g_pBrush = nullptr;
+    }
+    if (g_pTextFormat) {
+        g_pTextFormat->Release();
+        g_pTextFormat = nullptr;
+    }
+    if (g_pRenderTarget) {
+        g_pRenderTarget->Release();
+        g_pRenderTarget = nullptr;
+    }
+    if (g_pDWriteFactory) {
+        g_pDWriteFactory->Release();
+        g_pDWriteFactory = nullptr;
+    }
+    if (g_pD2DFactory) {
+        g_pD2DFactory->Release();
+        g_pD2DFactory = nullptr;
+    }
+
     // ウィンドウの破棄
     if (g_hwnd) {
         DestroyWindow(g_hwnd);

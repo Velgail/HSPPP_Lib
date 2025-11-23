@@ -10,7 +10,7 @@ namespace internal {
 
 WindowManager::WindowManager()
     : m_hInstance(nullptr)
-    , m_className(L"HspppWindowClass")
+    , m_className(L"HspppWindowClass")  // std::wstring として初期化
     , m_classRegistered(false)
 {
     m_hInstance = GetModuleHandle(nullptr);
@@ -38,7 +38,7 @@ bool WindowManager::registerWindowClass() {
     wc.hInstance = m_hInstance;
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
     wc.hbrBackground = nullptr; // Direct2Dで描画するため背景ブラシは不要
-    wc.lpszClassName = m_className;
+    wc.lpszClassName = m_className.c_str();  // wstring から c_str() で取得
 
     if (!RegisterClassExW(&wc)) {
         return false;
@@ -50,25 +50,27 @@ bool WindowManager::registerWindowClass() {
 
 void WindowManager::unregisterWindowClass() {
     if (m_classRegistered) {
-        UnregisterClassW(m_className, m_hInstance);
+        UnregisterClassW(m_className.c_str(), m_hInstance);  // wstring から c_str() で取得
         m_classRegistered = false;
     }
 }
 
 LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
-    // ウィンドウ作成時に HspWindow ポインタを保存
-    HspWindow* pWindow = nullptr;
-
-    if (uMsg == WM_CREATE) {
-        CREATESTRUCT* pCreate = reinterpret_cast<CREATESTRUCT*>(lParam);
-        pWindow = reinterpret_cast<HspWindow*>(pCreate->lpCreateParams);
-        SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(pWindow));
-    }
-    else {
-        pWindow = reinterpret_cast<HspWindow*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
-    }
+    // Win32 API の制約により、GWLP_USERDATA から HspWindow を取得する際は
+    // 生ポインタを使用せざるを得ない。スコープを最小化して安全性を確保。
 
     switch (uMsg) {
+    case WM_CREATE:
+    {
+        // ウィンドウ作成時：HspWindow ポインタを GWLP_USERDATA に保存
+        const auto* pCreate = reinterpret_cast<CREATESTRUCT*>(lParam);
+        if (pCreate && pCreate->lpCreateParams) {
+            SetWindowLongPtr(hwnd, GWLP_USERDATA,
+                           reinterpret_cast<LONG_PTR>(pCreate->lpCreateParams));
+        }
+        return 0;
+    }
+
     case WM_DESTROY:
         PostQuitMessage(0);
         return 0;
@@ -79,11 +81,15 @@ LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
 
     case WM_PAINT:
     {
+        // ポインタのスコープを最小化：このブロック内でのみ有効
+        const auto pWindow = reinterpret_cast<HspWindow*>(
+            GetWindowLongPtr(hwnd, GWLP_USERDATA));
+
         PAINTSTRUCT ps;
         BeginPaint(hwnd, &ps);
 
-        // HspWindow インスタンスを取得し、オフスクリーンバッファを画面にコピー
-        if (pWindow) {
+        // 厳格な null チェック
+        if (pWindow != nullptr) {
             pWindow->onPaint();
         }
 

@@ -218,7 +218,7 @@ bool HspWindow::initialize(const ComPtr<ID2D1Factory>& pD2DFactory,
     return SUCCEEDED(hr);
 }
 
-bool HspWindow::createWindow(HINSTANCE hInstance, const wchar_t* className, DWORD style) {
+bool HspWindow::createWindow(HINSTANCE hInstance, std::wstring_view className, DWORD style) {
     // クライアント領域のサイズを指定されたサイズにするため、
     // ウィンドウ全体のサイズを計算
     RECT rect = { 0, 0, m_width, m_height };
@@ -226,10 +226,13 @@ bool HspWindow::createWindow(HINSTANCE hInstance, const wchar_t* className, DWOR
     int windowWidth = rect.right - rect.left;
     int windowHeight = rect.bottom - rect.top;
 
+    // wstring_view から wstring に変換してnull終端を保証
+    std::wstring classNameStr(className);
+
     // ウィンドウの作成
     m_hwnd = CreateWindowExW(
         0,                      // 拡張スタイル
-        className,              // ウィンドウクラス名
+        classNameStr.c_str(),   // ウィンドウクラス名（null終端保証）
         m_title.c_str(),        // ウィンドウタイトル
         style,                  // ウィンドウスタイル
         CW_USEDEFAULT,          // X座標

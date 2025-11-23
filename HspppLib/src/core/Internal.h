@@ -92,8 +92,8 @@ public:
     bool initialize(const ComPtr<ID2D1Factory>& pD2DFactory,
                    const ComPtr<IDWriteFactory>& pDWriteFactory) override;
 
-    // ウィンドウ作成
-    bool createWindow(HINSTANCE hInstance, const wchar_t* className, DWORD style);
+    // ウィンドウ作成（安全な wstring_view を使用）
+    bool createWindow(HINSTANCE hInstance, std::wstring_view className, DWORD style);
 
     // オフスクリーンバッファの内容を画面に転送
     void present();
@@ -109,7 +109,7 @@ public:
 class WindowManager {
 private:
     HINSTANCE m_hInstance;
-    const wchar_t* m_className;
+    std::wstring m_className;  // 安全な std::wstring を使用
     bool m_classRegistered;
 
     // シングルトンなのでコピー・ムーブを禁止
@@ -129,7 +129,7 @@ public:
     void unregisterWindowClass();
 
     HINSTANCE getHInstance() const { return m_hInstance; }
-    const wchar_t* getClassName() const { return m_className; }
+    std::wstring_view getClassName() const { return m_className; }  // wstring_view で安全に
 
     // ウィンドウプロシージャ
     static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);

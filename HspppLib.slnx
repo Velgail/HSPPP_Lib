@@ -1,0 +1,8 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="HspppLib/HspppLib.vcxproj" Id="28f55aba-e8e6-4381-accd-e570cbb76f4e" />
+  <Project Path="HspppSample/HspppSample.vcxproj" Id="bf95616e-662a-4c09-ad22-9f58080114f7" />
+</Solution>

@@ -10,6 +10,7 @@ module;
 #include <dwrite.h>
 #include <wrl/client.h>
 #include <string>
+#include <string_view>
 #include <map>
 #include <memory>
 
@@ -41,7 +42,7 @@ namespace {
 namespace hsppp {
 
     // ウィンドウ初期化
-    void screen(int id, int width, int height, int mode, const char* title) {
+    void screen(int id, int width, int height, int mode, std::string_view title) {
         using namespace internal;
 
         // 既存のサーフェスを削除
@@ -174,7 +175,7 @@ namespace hsppp {
     }
 
     // 文字列描画
-    void mes(const char* text) {
+    void mes(std::string_view text) {
         auto currentSurface = g_currentSurface.lock();
         if (currentSurface) {
             currentSurface->mes(text);

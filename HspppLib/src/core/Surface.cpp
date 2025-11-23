@@ -7,26 +7,35 @@
 namespace hsppp {
 namespace internal {
 
-// UTF-8文字列をUTF-16(wchar_t)に変換
-std::wstring Utf8ToWide(const char* utf8str) {
-    if (!utf8str || *utf8str == '\0') {
+// UTF-8文字列をUTF-16(wchar_t)に変換（安全な string_view を使用）
+std::wstring Utf8ToWide(std::string_view utf8str) {
+    if (utf8str.empty()) {
         return L"";
     }
 
     // 必要なバッファサイズを取得
-    int wideSize = MultiByteToWideChar(CP_UTF8, 0, utf8str, -1, nullptr, 0);
+    int wideSize = MultiByteToWideChar(
+        CP_UTF8,
+        0,
+        utf8str.data(),
+        static_cast<int>(utf8str.size()),
+        nullptr,
+        0
+    );
     if (wideSize == 0) {
         return L"";
     }
 
     // 変換
     std::wstring wideStr(wideSize, 0);
-    MultiByteToWideChar(CP_UTF8, 0, utf8str, -1, &wideStr[0], wideSize);
-
-    // 末尾のnull文字を除去
-    if (!wideStr.empty() && wideStr.back() == L'\0') {
-        wideStr.pop_back();
-    }
+    MultiByteToWideChar(
+        CP_UTF8,
+        0,
+        utf8str.data(),
+        static_cast<int>(utf8str.size()),
+        &wideStr[0],
+        wideSize
+    );
 
     return wideStr;
 }
@@ -91,7 +100,7 @@ void HspSurface::boxf(int x1, int y1, int x2, int y2) {
     m_pBitmapTarget->FillRectangle(rect, m_pBrush.Get());
 }
 
-void HspSurface::mes(const char* text) {
+void HspSurface::mes(std::string_view text) {
     if (!m_pBitmapTarget || !m_pBrush || !m_pTextFormat) return;
     if (!m_isDrawing) return;
 
@@ -131,7 +140,7 @@ void HspSurface::pos(int x, int y) {
 
 // ========== HspWindow 実装 ==========
 
-HspWindow::HspWindow(int width, int height, const char* title)
+HspWindow::HspWindow(int width, int height, std::string_view title)
     : HspSurface(width, height)
     , m_hwnd(nullptr)
     , m_pHwndTarget(nullptr)

@@ -8,6 +8,7 @@
 #include <dwrite.h>
 #include <wrl/client.h>
 #include <string>
+#include <string_view>
 #include <memory>
 
 // COMスマートポインタのエイリアス
@@ -17,8 +18,8 @@ using ComPtr = Microsoft::WRL::ComPtr<T>;
 namespace hsppp {
 namespace internal {
 
-// UTF-8文字列をUTF-16(wchar_t)に変換
-std::wstring Utf8ToWide(const char* utf8str);
+// UTF-8文字列をUTF-16(wchar_t)に変換（安全な string_view を使用）
+std::wstring Utf8ToWide(std::string_view utf8str);
 
 // 前方宣言
 class HspSurface;
@@ -60,7 +61,7 @@ public:
 
     // 描画命令
     void boxf(int x1, int y1, int x2, int y2);
-    void mes(const char* text);
+    void mes(std::string_view text);
     void color(int r, int g, int b);
     void pos(int x, int y);
 
@@ -84,7 +85,7 @@ private:
     std::wstring m_title;
 
 public:
-    HspWindow(int width, int height, const char* title);
+    HspWindow(int width, int height, std::string_view title);
     virtual ~HspWindow();  // HWNDの破棄が必要なので実装する
 
     // 初期化

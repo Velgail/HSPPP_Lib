@@ -1,9 +1,8 @@
 // HspppLib/module/hsppp.ixx
 export module hsppp;
 
-// 必要な標準ライブラリがあればここで import 記述
-// import <string>;
-// import <format>;
+// 必要な標準ライブラリをインポート
+import <string_view>;
 
 namespace hsppp {
 
@@ -11,7 +10,8 @@ namespace hsppp {
 
     // ウィンドウ初期化
     // mode: 0=通常, 1=枠なし... (HSP互換)
-    export void screen(int id, int width, int height, int mode = 0, const char* title = "HSPPP Window");
+    // string_view を使用してnullポインタの危険性を排除
+    export void screen(int id, int width, int height, int mode = 0, std::string_view title = "HSPPP Window");
 
     // 描画制御
     // p1: 0=描画予約(Offscreen), 1=画面反映(Present)
@@ -24,7 +24,7 @@ namespace hsppp {
     // --- Drawing Functions ---
     export void color(int r, int g, int b);
     export void pos(int x, int y);
-    export void mes(const char* text);
+    export void mes(std::string_view text);  // string_view で安全に
     export void boxf(int x1, int y1, int x2, int y2);
     // 引数なし版 boxf() -> 画面全体
     export void boxf();

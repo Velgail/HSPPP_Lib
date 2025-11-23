@@ -26,7 +26,7 @@ int hspMain() {
     // 青いテキストを描画
     color(0, 0, 255);
     pos(100, 250);
-    mes("Rendering with Direct2D");
+    mes("Direct2Dで描画しています");
 
     // 描画終了＆画面反映
     redraw(1);

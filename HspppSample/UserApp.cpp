@@ -4,8 +4,23 @@ using namespace hsppp;
 
 // ユーザーのエントリーポイント
 int hspMain() {
-    // ウィンドウ作成
-    screen(0, 800, 600, 0, "HSPPP Sample Window");
+    // ウィンドウ作成（HSP互換 screen命令）
+    // screen p1, p2, p3, p4, p5, p6, p7, p8, title
+    //   p1: ウィンドウID (0～)
+    //   p2: 画面幅 (デフォルト: 640)
+    //   p3: 画面高さ (デフォルト: 480)
+    //   p4: 画面モード (デフォルト: 0)
+    //       screen_normal (0): フルカラーモード
+    //       screen_hide (2): 非表示ウィンドウ
+    //       screen_fixedsize (4): サイズ固定
+    //       screen_tool (8): ツールウィンドウ
+    //       screen_frame (16): 深い縁のあるウィンドウ
+    //   p5, p6: ウィンドウ位置X,Y (デフォルト: -1=システム規定)
+    //   p7, p8: クライアント領域サイズ (デフォルト: 0=p2,p3と同じ)
+    //   title: ウィンドウタイトル
+    //
+    // 注意: ID0は自動的にサイズ固定、ID1以降はリサイズ可能
+    screen(0, 800, 600, screen_normal, -1, -1, 0, 0, "HSPPP Sample Window");
 
     // 描画開始
     redraw(0);
@@ -27,6 +42,11 @@ int hspMain() {
     color(0, 0, 255);
     pos(100, 250);
     mes("Direct2Dで描画しています");
+
+    // 緑のテキストを描画
+    color(0, 128, 0);
+    pos(100, 300);
+    mes("HSP互換API (C++20 Modules)");
 
     // 描画終了＆画面反映
     redraw(1);

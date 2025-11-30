@@ -409,6 +409,20 @@ namespace hsppp {
         g_lastAwaitTime = GetTickCount();
     }
 
+    // プログラム終了 (HSP互換)
+    [[noreturn]] void end(int exitcode) {
+        // 描画中の場合は終了処理
+        if (g_isDrawing) {
+            endDrawAndPresent();
+        }
+
+        // リソースのクリーンアップ
+        internal::close_system();
+
+        // プロセス終了
+        ExitProcess(static_cast<UINT>(exitcode));
+    }
+
     // 描画色設定
     void color(int r, int g, int b) {
         auto currentSurface = getCurrentSurface();

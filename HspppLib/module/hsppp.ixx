@@ -227,6 +227,10 @@ namespace hsppp {
     // 指定されたミリ秒だけ待機し、その間ウィンドウメッセージを処理する
     export void await(int time_ms);
 
+    // プログラム終了 (HSP互換)
+    // p1: 終了コード（省略時は0）
+    export [[noreturn]] void end(int exitcode = 0);
+
     // --- Drawing Functions ---
     export void color(int r, int g, int b);
     export void pos(int x, int y);

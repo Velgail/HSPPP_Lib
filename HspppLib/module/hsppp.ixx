@@ -98,6 +98,9 @@ namespace hsppp {
     export inline constexpr int screen_fixedsize = 4;    // サイズ固定
     export inline constexpr int screen_tool      = 8;    // ツールウィンドウ
     export inline constexpr int screen_frame     = 16;   // 深い縁のあるウィンドウ
+    export inline constexpr int screen_offscreen = 32;   // 描画先として初期化 (HSP3Dish/HGIMG4)
+    export inline constexpr int screen_usergcopy = 64;   // 描画用シェーダー (HGIMG4)
+    export inline constexpr int screen_fullscreen = 256; // フルスクリーン (bgscr用)
 
 
     // ============================================================
@@ -108,15 +111,32 @@ namespace hsppp {
     /// @details 多くのパラメータを指定する場合に使用
     /// @example screen({.width = 800, .height = 600});
     export struct ScreenParams {
-        int id       = 0;       ///< p1: ウィンドウID (0～)
-        int width    = 640;     ///< p2: 画面サイズX
-        int height   = 480;     ///< p3: 画面サイズY
-        int mode     = 0;       ///< p4: 画面モード (screen_* フラグの組み合わせ)
-        int pos_x    = -1;      ///< p5: ウィンドウ位置X (-1=システム規定)
-        int pos_y    = -1;      ///< p6: ウィンドウ位置Y (-1=システム規定)
-        int client_w = 0;       ///< p7: クライアントサイズX (0=widthと同じ)
-        int client_h = 0;       ///< p8: クライアントサイズY (0=heightと同じ)
+        int width    = 640;     ///< 画面サイズX
+        int height   = 480;     ///< 画面サイズY
+        int mode     = 0;       ///< 画面モード (screen_* フラグの組み合わせ)
+        int pos_x    = -1;      ///< ウィンドウ位置X (-1=システム規定)
+        int pos_y    = -1;      ///< ウィンドウ位置Y (-1=システム規定)
+        int client_w = 0;       ///< クライアントサイズX (0=widthと同じ)
+        int client_h = 0;       ///< クライアントサイズY (0=heightと同じ)
         std::string_view title = "HSPPP Window";  ///< ウィンドウタイトル (HSP拡張)
+    };
+
+    /// @brief buffer命令のパラメータ構造体
+    export struct BufferParams {
+        int width    = 640;     ///< 画面サイズX
+        int height   = 480;     ///< 画面サイズY
+        int mode     = 0;       ///< 画面モード
+    };
+
+    /// @brief bgscr命令のパラメータ構造体
+    export struct BgscrParams {
+        int width    = 640;     ///< 画面サイズX
+        int height   = 480;     ///< 画面サイズY
+        int mode     = 0;       ///< 画面モード (0=フルカラー, 2=非表示)
+        int pos_x    = -1;      ///< ウィンドウ位置X (-1=システム規定)
+        int pos_y    = -1;      ///< ウィンドウ位置Y (-1=システム規定)
+        int client_w = 0;       ///< クライアントサイズX (0=widthと同じ)
+        int client_h = 0;       ///< クライアントサイズY (0=heightと同じ)
     };
 
 
@@ -195,20 +215,54 @@ namespace hsppp {
     };
 
 
-    // --- Core Functions (HSP compatible) ---
+    // ============================================================
+    // OOP版関数（ID自動採番）
+    // ============================================================
+    // IDは内部で自動採番され、Screen::id()で取得可能
+    // HSP互換のID指定版とは独立して使用可能
+    // ============================================================
 
-    /// @brief ウィンドウを初期化（構造体版）
-    /// @param params 初期化パラメータ
+    /// @brief ウィンドウを初期化（OOP版・構造体）
+    /// @param params 初期化パラメータ（IDは自動採番）
     /// @return Screen ハンドル
-    /// @example auto scr = screen({.width = 800, .height = 600});
+    /// @example auto win = screen({.width = 800, .height = 600});
     export [[nodiscard]] Screen screen(const ScreenParams& params);
+
+    /// @brief ウィンドウを初期化（OOP版・引数なし）
+    /// @return Screen ハンドル（デフォルト設定で作成）
+    /// @example auto win = screen();
+    export [[nodiscard]] Screen screen();
+
+    /// @brief 仮想画面を初期化（OOP版・構造体）
+    /// @param params 初期化パラメータ（IDは自動採番）
+    /// @return Screen ハンドル
+    export [[nodiscard]] Screen buffer(const BufferParams& params);
+
+    /// @brief 仮想画面を初期化（OOP版・引数なし）
+    /// @return Screen ハンドル（デフォルト設定で作成）
+    export [[nodiscard]] Screen buffer();
+
+    /// @brief 枠なしウィンドウを初期化（OOP版・構造体）
+    /// @param params 初期化パラメータ（IDは自動採番）
+    /// @return Screen ハンドル
+    export [[nodiscard]] Screen bgscr(const BgscrParams& params);
+
+    /// @brief 枠なしウィンドウを初期化（OOP版・引数なし）
+    /// @return Screen ハンドル（デフォルト設定で作成）
+    export [[nodiscard]] Screen bgscr();
+
+    // ============================================================
+    // HSP互換版関数（ID明示指定）
+    // ============================================================
+    // 従来のHSP互換APIとして、IDを明示的に指定するバージョン
+    // ============================================================
 
     /// @brief ウィンドウを初期化（HSP互換・省略可能版）
     /// @return Screen ハンドル
-    /// @example auto scr = screen(omit, 800, 600);
-    /// @example screen();  // 戻り値を無視してもOK（HSP互換）
+    /// @example auto scr = screen(0, 800, 600);
+    /// @example screen(0);  // 戻り値を無視してもOK（HSP互換）
     export [[nodiscard]] Screen screen(
-        OptInt id       = {},
+        int id,
         OptInt width    = {},
         OptInt height   = {},
         OptInt mode     = {},
@@ -219,6 +273,89 @@ namespace hsppp {
         std::string_view title = "HSPPP Window"
     );
 
+    // ============================================================
+    // buffer - 仮想画面を初期化（HSP互換・ID明示指定版）
+    // ============================================================
+    /// @brief 仮想画面を初期化（メモリ上に画面を作成、表示しない）
+    /// @param id ウィンドウID (0～)
+    /// @param width 初期化する画面サイズX (デフォルト: 640)
+    /// @param height 初期化する画面サイズY (デフォルト: 480)
+    /// @param mode 初期化する画面モード (デフォルト: 0=フルカラー)
+    /// @return Screen ハンドル
+    export [[nodiscard]] Screen buffer(
+        int id,
+        OptInt width  = {},
+        OptInt height = {},
+        OptInt mode   = {}
+    );
+
+    // ============================================================
+    // bgscr - 枠のないウィンドウを初期化（HSP互換・ID明示指定版）
+    // ============================================================
+    /// @brief 枠のないウィンドウを初期化
+    /// @param id ウィンドウID (0～)
+    /// @param width 初期化する画面サイズX (デフォルト: 640)
+    /// @param height 初期化する画面サイズY (デフォルト: 480)
+    /// @param mode 初期化する画面モード (0=フルカラー, 2=非表示)
+    /// @param pos_x ウィンドウ位置X (-1=システム規定)
+    /// @param pos_y ウィンドウ位置Y (-1=システム規定)
+    /// @param client_w ウィンドウのサイズX (省略時=widthと同じ)
+    /// @param client_h ウィンドウのサイズY (省略時=heightと同じ)
+    /// @return Screen ハンドル
+    export [[nodiscard]] Screen bgscr(
+        int id,
+        OptInt width    = {},
+        OptInt height   = {},
+        OptInt mode     = {},
+        OptInt pos_x    = {},
+        OptInt pos_y    = {},
+        OptInt client_w = {},
+        OptInt client_h = {}
+    );
+
+    // ============================================================
+    // gsel - 描画先指定、ウィンドウ最前面、非表示設定（HSP互換）
+    // ============================================================
+    /// @brief 描画先を指定したウィンドウIDに変更
+    /// @param id ウィンドウID
+    /// @param mode ウィンドウアクティブスイッチ (-1=非表示, 0=影響なし, 1=アクティブ, 2=アクティブ+最前面)
+    export void gsel(OptInt id = {}, OptInt mode = {});
+
+    // ============================================================
+    // gmode - 画面コピーモード設定（HSP互換）
+    // ============================================================
+    /// @brief 画面コピーモードを設定
+    /// @param mode 画面コピーモード (0～6)
+    /// @param size_x コピーする大きさX (デフォルト: 32)
+    /// @param size_y コピーする大きさY (デフォルト: 32)
+    /// @param blend_rate 半透明合成時のブレンド率 (0～256)
+    export void gmode(OptInt mode = {}, OptInt size_x = {}, OptInt size_y = {}, OptInt blend_rate = {});
+
+    // ============================================================
+    // gcopy - 画面コピー（HSP互換）
+    // ============================================================
+    /// @brief 指定したウィンドウIDから現在の描画先にコピー
+    /// @param src_id コピー元のウィンドウID
+    /// @param src_x コピー元の左上X座標
+    /// @param src_y コピー元の左上Y座標
+    /// @param size_x コピーする大きさX (省略時=gmodeで設定したサイズ)
+    /// @param size_y コピーする大きさY (省略時=gmodeで設定したサイズ)
+    export void gcopy(OptInt src_id = {}, OptInt src_x = {}, OptInt src_y = {}, OptInt size_x = {}, OptInt size_y = {});
+
+    // ============================================================
+    // gzoom - 変倍して画面コピー（HSP互換）
+    // ============================================================
+    /// @brief 指定したウィンドウIDから変倍してコピー
+    /// @param dest_w 画面にコピーする時の大きさX
+    /// @param dest_h 画面にコピーする時の大きさY
+    /// @param src_id コピー元のウィンドウID
+    /// @param src_x コピー元の左上X座標
+    /// @param src_y コピー元の左上Y座標
+    /// @param src_w コピーする大きさX
+    /// @param src_h コピーする大きさY
+    /// @param mode ズームのモード (0=高速, 1=高品質ハーフトーン)
+    export void gzoom(OptInt dest_w = {}, OptInt dest_h = {}, OptInt src_id = {}, OptInt src_x = {}, OptInt src_y = {}, OptInt src_w = {}, OptInt src_h = {}, OptInt mode = {});
+
     // 描画制御
     // p1: 0=描画予約(Offscreen), 1=画面反映(Present)
     export void redraw(int p1 = 1);
@@ -226,6 +363,10 @@ namespace hsppp {
     // 待機＆メッセージ処理 (HSP互換)
     // 指定されたミリ秒だけ待機し、その間ウィンドウメッセージを処理する
     export void await(int time_ms);
+
+    // プログラム終了 (HSP互換)
+    // p1: 終了コード（省略時は0）
+    export [[noreturn]] void end(int exitcode = 0);
 
     // --- Drawing Functions ---
     export void color(int r, int g, int b);

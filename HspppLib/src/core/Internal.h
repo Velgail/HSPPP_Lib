@@ -4,7 +4,9 @@
 #pragma once
 
 #include <windows.h>
-#include <d2d1.h>
+#include <d2d1_1.h>
+#include <d3d11.h>
+#include <dxgi1_2.h>
 #include <dwrite.h>
 #include <wrl/client.h>
 #include <string>
@@ -24,13 +26,55 @@ std::wstring Utf8ToWide(std::string_view utf8str);
 // 前方宣言
 class HspSurface;
 class HspWindow;
+class HspBuffer;
+
+// Direct2D 1.1 デバイスマネージャー（シングルトン）
+// すべてのSurfaceで共有するD3D11/D2Dデバイスを管理
+class D2DDeviceManager {
+private:
+    ComPtr<ID3D11Device> m_pD3DDevice;
+    ComPtr<ID3D11DeviceContext> m_pD3DContext;
+    ComPtr<IDXGIDevice1> m_pDxgiDevice;
+    ComPtr<ID2D1Factory1> m_pD2DFactory;
+    ComPtr<ID2D1Device> m_pD2DDevice;
+    ComPtr<IDWriteFactory> m_pDWriteFactory;
+
+    bool m_initialized;
+
+    D2DDeviceManager();
+    ~D2DDeviceManager();
+
+    // シングルトンなのでコピー・ムーブを禁止
+    D2DDeviceManager(const D2DDeviceManager&) = delete;
+    D2DDeviceManager& operator=(const D2DDeviceManager&) = delete;
+
+public:
+    static D2DDeviceManager& getInstance();
+
+    bool initialize();
+    void shutdown();
+
+    // デバイスコンテキストを作成
+    ComPtr<ID2D1DeviceContext> createDeviceContext();
+
+    // ゲッター
+    ID2D1Factory1* getFactory() const { return m_pD2DFactory.Get(); }
+    ID2D1Device* getDevice() const { return m_pD2DDevice.Get(); }
+    IDWriteFactory* getDWriteFactory() const { return m_pDWriteFactory.Get(); }
+    ID3D11Device* getD3DDevice() const { return m_pD3DDevice.Get(); }
+    IDXGIDevice1* getDxgiDevice() const { return m_pDxgiDevice.Get(); }
+    bool isInitialized() const { return m_initialized; }
+};
 
 // 基底クラス: HspSurface
-// 描画対象を抽象化する
+// 描画対象を抽象化する（Direct2D 1.1対応）
 class HspSurface {
 protected:
-    // オフスクリーンバッファ（描画先）
-    ComPtr<ID2D1BitmapRenderTarget> m_pBitmapTarget;
+    // デバイスコンテキスト（描画用）
+    ComPtr<ID2D1DeviceContext> m_pDeviceContext;
+
+    // 描画先ビットマップ（共有可能）
+    ComPtr<ID2D1Bitmap1> m_pTargetBitmap;
 
     // 描画リソース
     ComPtr<ID2D1SolidColorBrush> m_pBrush;
@@ -50,11 +94,10 @@ protected:
 
 public:
     HspSurface(int width, int height);
-    virtual ~HspSurface() = default;  // ComPtrが自動解放するのでdefault
+    virtual ~HspSurface() = default;
 
-    // 初期化（派生クラスで実装する必要がある）
-    virtual bool initialize(const ComPtr<ID2D1Factory>& pD2DFactory,
-                           const ComPtr<IDWriteFactory>& pDWriteFactory);
+    // 初期化（派生クラスで実装）
+    virtual bool initialize() = 0;
 
     // 描画命令
     void boxf(int x1, int y1, int x2, int y2);
@@ -70,26 +113,29 @@ public:
     // ゲッター
     int getWidth() const { return m_width; }
     int getHeight() const { return m_height; }
-    const ComPtr<ID2D1BitmapRenderTarget>& getBitmapTarget() const { return m_pBitmapTarget; }
+    int getCurrentX() const { return m_currentX; }
+    int getCurrentY() const { return m_currentY; }
+    ID2D1DeviceContext* getDeviceContext() const { return m_pDeviceContext.Get(); }
+    ID2D1Bitmap1* getTargetBitmap() const { return m_pTargetBitmap.Get(); }
 };
 
 // 派生クラス: HspWindow
-// ウィンドウを表すSurface
+// ウィンドウを表すSurface（スワップチェーン使用）
 class HspWindow : public HspSurface {
 private:
     HWND m_hwnd;
-    ComPtr<ID2D1HwndRenderTarget> m_pHwndTarget; // 表示用ターゲット
+    ComPtr<IDXGISwapChain1> m_pSwapChain;
+    ComPtr<ID2D1Bitmap1> m_pBackBufferBitmap;  // スワップチェーンのバックバッファ
     std::wstring m_title;
 
 public:
     HspWindow(int width, int height, std::string_view title);
-    virtual ~HspWindow();  // HWNDの破棄が必要なので実装する
+    virtual ~HspWindow();
 
     // 初期化
-    bool initialize(const ComPtr<ID2D1Factory>& pD2DFactory,
-                   const ComPtr<IDWriteFactory>& pDWriteFactory) override;
+    bool initialize() override;
 
-    // ウィンドウ作成（安全な wstring_view を使用）
+    // ウィンドウ作成
     bool createWindow(
         HINSTANCE hInstance,
         std::wstring_view className,
@@ -101,24 +147,34 @@ public:
         int clientHeight
     );
 
-    // オフスクリーンバッファの内容を画面に転送
+    // 画面に転送
     void present();
 
     // ゲッター
     HWND getHwnd() const { return m_hwnd; }
 
-    // ウィンドウプロシージャから呼ばれるWM_PAINT処理
+    // WM_PAINT処理
     void onPaint();
+};
+
+// 派生クラス: HspBuffer
+// 仮想画面を表すSurface（表示されない、共有可能ビットマップ）
+class HspBuffer : public HspSurface {
+public:
+    HspBuffer(int width, int height);
+    virtual ~HspBuffer() = default;
+
+    // 初期化
+    bool initialize() override;
 };
 
 // ウィンドウマネージャー
 class WindowManager {
 private:
     HINSTANCE m_hInstance;
-    std::wstring m_className;  // 安全な std::wstring を使用
+    std::wstring m_className;
     bool m_classRegistered;
 
-    // シングルトンなのでコピー・ムーブを禁止
     WindowManager(const WindowManager&) = delete;
     WindowManager& operator=(const WindowManager&) = delete;
     WindowManager(WindowManager&&) = delete;
@@ -128,16 +184,14 @@ public:
     WindowManager();
     ~WindowManager();
 
-    // シングルトンインスタンスの取得（静的ローカル変数で安全に管理）
     static WindowManager& getInstance();
 
     bool registerWindowClass();
     void unregisterWindowClass();
 
     HINSTANCE getHInstance() const { return m_hInstance; }
-    std::wstring_view getClassName() const { return m_className; }  // wstring_view で安全に
+    std::wstring_view getClassName() const { return m_className; }
 
-    // ウィンドウプロシージャ
     static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 };
 

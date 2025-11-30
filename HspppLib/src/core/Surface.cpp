@@ -256,6 +256,145 @@ void HspSurface::pos(int x, int y) {
     m_currentY = y;
 }
 
+void HspSurface::line(int x2, int y2, int x1, int y1, bool useStartPos) {
+    if (!m_pDeviceContext || !m_pBrush || !m_isDrawing) return;
+
+    // 始点を決定
+    float startX = useStartPos ? static_cast<float>(x1) : static_cast<float>(m_currentX);
+    float startY = useStartPos ? static_cast<float>(y1) : static_cast<float>(m_currentY);
+    float endX = static_cast<float>(x2);
+    float endY = static_cast<float>(y2);
+
+    // 直線を描画（太さ1.0f）
+    m_pDeviceContext->DrawLine(
+        D2D1::Point2F(startX, startY),
+        D2D1::Point2F(endX, endY),
+        m_pBrush.Get(),
+        1.0f
+    );
+
+    // カレントポジションを終点に更新
+    m_currentX = x2;
+    m_currentY = y2;
+}
+
+void HspSurface::circle(int x1, int y1, int x2, int y2, int fillMode) {
+    if (!m_pDeviceContext || !m_pBrush || !m_isDrawing) return;
+
+    // 楕円のパラメータを計算
+    float centerX = (static_cast<float>(x1) + static_cast<float>(x2)) / 2.0f;
+    float centerY = (static_cast<float>(y1) + static_cast<float>(y2)) / 2.0f;
+    float radiusX = (static_cast<float>(x2) - static_cast<float>(x1)) / 2.0f;
+    float radiusY = (static_cast<float>(y2) - static_cast<float>(y1)) / 2.0f;
+
+    // 負の半径を正に（座標の順序が逆でも対応）
+    if (radiusX < 0) radiusX = -radiusX;
+    if (radiusY < 0) radiusY = -radiusY;
+
+    D2D1_ELLIPSE ellipse = D2D1::Ellipse(
+        D2D1::Point2F(centerX, centerY),
+        radiusX,
+        radiusY
+    );
+
+    if (fillMode == 1) {
+        // 塗りつぶし
+        m_pDeviceContext->FillEllipse(ellipse, m_pBrush.Get());
+    } else {
+        // 輪郭のみ
+        m_pDeviceContext->DrawEllipse(ellipse, m_pBrush.Get(), 1.0f);
+    }
+}
+
+void HspSurface::pset(int x, int y) {
+    if (!m_pDeviceContext || !m_pBrush || !m_isDrawing) return;
+
+    // 1ドットの点を描画（1x1の矩形）
+    D2D1_RECT_F rect = D2D1::RectF(
+        static_cast<FLOAT>(x),
+        static_cast<FLOAT>(y),
+        static_cast<FLOAT>(x + 1),
+        static_cast<FLOAT>(y + 1)
+    );
+
+    m_pDeviceContext->FillRectangle(rect, m_pBrush.Get());
+}
+
+bool HspSurface::pget(int x, int y, int& r, int& g, int& b) {
+    if (!m_pDeviceContext || !m_pTargetBitmap) return false;
+
+    // 描画中の場合は一旦終了してピクセルを読み取る
+    bool wasDrawing = m_isDrawing;
+    if (wasDrawing) {
+        m_pDeviceContext->EndDraw();
+        m_isDrawing = false;
+    }
+
+    // CPU読み取り可能なビットマップを作成
+    ComPtr<ID2D1Bitmap1> pReadBitmap;
+    D2D1_BITMAP_PROPERTIES1 readProps = D2D1::BitmapProperties1(
+        D2D1_BITMAP_OPTIONS_CPU_READ | D2D1_BITMAP_OPTIONS_CANNOT_DRAW,
+        D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED)
+    );
+
+    HRESULT hr = m_pDeviceContext->CreateBitmap(
+        D2D1::SizeU(m_width, m_height),
+        nullptr, 0,
+        readProps,
+        pReadBitmap.GetAddressOf()
+    );
+
+    if (FAILED(hr)) {
+        if (wasDrawing) {
+            m_pDeviceContext->BeginDraw();
+            m_isDrawing = true;
+        }
+        return false;
+    }
+
+    // 指定座標のピクセルをコピー
+    D2D1_POINT_2U destPoint = D2D1::Point2U(0, 0);
+    D2D1_RECT_U srcRect = D2D1::RectU(x, y, x + 1, y + 1);
+    hr = pReadBitmap->CopyFromBitmap(&destPoint, m_pTargetBitmap.Get(), &srcRect);
+
+    if (FAILED(hr)) {
+        if (wasDrawing) {
+            m_pDeviceContext->BeginDraw();
+            m_isDrawing = true;
+        }
+        return false;
+    }
+
+    // ピクセルデータをマップして読み取る
+    D2D1_MAPPED_RECT mappedRect;
+    hr = pReadBitmap->Map(D2D1_MAP_OPTIONS_READ, &mappedRect);
+
+    if (SUCCEEDED(hr)) {
+        // BGRA形式なので順序に注意
+        BYTE* pixel = mappedRect.bits;
+        b = pixel[0];
+        g = pixel[1];
+        r = pixel[2];
+        // pixel[3] はアルファ値
+
+        pReadBitmap->Unmap();
+
+        // 取得した色を選択色として設定
+        m_currentColor = D2D1::ColorF(r / 255.0f, g / 255.0f, b / 255.0f, 1.0f);
+        if (m_pBrush) {
+            m_pBrush->SetColor(m_currentColor);
+        }
+    }
+
+    // 描画状態を復元
+    if (wasDrawing) {
+        m_pDeviceContext->BeginDraw();
+        m_isDrawing = true;
+    }
+
+    return SUCCEEDED(hr);
+}
+
 // ========== HspWindow 実装 ==========
 
 HspWindow::HspWindow(int width, int height, std::string_view title)

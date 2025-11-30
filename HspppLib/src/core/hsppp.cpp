@@ -209,6 +209,130 @@ namespace hsppp {
         return surface ? surface->getHeight() : 0;
     }
 
+    Screen& Screen::line(int x2, int y2) {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        int startX = surface->getCurrentX();
+        int startY = surface->getCurrentY();
+
+        if (g_redrawMode == 1) {
+            g_currentSurface = surface;
+            beginDrawIfNeeded();
+            surface->line(x2, y2, startX, startY, false);
+            endDrawAndPresent();
+        }
+        else {
+            surface->line(x2, y2, startX, startY, false);
+        }
+        return *this;
+    }
+
+    Screen& Screen::line(int x2, int y2, int x1, int y1) {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        if (g_redrawMode == 1) {
+            g_currentSurface = surface;
+            beginDrawIfNeeded();
+            surface->line(x2, y2, x1, y1, true);
+            endDrawAndPresent();
+        }
+        else {
+            surface->line(x2, y2, x1, y1, true);
+        }
+        return *this;
+    }
+
+    Screen& Screen::circle(int x1, int y1, int x2, int y2, int fillMode) {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        if (g_redrawMode == 1) {
+            g_currentSurface = surface;
+            beginDrawIfNeeded();
+            surface->circle(x1, y1, x2, y2, fillMode);
+            endDrawAndPresent();
+        }
+        else {
+            surface->circle(x1, y1, x2, y2, fillMode);
+        }
+        return *this;
+    }
+
+    Screen& Screen::pset(int x, int y) {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        if (g_redrawMode == 1) {
+            g_currentSurface = surface;
+            beginDrawIfNeeded();
+            surface->pset(x, y);
+            endDrawAndPresent();
+        }
+        else {
+            surface->pset(x, y);
+        }
+        return *this;
+    }
+
+    Screen& Screen::pset() {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        int px = surface->getCurrentX();
+        int py = surface->getCurrentY();
+
+        if (g_redrawMode == 1) {
+            g_currentSurface = surface;
+            beginDrawIfNeeded();
+            surface->pset(px, py);
+            endDrawAndPresent();
+        }
+        else {
+            surface->pset(px, py);
+        }
+        return *this;
+    }
+
+    Screen& Screen::pget(int x, int y) {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        int r, g, b;
+
+        if (g_redrawMode == 1) {
+            g_currentSurface = surface;
+            beginDrawIfNeeded();
+            surface->pget(x, y, r, g, b);
+            endDrawAndPresent();
+        }
+        else {
+            surface->pget(x, y, r, g, b);
+        }
+        return *this;
+    }
+
+    Screen& Screen::pget() {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        int px = surface->getCurrentX();
+        int py = surface->getCurrentY();
+        int r, g, b;
+
+        if (g_redrawMode == 1) {
+            g_currentSurface = surface;
+            beginDrawIfNeeded();
+            surface->pget(px, py, r, g, b);
+            endDrawAndPresent();
+        }
+        else {
+            surface->pget(px, py, r, g, b);
+        }
+        return *this;
+    }
+
 
     // ============================================================
     // screen 関数の実装
@@ -519,6 +643,292 @@ namespace hsppp {
             // モード0: 仮想画面のみ（BeginDraw済み）
             currentSurface->boxf(0, 0, currentSurface->getWidth(), currentSurface->getHeight());
         }
+    }
+
+    // ============================================================
+    // line - 直線を描画（HSP互換）
+    // ============================================================
+    void line(OptInt x2, OptInt y2, OptInt x1, OptInt y1) {
+        auto currentSurface = getCurrentSurface();
+        if (!currentSurface) return;
+
+        int endX = x2.value_or(0);
+        int endY = y2.value_or(0);
+        
+        // x1, y1が省略されたかどうかを判定
+        bool useStartPos = !x1.is_default() && !y1.is_default();
+        int startX = x1.value_or(currentSurface->getCurrentX());
+        int startY = y1.value_or(currentSurface->getCurrentY());
+
+        // 描画モードに応じて処理
+        if (g_redrawMode == 1) {
+            beginDrawIfNeeded();
+            currentSurface->line(endX, endY, startX, startY, useStartPos);
+            endDrawAndPresent();
+        }
+        else {
+            currentSurface->line(endX, endY, startX, startY, useStartPos);
+        }
+    }
+
+    // ============================================================
+    // circle - 円を描画（HSP互換）
+    // ============================================================
+    void circle(OptInt x1, OptInt y1, OptInt x2, OptInt y2, OptInt fillMode) {
+        auto currentSurface = getCurrentSurface();
+        if (!currentSurface) return;
+
+        int p1 = x1.value_or(0);
+        int p2 = y1.value_or(0);
+        int p3 = x2.value_or(currentSurface->getWidth());
+        int p4 = y2.value_or(currentSurface->getHeight());
+        int p5 = fillMode.value_or(1);
+
+        // 描画モードに応じて処理
+        if (g_redrawMode == 1) {
+            beginDrawIfNeeded();
+            currentSurface->circle(p1, p2, p3, p4, p5);
+            endDrawAndPresent();
+        }
+        else {
+            currentSurface->circle(p1, p2, p3, p4, p5);
+        }
+    }
+
+    // ============================================================
+    // pset - 1ドットの点を描画（HSP互換）
+    // ============================================================
+    void pset(OptInt x, OptInt y) {
+        auto currentSurface = getCurrentSurface();
+        if (!currentSurface) return;
+
+        int px = x.is_default() ? currentSurface->getCurrentX() : x.value();
+        int py = y.is_default() ? currentSurface->getCurrentY() : y.value();
+
+        // 描画モードに応じて処理
+        if (g_redrawMode == 1) {
+            beginDrawIfNeeded();
+            currentSurface->pset(px, py);
+            endDrawAndPresent();
+        }
+        else {
+            currentSurface->pset(px, py);
+        }
+    }
+
+    // ============================================================
+    // pget - 1ドットの色を取得（HSP互換）
+    // ============================================================
+    void pget(OptInt x, OptInt y) {
+        auto currentSurface = getCurrentSurface();
+        if (!currentSurface) return;
+
+        int px = x.is_default() ? currentSurface->getCurrentX() : x.value();
+        int py = y.is_default() ? currentSurface->getCurrentY() : y.value();
+
+        int r, g, b;
+        
+        // 描画モードに応じて処理
+        if (g_redrawMode == 1) {
+            beginDrawIfNeeded();
+            currentSurface->pget(px, py, r, g, b);
+            endDrawAndPresent();
+        }
+        else {
+            currentSurface->pget(px, py, r, g, b);
+        }
+    }
+
+    // ============================================================
+    // ginfo - ウィンドウ情報の取得（HSP互換）
+    // ============================================================
+    int ginfo(int type) {
+        using namespace internal;
+        
+        auto currentSurface = getCurrentSurface();
+        auto pWindow = currentSurface ? std::dynamic_pointer_cast<HspWindow>(currentSurface) : nullptr;
+        
+        switch (type) {
+        case 0:  // スクリーン上のマウスカーソルX座標
+        {
+            POINT pt;
+            GetCursorPos(&pt);
+            return pt.x;
+        }
+        case 1:  // スクリーン上のマウスカーソルY座標
+        {
+            POINT pt;
+            GetCursorPos(&pt);
+            return pt.y;
+        }
+        case 2:  // アクティブなウィンドウID
+        {
+            HWND hwndActive = GetForegroundWindow();
+            // g_surfacesを検索してウィンドウIDを返す
+            for (const auto& pair : g_surfaces) {
+                auto pWin = std::dynamic_pointer_cast<HspWindow>(pair.second);
+                if (pWin && pWin->getHwnd() == hwndActive) {
+                    return pair.first;
+                }
+            }
+            return -1;  // HSP以外のウィンドウがアクティブ
+        }
+        case 3:  // 操作先ウィンドウID
+        {
+            auto current = g_currentSurface.lock();
+            if (current) {
+                for (const auto& pair : g_surfaces) {
+                    if (pair.second == current) {
+                        return pair.first;
+                    }
+                }
+            }
+            return 0;
+        }
+        case 4:  // ウィンドウの左上X座標
+        {
+            if (pWindow && pWindow->getHwnd()) {
+                RECT rect;
+                GetWindowRect(pWindow->getHwnd(), &rect);
+                return rect.left;
+            }
+            return 0;
+        }
+        case 5:  // ウィンドウの左上Y座標
+        {
+            if (pWindow && pWindow->getHwnd()) {
+                RECT rect;
+                GetWindowRect(pWindow->getHwnd(), &rect);
+                return rect.top;
+            }
+            return 0;
+        }
+        case 6:  // ウィンドウの右下X座標
+        {
+            if (pWindow && pWindow->getHwnd()) {
+                RECT rect;
+                GetWindowRect(pWindow->getHwnd(), &rect);
+                return rect.right;
+            }
+            return 0;
+        }
+        case 7:  // ウィンドウの右下Y座標
+        {
+            if (pWindow && pWindow->getHwnd()) {
+                RECT rect;
+                GetWindowRect(pWindow->getHwnd(), &rect);
+                return rect.bottom;
+            }
+            return 0;
+        }
+        case 8:  // ウィンドウの描画基点X座標（スクロール未対応のため常に0）
+            return 0;
+        case 9:  // ウィンドウの描画基点Y座標（スクロール未対応のため常に0）
+            return 0;
+        case 10:  // ウィンドウ全体のXサイズ
+        {
+            if (pWindow && pWindow->getHwnd()) {
+                RECT rect;
+                GetWindowRect(pWindow->getHwnd(), &rect);
+                return rect.right - rect.left;
+            }
+            return currentSurface ? currentSurface->getWidth() : 0;
+        }
+        case 11:  // ウィンドウ全体のYサイズ
+        {
+            if (pWindow && pWindow->getHwnd()) {
+                RECT rect;
+                GetWindowRect(pWindow->getHwnd(), &rect);
+                return rect.bottom - rect.top;
+            }
+            return currentSurface ? currentSurface->getHeight() : 0;
+        }
+        case 12:  // クライアント領域Xサイズ
+        {
+            if (pWindow && pWindow->getHwnd()) {
+                RECT rect;
+                GetClientRect(pWindow->getHwnd(), &rect);
+                return rect.right;
+            }
+            return currentSurface ? currentSurface->getWidth() : 0;
+        }
+        case 13:  // クライアント領域Yサイズ
+        {
+            if (pWindow && pWindow->getHwnd()) {
+                RECT rect;
+                GetClientRect(pWindow->getHwnd(), &rect);
+                return rect.bottom;
+            }
+            return currentSurface ? currentSurface->getHeight() : 0;
+        }
+        case 14:  // メッセージの出力Xサイズ（未実装）
+            return 0;
+        case 15:  // メッセージの出力Yサイズ（未実装）
+            return 0;
+        case 16:  // 現在設定されているカラーコード(R)
+        {
+            if (currentSurface) {
+                auto color = currentSurface->getCurrentColor();
+                return static_cast<int>(color.r * 255.0f);
+            }
+            return 0;
+        }
+        case 17:  // 現在設定されているカラーコード(G)
+        {
+            if (currentSurface) {
+                auto color = currentSurface->getCurrentColor();
+                return static_cast<int>(color.g * 255.0f);
+            }
+            return 0;
+        }
+        case 18:  // 現在設定されているカラーコード(B)
+        {
+            if (currentSurface) {
+                auto color = currentSurface->getCurrentColor();
+                return static_cast<int>(color.b * 255.0f);
+            }
+            return 0;
+        }
+        case 19:  // デスクトップのカラーモード（常にフルカラー）
+            return 0;
+        case 20:  // デスクトップ全体のXサイズ
+            return GetSystemMetrics(SM_CXSCREEN);
+        case 21:  // デスクトップ全体のYサイズ
+            return GetSystemMetrics(SM_CYSCREEN);
+        case 22:  // カレントポジションのX座標
+            return currentSurface ? currentSurface->getCurrentX() : 0;
+        case 23:  // カレントポジションのY座標
+            return currentSurface ? currentSurface->getCurrentY() : 0;
+        case 24:  // メッセージ割り込み時のウィンドウID（未実装）
+            return 0;
+        case 25:  // 未使用ウィンドウID
+        {
+            for (int i = 0; ; ++i) {
+                if (g_surfaces.find(i) == g_surfaces.end()) {
+                    return i;
+                }
+            }
+        }
+        case 26:  // 画面の初期化Xサイズ
+            return currentSurface ? currentSurface->getWidth() : 0;
+        case 27:  // 画面の初期化Yサイズ
+            return currentSurface ? currentSurface->getHeight() : 0;
+        default:
+            return 0;
+        }
+    }
+
+    // ginfo_r, ginfo_g, ginfo_b マクロの代わりとなる関数
+    int ginfo_r() {
+        return ginfo(16);
+    }
+
+    int ginfo_g() {
+        return ginfo(17);
+    }
+
+    int ginfo_b() {
+        return ginfo(18);
     }
 
     // ============================================================

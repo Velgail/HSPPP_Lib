@@ -506,7 +506,7 @@ namespace hsppp {
             hr = DWriteCreateFactory(
                 DWRITE_FACTORY_TYPE_SHARED,
                 __uuidof(IDWriteFactory),
-                &g_pDWriteFactory
+                reinterpret_cast<IUnknown**>(g_pDWriteFactory.GetAddressOf())
             );
             if (FAILED(hr)) {
                 MessageBoxW(nullptr, L"Failed to create DirectWrite factory", L"Error", MB_OK | MB_ICONERROR);

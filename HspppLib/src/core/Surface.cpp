@@ -63,10 +63,6 @@ bool HspSurface::initialize(const ComPtr<ID2D1Factory>& pD2DFactory,
     return false;
 }
 
-void HspSurface::activate() {
-    // 現在のサーフェスとして設定（hsppp.cppで管理）
-}
-
 void HspSurface::beginDraw() {
     if (m_pBitmapTarget && !m_isDrawing) {
         m_pBitmapTarget->BeginDraw();

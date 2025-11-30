@@ -56,9 +56,6 @@ public:
     virtual bool initialize(const ComPtr<ID2D1Factory>& pD2DFactory,
                            const ComPtr<IDWriteFactory>& pDWriteFactory);
 
-    // 描画ターゲットとして設定する
-    virtual void activate();
-
     // 描画命令
     void boxf(int x1, int y1, int x2, int y2);
     void mes(std::string_view text);

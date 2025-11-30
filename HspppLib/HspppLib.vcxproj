@@ -153,6 +153,9 @@
     <ClCompile Include="src\core\Window.cpp" />
     <ClCompile Include="src\utils\Random.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\core\Internal.h" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

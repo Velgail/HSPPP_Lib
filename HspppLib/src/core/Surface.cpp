@@ -565,8 +565,9 @@ void HspWindow::present() {
 
     m_pDeviceContext->EndDraw();
 
-    // 画面に表示
-    m_pSwapChain->Present(1, 0);
+    // 画面に表示（垂直同期を待たない - redraw(1)での高速描画用）
+    // SyncInterval=0 で即座に表示
+    m_pSwapChain->Present(0, 0);
 
     // 描画先をオフスクリーンビットマップに戻す
     m_pDeviceContext->SetTarget(m_pTargetBitmap.Get());

@@ -107,5 +107,6 @@ int hspMain() {
     // 結果を表示して待機
     await(10000);  // 10秒待機
 
-    return (compileOk && runtimeFailed == 0) ? 0 : 1;
+    end( (compileOk && runtimeFailed == 0) ? 0 : 1);
+    return 0;
 }

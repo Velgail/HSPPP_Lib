@@ -1,49 +1,171 @@
 ﻿// HspppLib/src/core/Surface.cpp
-// HspSurface と HspWindow の実装
+// HspSurface, HspWindow, HspBuffer の実装（Direct2D 1.1対応）
 
 #include "Internal.h"
 #include <cstring>
 
+#pragma comment(lib, "d2d1.lib")
+#pragma comment(lib, "d3d11.lib")
+#pragma comment(lib, "dxgi.lib")
+#pragma comment(lib, "dwrite.lib")
+
 namespace hsppp {
 namespace internal {
 
-// UTF-8文字列をUTF-16(wchar_t)に変換（安全な string_view を使用）
+// UTF-8文字列をUTF-16(wchar_t)に変換
 std::wstring Utf8ToWide(std::string_view utf8str) {
     if (utf8str.empty()) {
         return L"";
     }
 
-    // 必要なバッファサイズを取得
     int wideSize = MultiByteToWideChar(
-        CP_UTF8,
-        0,
-        utf8str.data(),
-        static_cast<int>(utf8str.size()),
-        nullptr,
-        0
+        CP_UTF8, 0,
+        utf8str.data(), static_cast<int>(utf8str.size()),
+        nullptr, 0
     );
     if (wideSize == 0) {
         return L"";
     }
 
-    // 変換
     std::wstring wideStr(wideSize, 0);
     MultiByteToWideChar(
-        CP_UTF8,
-        0,
-        utf8str.data(),
-        static_cast<int>(utf8str.size()),
-        &wideStr[0],
-        wideSize
+        CP_UTF8, 0,
+        utf8str.data(), static_cast<int>(utf8str.size()),
+        &wideStr[0], wideSize
     );
 
     return wideStr;
 }
 
+// ========== D2DDeviceManager 実装 ==========
+
+D2DDeviceManager::D2DDeviceManager()
+    : m_initialized(false)
+{
+}
+
+D2DDeviceManager::~D2DDeviceManager() {
+    shutdown();
+}
+
+D2DDeviceManager& D2DDeviceManager::getInstance() {
+    static D2DDeviceManager instance;
+    return instance;
+}
+
+bool D2DDeviceManager::initialize() {
+    if (m_initialized) return true;
+
+    HRESULT hr;
+
+    // D3D11デバイスの作成
+    D3D_FEATURE_LEVEL featureLevels[] = {
+        D3D_FEATURE_LEVEL_11_1,
+        D3D_FEATURE_LEVEL_11_0,
+        D3D_FEATURE_LEVEL_10_1,
+        D3D_FEATURE_LEVEL_10_0,
+    };
+
+    UINT creationFlags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
+#ifdef _DEBUG
+    // デバッグビルドでもデバッグレイヤーは任意（インストールされていない場合があるため）
+    // creationFlags |= D3D11_CREATE_DEVICE_DEBUG;
+#endif
+
+    D3D_FEATURE_LEVEL featureLevel;
+    hr = D3D11CreateDevice(
+        nullptr,
+        D3D_DRIVER_TYPE_HARDWARE,
+        nullptr,
+        creationFlags,
+        featureLevels,
+        ARRAYSIZE(featureLevels),
+        D3D11_SDK_VERSION,
+        m_pD3DDevice.GetAddressOf(),
+        &featureLevel,
+        m_pD3DContext.GetAddressOf()
+    );
+
+    if (FAILED(hr)) {
+        // ハードウェアが使えない場合はWARPを試す
+        hr = D3D11CreateDevice(
+            nullptr,
+            D3D_DRIVER_TYPE_WARP,
+            nullptr,
+            creationFlags,
+            featureLevels,
+            ARRAYSIZE(featureLevels),
+            D3D11_SDK_VERSION,
+            m_pD3DDevice.GetAddressOf(),
+            &featureLevel,
+            m_pD3DContext.GetAddressOf()
+        );
+        if (FAILED(hr)) return false;
+    }
+
+    // DXGIデバイスを取得
+    hr = m_pD3DDevice.As(&m_pDxgiDevice);
+    if (FAILED(hr)) return false;
+
+    // Direct2D Factoryの作成
+    D2D1_FACTORY_OPTIONS options = {};
+#ifdef _DEBUG
+    // options.debugLevel = D2D1_DEBUG_LEVEL_INFORMATION;
+#endif
+
+    hr = D2D1CreateFactory(
+        D2D1_FACTORY_TYPE_SINGLE_THREADED,
+        options,
+        m_pD2DFactory.GetAddressOf()
+    );
+    if (FAILED(hr)) return false;
+
+    // Direct2D Deviceの作成
+    hr = m_pD2DFactory->CreateDevice(
+        m_pDxgiDevice.Get(),
+        m_pD2DDevice.GetAddressOf()
+    );
+    if (FAILED(hr)) return false;
+
+    // DirectWrite Factoryの作成
+    hr = DWriteCreateFactory(
+        DWRITE_FACTORY_TYPE_SHARED,
+        __uuidof(IDWriteFactory),
+        reinterpret_cast<IUnknown**>(m_pDWriteFactory.GetAddressOf())
+    );
+    if (FAILED(hr)) return false;
+
+    m_initialized = true;
+    return true;
+}
+
+void D2DDeviceManager::shutdown() {
+    m_pDWriteFactory.Reset();
+    m_pD2DDevice.Reset();
+    m_pD2DFactory.Reset();
+    m_pDxgiDevice.Reset();
+    m_pD3DContext.Reset();
+    m_pD3DDevice.Reset();
+    m_initialized = false;
+}
+
+ComPtr<ID2D1DeviceContext> D2DDeviceManager::createDeviceContext() {
+    if (!m_initialized || !m_pD2DDevice) return nullptr;
+
+    ComPtr<ID2D1DeviceContext> pContext;
+    HRESULT hr = m_pD2DDevice->CreateDeviceContext(
+        D2D1_DEVICE_CONTEXT_OPTIONS_NONE,
+        pContext.GetAddressOf()
+    );
+
+    return SUCCEEDED(hr) ? pContext : nullptr;
+}
+
 // ========== HspSurface 実装 ==========
 
 HspSurface::HspSurface(int width, int height)
-    : m_pBitmapTarget(nullptr)
+    : m_pDeviceContext(nullptr)
+    , m_pTargetBitmap(nullptr)
     , m_pBrush(nullptr)
     , m_pTextFormat(nullptr)
     , m_currentX(0)
@@ -55,36 +177,26 @@ HspSurface::HspSurface(int width, int height)
 {
 }
 
-// デストラクタはdefaultなので実装不要（ComPtrが自動解放）
-
-bool HspSurface::initialize(const ComPtr<ID2D1Factory>& pD2DFactory,
-                            const ComPtr<IDWriteFactory>& pDWriteFactory) {
-    // 基底クラスでは何もしない（派生クラスで実装）
-    return false;
-}
-
 void HspSurface::beginDraw() {
-    if (m_pBitmapTarget && !m_isDrawing) {
-        m_pBitmapTarget->BeginDraw();
+    if (m_pDeviceContext && !m_isDrawing) {
+        m_pDeviceContext->BeginDraw();
         m_isDrawing = true;
     }
 }
 
 void HspSurface::endDraw() {
-    if (m_pBitmapTarget && m_isDrawing) {
-        HRESULT hr = m_pBitmapTarget->EndDraw();
+    if (m_pDeviceContext && m_isDrawing) {
+        HRESULT hr = m_pDeviceContext->EndDraw();
         m_isDrawing = false;
 
-        // デバイスロスト時の処理（今は無視）
         if (hr == D2DERR_RECREATE_TARGET) {
-            // TODO: リソースの再作成
+            // TODO: デバイスロスト時のリソース再作成
         }
     }
 }
 
 void HspSurface::boxf(int x1, int y1, int x2, int y2) {
-    if (!m_pBitmapTarget || !m_pBrush) return;
-    if (!m_isDrawing) return;
+    if (!m_pDeviceContext || !m_pBrush || !m_isDrawing) return;
 
     D2D1_RECT_F rect = D2D1::RectF(
         static_cast<FLOAT>(x1),
@@ -93,17 +205,14 @@ void HspSurface::boxf(int x1, int y1, int x2, int y2) {
         static_cast<FLOAT>(y2)
     );
 
-    m_pBitmapTarget->FillRectangle(rect, m_pBrush.Get());
+    m_pDeviceContext->FillRectangle(rect, m_pBrush.Get());
 }
 
 void HspSurface::mes(std::string_view text) {
-    if (!m_pBitmapTarget || !m_pBrush || !m_pTextFormat) return;
-    if (!m_isDrawing) return;
+    if (!m_pDeviceContext || !m_pBrush || !m_pTextFormat || !m_isDrawing) return;
 
-    // UTF-8からUTF-16に変換
     std::wstring wideText = Utf8ToWide(text);
 
-    // テキスト描画領域
     D2D1_RECT_F layoutRect = D2D1::RectF(
         static_cast<FLOAT>(m_currentX),
         static_cast<FLOAT>(m_currentY),
@@ -111,7 +220,7 @@ void HspSurface::mes(std::string_view text) {
         static_cast<FLOAT>(m_currentY + m_height)
     );
 
-    m_pBitmapTarget->DrawText(
+    m_pDeviceContext->DrawText(
         wideText.c_str(),
         static_cast<UINT32>(wideText.length()),
         m_pTextFormat.Get(),
@@ -122,8 +231,6 @@ void HspSurface::mes(std::string_view text) {
 
 void HspSurface::color(int r, int g, int b) {
     m_currentColor = D2D1::ColorF(r / 255.0f, g / 255.0f, b / 255.0f, 1.0f);
-
-    // ブラシの色を更新
     if (m_pBrush) {
         m_pBrush->SetColor(m_currentColor);
     }
@@ -139,68 +246,89 @@ void HspSurface::pos(int x, int y) {
 HspWindow::HspWindow(int width, int height, std::string_view title)
     : HspSurface(width, height)
     , m_hwnd(nullptr)
-    , m_pHwndTarget(nullptr)
+    , m_pSwapChain(nullptr)
     , m_title(Utf8ToWide(title))
 {
 }
 
-// デストラクタはdefaultだが、HWNDの破棄は手動で行う必要がある
 HspWindow::~HspWindow() {
     if (m_hwnd) {
         DestroyWindow(m_hwnd);
         m_hwnd = nullptr;
     }
-    // ComPtrは自動解放される
 }
 
-bool HspWindow::initialize(const ComPtr<ID2D1Factory>& pD2DFactory,
-                          const ComPtr<IDWriteFactory>& pDWriteFactory) {
-    if (!pD2DFactory || !pDWriteFactory) return false;
+bool HspWindow::initialize() {
+    auto& deviceMgr = D2DDeviceManager::getInstance();
+    if (!deviceMgr.isInitialized()) return false;
 
-    // HwndRenderTargetの作成（表示用）
-    D2D1_RENDER_TARGET_PROPERTIES props = D2D1::RenderTargetProperties();
-    D2D1_HWND_RENDER_TARGET_PROPERTIES hwndProps = D2D1::HwndRenderTargetProperties(
+    HRESULT hr;
+
+    // スワップチェーンの作成
+    ComPtr<IDXGIAdapter> pAdapter;
+    hr = deviceMgr.getDxgiDevice()->GetAdapter(pAdapter.GetAddressOf());
+    if (FAILED(hr)) return false;
+
+    ComPtr<IDXGIFactory2> pFactory;
+    hr = pAdapter->GetParent(IID_PPV_ARGS(pFactory.GetAddressOf()));
+    if (FAILED(hr)) return false;
+
+    DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
+    swapChainDesc.Width = m_width;
+    swapChainDesc.Height = m_height;
+    swapChainDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+    swapChainDesc.Stereo = FALSE;
+    swapChainDesc.SampleDesc.Count = 1;
+    swapChainDesc.SampleDesc.Quality = 0;
+    swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    swapChainDesc.BufferCount = 2;
+    swapChainDesc.Scaling = DXGI_SCALING_STRETCH;
+    swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
+    swapChainDesc.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
+    swapChainDesc.Flags = 0;
+
+    hr = pFactory->CreateSwapChainForHwnd(
+        deviceMgr.getD3DDevice(),
         m_hwnd,
-        D2D1::SizeU(m_width, m_height)
+        &swapChainDesc,
+        nullptr,
+        nullptr,
+        m_pSwapChain.GetAddressOf()
+    );
+    if (FAILED(hr)) return false;
+
+    // デバイスコンテキストの作成
+    m_pDeviceContext = deviceMgr.createDeviceContext();
+    if (!m_pDeviceContext) return false;
+
+    // スワップチェーンのバックバッファからビットマップを作成
+    ComPtr<IDXGISurface> pBackBuffer;
+    hr = m_pSwapChain->GetBuffer(0, IID_PPV_ARGS(pBackBuffer.GetAddressOf()));
+    if (FAILED(hr)) return false;
+
+    D2D1_BITMAP_PROPERTIES1 bitmapProps = D2D1::BitmapProperties1(
+        D2D1_BITMAP_OPTIONS_TARGET | D2D1_BITMAP_OPTIONS_CANNOT_DRAW,
+        D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE)
     );
 
-    HRESULT hr = pD2DFactory->CreateHwndRenderTarget(
-        props,
-        hwndProps,
-        m_pHwndTarget.GetAddressOf()
+    hr = m_pDeviceContext->CreateBitmapFromDxgiSurface(
+        pBackBuffer.Get(),
+        bitmapProps,
+        m_pTargetBitmap.GetAddressOf()
     );
+    if (FAILED(hr)) return false;
 
-    if (FAILED(hr)) {
-        return false;
-    }
-
-    // BitmapRenderTargetの作成（オフスクリーン描画用）
-    D2D1_SIZE_F size = D2D1::SizeF(
-        static_cast<FLOAT>(m_width),
-        static_cast<FLOAT>(m_height)
-    );
-
-    hr = m_pHwndTarget->CreateCompatibleRenderTarget(
-        size,
-        m_pBitmapTarget.GetAddressOf()
-    );
-
-    if (FAILED(hr)) {
-        return false;
-    }
+    m_pDeviceContext->SetTarget(m_pTargetBitmap.Get());
 
     // ブラシの作成
-    hr = m_pBitmapTarget->CreateSolidColorBrush(
+    hr = m_pDeviceContext->CreateSolidColorBrush(
         m_currentColor,
         m_pBrush.GetAddressOf()
     );
-
-    if (FAILED(hr)) {
-        return false;
-    }
+    if (FAILED(hr)) return false;
 
     // テキストフォーマットの作成
-    hr = pDWriteFactory->CreateTextFormat(
+    hr = deviceMgr.getDWriteFactory()->CreateTextFormat(
         L"MS Gothic",
         nullptr,
         DWRITE_FONT_WEIGHT_NORMAL,
@@ -224,86 +352,98 @@ bool HspWindow::createWindow(
     int clientWidth,
     int clientHeight
 ) {
-    // クライアント領域のサイズを指定されたサイズにするため、
-    // ウィンドウ全体のサイズを計算
     RECT rect = { 0, 0, clientWidth, clientHeight };
     AdjustWindowRectEx(&rect, style, FALSE, exStyle);
     int windowWidth = rect.right - rect.left;
     int windowHeight = rect.bottom - rect.top;
 
-    // wstring_view から wstring に変換してnull終端を保証
     std::wstring classNameStr(className);
 
-    // ウィンドウ位置の決定（-1の場合はシステム規定）
     int posX = (x < 0) ? CW_USEDEFAULT : x;
     int posY = (y < 0) ? CW_USEDEFAULT : y;
 
-    // ウィンドウの作成
     m_hwnd = CreateWindowExW(
-        exStyle,                // 拡張スタイル
-        classNameStr.c_str(),   // ウィンドウクラス名（null終端保証）
-        m_title.c_str(),        // ウィンドウタイトル
-        style,                  // ウィンドウスタイル
-        posX,                   // X座標
-        posY,                   // Y座標
-        windowWidth,            // 幅
-        windowHeight,           // 高さ
-        nullptr,                // 親ウィンドウ
-        nullptr,                // メニュー
-        hInstance,              // インスタンスハンドル
-        this                    // 追加パラメータ（thisポインタを渡す）
+        exStyle,
+        classNameStr.c_str(),
+        m_title.c_str(),
+        style,
+        posX, posY,
+        windowWidth, windowHeight,
+        nullptr, nullptr,
+        hInstance,
+        this
     );
 
-    if (!m_hwnd) {
-        return false;
-    }
-
-    // ウィンドウの表示はscreen()側で行う（screen_hideフラグの処理のため）
-    // ShowWindow/UpdateWindowは呼ばない
-
-    return true;
+    return m_hwnd != nullptr;
 }
 
 void HspWindow::present() {
-    if (!m_pHwndTarget || !m_pBitmapTarget) return;
-
-    // オフスクリーンバッファから画面への転送
-    m_pHwndTarget->BeginDraw();
-
-    // ビットマップを取得（ComPtrで安全に管理）
-    ComPtr<ID2D1Bitmap> pBitmap;
-    HRESULT hr = m_pBitmapTarget->GetBitmap(pBitmap.GetAddressOf());
-
-    if (SUCCEEDED(hr) && pBitmap) {
-        // ビットマップを画面に描画
-        D2D1_RECT_F destRect = D2D1::RectF(
-            0.0f,
-            0.0f,
-            static_cast<FLOAT>(m_width),
-            static_cast<FLOAT>(m_height)
-        );
-
-        m_pHwndTarget->DrawBitmap(
-            pBitmap.Get(),
-            destRect,
-            1.0f,
-            D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR
-        );
-
-        // ComPtrなので自動解放される
-    }
-
-    hr = m_pHwndTarget->EndDraw();
-
-    // デバイスロスト時の処理
-    if (hr == D2DERR_RECREATE_TARGET) {
-        // TODO: リソースの再作成
+    if (m_pSwapChain) {
+        m_pSwapChain->Present(1, 0);
     }
 }
 
 void HspWindow::onPaint() {
-    // WM_PAINTメッセージを受け取った際、オフスクリーンバッファを再描画
-    present();
+    // WM_PAINTでは何もしない（スワップチェーンが自動的に処理）
+}
+
+// ========== HspBuffer 実装 ==========
+
+HspBuffer::HspBuffer(int width, int height)
+    : HspSurface(width, height)
+{
+}
+
+bool HspBuffer::initialize() {
+    auto& deviceMgr = D2DDeviceManager::getInstance();
+    if (!deviceMgr.isInitialized()) return false;
+
+    HRESULT hr;
+
+    // デバイスコンテキストの作成
+    m_pDeviceContext = deviceMgr.createDeviceContext();
+    if (!m_pDeviceContext) return false;
+
+    // 描画可能なビットマップを作成（D2D1_BITMAP_OPTIONS_TARGETのみ）
+    // D2D1_BITMAP_OPTIONS_CANNOT_DRAWがないので、他のDeviceContextから描画可能
+    D2D1_BITMAP_PROPERTIES1 bitmapProps = D2D1::BitmapProperties1(
+        D2D1_BITMAP_OPTIONS_TARGET,
+        D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED)
+    );
+
+    D2D1_SIZE_U size = D2D1::SizeU(m_width, m_height);
+
+    hr = m_pDeviceContext->CreateBitmap(
+        size,
+        nullptr,
+        0,
+        bitmapProps,
+        m_pTargetBitmap.GetAddressOf()
+    );
+    if (FAILED(hr)) return false;
+
+    m_pDeviceContext->SetTarget(m_pTargetBitmap.Get());
+
+    // ブラシの作成
+    hr = m_pDeviceContext->CreateSolidColorBrush(
+        m_currentColor,
+        m_pBrush.GetAddressOf()
+    );
+    if (FAILED(hr)) return false;
+
+    // テキストフォーマットの作成
+    hr = deviceMgr.getDWriteFactory()->CreateTextFormat(
+        L"MS Gothic",
+        nullptr,
+        DWRITE_FONT_WEIGHT_NORMAL,
+        DWRITE_FONT_STYLE_NORMAL,
+        DWRITE_FONT_STRETCH_NORMAL,
+        14.0f,
+        L"ja-jp",
+        m_pTextFormat.GetAddressOf()
+    );
+
+    return SUCCEEDED(hr);
 }
 
 } // namespace internal

@@ -98,6 +98,9 @@ namespace hsppp {
     export inline constexpr int screen_fixedsize = 4;    // サイズ固定
     export inline constexpr int screen_tool      = 8;    // ツールウィンドウ
     export inline constexpr int screen_frame     = 16;   // 深い縁のあるウィンドウ
+    export inline constexpr int screen_offscreen = 32;   // 描画先として初期化 (HSP3Dish/HGIMG4)
+    export inline constexpr int screen_usergcopy = 64;   // 描画用シェーダー (HGIMG4)
+    export inline constexpr int screen_fullscreen = 256; // フルスクリーン (bgscr用)
 
 
     // ============================================================
@@ -218,6 +221,90 @@ namespace hsppp {
         OptInt client_h = {},
         std::string_view title = "HSPPP Window"
     );
+
+    // ============================================================
+    // buffer - 仮想画面を初期化（HSP互換）
+    // ============================================================
+    /// @brief 仮想画面を初期化（メモリ上に画面を作成、表示しない）
+    /// @param id ウィンドウID (0～)
+    /// @param width 初期化する画面サイズX (デフォルト: 640)
+    /// @param height 初期化する画面サイズY (デフォルト: 480)
+    /// @param mode 初期化する画面モード (デフォルト: 0=フルカラー)
+    /// @return Screen ハンドル
+    /// @note screenで初期化されたIDをbufferで再初期化することはできません
+    export [[nodiscard]] Screen buffer(
+        OptInt id     = {},
+        OptInt width  = {},
+        OptInt height = {},
+        OptInt mode   = {}
+    );
+
+    // ============================================================
+    // bgscr - 枠のないウィンドウを初期化（HSP互換）
+    // ============================================================
+    /// @brief 枠のないウィンドウを初期化
+    /// @param id ウィンドウID (0～)
+    /// @param width 初期化する画面サイズX (デフォルト: 640)
+    /// @param height 初期化する画面サイズY (デフォルト: 480)
+    /// @param mode 初期化する画面モード (0=フルカラー, 2=非表示)
+    /// @param pos_x ウィンドウ位置X (-1=システム規定)
+    /// @param pos_y ウィンドウ位置Y (-1=システム規定)
+    /// @param client_w ウィンドウのサイズX (省略時=widthと同じ)
+    /// @param client_h ウィンドウのサイズY (省略時=heightと同じ)
+    /// @return Screen ハンドル
+    export [[nodiscard]] Screen bgscr(
+        OptInt id       = {},
+        OptInt width    = {},
+        OptInt height   = {},
+        OptInt mode     = {},
+        OptInt pos_x    = {},
+        OptInt pos_y    = {},
+        OptInt client_w = {},
+        OptInt client_h = {}
+    );
+
+    // ============================================================
+    // gsel - 描画先指定、ウィンドウ最前面、非表示設定（HSP互換）
+    // ============================================================
+    /// @brief 描画先を指定したウィンドウIDに変更
+    /// @param id ウィンドウID
+    /// @param mode ウィンドウアクティブスイッチ (-1=非表示, 0=影響なし, 1=アクティブ, 2=アクティブ+最前面)
+    export void gsel(OptInt id = {}, OptInt mode = {});
+
+    // ============================================================
+    // gmode - 画面コピーモード設定（HSP互換）
+    // ============================================================
+    /// @brief 画面コピーモードを設定
+    /// @param mode 画面コピーモード (0～6)
+    /// @param size_x コピーする大きさX (デフォルト: 32)
+    /// @param size_y コピーする大きさY (デフォルト: 32)
+    /// @param blend_rate 半透明合成時のブレンド率 (0～256)
+    export void gmode(OptInt mode = {}, OptInt size_x = {}, OptInt size_y = {}, OptInt blend_rate = {});
+
+    // ============================================================
+    // gcopy - 画面コピー（HSP互換）
+    // ============================================================
+    /// @brief 指定したウィンドウIDから現在の描画先にコピー
+    /// @param src_id コピー元のウィンドウID
+    /// @param src_x コピー元の左上X座標
+    /// @param src_y コピー元の左上Y座標
+    /// @param size_x コピーする大きさX (省略時=gmodeで設定したサイズ)
+    /// @param size_y コピーする大きさY (省略時=gmodeで設定したサイズ)
+    export void gcopy(OptInt src_id = {}, OptInt src_x = {}, OptInt src_y = {}, OptInt size_x = {}, OptInt size_y = {});
+
+    // ============================================================
+    // gzoom - 変倍して画面コピー（HSP互換）
+    // ============================================================
+    /// @brief 指定したウィンドウIDから変倍してコピー
+    /// @param dest_w 画面にコピーする時の大きさX
+    /// @param dest_h 画面にコピーする時の大きさY
+    /// @param src_id コピー元のウィンドウID
+    /// @param src_x コピー元の左上X座標
+    /// @param src_y コピー元の左上Y座標
+    /// @param src_w コピーする大きさX
+    /// @param src_h コピーする大きさY
+    /// @param mode ズームのモード (0=高速, 1=高品質ハーフトーン)
+    export void gzoom(OptInt dest_w = {}, OptInt dest_h = {}, OptInt src_id = {}, OptInt src_x = {}, OptInt src_y = {}, OptInt src_w = {}, OptInt src_h = {}, OptInt mode = {});
 
     // 描画制御
     // p1: 0=描画予約(Offscreen), 1=画面反映(Present)

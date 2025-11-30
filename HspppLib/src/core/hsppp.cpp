@@ -1,12 +1,13 @@
 ﻿// HspppLib/src/core/hsppp.cpp
-// HSP互換APIのファサード実装
+// HSP互換APIのファサード実装（Direct2D 1.1対応）
 
 // グローバルモジュールフラグメント
-// モジュール化されていないヘッダーはここでincludeする
 module;
 
 #include <windows.h>
-#include <d2d1.h>
+#include <d2d1_1.h>
+#include <d3d11.h>
+#include <dxgi1_2.h>
 #include <dwrite.h>
 #include <wrl/client.h>
 #include <string>
@@ -19,28 +20,27 @@ module;
 // モジュール実装
 module hsppp;
 
-#pragma comment(lib, "d2d1.lib")
-#pragma comment(lib, "dwrite.lib")
-
 // グローバル変数
 namespace {
     using namespace hsppp::internal;
 
-    // Direct2D / DirectWrite リソース（COMスマートポインタで管理）
-    ComPtr<ID2D1Factory> g_pD2DFactory;
-    ComPtr<IDWriteFactory> g_pDWriteFactory;
-
     // Surface管理
     std::map<int, std::shared_ptr<HspSurface>> g_surfaces;
-    std::weak_ptr<HspSurface> g_currentSurface;  // weak_ptrで安全に管理
+    std::weak_ptr<HspSurface> g_currentSurface;
 
     // システム状態
     bool g_shouldQuit = false;
-    DWORD g_lastAwaitTime = 0; // 前回のawait呼び出し時刻
+    DWORD g_lastAwaitTime = 0;
 
     // 描画モード管理（HSP互換）
-    int g_redrawMode = 1;      // 0: 仮想画面のみ, 1: 即座に反映（デフォルト）
-    bool g_isDrawing = false;  // BeginDraw中かどうか
+    int g_redrawMode = 1;
+    bool g_isDrawing = false;
+
+    // gmode設定（HSP互換）
+    int g_gmodeMode = 0;
+    int g_gmodeSizeX = 32;
+    int g_gmodeSizeY = 32;
+    int g_gmodeBlendRate = 0;
 
     // 遅延初期化: カレントサーフェスがなければデフォルトウィンドウを作成
     void ensureDefaultScreen() {
@@ -276,8 +276,8 @@ namespace hsppp {
             return Screen{};  // 無効なScreenを返す
         }
 
-        // Direct2Dリソースの初期化
-        if (!window->initialize(g_pD2DFactory, g_pDWriteFactory)) {
+        // Direct2D 1.1リソースの初期化
+        if (!window->initialize()) {
             MessageBoxW(nullptr, L"Failed to initialize window", L"Error", MB_OK | MB_ICONERROR);
             return Screen{};  // 無効なScreenを返す
         }
@@ -493,6 +493,336 @@ namespace hsppp {
         }
     }
 
+    // ============================================================
+    // buffer - 仮想画面を初期化（HSP互換）
+    // ============================================================
+    Screen buffer(OptInt id, OptInt width, OptInt height, OptInt mode) {
+        using namespace internal;
+
+        int p1 = id.value_or(0);
+        int p2 = width.value_or(640);
+        int p3 = height.value_or(480);
+        int p4 = mode.value_or(0);
+
+        // 既存のサーフェスがHspWindowの場合は再初期化不可
+        auto it = g_surfaces.find(p1);
+        if (it != g_surfaces.end()) {
+            auto pWindow = std::dynamic_pointer_cast<HspWindow>(it->second);
+            if (pWindow) {
+                // screenで初期化されたウィンドウはbufferで再初期化できない
+                // HSPの仕様に従いエラーとせず、単に無視する（または新規作成）
+                // ここでは既存を削除して新規作成
+            }
+            g_surfaces.erase(it);
+        }
+
+        // HspBufferインスタンスの作成
+        auto buffer = std::make_shared<HspBuffer>(p2, p3);
+
+        // Direct2D 1.1リソースの初期化
+        if (!buffer->initialize()) {
+            MessageBoxW(nullptr, L"Failed to initialize buffer", L"Error", MB_OK | MB_ICONERROR);
+            return Screen{};  // 無効なScreenを返す
+        }
+
+        // Surfaceマップに追加
+        g_surfaces[p1] = buffer;
+
+        // カレントサーフェスとして設定
+        g_currentSurface = buffer;
+
+        // Screen ハンドルを返す
+        return Screen{p1, true};
+    }
+
+    // ============================================================
+    // bgscr - 枠のないウィンドウを初期化（HSP互換）
+    // ============================================================
+    Screen bgscr(OptInt id, OptInt width, OptInt height, OptInt mode,
+                 OptInt pos_x, OptInt pos_y, OptInt client_w, OptInt client_h) {
+        using namespace internal;
+
+        int p1 = id.value_or(0);
+        int p2 = width.value_or(640);
+        int p3 = height.value_or(480);
+        int p4 = mode.value_or(0);
+        int p5 = pos_x.value_or(-1);
+        int p6 = pos_y.value_or(-1);
+        int p7 = client_w.value_or(0);
+        int p8 = client_h.value_or(0);
+
+        // 既存のサーフェスを削除
+        if (g_surfaces.find(p1) != g_surfaces.end()) {
+            g_surfaces.erase(p1);
+        }
+
+        // ウィンドウスタイル: 枠なし（WS_POPUP）
+        DWORD dwStyle = WS_POPUP;
+        DWORD dwExStyle = 0;
+
+        // 非表示ウィンドウ（p4 & 2）
+        bool isHidden = (p4 & 2) != 0;
+
+        // クライアントサイズの決定
+        int clientWidth = (p7 > 0) ? p7 : p2;
+        int clientHeight = (p8 > 0) ? p8 : p3;
+
+        // HspWindowインスタンスの作成（タイトルは空）
+        auto window = std::make_shared<HspWindow>(p2, p3, "");
+
+        // ウィンドウマネージャーの取得
+        WindowManager& windowManager = WindowManager::getInstance();
+
+        // ウィンドウの作成
+        if (!window->createWindow(
+            windowManager.getHInstance(),
+            windowManager.getClassName(),
+            dwStyle,
+            dwExStyle,
+            p5,
+            p6,
+            clientWidth,
+            clientHeight)) {
+            MessageBoxW(nullptr, L"Failed to create borderless window", L"Error", MB_OK | MB_ICONERROR);
+            return Screen{};
+        }
+
+        // Direct2D 1.1リソースの初期化
+        if (!window->initialize()) {
+            MessageBoxW(nullptr, L"Failed to initialize borderless window", L"Error", MB_OK | MB_ICONERROR);
+            return Screen{};
+        }
+
+        // Surfaceマップに追加
+        g_surfaces[p1] = window;
+
+        // カレントサーフェスとして設定
+        g_currentSurface = window;
+
+        // 非表示フラグが立っていなければウィンドウを表示
+        if (!isHidden) {
+            ShowWindow(window->getHwnd(), SW_SHOW);
+            UpdateWindow(window->getHwnd());
+        }
+
+        g_shouldQuit = false;
+
+        return Screen{p1, true};
+    }
+
+    // ============================================================
+    // gsel - 描画先指定、ウィンドウ最前面、非表示設定（HSP互換）
+    // ============================================================
+    void gsel(OptInt id, OptInt mode) {
+        using namespace internal;
+
+        int p1 = id.value_or(0);
+        int p2 = mode.value_or(0);
+
+        // 指定されたIDのサーフェスを取得
+        auto it = g_surfaces.find(p1);
+        if (it == g_surfaces.end()) {
+            return;  // 存在しないIDは無視
+        }
+
+        auto surface = it->second;
+
+        // カレントサーフェスとして設定
+        g_currentSurface = surface;
+
+        // HspWindowの場合はウィンドウ操作
+        auto pWindow = std::dynamic_pointer_cast<HspWindow>(surface);
+        if (pWindow) {
+            HWND hwnd = pWindow->getHwnd();
+            switch (p2) {
+            case -1:
+                // 非表示にする
+                ShowWindow(hwnd, SW_HIDE);
+                break;
+            case 0:
+                // 特に影響なし（描画先のみ変更）
+                break;
+            case 1:
+                // アクティブにする
+                ShowWindow(hwnd, SW_SHOW);
+                SetForegroundWindow(hwnd);
+                break;
+            case 2:
+                // アクティブ＋最前面
+                ShowWindow(hwnd, SW_SHOW);
+                SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+                SetForegroundWindow(hwnd);
+                break;
+            }
+        }
+    }
+
+    // ============================================================
+    // gmode - 画面コピーモード設定（HSP互換）
+    // ============================================================
+    void gmode(OptInt mode, OptInt size_x, OptInt size_y, OptInt blend_rate) {
+        g_gmodeMode = mode.value_or(0);
+        g_gmodeSizeX = size_x.value_or(32);
+        g_gmodeSizeY = size_y.value_or(32);
+        g_gmodeBlendRate = blend_rate.value_or(0);
+    }
+
+    // ============================================================
+    // gcopy - 画面コピー（HSP互換）
+    // Direct2D 1.1: 共有ビットマップを使用して異なるサーフェス間でコピー
+    // ============================================================
+    void gcopy(OptInt src_id, OptInt src_x, OptInt src_y, OptInt size_x, OptInt size_y) {
+        using namespace internal;
+
+        int p1 = src_id.value_or(0);
+        int p2 = src_x.value_or(0);
+        int p3 = src_y.value_or(0);
+        int p4 = size_x.value_or(g_gmodeSizeX);
+        int p5 = size_y.value_or(g_gmodeSizeY);
+
+        // コピー元サーフェスを取得
+        auto srcIt = g_surfaces.find(p1);
+        if (srcIt == g_surfaces.end()) return;
+        auto srcSurface = srcIt->second;
+
+        // カレントサーフェス（コピー先）を取得
+        auto destSurface = getCurrentSurface();
+        if (!destSurface) return;
+
+        // コピー元のビットマップを取得（Direct2D 1.1の共有ビットマップ）
+        auto srcBitmap = srcSurface->getTargetBitmap();
+        if (!srcBitmap) return;
+
+        // コピー先のDeviceContextを取得
+        auto destContext = destSurface->getDeviceContext();
+        if (!destContext) return;
+
+        // カレントポジションを取得
+        int destX = destSurface->getCurrentX();
+        int destY = destSurface->getCurrentY();
+
+        // 描画モードに応じて処理
+        bool wasDrawing = g_isDrawing;
+        if (g_redrawMode == 1 && !wasDrawing) {
+            beginDrawIfNeeded();
+        }
+
+        // コピー元の領域
+        D2D1_RECT_F srcRect = D2D1::RectF(
+            static_cast<FLOAT>(p2),
+            static_cast<FLOAT>(p3),
+            static_cast<FLOAT>(p2 + p4),
+            static_cast<FLOAT>(p3 + p5)
+        );
+
+        // コピー先の領域（カレントポジションから）
+        D2D1_RECT_F destRect = D2D1::RectF(
+            static_cast<FLOAT>(destX),
+            static_cast<FLOAT>(destY),
+            static_cast<FLOAT>(destX + p4),
+            static_cast<FLOAT>(destY + p5)
+        );
+
+        // コピーモードに応じた処理
+        FLOAT opacity = 1.0f;
+        if (g_gmodeMode == 3 || g_gmodeMode == 4 || g_gmodeMode == 5 || g_gmodeMode == 6) {
+            // 半透明・加算・減算モードの場合はブレンド率を適用
+            opacity = g_gmodeBlendRate / 256.0f;
+        }
+
+        // Direct2D 1.1では同じDeviceから作成されたビットマップを直接描画可能
+        destContext->DrawBitmap(
+            srcBitmap,
+            destRect,
+            opacity,
+            D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR,
+            srcRect
+        );
+
+        if (g_redrawMode == 1 && !wasDrawing) {
+            endDrawAndPresent();
+        }
+    }
+
+    // ============================================================
+    // gzoom - 変倍して画面コピー（HSP互換）
+    // Direct2D 1.1: 共有ビットマップを使用して異なるサーフェス間でコピー
+    // ============================================================
+    void gzoom(OptInt dest_w, OptInt dest_h, OptInt src_id, OptInt src_x, OptInt src_y,
+               OptInt src_w, OptInt src_h, OptInt mode) {
+        using namespace internal;
+
+        int p1 = dest_w.value_or(g_gmodeSizeX);
+        int p2 = dest_h.value_or(g_gmodeSizeY);
+        int p3 = src_id.value_or(0);
+        int p4 = src_x.value_or(0);
+        int p5 = src_y.value_or(0);
+        int p6 = src_w.value_or(g_gmodeSizeX);
+        int p7 = src_h.value_or(g_gmodeSizeY);
+        int p8 = mode.value_or(0);
+
+        // コピー元サーフェスを取得
+        auto srcIt = g_surfaces.find(p3);
+        if (srcIt == g_surfaces.end()) return;
+        auto srcSurface = srcIt->second;
+
+        // カレントサーフェス（コピー先）を取得
+        auto destSurface = getCurrentSurface();
+        if (!destSurface) return;
+
+        // コピー元のビットマップを取得（Direct2D 1.1の共有ビットマップ）
+        auto srcBitmap = srcSurface->getTargetBitmap();
+        if (!srcBitmap) return;
+
+        // コピー先のDeviceContextを取得
+        auto destContext = destSurface->getDeviceContext();
+        if (!destContext) return;
+
+        // カレントポジションを取得
+        int destX = destSurface->getCurrentX();
+        int destY = destSurface->getCurrentY();
+
+        // 描画モードに応じて処理
+        bool wasDrawing = g_isDrawing;
+        if (g_redrawMode == 1 && !wasDrawing) {
+            beginDrawIfNeeded();
+        }
+
+        // コピー元の領域
+        D2D1_RECT_F srcRect = D2D1::RectF(
+            static_cast<FLOAT>(p4),
+            static_cast<FLOAT>(p5),
+            static_cast<FLOAT>(p4 + p6),
+            static_cast<FLOAT>(p5 + p7)
+        );
+
+        // コピー先の領域（変倍、カレントポジションから）
+        D2D1_RECT_F destRect = D2D1::RectF(
+            static_cast<FLOAT>(destX),
+            static_cast<FLOAT>(destY),
+            static_cast<FLOAT>(destX + p1),
+            static_cast<FLOAT>(destY + p2)
+        );
+
+        // 補間モード
+        D2D1_BITMAP_INTERPOLATION_MODE interpMode =
+            (p8 == 1) ? D2D1_BITMAP_INTERPOLATION_MODE_LINEAR
+                      : D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR;
+
+        // Direct2D 1.1では同じDeviceから作成されたビットマップを直接描画可能
+        destContext->DrawBitmap(
+            srcBitmap,
+            destRect,
+            1.0f,
+            interpMode,
+            srcRect
+        );
+
+        if (g_redrawMode == 1 && !wasDrawing) {
+            endDrawAndPresent();
+        }
+    }
+
     namespace internal {
 
         void init_system() {
@@ -506,24 +836,10 @@ namespace hsppp {
                 return;
             }
 
-            // Direct2D Factory の作成（ComPtrで自動管理）
-            HRESULT hr = D2D1CreateFactory(
-                D2D1_FACTORY_TYPE_SINGLE_THREADED,
-                g_pD2DFactory.GetAddressOf()
-            );
-            if (FAILED(hr)) {
-                MessageBoxW(nullptr, L"Failed to create Direct2D factory", L"Error", MB_OK | MB_ICONERROR);
-                return;
-            }
-
-            // DirectWrite Factory の作成（ComPtrで自動管理）
-            hr = DWriteCreateFactory(
-                DWRITE_FACTORY_TYPE_SHARED,
-                __uuidof(IDWriteFactory),
-                reinterpret_cast<IUnknown**>(g_pDWriteFactory.GetAddressOf())
-            );
-            if (FAILED(hr)) {
-                MessageBoxW(nullptr, L"Failed to create DirectWrite factory", L"Error", MB_OK | MB_ICONERROR);
+            // Direct2D 1.1 デバイスマネージャーの初期化
+            D2DDeviceManager& deviceManager = D2DDeviceManager::getInstance();
+            if (!deviceManager.initialize()) {
+                MessageBoxW(nullptr, L"Failed to initialize Direct2D 1.1 device", L"Error", MB_OK | MB_ICONERROR);
                 return;
             }
         }
@@ -531,14 +847,12 @@ namespace hsppp {
         void close_system() {
             // すべてのサーフェスを解放
             g_surfaces.clear();
-            g_currentSurface.reset();  // weak_ptrをリセット
+            g_currentSurface.reset();
 
-            // ComPtrは自動的にReleaseされるので明示的な解放は不要
-            g_pDWriteFactory.Reset();
-            g_pD2DFactory.Reset();
+            // Direct2D 1.1 デバイスマネージャーの終了
+            D2DDeviceManager::getInstance().shutdown();
 
             // WindowManagerはスタティック変数なので明示的な削除は不要
-            // デストラクタでウィンドウクラスの登録解除が行われる
 
             // COM終了処理
             CoUninitialize();

@@ -1,4 +1,4 @@
-// HspppLib/module/hsppp.ixx
+﻿// HspppLib/module/hsppp.ixx
 export module hsppp;
 
 // 必要な標準ライブラリをインポート

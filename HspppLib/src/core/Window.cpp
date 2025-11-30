@@ -1,4 +1,4 @@
-// HspppLib/src/core/Window.cpp
+﻿// HspppLib/src/core/Window.cpp
 // ウィンドウ管理とメッセージループの実装
 
 #include "Internal.h"

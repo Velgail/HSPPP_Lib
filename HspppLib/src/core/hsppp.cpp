@@ -1,4 +1,4 @@
-// HspppLib/src/core/hsppp.cpp
+﻿// HspppLib/src/core/hsppp.cpp
 // HSP互換APIのファサード実装
 
 // グローバルモジュールフラグメント

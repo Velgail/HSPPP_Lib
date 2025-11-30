@@ -1,4 +1,4 @@
-// HspppLib/src/core/Surface.cpp
+﻿// HspppLib/src/core/Surface.cpp
 // HspSurface と HspWindow の実装
 
 #include "Internal.h"

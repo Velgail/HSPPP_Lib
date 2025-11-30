@@ -1,4 +1,4 @@
-// HspppLib/src/core/Internal.h
+﻿// HspppLib/src/core/Internal.h
 // 内部実装用ヘッダ（モジュール間で共有するクラス定義）
 
 #pragma once

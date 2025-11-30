@@ -1,4 +1,4 @@
-// HspppLib/src/boot/WinMain.cpp
+﻿// HspppLib/src/boot/WinMain.cpp
 #include <windows.h>
 import hsppp;
 

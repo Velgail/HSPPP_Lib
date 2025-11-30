@@ -323,14 +323,26 @@ void HspSurface::pset(int x, int y) {
 bool HspSurface::pget(int x, int y, int& r, int& g, int& b) {
     if (!m_pDeviceContext || !m_pTargetBitmap) return false;
 
-    // 描画中の場合は一旦終了してピクセルを読み取る
-    bool wasDrawing = m_isDrawing;
-    if (wasDrawing) {
-        m_pDeviceContext->EndDraw();
-        m_isDrawing = false;
-    }
+    // RAIIヘルパーで描画状態を管理
+    struct DrawingStateGuard {
+        HspSurface* self;
+        bool wasDrawing;
+        DrawingStateGuard(HspSurface* s) : self(s), wasDrawing(s->m_isDrawing) {
+            if (wasDrawing) {
+                self->m_pDeviceContext->EndDraw();
+                self->m_isDrawing = false;
+            }
+        }
+        ~DrawingStateGuard() {
+            if (wasDrawing) {
+                self->m_pDeviceContext->BeginDraw();
+                self->m_isDrawing = true;
+            }
+        }
+    };
+    DrawingStateGuard guard(this);
 
-    // CPU読み取り可能なビットマップを作成
+    // CPU読み取り可能なビットマップを作成（1x1サイズで最適化）
     ComPtr<ID2D1Bitmap1> pReadBitmap;
     D2D1_BITMAP_PROPERTIES1 readProps = D2D1::BitmapProperties1(
         D2D1_BITMAP_OPTIONS_CPU_READ | D2D1_BITMAP_OPTIONS_CANNOT_DRAW,
@@ -338,32 +350,18 @@ bool HspSurface::pget(int x, int y, int& r, int& g, int& b) {
     );
 
     HRESULT hr = m_pDeviceContext->CreateBitmap(
-        D2D1::SizeU(m_width, m_height),
+        D2D1::SizeU(1, 1),  // パフォーマンス改善: サイズを1x1に
         nullptr, 0,
         readProps,
         pReadBitmap.GetAddressOf()
     );
-
-    if (FAILED(hr)) {
-        if (wasDrawing) {
-            m_pDeviceContext->BeginDraw();
-            m_isDrawing = true;
-        }
-        return false;
-    }
+    if (FAILED(hr)) return false;
 
     // 指定座標のピクセルをコピー
     D2D1_POINT_2U destPoint = D2D1::Point2U(0, 0);
     D2D1_RECT_U srcRect = D2D1::RectU(x, y, x + 1, y + 1);
     hr = pReadBitmap->CopyFromBitmap(&destPoint, m_pTargetBitmap.Get(), &srcRect);
-
-    if (FAILED(hr)) {
-        if (wasDrawing) {
-            m_pDeviceContext->BeginDraw();
-            m_isDrawing = true;
-        }
-        return false;
-    }
+    if (FAILED(hr)) return false;
 
     // ピクセルデータをマップして読み取る
     D2D1_MAPPED_RECT mappedRect;
@@ -384,12 +382,6 @@ bool HspSurface::pget(int x, int y, int& r, int& g, int& b) {
         if (m_pBrush) {
             m_pBrush->SetColor(m_currentColor);
         }
-    }
-
-    // 描画状態を復元
-    if (wasDrawing) {
-        m_pDeviceContext->BeginDraw();
-        m_isDrawing = true;
     }
 
     return SUCCEEDED(hr);

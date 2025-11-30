@@ -221,6 +221,71 @@ namespace hsppp_test {
     }
 
     // ============================================================
+    // font/sysfont テスト
+    // ============================================================
+    bool test_font_functions() {
+        auto scr = screen({.width = 300, .height = 200, .mode = screen_hide});
+        if (!scr.valid()) return false;
+
+        scr.redraw(0);
+        scr.color(255, 255, 255).boxf();
+
+        // HSP互換版 font
+        font("MS Gothic", 12, 0);
+        scr.color(0, 0, 0).pos(10, 10);
+        scr.mes("Normal 12pt");
+
+        font("MS Gothic", 16, 1);  // 太字
+        scr.pos(10, 30);
+        scr.mes("Bold 16pt");
+
+        font("MS Gothic", 14, 2);  // イタリック
+        scr.pos(10, 55);
+        scr.mes("Italic 14pt");
+
+        // OOP版 font
+        scr.font("Arial", 10, 0);
+        scr.pos(10, 80);
+        scr.mes("Arial 10pt");
+
+        // sysfont
+        sysfont(0);  // HSP標準
+        scr.pos(10, 100);
+        scr.mes("sysfont(0)");
+
+        scr.sysfont(17);  // デフォルトGUI
+        scr.pos(10, 120);
+        scr.mes("sysfont(17)");
+
+        scr.redraw(1);
+        return true;
+    }
+
+    // ============================================================
+    // title/width テスト
+    // ============================================================
+    bool test_title_width_functions() {
+        auto scr = screen({.width = 400, .height = 300, .mode = screen_hide});
+        if (!scr.valid()) return false;
+
+        // HSP互換版 title
+        scr.select();
+        title("Test Title 1");
+
+        // OOP版 title
+        scr.title("Test Title 2");
+
+        // HSP互換版 width（サイズ変更）
+        width(350, 250);
+        
+        // OOP版 windowSize
+        scr.windowSize(300, 200);
+        scr.windowSize(-1, -1, 100, 100);  // 位置のみ変更
+
+        return true;
+    }
+
+    // ============================================================
     // メソッドチェーンテスト
     // ============================================================
     bool test_method_chaining() {
@@ -259,6 +324,8 @@ namespace hsppp_test {
         test_global_functions();
         test_ginfo();
         test_copy_functions();
+        test_font_functions();
+        test_title_width_functions();
         test_method_chaining();
 
         return s_testsPassed;

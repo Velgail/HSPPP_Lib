@@ -250,6 +250,32 @@ namespace hsppp {
 
         /// @brief 高さを取得
         [[nodiscard]] int height() const;
+
+        /// @brief フォントを設定
+        /// @param fontName フォント名
+        /// @param size フォントサイズ (デフォルト: 12)
+        /// @param style フォントスタイル (デフォルト: 0)
+        /// @return *this（メソッドチェーン用）
+        Screen& font(std::string_view fontName, int size = 12, int style = 0);
+
+        /// @brief システムフォントを選択
+        /// @param type フォント種類 (0=HSP標準, 10-17=システムフォント)
+        /// @return *this（メソッドチェーン用）
+        Screen& sysfont(int type = 0);
+
+        /// @brief タイトルバーを設定
+        /// @param title タイトル文字列
+        /// @return *this（メソッドチェーン用）
+        Screen& title(std::string_view title);
+
+        /// @brief ウィンドウサイズ・位置を設定
+        /// @param clientW クライアントサイズX (-1=変更なし)
+        /// @param clientH クライアントサイズY (-1=変更なし)
+        /// @param posX ウィンドウ位置X (-1=変更なし)
+        /// @param posY ウィンドウ位置Y (-1=変更なし)
+        /// @param option 座標設定オプション (0=負値で現在維持, 1=負値も設定)
+        /// @return *this（メソッドチェーン用）
+        Screen& windowSize(int clientW = -1, int clientH = -1, int posX = -1, int posY = -1, int option = 0);
     };
 
 
@@ -476,6 +502,48 @@ namespace hsppp {
 
     /// @brief 現在設定されている色コード(B)を取得
     export int ginfo_b();
+
+    // ============================================================
+    // font - フォント設定（HSP互換）
+    // ============================================================
+    /// @brief フォントを設定
+    /// @param fontName フォント名 ("MS Gothic", "MS 明朝" など)
+    /// @param size フォントサイズ (デフォルト: 12)
+    /// @param style フォントスタイル (1=太字, 2=イタリック, 4=下線, 8=打消し線, 16=アンチエイリアス)
+    /// @param decorationWidth フォント修飾の幅 (デフォルト: 1)
+    /// @note statに結果が設定される (0=成功, -1=失敗)
+    export void font(std::string_view fontName, OptInt size = {}, OptInt style = {}, OptInt decorationWidth = {});
+
+    // ============================================================
+    // sysfont - システムフォント選択（HSP互換）
+    // ============================================================
+    /// @brief システム標準のフォントを選択
+    /// @param type フォント種類指定
+    ///   0: HSP標準システムフォント
+    ///   10: OEM文字セットの固定幅フォント
+    ///   11: Windows文字セットの固定幅システムフォント
+    ///   12: Windows文字セットの可変幅システムフォント
+    ///   13: 標準システムフォント
+    ///   17: デフォルトGUIフォント
+    export void sysfont(OptInt type = {});
+
+    // ============================================================
+    // title - タイトルバー設定（HSP互換）
+    // ============================================================
+    /// @brief ウィンドウのタイトルバーを設定
+    /// @param str タイトル文字列
+    export void title(std::string_view str);
+
+    // ============================================================
+    // width - ウィンドウサイズ設定（HSP互換）
+    // ============================================================
+    /// @brief ウィンドウサイズと位置を設定
+    /// @param clientW クライアントサイズX (-1=変更なし)
+    /// @param clientH クライアントサイズY (-1=変更なし)
+    /// @param posX ウィンドウ位置X (-1=変更なし)
+    /// @param posY ウィンドウ位置Y (-1=変更なし)
+    /// @param option 座標設定オプション (0=負値で現在維持, 1=負値も設定)
+    export void width(OptInt clientW = {}, OptInt clientH = {}, OptInt posX = {}, OptInt posY = {}, OptInt option = {});
 
     // --- System / Internal ---
     namespace internal {

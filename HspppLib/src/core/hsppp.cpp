@@ -333,6 +333,87 @@ namespace hsppp {
         return *this;
     }
 
+    Screen& Screen::font(std::string_view fontName, int size, int style) {
+        auto surface = getSurfaceById(m_id);
+        if (surface) {
+            surface->font(fontName, size, style);
+        }
+        return *this;
+    }
+
+    Screen& Screen::sysfont(int type) {
+        auto surface = getSurfaceById(m_id);
+        if (surface) {
+            surface->sysfont(type);
+        }
+        return *this;
+    }
+
+    Screen& Screen::title(std::string_view title) {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        auto pWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
+        if (pWindow) {
+            pWindow->setTitle(title);
+        }
+        return *this;
+    }
+
+    Screen& Screen::windowSize(int clientW, int clientH, int posX, int posY, int option) {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        auto pWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
+        if (!pWindow) return *this;
+
+        // サイズ変更（-1以外の値が指定された場合、またはoption=1の場合）
+        if (clientW >= 0 || clientH >= 0) {
+            // 現在のサイズを取得
+            HWND hwnd = pWindow->getHwnd();
+            RECT clientRect;
+            GetClientRect(hwnd, &clientRect);
+            int newW = (clientW >= 0) ? clientW : (clientRect.right - clientRect.left);
+            int newH = (clientH >= 0) ? clientH : (clientRect.bottom - clientRect.top);
+            pWindow->setClientSize(newW, newH);
+        }
+
+        // 位置変更
+        if (option == 0) {
+            // option=0: 負の値は現在の位置を維持
+            if (posX >= 0 || posY >= 0) {
+                HWND hwnd = pWindow->getHwnd();
+                RECT windowRect;
+                GetWindowRect(hwnd, &windowRect);
+                int newX = (posX >= 0) ? posX : windowRect.left;
+                int newY = (posY >= 0) ? posY : windowRect.top;
+                pWindow->setWindowPos(newX, newY);
+            }
+        }
+        else {
+            // option=1: 負の値も含めて設定（マルチモニタ対応）
+            HWND hwnd = pWindow->getHwnd();
+            RECT windowRect;
+            GetWindowRect(hwnd, &windowRect);
+            int newX = (posX != -1 || option == 1) ? posX : windowRect.left;
+            int newY = (posY != -1 || option == 1) ? posY : windowRect.top;
+            if (newX != -1 || newY != -1 || option == 1) {
+                // option=1の場合は-1も有効な座標として扱う
+                if (option == 1) {
+                    pWindow->setWindowPos(posX, posY);
+                }
+                else if (newX >= 0 || newY >= 0) {
+                    pWindow->setWindowPos(
+                        (newX >= 0) ? newX : windowRect.left,
+                        (newY >= 0) ? newY : windowRect.top
+                    );
+                }
+            }
+        }
+
+        return *this;
+    }
+
 
     // ============================================================
     // screen 関数の実装
@@ -929,6 +1010,102 @@ namespace hsppp {
 
     int ginfo_b() {
         return ginfo(18);
+    }
+
+    // ============================================================
+    // font - フォント設定（HSP互換）
+    // ============================================================
+    void font(std::string_view fontName, OptInt size, OptInt style, OptInt decorationWidth) {
+        auto currentSurface = getCurrentSurface();
+        if (!currentSurface) return;
+
+        int p1 = size.value_or(12);
+        int p2 = style.value_or(0);
+        // p3 (decorationWidth) は現在未使用（mes命令のオプションで使用予定）
+
+        bool success = currentSurface->font(fontName, p1, p2);
+        // TODO: stat変数に結果を設定（0=成功, -1=失敗）
+        (void)success;
+    }
+
+    // ============================================================
+    // sysfont - システムフォント選択（HSP互換）
+    // ============================================================
+    void sysfont(OptInt type) {
+        auto currentSurface = getCurrentSurface();
+        if (!currentSurface) return;
+
+        int p1 = type.value_or(0);
+        currentSurface->sysfont(p1);
+    }
+
+    // ============================================================
+    // title - タイトルバー設定（HSP互換）
+    // ============================================================
+    void title(std::string_view str) {
+        using namespace internal;
+
+        auto currentSurface = getCurrentSurface();
+        if (!currentSurface) return;
+
+        auto pWindow = std::dynamic_pointer_cast<HspWindow>(currentSurface);
+        if (pWindow) {
+            pWindow->setTitle(str);
+        }
+    }
+
+    // ============================================================
+    // width - ウィンドウサイズ設定（HSP互換）
+    // ============================================================
+    void width(OptInt clientW, OptInt clientH, OptInt posX, OptInt posY, OptInt option) {
+        using namespace internal;
+
+        auto currentSurface = getCurrentSurface();
+        if (!currentSurface) return;
+
+        auto pWindow = std::dynamic_pointer_cast<HspWindow>(currentSurface);
+        if (!pWindow) return;
+
+        int p1 = clientW.value_or(-1);
+        int p2 = clientH.value_or(-1);
+        int p3 = posX.value_or(-1);
+        int p4 = posY.value_or(-1);
+        int p5 = option.value_or(0);
+
+        HWND hwnd = pWindow->getHwnd();
+        if (!hwnd) return;
+
+        // サイズ変更
+        if (p1 >= 0 || p2 >= 0) {
+            RECT clientRect;
+            GetClientRect(hwnd, &clientRect);
+            int newW = (p1 >= 0) ? p1 : (clientRect.right - clientRect.left);
+            int newH = (p2 >= 0) ? p2 : (clientRect.bottom - clientRect.top);
+            
+            // screen/buffer/bgscrの初期化サイズを超えないようにクランプ
+            int maxW = pWindow->getWidth();
+            int maxH = pWindow->getHeight();
+            if (newW > maxW) newW = maxW;
+            if (newH > maxH) newH = maxH;
+            
+            pWindow->setClientSize(newW, newH);
+        }
+
+        // 位置変更
+        if (p5 == 0) {
+            // option=0: 負の値は現在の位置を維持
+            if (p3 >= 0 || p4 >= 0) {
+                RECT windowRect;
+                GetWindowRect(hwnd, &windowRect);
+                int newX = (p3 >= 0) ? p3 : windowRect.left;
+                int newY = (p4 >= 0) ? p4 : windowRect.top;
+                pWindow->setWindowPos(newX, newY);
+            }
+        }
+        else {
+            // option=1: 負の値も含めて設定（マルチモニタ対応）
+            pWindow->setWindowPos(p3, p4);
+        }
     }
 
     // ============================================================

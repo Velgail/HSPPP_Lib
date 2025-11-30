@@ -577,6 +577,144 @@ void HspWindow::onPaint() {
     // WM_PAINTでは何もしない（スワップチェーンが自動的に処理）
 }
 
+void HspWindow::setTitle(std::string_view title) {
+    if (!m_hwnd) return;
+    m_title = Utf8ToWide(title);
+    SetWindowTextW(m_hwnd, m_title.c_str());
+}
+
+void HspWindow::setClientSize(int clientW, int clientH) {
+    if (!m_hwnd) return;
+
+    // 現在のウィンドウスタイルを取得
+    DWORD style = static_cast<DWORD>(GetWindowLongPtr(m_hwnd, GWL_STYLE));
+    DWORD exStyle = static_cast<DWORD>(GetWindowLongPtr(m_hwnd, GWL_EXSTYLE));
+
+    // クライアントサイズからウィンドウサイズを計算
+    RECT rect = { 0, 0, clientW, clientH };
+    AdjustWindowRectEx(&rect, style, FALSE, exStyle);
+    int windowWidth = rect.right - rect.left;
+    int windowHeight = rect.bottom - rect.top;
+
+    // ウィンドウサイズを変更（位置は維持）
+    SetWindowPos(m_hwnd, nullptr, 0, 0, windowWidth, windowHeight, 
+                 SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
+void HspWindow::setWindowPos(int x, int y) {
+    if (!m_hwnd) return;
+    SetWindowPos(m_hwnd, nullptr, x, y, 0, 0, 
+                 SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
+// ========== HspSurface フォント関連実装 ==========
+
+bool HspSurface::font(std::string_view fontName, int size, int style) {
+    auto& deviceMgr = D2DDeviceManager::getInstance();
+    if (!deviceMgr.getDWriteFactory()) return false;
+
+    std::wstring wideFontName = Utf8ToWide(fontName);
+
+    // スタイルフラグの解析
+    DWRITE_FONT_WEIGHT weight = (style & 1) ? DWRITE_FONT_WEIGHT_BOLD : DWRITE_FONT_WEIGHT_NORMAL;
+    DWRITE_FONT_STYLE fontStyle = (style & 2) ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL;
+    // 下線(4)、打ち消し線(8)はDrawTextではなくTextLayoutで処理が必要
+    // アンチエイリアス(16)はDirect2Dではデフォルトで有効
+
+    // 新しいTextFormatを作成
+    ComPtr<IDWriteTextFormat> pNewFormat;
+    HRESULT hr = deviceMgr.getDWriteFactory()->CreateTextFormat(
+        wideFontName.c_str(),
+        nullptr,
+        weight,
+        fontStyle,
+        DWRITE_FONT_STRETCH_NORMAL,
+        static_cast<float>(size),
+        L"ja-jp",
+        pNewFormat.GetAddressOf()
+    );
+
+    if (SUCCEEDED(hr)) {
+        m_pTextFormat = pNewFormat;
+        return true;
+    }
+    return false;
+}
+
+bool HspSurface::sysfont(int type) {
+    auto& deviceMgr = D2DDeviceManager::getInstance();
+    if (!deviceMgr.getDWriteFactory()) return false;
+
+    // システムフォントの情報を取得
+    HFONT hFont = nullptr;
+    LOGFONTW lf = {};
+
+    switch (type) {
+    case 0:  // HSP標準システムフォント
+    default:
+        // MS Gothicを使用
+        wcscpy_s(lf.lfFaceName, L"MS Gothic");
+        lf.lfHeight = -14;
+        break;
+    case 10: // OEM固定幅フォント
+        hFont = static_cast<HFONT>(GetStockObject(OEM_FIXED_FONT));
+        break;
+    case 11: // Windows固定幅システムフォント
+        hFont = static_cast<HFONT>(GetStockObject(ANSI_FIXED_FONT));
+        break;
+    case 12: // Windows可変幅システムフォント
+        hFont = static_cast<HFONT>(GetStockObject(ANSI_VAR_FONT));
+        break;
+    case 13: // 標準システムフォント
+        hFont = static_cast<HFONT>(GetStockObject(SYSTEM_FONT));
+        break;
+    case 17: // デフォルトGUIフォント
+        hFont = static_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
+        break;
+    }
+
+    // ストックフォントから情報を取得
+    if (hFont) {
+        GetObjectW(hFont, sizeof(LOGFONTW), &lf);
+    }
+
+    // フォント名が空の場合はデフォルト
+    if (lf.lfFaceName[0] == L'\0') {
+        wcscpy_s(lf.lfFaceName, L"MS Gothic");
+    }
+
+    // フォントサイズの計算（論理単位からポイントへ）
+    float fontSize = 14.0f;
+    if (lf.lfHeight != 0) {
+        HDC hdc = GetDC(nullptr);
+        fontSize = static_cast<float>(abs(lf.lfHeight) * 72 / GetDeviceCaps(hdc, LOGPIXELSY));
+        ReleaseDC(nullptr, hdc);
+    }
+
+    // DWriteのウェイトとスタイル
+    DWRITE_FONT_WEIGHT weight = (lf.lfWeight >= FW_BOLD) ? DWRITE_FONT_WEIGHT_BOLD : DWRITE_FONT_WEIGHT_NORMAL;
+    DWRITE_FONT_STYLE fontStyle = lf.lfItalic ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL;
+
+    // 新しいTextFormatを作成
+    ComPtr<IDWriteTextFormat> pNewFormat;
+    HRESULT hr = deviceMgr.getDWriteFactory()->CreateTextFormat(
+        lf.lfFaceName,
+        nullptr,
+        weight,
+        fontStyle,
+        DWRITE_FONT_STRETCH_NORMAL,
+        fontSize,
+        L"ja-jp",
+        pNewFormat.GetAddressOf()
+    );
+
+    if (SUCCEEDED(hr)) {
+        m_pTextFormat = pNewFormat;
+        return true;
+    }
+    return false;
+}
+
 // ========== HspBuffer 実装 ==========
 
 HspBuffer::HspBuffer(int width, int height)

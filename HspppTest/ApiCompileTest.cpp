@@ -103,6 +103,23 @@ namespace compile_test {
         [[maybe_unused]] int w = scr.width();
         [[maybe_unused]] int h = scr.height();
 
+        // フォント設定（メソッドチェーン対応）
+        scr.font("MS Gothic", 12, 0);
+        scr.font("Arial", 16, 1);  // 太字
+        scr.font("MS Gothic", 14, 2);  // イタリック
+        scr.font("MS Gothic", 18, 3);  // 太字+イタリック
+        scr.sysfont(0);   // HSP標準
+        scr.sysfont(17);  // デフォルトGUI
+
+        // タイトル設定
+        scr.title("Test Title");
+
+        // ウィンドウサイズ設定
+        scr.windowSize(100, 100);
+        scr.windowSize(100, 100, 50, 50);
+        scr.windowSize(-1, -1, 100, 100, 0);
+        scr.windowSize(-1, -1, -100, -100, 1);  // マルチモニタ対応
+
         // メソッドチェーン
         scr.color(255, 0, 0)
            .pos(0, 0)
@@ -260,6 +277,46 @@ namespace compile_test {
     }
 
     // ============================================================
+    // フォント・ウィンドウ制御関数のテスト
+    // ============================================================
+    void test_font_window_functions() {
+        // font
+        font("MS Gothic");
+        font("MS Gothic", 12);
+        font("MS Gothic", 12, 0);
+        font("MS Gothic", 12, 1);  // 太字
+        font("MS Gothic", 12, 2);  // イタリック
+        font("MS Gothic", 12, 3);  // 太字+イタリック
+        font("MS Gothic", 12, 16); // アンチエイリアス
+        font("MS Gothic", 12, 0, 1); // decorationWidth
+        font("Arial", omit, omit, omit);
+
+        // sysfont
+        sysfont();
+        sysfont(0);   // HSP標準
+        sysfont(10);  // OEM固定幅
+        sysfont(11);  // Windows固定幅
+        sysfont(12);  // Windows可変幅
+        sysfont(13);  // 標準システム
+        sysfont(17);  // デフォルトGUI
+        sysfont(omit);
+
+        // title
+        title("Window Title");
+        title("");
+
+        // width
+        width();
+        width(100);
+        width(100, 100);
+        width(100, 100, 50, 50);
+        width(100, 100, 50, 50, 0);
+        width(100, 100, 50, 50, 1);  // マルチモニタ対応
+        width(-1, -1, 100, 100);
+        width(omit, omit, omit, omit, omit);
+    }
+
+    // ============================================================
     // 終了関数（呼び出さない、シグネチャ確認のみ）
     // ============================================================
     void test_end_function_signature() {
@@ -298,6 +355,7 @@ namespace hsppp_test {
         compile_test::test_global_drawing_functions();
         compile_test::test_window_control_functions();
         compile_test::test_control_functions();
+        compile_test::test_font_window_functions();
         // compile_test::test_end_function_signature(); // end()は呼ばない
 
         return true;

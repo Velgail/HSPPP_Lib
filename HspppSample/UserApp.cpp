@@ -219,12 +219,59 @@ int hspMain() {
     }
 
     // ╔═══════════════════════════════════════════════════════════════╗
+    // ║  8. font, sysfont, title, width テスト                       ║
+    // ╚═══════════════════════════════════════════════════════════════╝
+    mw.color(0, 0, 0).pos(620, 150);
+    mw.mes("[8] Font & Window");
+
+    // フォントテスト
+    mw.font("MS Gothic", 12, 0);   // 通常
+    mw.pos(620, 170);
+    mw.mes("Normal 12pt");
+
+    mw.font("MS Gothic", 16, 1);   // 太字
+    mw.pos(620, 190);
+    mw.mes("Bold 16pt");
+
+    mw.font("MS Gothic", 14, 2);   // イタリック
+    mw.pos(620, 215);
+    mw.mes("Italic 14pt");
+
+    mw.font("MS Gothic", 18, 3);   // 太字+イタリック
+    mw.pos(620, 240);
+    mw.mes("Bold+Italic");
+
+    // システムフォントに戻す
+    mw.sysfont(0);
+    mw.pos(620, 270);
+    mw.mes("sysfont(0)");
+
+    // OOP版 font/sysfont/title メソッドチェーン
+    mw.font("Arial", 10, 0)
+      .pos(620, 290)
+      .mes("Arial 10pt")
+      .sysfont(17)  // デフォルトGUIフォント
+      .pos(620, 310)
+      .mes("GUI font");
+
+    // タイトル変更テスト（HSP互換）
+    title("HSPPP Demo - title() test");
+
+    // OOP版タイトル
+    mw.title("HSPPP Drawing Demo (OOP)");
+
+    // widthテストはウィンドウサイズが変わるのでコメントアウト
+    // width(750, 550);  // クライアントサイズ変更
+    // mw.windowSize(700, 500);  // OOP版
+
+    // ╔═══════════════════════════════════════════════════════════════╗
     // ║  完了メッセージ                                               ║
     // ╚═══════════════════════════════════════════════════════════════╝
+    mw.sysfont(0);  // 標準フォントに戻す
     mw.color(0, 100, 0).pos(20, 500);
     mw.mes("=== All Drawing Features Demonstrated ===");
     mw.pos(20, 520);
-    mw.mes("Functions: line, circle, pset, pget, ginfo, ginfo_r/g/b");
+    mw.mes("Functions: line, circle, pset, pget, ginfo, font, sysfont, title, width");
     mw.pos(20, 540);
     mw.mes("Press close button to exit.");
 

@@ -109,6 +109,10 @@ public:
     void pset(int x, int y);
     bool pget(int x, int y, int& r, int& g, int& b);
 
+    // フォント設定
+    bool font(std::string_view fontName, int size, int style);
+    bool sysfont(int type);
+
     // 描画制御
     void beginDraw();
     void endDraw();
@@ -160,6 +164,13 @@ public:
 
     // WM_PAINT処理
     void onPaint();
+
+    // タイトル設定
+    void setTitle(std::string_view title);
+
+    // ウィンドウサイズ・位置設定
+    void setClientSize(int clientW, int clientH);
+    void setWindowPos(int x, int y);
 };
 
 // 派生クラス: HspBuffer

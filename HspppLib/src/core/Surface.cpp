@@ -256,6 +256,137 @@ void HspSurface::pos(int x, int y) {
     m_currentY = y;
 }
 
+void HspSurface::line(int x2, int y2, int x1, int y1, bool useStartPos) {
+    if (!m_pDeviceContext || !m_pBrush || !m_isDrawing) return;
+
+    // 始点を決定
+    float startX = useStartPos ? static_cast<float>(x1) : static_cast<float>(m_currentX);
+    float startY = useStartPos ? static_cast<float>(y1) : static_cast<float>(m_currentY);
+    float endX = static_cast<float>(x2);
+    float endY = static_cast<float>(y2);
+
+    // 直線を描画（太さ1.0f）
+    m_pDeviceContext->DrawLine(
+        D2D1::Point2F(startX, startY),
+        D2D1::Point2F(endX, endY),
+        m_pBrush.Get(),
+        1.0f
+    );
+
+    // カレントポジションを終点に更新
+    m_currentX = x2;
+    m_currentY = y2;
+}
+
+void HspSurface::circle(int x1, int y1, int x2, int y2, int fillMode) {
+    if (!m_pDeviceContext || !m_pBrush || !m_isDrawing) return;
+
+    // 楕円のパラメータを計算
+    float centerX = (static_cast<float>(x1) + static_cast<float>(x2)) / 2.0f;
+    float centerY = (static_cast<float>(y1) + static_cast<float>(y2)) / 2.0f;
+    float radiusX = (static_cast<float>(x2) - static_cast<float>(x1)) / 2.0f;
+    float radiusY = (static_cast<float>(y2) - static_cast<float>(y1)) / 2.0f;
+
+    // 負の半径を正に（座標の順序が逆でも対応）
+    if (radiusX < 0) radiusX = -radiusX;
+    if (radiusY < 0) radiusY = -radiusY;
+
+    D2D1_ELLIPSE ellipse = D2D1::Ellipse(
+        D2D1::Point2F(centerX, centerY),
+        radiusX,
+        radiusY
+    );
+
+    if (fillMode == 1) {
+        // 塗りつぶし
+        m_pDeviceContext->FillEllipse(ellipse, m_pBrush.Get());
+    } else {
+        // 輪郭のみ
+        m_pDeviceContext->DrawEllipse(ellipse, m_pBrush.Get(), 1.0f);
+    }
+}
+
+void HspSurface::pset(int x, int y) {
+    if (!m_pDeviceContext || !m_pBrush || !m_isDrawing) return;
+
+    // 1ドットの点を描画（1x1の矩形）
+    D2D1_RECT_F rect = D2D1::RectF(
+        static_cast<FLOAT>(x),
+        static_cast<FLOAT>(y),
+        static_cast<FLOAT>(x + 1),
+        static_cast<FLOAT>(y + 1)
+    );
+
+    m_pDeviceContext->FillRectangle(rect, m_pBrush.Get());
+}
+
+bool HspSurface::pget(int x, int y, int& r, int& g, int& b) {
+    if (!m_pDeviceContext || !m_pTargetBitmap) return false;
+
+    // RAIIヘルパーで描画状態を管理
+    struct DrawingStateGuard {
+        HspSurface* self;
+        bool wasDrawing;
+        DrawingStateGuard(HspSurface* s) : self(s), wasDrawing(s->m_isDrawing) {
+            if (wasDrawing) {
+                self->m_pDeviceContext->EndDraw();
+                self->m_isDrawing = false;
+            }
+        }
+        ~DrawingStateGuard() {
+            if (wasDrawing) {
+                self->m_pDeviceContext->BeginDraw();
+                self->m_isDrawing = true;
+            }
+        }
+    };
+    DrawingStateGuard guard(this);
+
+    // CPU読み取り可能なビットマップを作成（1x1サイズで最適化）
+    ComPtr<ID2D1Bitmap1> pReadBitmap;
+    D2D1_BITMAP_PROPERTIES1 readProps = D2D1::BitmapProperties1(
+        D2D1_BITMAP_OPTIONS_CPU_READ | D2D1_BITMAP_OPTIONS_CANNOT_DRAW,
+        D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED)
+    );
+
+    HRESULT hr = m_pDeviceContext->CreateBitmap(
+        D2D1::SizeU(1, 1),  // パフォーマンス改善: サイズを1x1に
+        nullptr, 0,
+        readProps,
+        pReadBitmap.GetAddressOf()
+    );
+    if (FAILED(hr)) return false;
+
+    // 指定座標のピクセルをコピー
+    D2D1_POINT_2U destPoint = D2D1::Point2U(0, 0);
+    D2D1_RECT_U srcRect = D2D1::RectU(x, y, x + 1, y + 1);
+    hr = pReadBitmap->CopyFromBitmap(&destPoint, m_pTargetBitmap.Get(), &srcRect);
+    if (FAILED(hr)) return false;
+
+    // ピクセルデータをマップして読み取る
+    D2D1_MAPPED_RECT mappedRect;
+    hr = pReadBitmap->Map(D2D1_MAP_OPTIONS_READ, &mappedRect);
+
+    if (SUCCEEDED(hr)) {
+        // BGRA形式なので順序に注意
+        BYTE* pixel = mappedRect.bits;
+        b = pixel[0];
+        g = pixel[1];
+        r = pixel[2];
+        // pixel[3] はアルファ値
+
+        pReadBitmap->Unmap();
+
+        // 取得した色を選択色として設定
+        m_currentColor = D2D1::ColorF(r / 255.0f, g / 255.0f, b / 255.0f, 1.0f);
+        if (m_pBrush) {
+            m_pBrush->SetColor(m_currentColor);
+        }
+    }
+
+    return SUCCEEDED(hr);
+}
+
 // ========== HspWindow 実装 ==========
 
 HspWindow::HspWindow(int width, int height, std::string_view title)
@@ -426,8 +557,9 @@ void HspWindow::present() {
 
     m_pDeviceContext->EndDraw();
 
-    // 画面に表示
-    m_pSwapChain->Present(1, 0);
+    // 画面に表示（垂直同期を待たない - redraw(1)での高速描画用）
+    // SyncInterval=0 で即座に表示
+    m_pSwapChain->Present(0, 0);
 
     // 描画先をオフスクリーンビットマップに戻す
     m_pDeviceContext->SetTarget(m_pTargetBitmap.Get());
@@ -435,6 +567,144 @@ void HspWindow::present() {
 
 void HspWindow::onPaint() {
     // WM_PAINTでは何もしない（スワップチェーンが自動的に処理）
+}
+
+void HspWindow::setTitle(std::string_view title) {
+    if (!m_hwnd) return;
+    m_title = Utf8ToWide(title);
+    SetWindowTextW(m_hwnd, m_title.c_str());
+}
+
+void HspWindow::setClientSize(int clientW, int clientH) {
+    if (!m_hwnd) return;
+
+    // 現在のウィンドウスタイルを取得
+    DWORD style = static_cast<DWORD>(GetWindowLongPtr(m_hwnd, GWL_STYLE));
+    DWORD exStyle = static_cast<DWORD>(GetWindowLongPtr(m_hwnd, GWL_EXSTYLE));
+
+    // クライアントサイズからウィンドウサイズを計算
+    RECT rect = { 0, 0, clientW, clientH };
+    AdjustWindowRectEx(&rect, style, FALSE, exStyle);
+    int windowWidth = rect.right - rect.left;
+    int windowHeight = rect.bottom - rect.top;
+
+    // ウィンドウサイズを変更（位置は維持）
+    SetWindowPos(m_hwnd, nullptr, 0, 0, windowWidth, windowHeight, 
+                 SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
+void HspWindow::setWindowPos(int x, int y) {
+    if (!m_hwnd) return;
+    SetWindowPos(m_hwnd, nullptr, x, y, 0, 0, 
+                 SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
+// ========== HspSurface フォント関連実装 ==========
+
+bool HspSurface::font(std::string_view fontName, int size, int style) {
+    auto& deviceMgr = D2DDeviceManager::getInstance();
+    if (!deviceMgr.getDWriteFactory()) return false;
+
+    std::wstring wideFontName = Utf8ToWide(fontName);
+
+    // スタイルフラグの解析
+    DWRITE_FONT_WEIGHT weight = (style & 1) ? DWRITE_FONT_WEIGHT_BOLD : DWRITE_FONT_WEIGHT_NORMAL;
+    DWRITE_FONT_STYLE fontStyle = (style & 2) ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL;
+    // 下線(4)、打ち消し線(8)はDrawTextではなくTextLayoutで処理が必要
+    // アンチエイリアス(16)はDirect2Dではデフォルトで有効
+
+    // 新しいTextFormatを作成
+    ComPtr<IDWriteTextFormat> pNewFormat;
+    HRESULT hr = deviceMgr.getDWriteFactory()->CreateTextFormat(
+        wideFontName.c_str(),
+        nullptr,
+        weight,
+        fontStyle,
+        DWRITE_FONT_STRETCH_NORMAL,
+        static_cast<float>(size),
+        L"ja-jp",
+        pNewFormat.GetAddressOf()
+    );
+
+    if (SUCCEEDED(hr)) {
+        m_pTextFormat = pNewFormat;
+        return true;
+    }
+    return false;
+}
+
+bool HspSurface::sysfont(int type) {
+    auto& deviceMgr = D2DDeviceManager::getInstance();
+    if (!deviceMgr.getDWriteFactory()) return false;
+
+    // システムフォントの情報を取得
+    HFONT hFont = nullptr;
+    LOGFONTW lf = {};
+
+    switch (type) {
+    case 0:  // HSP標準システムフォント
+    default:
+        // MS Gothicを使用
+        wcscpy_s(lf.lfFaceName, L"MS Gothic");
+        lf.lfHeight = -14;
+        break;
+    case 10: // OEM固定幅フォント
+        hFont = static_cast<HFONT>(GetStockObject(OEM_FIXED_FONT));
+        break;
+    case 11: // Windows固定幅システムフォント
+        hFont = static_cast<HFONT>(GetStockObject(ANSI_FIXED_FONT));
+        break;
+    case 12: // Windows可変幅システムフォント
+        hFont = static_cast<HFONT>(GetStockObject(ANSI_VAR_FONT));
+        break;
+    case 13: // 標準システムフォント
+        hFont = static_cast<HFONT>(GetStockObject(SYSTEM_FONT));
+        break;
+    case 17: // デフォルトGUIフォント
+        hFont = static_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
+        break;
+    }
+
+    // ストックフォントから情報を取得
+    if (hFont) {
+        GetObjectW(hFont, sizeof(LOGFONTW), &lf);
+    }
+
+    // フォント名が空の場合はデフォルト
+    if (lf.lfFaceName[0] == L'\0') {
+        wcscpy_s(lf.lfFaceName, L"MS Gothic");
+    }
+
+    // フォントサイズの計算（論理単位からポイントへ）
+    float fontSize = 14.0f;
+    if (lf.lfHeight != 0) {
+        HDC hdc = GetDC(nullptr);
+        fontSize = static_cast<float>(abs(lf.lfHeight) * 72 / GetDeviceCaps(hdc, LOGPIXELSY));
+        ReleaseDC(nullptr, hdc);
+    }
+
+    // DWriteのウェイトとスタイル
+    DWRITE_FONT_WEIGHT weight = (lf.lfWeight >= FW_BOLD) ? DWRITE_FONT_WEIGHT_BOLD : DWRITE_FONT_WEIGHT_NORMAL;
+    DWRITE_FONT_STYLE fontStyle = lf.lfItalic ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL;
+
+    // 新しいTextFormatを作成
+    ComPtr<IDWriteTextFormat> pNewFormat;
+    HRESULT hr = deviceMgr.getDWriteFactory()->CreateTextFormat(
+        lf.lfFaceName,
+        nullptr,
+        weight,
+        fontStyle,
+        DWRITE_FONT_STRETCH_NORMAL,
+        fontSize,
+        L"ja-jp",
+        pNewFormat.GetAddressOf()
+    );
+
+    if (SUCCEEDED(hr)) {
+        m_pTextFormat = pNewFormat;
+        return true;
+    }
+    return false;
 }
 
 // ========== HspBuffer 実装 ==========

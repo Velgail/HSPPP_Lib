@@ -104,6 +104,14 @@ public:
     void mes(std::string_view text);
     void color(int r, int g, int b);
     void pos(int x, int y);
+    void line(int x2, int y2, int x1, int y1, bool useStartPos);
+    void circle(int x1, int y1, int x2, int y2, int fillMode);
+    void pset(int x, int y);
+    bool pget(int x, int y, int& r, int& g, int& b);
+
+    // フォント設定
+    bool font(std::string_view fontName, int size, int style);
+    bool sysfont(int type);
 
     // 描画制御
     void beginDraw();
@@ -115,6 +123,7 @@ public:
     int getHeight() const { return m_height; }
     int getCurrentX() const { return m_currentX; }
     int getCurrentY() const { return m_currentY; }
+    D2D1_COLOR_F getCurrentColor() const { return m_currentColor; }
     ID2D1DeviceContext* getDeviceContext() const { return m_pDeviceContext.Get(); }
     ID2D1Bitmap1* getTargetBitmap() const { return m_pTargetBitmap.Get(); }
 };
@@ -155,6 +164,13 @@ public:
 
     // WM_PAINT処理
     void onPaint();
+
+    // タイトル設定
+    void setTitle(std::string_view title);
+
+    // ウィンドウサイズ・位置設定
+    void setClientSize(int clientW, int clientH);
+    void setWindowPos(int x, int y);
 };
 
 // 派生クラス: HspBuffer

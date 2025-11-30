@@ -207,11 +207,75 @@ namespace hsppp {
         /// @brief このScreenをカレントに設定（HSPのgsel相当）
         Screen& select();
 
+        /// @brief 直線を描画
+        /// @param x2 ラインの終点X座標
+        /// @param y2 ラインの終点Y座標
+        /// @param x1 ラインの始点X座標 (省略時=カレントポジション)
+        /// @param y1 ラインの始点Y座標 (省略時=カレントポジション)
+        /// @return *this（メソッドチェーン用）
+        Screen& line(int x2, int y2);
+        Screen& line(int x2, int y2, int x1, int y1);
+
+        /// @brief 円を描画
+        /// @param x1 矩形の左上X座標
+        /// @param y1 矩形の左上Y座標
+        /// @param x2 矩形の右下X座標
+        /// @param y2 矩形の右下Y座標
+        /// @param fillMode 描画モード (0=線, 1=塗りつぶし, デフォルト: 1)
+        /// @return *this（メソッドチェーン用）
+        Screen& circle(int x1, int y1, int x2, int y2, int fillMode = 1);
+
+        /// @brief 1ドットの点を描画
+        /// @param x 画面上のX座標
+        /// @param y 画面上のY座標
+        /// @return *this（メソッドチェーン用）
+        Screen& pset(int x, int y);
+
+        /// @brief カレントポジションに1ドットの点を描画
+        /// @return *this（メソッドチェーン用）
+        Screen& pset();
+
+        /// @brief 1ドットの色を取得し、選択色として設定
+        /// @param x 画面上のX座標
+        /// @param y 画面上のY座標
+        /// @return *this（メソッドチェーン用）
+        Screen& pget(int x, int y);
+
+        /// @brief カレントポジションの色を取得し、選択色として設定
+        /// @return *this（メソッドチェーン用）
+        Screen& pget();
+
         /// @brief 幅を取得
         [[nodiscard]] int width() const;
 
         /// @brief 高さを取得
         [[nodiscard]] int height() const;
+
+        /// @brief フォントを設定
+        /// @param fontName フォント名
+        /// @param size フォントサイズ (デフォルト: 12)
+        /// @param style フォントスタイル (デフォルト: 0)
+        /// @return *this（メソッドチェーン用）
+        Screen& font(std::string_view fontName, int size = 12, int style = 0);
+
+        /// @brief システムフォントを選択
+        /// @param type フォント種類 (0=HSP標準, 10-17=システムフォント)
+        /// @return *this（メソッドチェーン用）
+        Screen& sysfont(int type = 0);
+
+        /// @brief タイトルバーを設定
+        /// @param title タイトル文字列
+        /// @return *this（メソッドチェーン用）
+        Screen& title(std::string_view title);
+
+        /// @brief ウィンドウサイズ・位置を設定
+        /// @param clientW クライアントサイズX (-1=変更なし)
+        /// @param clientH クライアントサイズY (-1=変更なし)
+        /// @param posX ウィンドウ位置X (-1=変更なし)
+        /// @param posY ウィンドウ位置Y (-1=変更なし)
+        /// @param option 座標設定オプション (0=負値で現在維持, 1=負値も設定)
+        /// @return *this（メソッドチェーン用）
+        Screen& windowSize(int clientW = -1, int clientH = -1, int posX = -1, int posY = -1, int option = 0);
     };
 
 
@@ -375,6 +439,111 @@ namespace hsppp {
     export void boxf(int x1, int y1, int x2, int y2);
     // 引数なし版 boxf() -> 画面全体
     export void boxf();
+
+    // ============================================================
+    // line - 直線を描画（HSP互換）
+    // ============================================================
+    /// @brief 直線を描画
+    /// @param x2 ラインの終点X座標 (デフォルト: 0)
+    /// @param y2 ラインの終点Y座標 (デフォルト: 0)
+    /// @param x1 ラインの始点X座標 (省略時=カレントポジション)
+    /// @param y1 ラインの始点Y座標 (省略時=カレントポジション)
+    /// @note 実行後、(x2, y2)がカレントポジションになる
+    export void line(OptInt x2 = {}, OptInt y2 = {}, OptInt x1 = {}, OptInt y1 = {});
+
+    // ============================================================
+    // circle - 円を描画（HSP互換）
+    // ============================================================
+    /// @brief 円を描画
+    /// @param x1 矩形の左上X座標 (デフォルト: 0)
+    /// @param y1 矩形の左上Y座標 (デフォルト: 0)
+    /// @param x2 矩形の右下X座標
+    /// @param y2 矩形の右下Y座標
+    /// @param fillMode 描画モード (0=線, 1=塗りつぶし, デフォルト: 1)
+    export void circle(OptInt x1 = {}, OptInt y1 = {}, OptInt x2 = {}, OptInt y2 = {}, OptInt fillMode = {});
+
+    // ============================================================
+    // pset - 1ドットの点を描画（HSP互換）
+    // ============================================================
+    /// @brief 1ドットの点を描画
+    /// @param x 画面上のX座標 (省略時=カレントポジション)
+    /// @param y 画面上のY座標 (省略時=カレントポジション)
+    export void pset(OptInt x = {}, OptInt y = {});
+
+    // ============================================================
+    // pget - 1ドットの色を取得（HSP互換）
+    // ============================================================
+    /// @brief 1ドットの色を取得し、選択色として設定
+    /// @param x 画面上のX座標 (省略時=カレントポジション)
+    /// @param y 画面上のY座標 (省略時=カレントポジション)
+    /// @note 取得した色はginfo(16/17/18)またはginfo_r/g/bで参照可能
+    export void pget(OptInt x = {}, OptInt y = {});
+
+    // ============================================================
+    // ginfo - ウィンドウ情報の取得（HSP互換）
+    // ============================================================
+    /// @brief ウィンドウ関連情報を取得
+    /// @param type 取得するタイプ (0～27, 256～261)
+    /// @return 指定したタイプの情報値
+    /// @note タイプ一覧:
+    ///   0-1: マウスカーソル座標(スクリーン), 2: アクティブウィンドウID,
+    ///   3: 操作先ウィンドウID, 4-7: ウィンドウ座標, 8-9: 描画基点,
+    ///   10-11: ウィンドウサイズ, 12-13: クライアント領域サイズ,
+    ///   14-15: メッセージ出力サイズ, 16-18: カラーコード(RGB),
+    ///   19: カラーモード, 20-21: デスクトップサイズ, 22-23: カレントポジション,
+    ///   24: 割り込みウィンドウID, 25: 未使用ウィンドウID, 26-27: 初期化サイズ
+    export int ginfo(int type);
+
+    /// @brief 現在設定されている色コード(R)を取得
+    export int ginfo_r();
+
+    /// @brief 現在設定されている色コード(G)を取得
+    export int ginfo_g();
+
+    /// @brief 現在設定されている色コード(B)を取得
+    export int ginfo_b();
+
+    // ============================================================
+    // font - フォント設定（HSP互換）
+    // ============================================================
+    /// @brief フォントを設定
+    /// @param fontName フォント名 ("MS Gothic", "MS 明朝" など)
+    /// @param size フォントサイズ (デフォルト: 12)
+    /// @param style フォントスタイル (1=太字, 2=イタリック, 4=下線, 8=打消し線, 16=アンチエイリアス)
+    /// @param decorationWidth フォント修飾の幅 (デフォルト: 1)
+    /// @note statに結果が設定される (0=成功, -1=失敗)
+    export void font(std::string_view fontName, OptInt size = {}, OptInt style = {}, OptInt decorationWidth = {});
+
+    // ============================================================
+    // sysfont - システムフォント選択（HSP互換）
+    // ============================================================
+    /// @brief システム標準のフォントを選択
+    /// @param type フォント種類指定
+    ///   0: HSP標準システムフォント
+    ///   10: OEM文字セットの固定幅フォント
+    ///   11: Windows文字セットの固定幅システムフォント
+    ///   12: Windows文字セットの可変幅システムフォント
+    ///   13: 標準システムフォント
+    ///   17: デフォルトGUIフォント
+    export void sysfont(OptInt type = {});
+
+    // ============================================================
+    // title - タイトルバー設定（HSP互換）
+    // ============================================================
+    /// @brief ウィンドウのタイトルバーを設定
+    /// @param str タイトル文字列
+    export void title(std::string_view str);
+
+    // ============================================================
+    // width - ウィンドウサイズ設定（HSP互換）
+    // ============================================================
+    /// @brief ウィンドウサイズと位置を設定
+    /// @param clientW クライアントサイズX (-1=変更なし)
+    /// @param clientH クライアントサイズY (-1=変更なし)
+    /// @param posX ウィンドウ位置X (-1=変更なし)
+    /// @param posY ウィンドウ位置Y (-1=変更なし)
+    /// @param option 座標設定オプション (0=負値で現在維持, 1=負値も設定)
+    export void width(OptInt clientW = {}, OptInt clientH = {}, OptInt posX = {}, OptInt posY = {}, OptInt option = {});
 
     // --- System / Internal ---
     namespace internal {

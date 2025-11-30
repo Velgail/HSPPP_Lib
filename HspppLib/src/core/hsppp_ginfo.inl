@@ -1,0 +1,295 @@
+// HspppLib/src/core/hsppp_ginfo.inl
+// ginfo, font, sysfont, title, width関数の実装
+// hsppp.cpp から #include されることを想定
+
+namespace hsppp {
+
+    // ============================================================
+    // ginfo - ウィンドウ情報の取得（HSP互換）
+    // ============================================================
+    int ginfo(int type) {
+        using namespace internal;
+        
+        auto currentSurface = getCurrentSurface();
+        auto pWindow = currentSurface ? std::dynamic_pointer_cast<HspWindow>(currentSurface) : nullptr;
+        
+        switch (type) {
+        case 0:  // スクリーン上のマウスカーソルX座標
+        {
+            POINT pt;
+            GetCursorPos(&pt);
+            return pt.x;
+        }
+        case 1:  // スクリーン上のマウスカーソルY座標
+        {
+            POINT pt;
+            GetCursorPos(&pt);
+            return pt.y;
+        }
+        case 2:  // アクティブなウィンドウID
+        {
+            HWND hwndActive = GetForegroundWindow();
+            // g_surfacesを検索してウィンドウIDを返す
+            for (const auto& pair : g_surfaces) {
+                auto pWin = std::dynamic_pointer_cast<HspWindow>(pair.second);
+                if (pWin && pWin->getHwnd() == hwndActive) {
+                    return pair.first;
+                }
+            }
+            return -1;  // HSP以外のウィンドウがアクティブ
+        }
+        case 3:  // 操作先ウィンドウID
+        {
+            auto current = g_currentSurface.lock();
+            if (current) {
+                for (const auto& pair : g_surfaces) {
+                    if (pair.second == current) {
+                        return pair.first;
+                    }
+                }
+            }
+            return 0;
+        }
+        case 4:  // ウィンドウの左上X座標
+        {
+            if (pWindow && pWindow->getHwnd()) {
+                RECT rect;
+                GetWindowRect(pWindow->getHwnd(), &rect);
+                return rect.left;
+            }
+            return 0;
+        }
+        case 5:  // ウィンドウの左上Y座標
+        {
+            if (pWindow && pWindow->getHwnd()) {
+                RECT rect;
+                GetWindowRect(pWindow->getHwnd(), &rect);
+                return rect.top;
+            }
+            return 0;
+        }
+        case 6:  // ウィンドウの右下X座標
+        {
+            if (pWindow && pWindow->getHwnd()) {
+                RECT rect;
+                GetWindowRect(pWindow->getHwnd(), &rect);
+                return rect.right;
+            }
+            return 0;
+        }
+        case 7:  // ウィンドウの右下Y座標
+        {
+            if (pWindow && pWindow->getHwnd()) {
+                RECT rect;
+                GetWindowRect(pWindow->getHwnd(), &rect);
+                return rect.bottom;
+            }
+            return 0;
+        }
+        case 8:  // ウィンドウの描画基点X座標（スクロール未対応のため常に0）
+            return 0;
+        case 9:  // ウィンドウの描画基点Y座標（スクロール未対応のため常に0）
+            return 0;
+        case 10:  // ウィンドウ全体のXサイズ
+        {
+            if (pWindow && pWindow->getHwnd()) {
+                RECT rect;
+                GetWindowRect(pWindow->getHwnd(), &rect);
+                return rect.right - rect.left;
+            }
+            return currentSurface ? currentSurface->getWidth() : 0;
+        }
+        case 11:  // ウィンドウ全体のYサイズ
+        {
+            if (pWindow && pWindow->getHwnd()) {
+                RECT rect;
+                GetWindowRect(pWindow->getHwnd(), &rect);
+                return rect.bottom - rect.top;
+            }
+            return currentSurface ? currentSurface->getHeight() : 0;
+        }
+        case 12:  // クライアント領域Xサイズ
+        {
+            if (pWindow && pWindow->getHwnd()) {
+                RECT rect;
+                GetClientRect(pWindow->getHwnd(), &rect);
+                return rect.right;
+            }
+            return currentSurface ? currentSurface->getWidth() : 0;
+        }
+        case 13:  // クライアント領域Yサイズ
+        {
+            if (pWindow && pWindow->getHwnd()) {
+                RECT rect;
+                GetClientRect(pWindow->getHwnd(), &rect);
+                return rect.bottom;
+            }
+            return currentSurface ? currentSurface->getHeight() : 0;
+        }
+        case 14:  // メッセージの出力Xサイズ（未実装）
+            return 0;
+        case 15:  // メッセージの出力Yサイズ（未実装）
+            return 0;
+        case 16:  // 現在設定されているカラーコード(R)
+        {
+            if (currentSurface) {
+                auto color = currentSurface->getCurrentColor();
+                return static_cast<int>(color.r * 255.0f);
+            }
+            return 0;
+        }
+        case 17:  // 現在設定されているカラーコード(G)
+        {
+            if (currentSurface) {
+                auto color = currentSurface->getCurrentColor();
+                return static_cast<int>(color.g * 255.0f);
+            }
+            return 0;
+        }
+        case 18:  // 現在設定されているカラーコード(B)
+        {
+            if (currentSurface) {
+                auto color = currentSurface->getCurrentColor();
+                return static_cast<int>(color.b * 255.0f);
+            }
+            return 0;
+        }
+        case 19:  // デスクトップのカラーモード（常にフルカラー）
+            return 0;
+        case 20:  // デスクトップ全体のXサイズ
+            return GetSystemMetrics(SM_CXSCREEN);
+        case 21:  // デスクトップ全体のYサイズ
+            return GetSystemMetrics(SM_CYSCREEN);
+        case 22:  // カレントポジションのX座標
+            return currentSurface ? currentSurface->getCurrentX() : 0;
+        case 23:  // カレントポジションのY座標
+            return currentSurface ? currentSurface->getCurrentY() : 0;
+        case 24:  // メッセージ割り込み時のウィンドウID（未実装）
+            return 0;
+        case 25:  // 未使用ウィンドウID
+        {
+            for (int i = 0; ; ++i) {
+                if (g_surfaces.find(i) == g_surfaces.end()) {
+                    return i;
+                }
+            }
+        }
+        case 26:  // 画面の初期化Xサイズ
+            return currentSurface ? currentSurface->getWidth() : 0;
+        case 27:  // 画面の初期化Yサイズ
+            return currentSurface ? currentSurface->getHeight() : 0;
+        default:
+            return 0;
+        }
+    }
+
+    // ginfo_r, ginfo_g, ginfo_b マクロの代わりとなる関数
+    int ginfo_r() {
+        return ginfo(16);
+    }
+
+    int ginfo_g() {
+        return ginfo(17);
+    }
+
+    int ginfo_b() {
+        return ginfo(18);
+    }
+
+    // ============================================================
+    // font - フォント設定（HSP互換）
+    // ============================================================
+    void font(std::string_view fontName, OptInt size, OptInt style, OptInt decorationWidth) {
+        auto currentSurface = getCurrentSurface();
+        if (!currentSurface) return;
+
+        int p1 = size.value_or(12);
+        int p2 = style.value_or(0);
+        // p3 (decorationWidth) は現在未使用（mes命令のオプションで使用予定）
+
+        bool success = currentSurface->font(fontName, p1, p2);
+        // TODO: stat変数に結果を設定（0=成功, -1=失敗）
+        (void)success;
+    }
+
+    // ============================================================
+    // sysfont - システムフォント選択（HSP互換）
+    // ============================================================
+    void sysfont(OptInt type) {
+        auto currentSurface = getCurrentSurface();
+        if (!currentSurface) return;
+
+        int p1 = type.value_or(0);
+        currentSurface->sysfont(p1);
+    }
+
+    // ============================================================
+    // title - タイトルバー設定（HSP互換）
+    // ============================================================
+    void title(std::string_view str) {
+        using namespace internal;
+
+        auto currentSurface = getCurrentSurface();
+        if (!currentSurface) return;
+
+        auto pWindow = std::dynamic_pointer_cast<HspWindow>(currentSurface);
+        if (pWindow) {
+            pWindow->setTitle(str);
+        }
+    }
+
+    // ============================================================
+    // width - ウィンドウサイズ設定（HSP互換）
+    // ============================================================
+    void width(OptInt clientW, OptInt clientH, OptInt posX, OptInt posY, OptInt option) {
+        using namespace internal;
+
+        auto currentSurface = getCurrentSurface();
+        if (!currentSurface) return;
+
+        auto pWindow = std::dynamic_pointer_cast<HspWindow>(currentSurface);
+        if (!pWindow) return;
+
+        int p1 = clientW.value_or(-1);
+        int p2 = clientH.value_or(-1);
+        int p3 = posX.value_or(-1);
+        int p4 = posY.value_or(-1);
+        int p5 = option.value_or(0);
+
+        HWND hwnd = pWindow->getHwnd();
+        if (!hwnd) return;
+
+        // サイズ変更
+        if (p1 >= 0 || p2 >= 0) {
+            RECT clientRect;
+            GetClientRect(hwnd, &clientRect);
+            int newW = (p1 >= 0) ? p1 : (clientRect.right - clientRect.left);
+            int newH = (p2 >= 0) ? p2 : (clientRect.bottom - clientRect.top);
+            
+            // screen/buffer/bgscrの初期化サイズを超えないようにクランプ
+            int maxW = pWindow->getWidth();
+            int maxH = pWindow->getHeight();
+            if (newW > maxW) newW = maxW;
+            if (newH > maxH) newH = maxH;
+            
+            pWindow->setClientSize(newW, newH);
+        }
+
+        // 位置変更
+        if (p5 == 0) {
+            // option=0: 負の値は現在の位置を維持
+            if (p3 >= 0 || p4 >= 0) {
+                RECT windowRect;
+                GetWindowRect(hwnd, &windowRect);
+                int newX = (p3 >= 0) ? p3 : windowRect.left;
+                int newY = (p4 >= 0) ? p4 : windowRect.top;
+                pWindow->setWindowPos(newX, newY);
+            }
+        }
+        else {
+            // option=1: 負の値も含めて設定（マルチモニタ対応）
+            pWindow->setWindowPos(p3, p4);
+        }
+    }
+
+} // namespace hsppp

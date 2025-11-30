@@ -1,13 +1,28 @@
 ﻿// HspppLib/src/core/Surface.cpp
 // HspSurface, HspWindow, HspBuffer の実装（Direct2D 1.1対応）
 
-#include "Internal.h"
+// グローバルモジュールフラグメント
+module;
+
+#include <windows.h>
+#include <d2d1_1.h>
+#include <d3d11.h>
+#include <dxgi1_2.h>
+#include <dwrite.h>
+#include <wrl/client.h>
+#include <string>
+#include <string_view>
 #include <cstring>
+
+#include "Internal.h"
 
 #pragma comment(lib, "d2d1.lib")
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "dwrite.lib")
+
+// モジュール実装
+module hsppp;
 
 namespace hsppp {
 namespace internal {
@@ -260,7 +275,9 @@ HspWindow::~HspWindow() {
 
 bool HspWindow::initialize() {
     auto& deviceMgr = D2DDeviceManager::getInstance();
-    if (!deviceMgr.isInitialized()) return false;
+    if (!deviceMgr.isInitialized()) {
+        return false;
+    }
 
     HRESULT hr;
 
@@ -301,23 +318,40 @@ bool HspWindow::initialize() {
     m_pDeviceContext = deviceMgr.createDeviceContext();
     if (!m_pDeviceContext) return false;
 
-    // スワップチェーンのバックバッファからビットマップを作成
+    // スワップチェーンのバックバッファからビットマップを作成（描画ターゲット用）
     ComPtr<IDXGISurface> pBackBuffer;
     hr = m_pSwapChain->GetBuffer(0, IID_PPV_ARGS(pBackBuffer.GetAddressOf()));
     if (FAILED(hr)) return false;
 
-    D2D1_BITMAP_PROPERTIES1 bitmapProps = D2D1::BitmapProperties1(
+    // バックバッファビットマップ（CANNOT_DRAWが必要 - スワップチェーンの制約）
+    D2D1_BITMAP_PROPERTIES1 backBufferProps = D2D1::BitmapProperties1(
         D2D1_BITMAP_OPTIONS_TARGET | D2D1_BITMAP_OPTIONS_CANNOT_DRAW,
         D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE)
     );
 
     hr = m_pDeviceContext->CreateBitmapFromDxgiSurface(
         pBackBuffer.Get(),
-        bitmapProps,
+        backBufferProps,
+        m_pBackBufferBitmap.GetAddressOf()
+    );
+    if (FAILED(hr)) return false;
+
+    // オフスクリーンビットマップを作成（gcopy/gzoomソースとして使用可能）
+    D2D1_SIZE_U bitmapSize = D2D1::SizeU(m_width, m_height);
+    D2D1_BITMAP_PROPERTIES1 offscreenProps = D2D1::BitmapProperties1(
+        D2D1_BITMAP_OPTIONS_TARGET,  // CANNOT_DRAWなし - gcopy可能
+        D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE)
+    );
+
+    hr = m_pDeviceContext->CreateBitmap(
+        bitmapSize,
+        nullptr, 0,
+        offscreenProps,
         m_pTargetBitmap.GetAddressOf()
     );
     if (FAILED(hr)) return false;
 
+    // デフォルトはオフスクリーンビットマップに描画
     m_pDeviceContext->SetTarget(m_pTargetBitmap.Get());
 
     // ブラシの作成
@@ -378,9 +412,25 @@ bool HspWindow::createWindow(
 }
 
 void HspWindow::present() {
-    if (m_pSwapChain) {
-        m_pSwapChain->Present(1, 0);
+    if (!m_pSwapChain || !m_pDeviceContext || !m_pTargetBitmap || !m_pBackBufferBitmap) {
+        return;
     }
+
+    // オフスクリーンビットマップの内容をバックバッファにコピー
+    m_pDeviceContext->SetTarget(m_pBackBufferBitmap.Get());
+    m_pDeviceContext->BeginDraw();
+
+    // オフスクリーンビットマップをバックバッファ全体にコピー
+    D2D1_RECT_F destRect = D2D1::RectF(0, 0, static_cast<float>(m_width), static_cast<float>(m_height));
+    m_pDeviceContext->DrawBitmap(m_pTargetBitmap.Get(), destRect);
+
+    m_pDeviceContext->EndDraw();
+
+    // 画面に表示
+    m_pSwapChain->Present(1, 0);
+
+    // 描画先をオフスクリーンビットマップに戻す
+    m_pDeviceContext->SetTarget(m_pTargetBitmap.Get());
 }
 
 void HspWindow::onPaint() {

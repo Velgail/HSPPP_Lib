@@ -1,6 +1,6 @@
 ﻿// HspppSample/UserApp.cpp
 // ═══════════════════════════════════════════════════════════════════
-// HSPPP デモ: buffer, gsel, gcopy, gzoom, gmode, bgscr のテスト
+// HSPPP デモ: OOP版 screen/buffer/bgscr のテスト
 // ═══════════════════════════════════════════════════════════════════
 
 import hsppp;
@@ -10,129 +10,87 @@ using namespace hsppp;
 int hspMain() {
 
     // ╔═══════════════════════════════════════════════════════════════╗
-    // ║  テスト1: buffer命令 - 仮想画面の作成                        ║
+    // ║  OOP版 screen - ID自動採番でウィンドウ作成                   ║
     // ╚═══════════════════════════════════════════════════════════════╝
 
-    // buffer 2 で仮想画面を作成（表示されない）
-    buffer(2, 200, 200);
+    // OOP版: 構造体パラメータでウィンドウ作成（IDは自動採番）
+    auto mainWin = screen({.width = 640, .height = 480, .title = "OOP Test - Main Window"});
+
+    // メソッドチェーンで描画
+    mainWin.color(200, 200, 200).boxf();
+    mainWin.color(0, 0, 0).pos(20, 20);
+    mainWin.mes("=== OOP Style API Test ===");
+    mainWin.pos(20, 50);
+    mainWin.mes("Main window created with auto ID");
+
+    // ╔═══════════════════════════════════════════════════════════════╗
+    // ║  OOP版 buffer - ID自動採番で仮想画面作成                     ║
+    // ╚═══════════════════════════════════════════════════════════════╝
+
+    // OOP版: 仮想画面を作成（IDは自動採番）
+    auto offscreen = buffer({.width = 200, .height = 200});
 
     // 仮想画面に描画
-    redraw(0);
-    color(255, 0, 0);   // 赤
-    boxf();             // 全体を塗りつぶし
+    offscreen.redraw(0);
+    offscreen.color(255, 0, 0).boxf();              // 赤で全体塗りつぶし
+    offscreen.color(0, 255, 0).boxf(50, 50, 150, 150);  // 緑の矩形
+    offscreen.color(0, 0, 255).boxf(75, 75, 125, 125);  // 青の矩形
+    offscreen.redraw(1);
+
+    // ╔═══════════════════════════════════════════════════════════════╗
+    // ║  OOP版 Screen::select() で描画先切り替え                     ║
+    // ╚═══════════════════════════════════════════════════════════════╝
+
+    // メインウィンドウに戻って描画
+    mainWin.select();  // gsel(mainId) と同等
     
-    // グラデーション風に色を追加
-    color(0, 255, 0);   // 緑
-    boxf(50, 50, 150, 150);
-    
-    color(0, 0, 255);   // 青
-    boxf(75, 75, 125, 125);
-    redraw(1);
+    mainWin.pos(20, 80);
+    mainWin.mes("Buffer created with auto ID");
 
     // ╔═══════════════════════════════════════════════════════════════╗
-    // ║  テスト2: screen命令 - メインウィンドウの作成                ║
+    // ║  gcopy/gzoom - Screen::id()を使ってバッファからコピー        ║
     // ╚═══════════════════════════════════════════════════════════════╝
 
-    screen(0, 640, 480, {}, 100, 100, {}, {}, "HSPPP Test - buffer/gcopy/gzoom");
+    mainWin.pos(20, 120);
+    mainWin.mes("gcopy from buffer:");
+    pos(20, 140);
+    gcopy(offscreen.id(), 0, 0, 100, 100);  // Screen::id()でIDを取得してコピー
 
-    redraw(0);
-
-    // 背景を薄いグレーで塗りつぶし
-    color(200, 200, 200);
-    boxf();
-
-    // タイトル
-    color(0, 0, 0);
-    pos(20, 20);
-    mes("=== buffer / gcopy / gzoom Test ===");
-
-    redraw(1);
+    mainWin.pos(150, 120);
+    mainWin.mes("gzoom (2x):");
+    pos(150, 140);
+    gzoom(200, 200, offscreen.id(), 0, 0, 100, 100, 0);  // 拡大コピー
 
     // ╔═══════════════════════════════════════════════════════════════╗
-    // ║  テスト3: gcopy命令 - 仮想画面からコピー                     ║
+    // ║  OOP版 bgscr - ID自動採番で枠なしウィンドウ作成              ║
     // ╚═══════════════════════════════════════════════════════════════╝
 
-    // gsel でウィンドウ0を描画先に設定
-    gsel(0);
+    // OOP版: 枠なしウィンドウを作成（IDは自動採番）
+    auto popup = bgscr({.width = 200, .height = 150, .pos_x = 500, .pos_y = 400});
 
-    // gmode設定: モード0（通常コピー）、サイズ100x100
-    gmode(0, 100, 100);
-
-    redraw(0);
-    
-    pos(20, 60);
-    mes("gcopy from buffer 2:");
-
-    // buffer 2 から gcopy
-    pos(20, 80);
-    gcopy(2, 0, 0, 100, 100);
-
-    redraw(1);
+    popup.color(50, 50, 100).boxf();
+    popup.color(255, 255, 255).pos(20, 20);
+    popup.mes("Borderless (OOP)");
+    popup.pos(20, 50);
+    popup.mes("Auto ID assigned");
+    popup.pos(20, 80);
+    popup.mes("No frame!");
 
     // ╔═══════════════════════════════════════════════════════════════╗
-    // ║  テスト4: gzoom命令 - 変倍コピー                             ║
+    // ║  最終確認 - メインウィンドウに結果表示                       ║
     // ╚═══════════════════════════════════════════════════════════════╝
 
-    gsel(0);
-    redraw(0);
-
-    pos(150, 60);
-    mes("gzoom (2x scale):");
-
-    // buffer 2 から gzoom（2倍に拡大）
-    pos(150, 80);
-    gzoom(200, 200, 2, 0, 0, 100, 100, 0);
-
-    redraw(1);
-
-    // ╔═══════════════════════════════════════════════════════════════╗
-    // ║  テスト5: bgscr命令 - 枠なしウィンドウ                       ║
-    // ╚═══════════════════════════════════════════════════════════════╝
-
-    // メインウィンドウにメッセージ表示
-    gsel(0);
-    redraw(0);
-    pos(20, 300);
-    color(0, 0, 0);
-    mes("bgscr test: Borderless window created (ID=3)");
-    mes("Press close button on main window to exit.");
-    redraw(1);
-
-    // 枠なしウィンドウを作成
-    bgscr(3, 200, 150, 0, 400, 400);
-
-    redraw(0);
-    color(50, 50, 100);
-    boxf();
-    color(255, 255, 255);
-    pos(20, 20);
-    mes("Borderless Window");
-    pos(20, 50);
-    mes("(bgscr ID=3)");
-    pos(20, 80);
-    mes("No frame!");
-    redraw(1);
-
-    // ╔═══════════════════════════════════════════════════════════════╗
-    // ║  テスト6: gsel命令 - ウィンドウ切り替え                      ║
-    // ╚═══════════════════════════════════════════════════════════════╝
-
-    // メインウィンドウに戻る
-    gsel(0, 1);  // アクティブにする
-
-    redraw(0);
-    pos(20, 350);
-    color(0, 128, 0);
-    mes("Test completed successfully!");
-    mes("All functions: buffer, gsel, gcopy, gzoom, gmode, bgscr");
-    redraw(1);
+    mainWin.select();
+    mainWin.color(0, 128, 0).pos(20, 360);
+    mainWin.mes("=== Test Complete! ===");
+    mainWin.mes("OOP API working: screen(), buffer(), bgscr()");
+    mainWin.mes("gcopy/gzoom work with Screen::id()");
 
     // ═══════════════════════════════════════════════════════════════
     // 自動終了（デバッグ用）
-    // await で少し待ってから end で終了
     // ═══════════════════════════════════════════════════════════════
     
-    await(3000);  // 3秒待機
+    await(5000);  // 5秒待機
     end(0);       // 正常終了
 
     return 0;

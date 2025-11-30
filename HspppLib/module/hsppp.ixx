@@ -111,15 +111,32 @@ namespace hsppp {
     /// @details 多くのパラメータを指定する場合に使用
     /// @example screen({.width = 800, .height = 600});
     export struct ScreenParams {
-        int id       = 0;       ///< p1: ウィンドウID (0～)
-        int width    = 640;     ///< p2: 画面サイズX
-        int height   = 480;     ///< p3: 画面サイズY
-        int mode     = 0;       ///< p4: 画面モード (screen_* フラグの組み合わせ)
-        int pos_x    = -1;      ///< p5: ウィンドウ位置X (-1=システム規定)
-        int pos_y    = -1;      ///< p6: ウィンドウ位置Y (-1=システム規定)
-        int client_w = 0;       ///< p7: クライアントサイズX (0=widthと同じ)
-        int client_h = 0;       ///< p8: クライアントサイズY (0=heightと同じ)
+        int width    = 640;     ///< 画面サイズX
+        int height   = 480;     ///< 画面サイズY
+        int mode     = 0;       ///< 画面モード (screen_* フラグの組み合わせ)
+        int pos_x    = -1;      ///< ウィンドウ位置X (-1=システム規定)
+        int pos_y    = -1;      ///< ウィンドウ位置Y (-1=システム規定)
+        int client_w = 0;       ///< クライアントサイズX (0=widthと同じ)
+        int client_h = 0;       ///< クライアントサイズY (0=heightと同じ)
         std::string_view title = "HSPPP Window";  ///< ウィンドウタイトル (HSP拡張)
+    };
+
+    /// @brief buffer命令のパラメータ構造体
+    export struct BufferParams {
+        int width    = 640;     ///< 画面サイズX
+        int height   = 480;     ///< 画面サイズY
+        int mode     = 0;       ///< 画面モード
+    };
+
+    /// @brief bgscr命令のパラメータ構造体
+    export struct BgscrParams {
+        int width    = 640;     ///< 画面サイズX
+        int height   = 480;     ///< 画面サイズY
+        int mode     = 0;       ///< 画面モード (0=フルカラー, 2=非表示)
+        int pos_x    = -1;      ///< ウィンドウ位置X (-1=システム規定)
+        int pos_y    = -1;      ///< ウィンドウ位置Y (-1=システム規定)
+        int client_w = 0;       ///< クライアントサイズX (0=widthと同じ)
+        int client_h = 0;       ///< クライアントサイズY (0=heightと同じ)
     };
 
 
@@ -198,20 +215,54 @@ namespace hsppp {
     };
 
 
-    // --- Core Functions (HSP compatible) ---
+    // ============================================================
+    // OOP版関数（ID自動採番）
+    // ============================================================
+    // IDは内部で自動採番され、Screen::id()で取得可能
+    // HSP互換のID指定版とは独立して使用可能
+    // ============================================================
 
-    /// @brief ウィンドウを初期化（構造体版）
-    /// @param params 初期化パラメータ
+    /// @brief ウィンドウを初期化（OOP版・構造体）
+    /// @param params 初期化パラメータ（IDは自動採番）
     /// @return Screen ハンドル
-    /// @example auto scr = screen({.width = 800, .height = 600});
+    /// @example auto win = screen({.width = 800, .height = 600});
     export [[nodiscard]] Screen screen(const ScreenParams& params);
+
+    /// @brief ウィンドウを初期化（OOP版・引数なし）
+    /// @return Screen ハンドル（デフォルト設定で作成）
+    /// @example auto win = screen();
+    export [[nodiscard]] Screen screen();
+
+    /// @brief 仮想画面を初期化（OOP版・構造体）
+    /// @param params 初期化パラメータ（IDは自動採番）
+    /// @return Screen ハンドル
+    export [[nodiscard]] Screen buffer(const BufferParams& params);
+
+    /// @brief 仮想画面を初期化（OOP版・引数なし）
+    /// @return Screen ハンドル（デフォルト設定で作成）
+    export [[nodiscard]] Screen buffer();
+
+    /// @brief 枠なしウィンドウを初期化（OOP版・構造体）
+    /// @param params 初期化パラメータ（IDは自動採番）
+    /// @return Screen ハンドル
+    export [[nodiscard]] Screen bgscr(const BgscrParams& params);
+
+    /// @brief 枠なしウィンドウを初期化（OOP版・引数なし）
+    /// @return Screen ハンドル（デフォルト設定で作成）
+    export [[nodiscard]] Screen bgscr();
+
+    // ============================================================
+    // HSP互換版関数（ID明示指定）
+    // ============================================================
+    // 従来のHSP互換APIとして、IDを明示的に指定するバージョン
+    // ============================================================
 
     /// @brief ウィンドウを初期化（HSP互換・省略可能版）
     /// @return Screen ハンドル
-    /// @example auto scr = screen(omit, 800, 600);
-    /// @example screen();  // 戻り値を無視してもOK（HSP互換）
+    /// @example auto scr = screen(0, 800, 600);
+    /// @example screen(0);  // 戻り値を無視してもOK（HSP互換）
     export [[nodiscard]] Screen screen(
-        OptInt id       = {},
+        int id,
         OptInt width    = {},
         OptInt height   = {},
         OptInt mode     = {},
@@ -223,7 +274,7 @@ namespace hsppp {
     );
 
     // ============================================================
-    // buffer - 仮想画面を初期化（HSP互換）
+    // buffer - 仮想画面を初期化（HSP互換・ID明示指定版）
     // ============================================================
     /// @brief 仮想画面を初期化（メモリ上に画面を作成、表示しない）
     /// @param id ウィンドウID (0～)
@@ -231,16 +282,15 @@ namespace hsppp {
     /// @param height 初期化する画面サイズY (デフォルト: 480)
     /// @param mode 初期化する画面モード (デフォルト: 0=フルカラー)
     /// @return Screen ハンドル
-    /// @note screenで初期化されたIDをbufferで再初期化することはできません
     export [[nodiscard]] Screen buffer(
-        OptInt id     = {},
+        int id,
         OptInt width  = {},
         OptInt height = {},
         OptInt mode   = {}
     );
 
     // ============================================================
-    // bgscr - 枠のないウィンドウを初期化（HSP互換）
+    // bgscr - 枠のないウィンドウを初期化（HSP互換・ID明示指定版）
     // ============================================================
     /// @brief 枠のないウィンドウを初期化
     /// @param id ウィンドウID (0～)
@@ -253,7 +303,7 @@ namespace hsppp {
     /// @param client_h ウィンドウのサイズY (省略時=heightと同じ)
     /// @return Screen ハンドル
     export [[nodiscard]] Screen bgscr(
-        OptInt id       = {},
+        int id,
         OptInt width    = {},
         OptInt height   = {},
         OptInt mode     = {},

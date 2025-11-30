@@ -125,6 +125,7 @@ class HspWindow : public HspSurface {
 private:
     HWND m_hwnd;
     ComPtr<IDXGISwapChain1> m_pSwapChain;
+    ComPtr<ID2D1Bitmap1> m_pBackBufferBitmap;  // スワップチェーンのバックバッファ
     std::wstring m_title;
 
 public:

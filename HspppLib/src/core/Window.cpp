@@ -1,7 +1,22 @@
 ﻿// HspppLib/src/core/Window.cpp
 // ウィンドウ管理とメッセージループの実装
 
+// グローバルモジュールフラグメント
+module;
+
+#include <windows.h>
+#include <d2d1_1.h>
+#include <d3d11.h>
+#include <dxgi1_2.h>
+#include <dwrite.h>
+#include <wrl/client.h>
+#include <string>
+#include <string_view>
+
 #include "Internal.h"
+
+// モジュール実装
+module hsppp;
 
 namespace hsppp {
 namespace internal {

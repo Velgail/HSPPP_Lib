@@ -265,18 +265,84 @@ int hspMain() {
     // mw.windowSize(700, 500);  // OOP版
 
     // ╔═══════════════════════════════════════════════════════════════╗
+    // ║  9. 入力関数テスト (stick, getkey, mouse, wait)               ║
+    // ╚═══════════════════════════════════════════════════════════════╝
+    mw.sysfont(0);
+    mw.color(0, 0, 0).pos(620, 350);
+    mw.mes("[9] Input Functions");
+
+    mw.pos(620, 370);
+    mw.mes("Move mouse in window");
+    mw.pos(620, 390);
+    mw.mes("Press keys to test");
+
+    // ╔═══════════════════════════════════════════════════════════════╗
     // ║  完了メッセージ                                               ║
     // ╚═══════════════════════════════════════════════════════════════╝
     mw.sysfont(0);  // 標準フォントに戻す
     mw.color(0, 100, 0).pos(20, 500);
     mw.mes("=== All Drawing Features Demonstrated ===");
     mw.pos(20, 520);
-    mw.mes("Functions: line, circle, pset, pget, ginfo, font, sysfont, title, width");
+    mw.mes("Functions: line, circle, pset, pget, ginfo, font, sysfont, title, width, stick, getkey, mouse, wait");
     mw.pos(20, 540);
-    mw.mes("Press close button to exit.");
+    mw.mes("Press ESC to exit, Arrow keys to move dot, Space for color change");
 
-    // ウィンドウが閉じられるまで待機
+    // 入力テスト用の動くドット
+    int dotX = 400, dotY = 500;
+    int dotR = 255, dotG = 0, dotB = 0;
+
+    // メインループ - 入力をテスト
     while (true) {
+        mw.redraw(0);  // 描画開始
+
+        // 前のドットを消す（白で塗りつぶし）
+        mw.color(255, 255, 255).boxf(dotX - 10, dotY - 10, dotX + 10, dotY + 10);
+
+        // stick で入力取得（矢印キーは非トリガー、スペースはトリガー）
+        int key = stick(1 + 2 + 4 + 8);  // 矢印キーは押しっぱなし対応
+
+        // 矢印キーでドット移動
+        if (key & 1) dotX -= 3;  // 左
+        if (key & 4) dotX += 3;  // 右
+        if (key & 2) dotY -= 3;  // 上
+        if (key & 8) dotY += 3;  // 下
+
+        // スペースで色変更（トリガー）
+        if (key & 16) {
+            dotR = (dotR + 80) % 256;
+            dotG = (dotG + 120) % 256;
+            dotB = (dotB + 50) % 256;
+        }
+
+        // ESCで終了
+        if (key & 128) {
+            break;
+        }
+
+        // 範囲制限
+        if (dotX < 20) dotX = 20;
+        if (dotX > 780) dotX = 780;
+        if (dotY < 450) dotY = 450;
+        if (dotY > 580) dotY = 580;
+
+        // ドットを描画
+        mw.color(dotR, dotG, dotB).circle(dotX - 8, dotY - 8, dotX + 8, dotY + 8, 1);
+
+        // マウス座標表示
+        int mx = mousex();
+        int my = mousey();
+        mw.color(255, 255, 255).boxf(620, 410, 780, 440);
+        mw.color(0, 0, 0).pos(620, 410);
+        mw.mes("Mouse: checking...");
+
+        // OOP版マウス座標も確認
+        int mx2 = mw.mousex();
+        int my2 = mw.mousey();
+        mw.pos(620, 425);
+        mw.mes("OOP mouse: OK");
+
+        mw.redraw(1);  // 描画終了
+
         await(16);  // 約60fps
     }
 

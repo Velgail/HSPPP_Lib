@@ -326,6 +326,56 @@ namespace compile_test {
         (void)end_ptr;  // 使用したことにする
     }
 
+    // ============================================================
+    // 入力関数のテスト
+    // ============================================================
+    void test_input_functions() {
+        // stick
+        [[maybe_unused]] int s1 = stick();
+        [[maybe_unused]] int s2 = stick(0);
+        [[maybe_unused]] int s3 = stick(15);  // 矢印キー非トリガー
+        [[maybe_unused]] int s4 = stick(15, 0);  // アクティブチェックなし
+        [[maybe_unused]] int s5 = stick(15, 1);  // アクティブチェックあり
+        [[maybe_unused]] int s6 = stick(omit, omit);
+
+        // getkey
+        [[maybe_unused]] int k1 = getkey(32);   // スペース
+        [[maybe_unused]] int k2 = getkey(13);   // Enter
+        [[maybe_unused]] int k3 = getkey(27);   // ESC
+        [[maybe_unused]] int k4 = getkey(37);   // ←
+        [[maybe_unused]] int k5 = getkey(38);   // ↑
+        [[maybe_unused]] int k6 = getkey(39);   // →
+        [[maybe_unused]] int k7 = getkey(40);   // ↓
+        [[maybe_unused]] int k8 = getkey(1);    // 左クリック
+        [[maybe_unused]] int k9 = getkey(2);    // 右クリック
+
+        // mouse
+        mouse();
+        mouse(100);
+        mouse(100, 100);
+        mouse(100, 100, 0);
+        mouse(100, 100, -1);
+        mouse(100, 100, 1);
+        mouse(100, 100, 2);
+        mouse(omit, omit, omit);
+
+        // mousex, mousey, mousew
+        [[maybe_unused]] int mx = mousex();
+        [[maybe_unused]] int my = mousey();
+        [[maybe_unused]] int mw = mousew();
+
+        // wait
+        // wait();  // デフォルト値で待機（時間がかかるためコメントアウト）
+        // wait(1);  // 10ms
+        // wait(omit);
+    }
+
+    // Screen クラスの入力関数テスト
+    void test_screen_input_functions(Screen& scr) {
+        [[maybe_unused]] int mx = scr.mousex();
+        [[maybe_unused]] int my = scr.mousey();
+    }
+
 }  // namespace compile_test
 
 // ============================================================
@@ -346,6 +396,7 @@ namespace hsppp_test {
         auto testScreen = screen({.width = 100, .height = 100, .mode = screen_hide});
         if (testScreen.valid()) {
             compile_test::test_screen_class(testScreen);
+            compile_test::test_screen_input_functions(testScreen);
         }
 
         // 残りのテスト（ウィンドウ作成を伴うもの）
@@ -356,6 +407,7 @@ namespace hsppp_test {
         compile_test::test_window_control_functions();
         compile_test::test_control_functions();
         compile_test::test_font_window_functions();
+        compile_test::test_input_functions();
         // compile_test::test_end_function_signature(); // end()は呼ばない
 
         return true;

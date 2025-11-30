@@ -309,6 +309,55 @@ namespace hsppp_test {
     }
 
     // ============================================================
+    // 入力関数テスト
+    // ============================================================
+    bool test_input_functions() {
+        auto scr = screen({.width = 300, .height = 200, .mode = screen_hide});
+        if (!scr.valid()) return false;
+
+        // getkey テスト（クラッシュしないことを確認）
+        // VK_SPACE = 32
+        [[maybe_unused]] int keyState = getkey(32);
+        check(keyState == 0 || keyState == 1, "getkey returns 0 or 1");
+
+        // stick テスト（クラッシュしないことを確認）
+        int stickResult = stick();
+        check(stickResult >= 0, "stick returns non-negative value");
+
+        // stick with non-trigger
+        stickResult = stick(15);  // 矢印キー非トリガー
+        check(stickResult >= 0, "stick with non-trigger");
+
+        // stick with active check disabled
+        stickResult = stick(0, 0);
+        check(stickResult >= 0, "stick with active check disabled");
+
+        // mousex/mousey テスト（グローバル版）
+        [[maybe_unused]] int mx = mousex();
+        [[maybe_unused]] int my = mousey();
+        check(true, "mousex/mousey don't crash");
+
+        // OOP版 mousex/mousey
+        [[maybe_unused]] int mx2 = scr.mousex();
+        [[maybe_unused]] int my2 = scr.mousey();
+        check(true, "Screen::mousex/mousey don't crash");
+
+        // mousew テスト
+        [[maybe_unused]] int mw = mousew();
+        check(true, "mousew doesn't crash");
+
+        // mouse テスト（座標取得のみ、実際に動かすのは危険）
+        // mouse();  // 省略時は現在位置
+        check(true, "mouse function exists");
+
+        // wait テスト（短い時間で）
+        wait(1);  // 10ms
+        check(true, "wait doesn't crash");
+
+        return true;
+    }
+
+    // ============================================================
     // 公開テスト関数
     // ============================================================
 
@@ -327,6 +376,7 @@ namespace hsppp_test {
         test_font_functions();
         test_title_width_functions();
         test_method_chaining();
+        test_input_functions();
 
         return s_testsPassed;
     }

@@ -127,6 +127,7 @@ namespace {
 #include "hsppp_drawing.inl"
 #include "hsppp_ginfo.inl"
 #include "hsppp_copy.inl"
+#include "hsppp_input.inl"
 
 // ============================================================
 // init_system / close_system

@@ -305,4 +305,32 @@ namespace hsppp {
         return *this;
     }
 
+    int Screen::mousex() const {
+        auto surface = getSurfaceById(m_id);
+        auto pWindow = surface ? std::dynamic_pointer_cast<internal::HspWindow>(surface) : nullptr;
+
+        POINT pt;
+        GetCursorPos(&pt);
+
+        if (pWindow && pWindow->getHwnd()) {
+            ScreenToClient(pWindow->getHwnd(), &pt);
+        }
+
+        return pt.x;
+    }
+
+    int Screen::mousey() const {
+        auto surface = getSurfaceById(m_id);
+        auto pWindow = surface ? std::dynamic_pointer_cast<internal::HspWindow>(surface) : nullptr;
+
+        POINT pt;
+        GetCursorPos(&pt);
+
+        if (pWindow && pWindow->getHwnd()) {
+            ScreenToClient(pWindow->getHwnd(), &pt);
+        }
+
+        return pt.y;
+    }
+
 } // namespace hsppp

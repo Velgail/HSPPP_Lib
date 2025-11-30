@@ -94,18 +94,139 @@ namespace {
 
 namespace hsppp {
 
-    // ウィンドウ初期化（HSP完全互換）
-    void screen(int p1, int p2, int p3, int p4, int p5, int p6, int p7, int p8, std::string_view title) {
+    // ============================================================
+    // Screen クラスのメンバ関数実装
+    // IDからグローバルマップを経由してSurfaceを取得する
+    // ============================================================
+
+    namespace {
+        // IDからSurfaceを取得するヘルパー
+        std::shared_ptr<internal::HspSurface> getSurfaceById(int id) {
+            auto it = g_surfaces.find(id);
+            if (it != g_surfaces.end()) {
+                return it->second;
+            }
+            return nullptr;
+        }
+    }
+
+    Screen& Screen::color(int r, int g, int b) {
+        auto surface = getSurfaceById(m_id);
+        if (surface) {
+            surface->color(r, g, b);
+        }
+        return *this;
+    }
+
+    Screen& Screen::pos(int x, int y) {
+        auto surface = getSurfaceById(m_id);
+        if (surface) {
+            surface->pos(x, y);
+        }
+        return *this;
+    }
+
+    Screen& Screen::mes(std::string_view text) {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        // 描画モードに応じて処理
+        if (g_redrawMode == 1) {
+            // このScreenをカレントに設定してから描画
+            g_currentSurface = surface;
+            beginDrawIfNeeded();
+            surface->mes(text);
+            endDrawAndPresent();
+        }
+        else {
+            surface->mes(text);
+        }
+        return *this;
+    }
+
+    Screen& Screen::boxf(int x1, int y1, int x2, int y2) {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        if (g_redrawMode == 1) {
+            g_currentSurface = surface;
+            beginDrawIfNeeded();
+            surface->boxf(x1, y1, x2, y2);
+            endDrawAndPresent();
+        }
+        else {
+            surface->boxf(x1, y1, x2, y2);
+        }
+        return *this;
+    }
+
+    Screen& Screen::boxf() {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        if (g_redrawMode == 1) {
+            g_currentSurface = surface;
+            beginDrawIfNeeded();
+            surface->boxf(0, 0, surface->getWidth(), surface->getHeight());
+            endDrawAndPresent();
+        }
+        else {
+            surface->boxf(0, 0, surface->getWidth(), surface->getHeight());
+        }
+        return *this;
+    }
+
+    Screen& Screen::redraw(int mode) {
+        // このScreenをカレントにしてからredraw
+        select();
+        hsppp::redraw(mode);
+        return *this;
+    }
+
+    Screen& Screen::select() {
+        auto surface = getSurfaceById(m_id);
+        if (surface) {
+            g_currentSurface = surface;
+        }
+        return *this;
+    }
+
+    int Screen::width() const {
+        auto surface = getSurfaceById(m_id);
+        return surface ? surface->getWidth() : 0;
+    }
+
+    int Screen::height() const {
+        auto surface = getSurfaceById(m_id);
+        return surface ? surface->getHeight() : 0;
+    }
+
+
+    // ============================================================
+    // screen 関数の実装（Screen を返す版）
+    // ============================================================
+
+    // ウィンドウ初期化（構造体版）- Screen を返す
+    Screen screen(const ScreenParams& params) {
         using namespace internal;
 
+        int id = params.id;
+        int width = params.width;
+        int height = params.height;
+        int mode = params.mode;
+        int pos_x = params.pos_x;
+        int pos_y = params.pos_y;
+        int client_w = params.client_w;
+        int client_h = params.client_h;
+        std::string_view title = params.title;
+
         // 既存のサーフェスを削除
-        if (g_surfaces.find(p1) != g_surfaces.end()) {
-            g_surfaces.erase(p1);
+        if (g_surfaces.find(id) != g_surfaces.end()) {
+            g_surfaces.erase(id);
         }
 
         // ID0はデフォルトでサイズ固定
-        int mode = p4;
-        if (p1 == 0) {
+        if (id == 0) {
             mode |= screen_fixedsize;
         }
 
@@ -131,12 +252,12 @@ namespace hsppp {
         // 非表示ウィンドウ（初期状態では非表示、後でgselで表示可能）
         bool isHidden = (mode & screen_hide) != 0;
 
-        // クライアントサイズの決定（p7, p8が0なら p2, p3と同じ）
-        int clientWidth = (p7 > 0) ? p7 : p2;
-        int clientHeight = (p8 > 0) ? p8 : p3;
+        // クライアントサイズの決定（client_w, client_hが0ならwidth, heightと同じ）
+        int clientWidth = (client_w > 0) ? client_w : width;
+        int clientHeight = (client_h > 0) ? client_h : height;
 
         // HspWindowインスタンスの作成
-        auto window = std::make_shared<HspWindow>(p2, p3, title);
+        auto window = std::make_shared<HspWindow>(width, height, title);
 
         // ウィンドウマネージャーの取得
         WindowManager& windowManager = WindowManager::getInstance();
@@ -147,22 +268,22 @@ namespace hsppp {
             windowManager.getClassName(),
             dwStyle,
             dwExStyle,
-            p5,
-            p6,
+            pos_x,
+            pos_y,
             clientWidth,
             clientHeight)) {
             MessageBoxW(nullptr, L"Failed to create window", L"Error", MB_OK | MB_ICONERROR);
-            return;
+            return Screen{};  // 無効なScreenを返す
         }
 
         // Direct2Dリソースの初期化
         if (!window->initialize(g_pD2DFactory, g_pDWriteFactory)) {
             MessageBoxW(nullptr, L"Failed to initialize window", L"Error", MB_OK | MB_ICONERROR);
-            return;
+            return Screen{};  // 無効なScreenを返す
         }
 
         // Surfaceマップに追加
-        g_surfaces[p1] = window;
+        g_surfaces[id] = window;
 
         // カレントサーフェスとして設定（weak_ptrを使用）
         g_currentSurface = window;
@@ -174,6 +295,35 @@ namespace hsppp {
         }
 
         g_shouldQuit = false;
+
+        // Screen ハンドルを返す（IDと有効フラグのみ）
+        return Screen{id, true};
+    }
+
+    // ウィンドウ初期化（HSP互換・省略可能版）
+    Screen screen(
+        OptInt id,
+        OptInt width,
+        OptInt height,
+        OptInt mode,
+        OptInt pos_x,
+        OptInt pos_y,
+        OptInt client_w,
+        OptInt client_h,
+        std::string_view title
+    ) {
+        // デフォルト値を適用して構造体版を呼び出す
+        return screen(ScreenParams{
+            .id       = id.value_or(0),
+            .width    = width.value_or(640),
+            .height   = height.value_or(480),
+            .mode     = mode.value_or(0),
+            .pos_x    = pos_x.value_or(-1),
+            .pos_y    = pos_y.value_or(-1),
+            .client_w = client_w.value_or(0),
+            .client_h = client_h.value_or(0),
+            .title    = title
+        });
     }
 
     // 描画制御（HSP互換）

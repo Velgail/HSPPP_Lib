@@ -206,6 +206,11 @@ namespace hsppp {
 
         // 待機中もメッセージを処理
         while (GetTickCount() < endTime) {
+            // ペンディング中の割り込みを処理
+            if (processPendingInterrupt()) {
+                // 割り込みハンドラが呼ばれた
+            }
+
             if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
                 if (msg.message == WM_QUIT) {
                     g_shouldQuit = true;

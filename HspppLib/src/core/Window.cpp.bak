@@ -140,15 +140,8 @@ LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
         return DefWindowProc(hwnd, uMsg, wParam, lParam);
 
     // onkey: キー入力
-    // WM_KEYDOWN/WM_SYSKEYDOWN: 特殊キー（矢印、Ctrl、Alt等）と通常キーの仮想キーコード
-    case WM_KEYDOWN:
-    case WM_SYSKEYDOWN:
-        triggerOnKey(static_cast<int>(wParam), wParam, lParam);
-        return DefWindowProc(hwnd, uMsg, wParam, lParam);
-
-    // WM_CHAR: 文字入力（後方互換性のため残す）
     case WM_CHAR:
-        // WM_KEYDOWNで既に処理されているため、ここでは何もしない
+        triggerOnKey(static_cast<int>(wParam), wParam, lParam);
         return DefWindowProc(hwnd, uMsg, wParam, lParam);
 
     // Windowsシャットダウン時

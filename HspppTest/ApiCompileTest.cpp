@@ -376,6 +376,61 @@ namespace compile_test {
         [[maybe_unused]] int my = scr.mousey();
     }
 
+    // ============================================================
+    // 割り込みハンドラのテスト
+    // ============================================================
+    
+    // テスト用ハンドラ
+    int test_interrupt_handler() { return 0; }
+    
+    void test_interrupt_functions() {
+        // onclick
+        hsppp::onclick(test_interrupt_handler);
+        hsppp::onclick(nullptr);  // 解除
+        hsppp::onclick(0);   // 一時停止
+        hsppp::onclick(1);   // 再開
+        
+        // oncmd
+        hsppp::oncmd(test_interrupt_handler, 0x0001);  // WM_CREATE
+        hsppp::oncmd(nullptr, 0x0001);  // 解除
+        hsppp::oncmd(0, 0x0001);   // 特定メッセージ停止
+        hsppp::oncmd(1, 0x0001);   // 特定メッセージ再開
+        hsppp::oncmd(0);   // 全体停止
+        hsppp::oncmd(1);   // 全体再開
+        
+        // onerror
+        hsppp::onerror(test_interrupt_handler);
+        hsppp::onerror(nullptr);
+        hsppp::onerror(0);
+        hsppp::onerror(1);
+        
+        // onexit
+        hsppp::onexit(test_interrupt_handler);
+        hsppp::onexit(nullptr);
+        hsppp::onexit(0);
+        hsppp::onexit(1);
+        
+        // onkey
+        hsppp::onkey(test_interrupt_handler);
+        hsppp::onkey(nullptr);
+        hsppp::onkey(0);
+        hsppp::onkey(1);
+        
+        // システム変数
+        [[maybe_unused]] int ip = hsppp::iparam();
+        [[maybe_unused]] int wp = hsppp::wparam();
+        [[maybe_unused]] int lp = hsppp::lparam();
+        [[maybe_unused]] const InterruptParams& params = hsppp::getInterruptParams();
+        (void)params;
+    }
+
+    // Screen クラスの割り込みハンドラテスト
+    void test_screen_interrupt_functions(Screen& scr) {
+        scr.onclick(test_interrupt_handler)
+           .onkey(test_interrupt_handler)
+           .oncmd(test_interrupt_handler, 0x0001);
+    }
+
 }  // namespace compile_test
 
 // ============================================================
@@ -397,6 +452,7 @@ namespace hsppp_test {
         if (testScreen.valid()) {
             compile_test::test_screen_class(testScreen);
             compile_test::test_screen_input_functions(testScreen);
+            compile_test::test_screen_interrupt_functions(testScreen);
         }
 
         // 残りのテスト（ウィンドウ作成を伴うもの）
@@ -408,6 +464,7 @@ namespace hsppp_test {
         compile_test::test_control_functions();
         compile_test::test_font_window_functions();
         compile_test::test_input_functions();
+        compile_test::test_interrupt_functions();
         // compile_test::test_end_function_signature(); // end()は呼ばない
 
         return true;

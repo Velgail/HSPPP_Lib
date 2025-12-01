@@ -8,6 +8,7 @@
 //   - hsppp_drawing.inl : 描画系関数（color, pos, mes, boxf, line, circle, pset, pget, redraw, await, end）
 //   - hsppp_ginfo.inl   : ginfo, font, sysfont, title, width
 //   - hsppp_copy.inl    : gsel, gmode, gcopy, gzoom
+//   - hsppp_interrupt.inl : 割り込みハンドラ（onclick, oncmd, onerror, onexit, onkey）
 
 // グローバルモジュールフラグメント
 module;
@@ -122,6 +123,8 @@ namespace {
 // ============================================================
 // 分割された実装ファイルを #include
 // ============================================================
+// 注意: hsppp_interrupt.inl は割り込み処理を定義するため最初に含める
+#include "hsppp_interrupt.inl"
 #include "hsppp_screen.inl"
 #include "hsppp_factory.inl"
 #include "hsppp_drawing.inl"

@@ -141,6 +141,15 @@ namespace hsppp {
 
 
     // ============================================================
+    // 割り込みハンドラ型定義（Screen クラスより前に定義が必要）
+    // ============================================================
+    
+    /// @brief 割り込みサブルーチン関数型
+    /// @return oncmd用の戻り値（return命令相当）、-1でデフォルト処理
+    export using InterruptHandler = int(*)();
+
+
+    // ============================================================
     // Screen クラス - 軽量ハンドル（実体として操作可能）
     // ============================================================
     //
@@ -284,6 +293,23 @@ namespace hsppp {
         /// @brief このウィンドウ内でのマウスカーソルY座標を取得
         /// @return Y座標
         [[nodiscard]] int mousey() const;
+
+        // ============================================================
+        // 割り込みハンドラ（OOP版・ウィンドウ別設定）
+        // ============================================================
+
+        /// @brief クリック割り込みを設定
+        /// @param handler コールバック関数/ラムダ (nullptr で解除)
+        Screen& onclick(InterruptHandler handler);
+
+        /// @brief Windowsメッセージ割り込みを設定
+        /// @param handler コールバック関数/ラムダ (nullptr で解除)
+        /// @param messageId 監視するメッセージID
+        Screen& oncmd(InterruptHandler handler, int messageId);
+
+        /// @brief キー割り込みを設定
+        /// @param handler コールバック関数/ラムダ (nullptr で解除)
+        Screen& onkey(InterruptHandler handler);
     };
 
 
@@ -611,6 +637,98 @@ namespace hsppp {
     /// @param time 待ち時間 (10ms単位、デフォルト: 100=1秒)
     /// @note awaitよりCPU負荷が軽い
     export void wait(OptInt time = {});
+
+    // ============================================================
+    // stop - プログラム実行を一時停止（HSP互換）
+    // ============================================================
+    /// @brief プログラムを一時停止し、割り込みを待機
+    /// @note 割り込みイベントによりジャンプするまで停止
+    export void stop();
+
+    // ============================================================
+    // 割り込み情報構造体
+    // ============================================================
+    
+    /// @brief 割り込み発生時のパラメータ（システム変数相当）
+    export struct InterruptParams {
+        int iparam;     ///< 割り込み要因パラメータ
+        int wparam;     ///< Windows wParam
+        int lparam;     ///< Windows lParam
+    };
+
+    /// @brief 現在の割り込みパラメータを取得
+    export const InterruptParams& getInterruptParams();
+
+    /// @brief システム変数 iparam を取得
+    export int iparam();
+
+    /// @brief システム変数 wparam を取得
+    export int wparam();
+
+    /// @brief システム変数 lparam を取得
+    export int lparam();
+
+    // ============================================================
+    // onclick - クリック割り込み実行指定（HSP互換）
+    // ============================================================
+    /// @brief マウスクリック時の割り込みを設定
+    /// @param handler コールバック関数/ラムダ (nullptr で解除)
+    export void onclick(InterruptHandler handler);
+
+    /// @brief onclick割り込みの一時停止/再開
+    /// @param enable 0=停止, 1=再開
+    export void onclick(int enable);
+
+    // ============================================================
+    // oncmd - Windowsメッセージ割り込み実行指定（HSP互換）
+    // ============================================================
+    /// @brief Windowsメッセージ受信時の割り込みを設定
+    /// @param handler コールバック関数/ラムダ (nullptr で解除)
+    /// @param messageId 監視するメッセージID
+    export void oncmd(InterruptHandler handler, int messageId);
+
+    /// @brief 指定メッセージIDの割り込みの一時停止/再開
+    /// @param enable 0=停止, 1=再開
+    /// @param messageId メッセージID
+    export void oncmd(int enable, int messageId);
+
+    /// @brief oncmd割り込み全体の一時停止/再開
+    /// @param enable 0=停止, 1=再開
+    export void oncmd(int enable);
+
+    // ============================================================
+    // onerror - エラー発生時にジャンプ（HSP互換）
+    // ============================================================
+    /// @brief エラー発生時の割り込みを設定
+    /// @param handler コールバック関数/ラムダ (nullptr で解除)
+    export void onerror(InterruptHandler handler);
+
+    /// @brief onerror割り込みの一時停止/再開
+    /// @param enable 0=停止, 1=再開
+    export void onerror(int enable);
+
+    // ============================================================
+    // onexit - 終了時にジャンプ（HSP互換）
+    // ============================================================
+    /// @brief 終了ボタン押下時の割り込みを設定
+    /// @param handler コールバック関数/ラムダ (nullptr で解除)
+    /// @note 設定されると end() を呼ぶまで終了しなくなる
+    export void onexit(InterruptHandler handler);
+
+    /// @brief onexit割り込みの一時停止/再開
+    /// @param enable 0=停止, 1=再開
+    export void onexit(int enable);
+
+    // ============================================================
+    // onkey - キー割り込み実行指定（HSP互換）
+    // ============================================================
+    /// @brief キー入力時の割り込みを設定
+    /// @param handler コールバック関数/ラムダ (nullptr で解除)
+    export void onkey(InterruptHandler handler);
+
+    /// @brief onkey割り込みの一時停止/再開
+    /// @param enable 0=停止, 1=再開
+    export void onkey(int enable);
 
     // --- System / Internal ---
     namespace internal {

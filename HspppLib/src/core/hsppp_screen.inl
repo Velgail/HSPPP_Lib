@@ -1,4 +1,4 @@
-// HspppLib/src/core/hsppp_screen.inl
+﻿// HspppLib/src/core/hsppp_screen.inl
 // Screenクラスメンバ関数の実装
 // hsppp.cpp から #include されることを想定
 

@@ -1,4 +1,4 @@
-// HspppLib/src/core/hsppp_input.inl
+﻿// HspppLib/src/core/hsppp_input.inl
 // 入力系関数の実装（stick, getkey, mouse, mousex, mousey, mousew, wait）
 // hsppp.cpp から #include されることを想定
 

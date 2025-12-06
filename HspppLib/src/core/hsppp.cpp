@@ -21,6 +21,9 @@ module;
 #include <wrl/client.h>
 #include <string>
 #include <string_view>
+#include <source_location>
+#include <format>
+#include <stdexcept>
 #include <map>
 #include <memory>
 
@@ -117,6 +120,15 @@ namespace {
                 g_isDrawing = false;
             }
         }
+    }
+}
+
+// ============================================================
+// 文字列操作（HSP拡張）
+// ============================================================
+namespace hsppp {
+    std::string str(int value) {
+        return std::to_string(value);
     }
 }
 

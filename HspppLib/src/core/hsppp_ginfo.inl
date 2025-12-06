@@ -1,4 +1,4 @@
-// HspppLib/src/core/hsppp_ginfo.inl
+﻿// HspppLib/src/core/hsppp_ginfo.inl
 // ginfo, font, sysfont, title, width関数の実装
 // hsppp.cpp から #include されることを想定
 

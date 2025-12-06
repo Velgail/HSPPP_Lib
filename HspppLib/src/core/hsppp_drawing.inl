@@ -1,4 +1,4 @@
-// HspppLib/src/core/hsppp_drawing.inl
+﻿// HspppLib/src/core/hsppp_drawing.inl
 // 描画系関数の実装
 // hsppp.cpp から #include されることを想定
 
@@ -120,7 +120,12 @@ namespace hsppp {
     // ============================================================
 
     // 描画色設定
-    void color(int r, int g, int b) {
+    void color(int r, int g, int b, const std::source_location& location) {
+        // パラメータ範囲チェック（例外を使用したエラー処理のデモ）
+        if (r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255) {
+            throw HspError(ERR_OUT_OF_RANGE, "color値は0~255の範囲で指定してください", location);
+        }
+
         auto currentSurface = getCurrentSurface();
         if (currentSurface) {
             currentSurface->color(r, g, b);
@@ -128,7 +133,7 @@ namespace hsppp {
     }
 
     // 描画位置設定
-    void pos(int x, int y) {
+    void pos(int x, int y, const std::source_location& location) {
         auto currentSurface = getCurrentSurface();
         if (currentSurface) {
             currentSurface->pos(x, y);
@@ -136,7 +141,7 @@ namespace hsppp {
     }
 
     // 文字列描画
-    void mes(std::string_view text) {
+    void mes(std::string_view text, const std::source_location& location) {
         auto currentSurface = getCurrentSurface();
         if (!currentSurface) return;
 
@@ -154,7 +159,7 @@ namespace hsppp {
     }
 
     // 矩形塗りつぶし（座標指定版）
-    void boxf(int x1, int y1, int x2, int y2) {
+    void boxf(int x1, int y1, int x2, int y2, const std::source_location& location) {
         auto currentSurface = getCurrentSurface();
         if (!currentSurface) return;
 
@@ -172,7 +177,7 @@ namespace hsppp {
     }
 
     // 矩形塗りつぶし（全画面版）
-    void boxf() {
+    void boxf(const std::source_location& location) {
         auto currentSurface = getCurrentSurface();
         if (!currentSurface) return;
 

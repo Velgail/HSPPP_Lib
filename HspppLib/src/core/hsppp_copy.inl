@@ -1,4 +1,4 @@
-// HspppLib/src/core/hsppp_copy.inl
+﻿// HspppLib/src/core/hsppp_copy.inl
 // gsel, gmode, gcopy, gzoom関数の実装
 // hsppp.cpp から #include されることを想定
 

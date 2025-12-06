@@ -1,4 +1,4 @@
-// HspppLib/src/core/hsppp_factory.inl
+﻿// HspppLib/src/core/hsppp_factory.inl
 // screen/buffer/bgscr生成関数の実装
 // hsppp.cpp から #include されることを想定
 

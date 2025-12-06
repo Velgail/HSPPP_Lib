@@ -231,7 +231,4 @@ namespace hsppp::internal {
     // 終了割り込みをトリガー
     // 戻り値: true=終了をブロック, false=終了を許可
     bool triggerOnExit(int windowId, int reason);
-
-    // エラー割り込みをトリガー
-    void triggerOnError(int errorCode, int lineNumber);
 }

@@ -382,6 +382,11 @@ namespace compile_test {
     
     // テスト用ハンドラ
     int test_interrupt_handler() { return 0; }
+    int test_error_handler(const HspError& error) {
+        [[maybe_unused]] int code = error.error_code();
+        [[maybe_unused]] int line = error.line_number();
+        return 0;
+    }
     
     void test_interrupt_functions() {
         // onclick
@@ -398,8 +403,9 @@ namespace compile_test {
         hsppp::oncmd(0);   // 全体停止
         hsppp::oncmd(1);   // 全体再開
         
-        // onerror
-        hsppp::onerror(test_interrupt_handler);
+        // onerror (ErrorHandler型 - HspError引数を受け取る)
+        hsppp::onerror(test_error_handler);
+        hsppp::onerror([](const HspError& e) { return 0; });  // ラムダ式
         hsppp::onerror(nullptr);
         hsppp::onerror(0);
         hsppp::onerror(1);

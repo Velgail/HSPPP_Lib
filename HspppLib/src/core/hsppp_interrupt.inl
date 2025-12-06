@@ -1,4 +1,4 @@
-// HspppLib/src/core/hsppp_interrupt.inl
+﻿// HspppLib/src/core/hsppp_interrupt.inl
 // 割り込みハンドラ関数の実装（onclick, oncmd, onerror, onexit, onkey）
 // hsppp.cpp から #include されることを想定
 
@@ -12,13 +12,19 @@ namespace {
 
     // 割り込みハンドラ情報
     struct InterruptHandlerInfo {
-        InterruptHandler handler = nullptr;  // コールバック関数ポインタ
-        bool enabled = true;                 // 有効/無効
+        InterruptHandler handler;  // コールバック関数（ラムダ式対応）
+        bool enabled = true;       // 有効/無効
+    };
+
+    // エラーハンドラ情報（HspErrorを受け取る）
+    struct ErrorHandlerInfo {
+        ErrorHandler handler;  // エラーハンドラ（ラムダ式対応）
+        bool enabled = true;   // 有効/無効
     };
 
     // グローバル割り込みハンドラ
     InterruptHandlerInfo g_onclickHandler;
-    InterruptHandlerInfo g_onerrorHandler;
+    ErrorHandlerInfo g_onerrorHandler;  // onerrorだけ型が異なる
     InterruptHandlerInfo g_onexitHandler;
     InterruptHandlerInfo g_onkeyHandler;
 
@@ -33,11 +39,11 @@ namespace {
     bool g_interruptPending = false;
 
     // ペンディング中の割り込み種類
+    // 注意: OnErrorはWinMain.cppのtry-catchで即座に処理されるためペンディングしない
     enum class PendingInterruptType {
         None,
         OnClick,
         OnCmd,
-        OnError,
         OnExit,
         OnKey
     };
@@ -62,9 +68,6 @@ namespace {
                     handlerInfo = &it->second;
                 }
             }
-            break;
-        case PendingInterruptType::OnError:
-            handlerInfo = &g_onerrorHandler;
             break;
         case PendingInterruptType::OnExit:
             handlerInfo = &g_onexitHandler;
@@ -186,7 +189,7 @@ namespace hsppp {
     // onerror - エラー発生時にジャンプ
     // ============================================================
 
-    void onerror(InterruptHandler handler) {
+    void onerror(ErrorHandler handler) {
         g_onerrorHandler.handler = handler;
         g_onerrorHandler.enabled = (handler != nullptr);
     }
@@ -299,13 +302,41 @@ namespace hsppp::internal {
         return true;  // 終了をブロック
     }
 
-    // エラー割り込みをトリガー
-    void triggerOnError(int errorCode, int lineNumber) {
+    // エラー割り込みは例外処理で直接handleHspErrorによって処理されるため、
+    // triggerOnError関数は使用されません（後方互換性のため残していますが、実際には呼び出されない）
+
+    // HspError例外を処理（メインループから呼び出し）
+    void handleHspError(const hsppp::HspError& error) {
         if (g_onerrorHandler.enabled && g_onerrorHandler.handler) {
-            g_interruptParams.wparam = errorCode;
-            g_interruptParams.lparam = lineNumber;
-            g_interruptParams.iparam = 0;
-            g_onerrorHandler.handler();
+            // HspErrorオブジェクトを直接ハンドラに渡す
+            g_onerrorHandler.handler(error);
+
+            // HSP仕様: onerror ハンドラは gosub 相当で、自動的に end で終了
+            hsppp::end(1);
+        }
+        else {
+            // ハンドラが設定されていない場合は、HSP互換の簡潔なエラー表示
+            // 形式: "#Error <エラー番号> in line <行番号> (<ファイル名>)"
+            //       "-->エラーメッセージ"
+
+            // ファイル名を取得（パスの最後の部分のみ）
+            std::string fileName = error.file_name();
+            size_t lastSlash = fileName.find_last_of("/\\");
+            if (lastSlash != std::string::npos) {
+                fileName = fileName.substr(lastSlash + 1);
+            }
+
+            std::string errorMsg = std::format(
+                "#Error {} in line {} ({})\n-->{}",
+                error.error_code(),
+                error.line_number(),
+                fileName,
+                error.what()
+            );
+
+            std::wstring wideMsg = Utf8ToWide(errorMsg);
+            MessageBoxW(nullptr, wideMsg.c_str(), L"Error", MB_OK | MB_ICONWARNING);
+            hsppp::end(1);
         }
     }
 

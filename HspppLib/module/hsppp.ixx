@@ -4,6 +4,10 @@ export module hsppp;
 // 必要な標準ライブラリをインポート
 import <string_view>;
 import <optional>;
+import <source_location>;
+import <stdexcept>;
+import <format>;
+import <functional>;
 
 namespace hsppp {
 
@@ -143,11 +147,17 @@ namespace hsppp {
     // ============================================================
     // 割り込みハンドラ型定義（Screen クラスより前に定義が必要）
     // ============================================================
-    
-    /// @brief 割り込みサブルーチン関数型
-    /// @return oncmd用の戻り値（return命令相当）、-1でデフォルト処理
-    export using InterruptHandler = int(*)();
 
+    // 前方宣言（HspErrorクラスはこのファイルの後半で定義）
+    export class HspError;
+
+    /// @brief 汎用割り込みハンドラ型（onclick, onkey, onexit, oncmd用）
+    /// @note ラムダ式、関数ポインタ、関数オブジェクトをサポート
+    export using InterruptHandler = std::function<int()>;
+
+    /// @brief エラーハンドラ型（onerror用）
+    /// @note HspErrorオブジェクトを受け取る
+    export using ErrorHandler = std::function<int(const HspError&)>;
 
     // ============================================================
     // Screen クラス - 軽量ハンドル（実体として操作可能）
@@ -467,12 +477,16 @@ namespace hsppp {
     export [[noreturn]] void end(int exitcode = 0);
 
     // --- Drawing Functions ---
-    export void color(int r, int g, int b);
-    export void pos(int x, int y);
-    export void mes(std::string_view text);  // string_view で安全に
-    export void boxf(int x1, int y1, int x2, int y2);
+    export void color(int r, int g, int b,
+                     const std::source_location& location = std::source_location::current());
+    export void pos(int x, int y,
+                   const std::source_location& location = std::source_location::current());
+    export void mes(std::string_view text,
+                   const std::source_location& location = std::source_location::current());
+    export void boxf(int x1, int y1, int x2, int y2,
+                    const std::source_location& location = std::source_location::current());
     // 引数なし版 boxf() -> 画面全体
-    export void boxf();
+    export void boxf(const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // line - 直線を描画（HSP互換）
@@ -648,8 +662,9 @@ namespace hsppp {
     // ============================================================
     // 割り込み情報構造体
     // ============================================================
-    
+
     /// @brief 割り込み発生時のパラメータ（システム変数相当）
+    /// @note onclick, onkey, onexit, oncmd で使用
     export struct InterruptParams {
         int iparam;     ///< 割り込み要因パラメータ
         int wparam;     ///< Windows wParam
@@ -669,10 +684,101 @@ namespace hsppp {
     export int lparam();
 
     // ============================================================
+    // 文字列操作（HSP拡張）
+    // ============================================================
+
+    /// @brief 整数を文字列に変換
+    /// @param value 変換する整数値
+    /// @return 文字列
+    export std::string str(int value);
+
+    // ============================================================
+    // エラーコード定義（HSP互換）
+    // ============================================================
+
+    export inline constexpr int ERR_NONE              = 0;   // エラーなし
+    export inline constexpr int ERR_SYNTAX            = 1;   // 文法エラー（コンパイル時）
+    export inline constexpr int ERR_ILLEGAL_FUNCTION  = 2;   // 不正な呼び出し
+    export inline constexpr int ERR_LABEL_REQUIRED    = 3;   // ラベル指定が必要
+    export inline constexpr int ERR_OUT_OF_MEMORY     = 4;   // メモリ不足
+    export inline constexpr int ERR_TYPE_MISMATCH     = 5;   // 型が違う
+    export inline constexpr int ERR_OUT_OF_ARRAY      = 6;   // 配列の要素が無効
+    export inline constexpr int ERR_OUT_OF_RANGE      = 7;   // パラメータの値が異常
+    export inline constexpr int ERR_DIVIDE_BY_ZERO    = 8;   // 0で除算した
+    export inline constexpr int ERR_BUFFER_OVERFLOW   = 9;   // バッファオーバーフロー
+    export inline constexpr int ERR_UNSUPPORTED       = 10;  // サポートされていない
+    export inline constexpr int ERR_EXPRESSION        = 11;  // 式エラー（計算式）
+    export inline constexpr int ERR_FILE_IO           = 12;  // ファイルI/Oエラー
+    export inline constexpr int ERR_WINDOW_INIT       = 13;  // ウィンドウ初期化エラー
+    export inline constexpr int ERR_INVALID_HANDLE    = 14;  // 無効なハンドル
+    export inline constexpr int ERR_EXTERNAL_EXECUTE  = 15;  // 外部実行エラー
+    export inline constexpr int ERR_SYSTEM_ERROR      = 16;  // システムエラー
+    export inline constexpr int ERR_INTERNAL          = 17;  // 内部エラー
+
+    // ============================================================
+    // HspError - エラー例外クラス
+    // ============================================================
+
+    /// @brief HSPエラー例外
+    /// @details C++例外システムと統合されたHSPエラーハンドリング
+    export class HspError : public std::runtime_error {
+    private:
+        int m_errorCode;
+        int m_lineNumber;
+        std::string m_fileName;
+        std::string m_functionName;
+        std::string m_message;  // 元のエラーメッセージ（ユーザー向け）
+
+    public:
+        /// @brief エラー例外を構築
+        /// @param errorCode エラーコード (ERR_*)
+        /// @param message エラーメッセージ
+        /// @param location 発生場所（std::source_locationから自動取得）
+        HspError(int errorCode,
+                std::string_view message,
+                const std::source_location& location = std::source_location::current())
+            : std::runtime_error(std::format("[HSP Error {}] {}", errorCode, message))
+            , m_errorCode(errorCode)
+            , m_lineNumber(static_cast<int>(location.line()))
+            , m_fileName(location.file_name())
+            , m_functionName(location.function_name())
+            , m_message(message)
+        {}
+
+        /// @brief エラーコードを取得
+        [[nodiscard]] int error_code() const noexcept { return m_errorCode; }
+
+        /// @brief 行番号を取得
+        [[nodiscard]] int line_number() const noexcept { return m_lineNumber; }
+
+        /// @brief ファイル名を取得
+        [[nodiscard]] const std::string& file_name() const noexcept { return m_fileName; }
+
+        /// @brief 関数名を取得
+        [[nodiscard]] const std::string& function_name() const noexcept { return m_functionName; }
+
+        /// @brief 元のエラーメッセージを取得（ユーザー向け）
+        [[nodiscard]] const std::string& message() const noexcept { return m_message; }
+    };
+
+    // ============================================================
+    // onerror - エラー発生時にジャンプ（HSP互換）
+    // ============================================================
+    /// @brief エラー発生時の割り込みを設定
+    /// @param handler エラーハンドラ関数/ラムダ
+    /// @note ハンドラはHspErrorオブジェクトを受け取る
+    /// @note ハンドラ終了後、自動的にend()が呼ばれる（HSP仕様）
+    export void onerror(ErrorHandler handler);
+
+    /// @brief onerror割り込みの一時停止/再開
+    /// @param enable 0=停止, 1=再開
+    export void onerror(int enable);
+
+    // ============================================================
     // onclick - クリック割り込み実行指定（HSP互換）
     // ============================================================
     /// @brief マウスクリック時の割り込みを設定
-    /// @param handler コールバック関数/ラムダ (nullptr で解除)
+    /// @param handler コールバック関数/ラムダ
     export void onclick(InterruptHandler handler);
 
     /// @brief onclick割り込みの一時停止/再開
@@ -695,17 +801,6 @@ namespace hsppp {
     /// @brief oncmd割り込み全体の一時停止/再開
     /// @param enable 0=停止, 1=再開
     export void oncmd(int enable);
-
-    // ============================================================
-    // onerror - エラー発生時にジャンプ（HSP互換）
-    // ============================================================
-    /// @brief エラー発生時の割り込みを設定
-    /// @param handler コールバック関数/ラムダ (nullptr で解除)
-    export void onerror(InterruptHandler handler);
-
-    /// @brief onerror割り込みの一時停止/再開
-    /// @param enable 0=停止, 1=再開
-    export void onerror(int enable);
 
     // ============================================================
     // onexit - 終了時にジャンプ（HSP互換）
@@ -735,6 +830,9 @@ namespace hsppp {
         // ライブラリの初期化・終了処理(WinMainから呼ばれる)
         export void init_system();
         export void close_system();
+
+        // HspError例外を処理（エラーハンドラを呼び出す）
+        export void handleHspError(const HspError& error);
     }
 }
 

@@ -17,20 +17,41 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
     hsppp::internal::init_system();
 
     // 2. ユーザーコード (hspMain) の実行
-    // ユーザーはここから screen() などを呼び出す
-    hspMain();
+    // エラーハンドリング: HspError例外を自動的にキャッチ
+    try {
+        // ユーザーはここから screen() などを呼び出す
+        hspMain();
 
-    // 3. hspMain を抜けた後は、HSPの stop 命令相当の動作
-    // WM_QUIT が来るまでメッセージループを回し続ける
-    MSG msg;
-    while (GetMessage(&msg, nullptr, 0, 0)) {
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
+        // 3. hspMain を抜けた後は、HSPの stop 命令相当の動作
+        // WM_QUIT が来るまでメッセージループを回し続ける
+        MSG msg;
+        while (GetMessage(&msg, nullptr, 0, 0)) {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
+
+        // 4. エンジンの終了処理
+        // (リソース開放など)
+        hsppp::internal::close_system();
+
+        return static_cast<int>(msg.wParam);
     }
-
-    // 4. エンジンの終了処理
-    // (リソース開放など)
-    hsppp::internal::close_system();
-
-    return static_cast<int>(msg.wParam);
+    catch (const hsppp::HspError& e) {
+        // HspError例外が発生した場合、onerrorハンドラを実行
+        // （ハンドラ未設定時はエラーダイアログを表示して終了）
+        hsppp::internal::handleHspError(e);
+        return 1;  // エラー終了（実際にはhandleHspErrorがend()を呼ぶので到達しない）
+    }
+    catch (const std::exception& e) {
+        // その他の標準例外
+        MessageBoxA(nullptr, e.what(), "Unexpected Error", MB_OK | MB_ICONERROR);
+        hsppp::internal::close_system();
+        return 1;
+    }
+    catch (...) {
+        // 不明な例外
+        MessageBoxA(nullptr, "Unknown error occurred", "Fatal Error", MB_OK | MB_ICONERROR);
+        hsppp::internal::close_system();
+        return 1;
+    }
 }

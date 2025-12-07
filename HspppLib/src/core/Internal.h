@@ -101,7 +101,7 @@ public:
 
     // 描画命令
     void boxf(int x1, int y1, int x2, int y2);
-    void mes(std::string_view text);
+    void mes(std::string_view text, int options = 0);
     void color(int r, int g, int b);
     void pos(int x, int y);
     void line(int x2, int y2, int x1, int y1, bool useStartPos);

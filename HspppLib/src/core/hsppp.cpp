@@ -127,7 +127,7 @@ namespace {
 // 文字列操作（HSP拡張）
 // ============================================================
 namespace hsppp {
-    std::string str(int value) {
+    std::string str(int value, const std::source_location& location) {
         return std::to_string(value);
     }
 }
@@ -149,7 +149,7 @@ namespace hsppp {
 // ============================================================
 namespace hsppp::internal {
 
-    void init_system() {
+    void init_system(const std::source_location& location) {
         // COM初期化
         CoInitialize(nullptr);
 
@@ -168,7 +168,7 @@ namespace hsppp::internal {
         }
     }
 
-    void close_system() {
+    void close_system(const std::source_location& location) {
         // すべてのサーフェスを解放
         g_surfaces.clear();
         g_currentSurface.reset();

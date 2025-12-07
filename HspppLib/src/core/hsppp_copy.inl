@@ -7,7 +7,7 @@ namespace hsppp {
     // ============================================================
     // gsel - 描画先指定、ウィンドウ最前面、非表示設定（HSP互換）
     // ============================================================
-    void gsel(OptInt id, OptInt mode) {
+    void gsel(OptInt id, OptInt mode, const std::source_location& location) {
         using namespace internal;
 
         int p1 = id.value_or(0);
@@ -54,7 +54,7 @@ namespace hsppp {
     // ============================================================
     // gmode - 画面コピーモード設定（HSP互換）
     // ============================================================
-    void gmode(OptInt mode, OptInt size_x, OptInt size_y, OptInt blend_rate) {
+    void gmode(OptInt mode, OptInt size_x, OptInt size_y, OptInt blend_rate, const std::source_location& location) {
         g_gmodeMode = mode.value_or(0);
         g_gmodeSizeX = size_x.value_or(32);
         g_gmodeSizeY = size_y.value_or(32);
@@ -65,7 +65,7 @@ namespace hsppp {
     // gcopy - 画面コピー（HSP互換）
     // Direct2D 1.1: 共有ビットマップを使用して異なるサーフェス間でコピー
     // ============================================================
-    void gcopy(OptInt src_id, OptInt src_x, OptInt src_y, OptInt size_x, OptInt size_y) {
+    void gcopy(OptInt src_id, OptInt src_x, OptInt src_y, OptInt size_x, OptInt size_y, const std::source_location& location) {
         using namespace internal;
 
         int p1 = src_id.value_or(0);
@@ -74,84 +74,98 @@ namespace hsppp {
         int p4 = size_x.value_or(g_gmodeSizeX);
         int p5 = size_y.value_or(g_gmodeSizeY);
 
-        // コピー元サーフェスを取得
-        auto srcIt = g_surfaces.find(p1);
-        if (srcIt == g_surfaces.end()) return;
-        auto srcSurface = srcIt->second;
+        try {
+            // コピー元サーフェスを取得
+            auto srcIt = g_surfaces.find(p1);
+            if (srcIt == g_surfaces.end()) {
+                throw HspError(ERR_INVALID_HANDLE, "gcopyのコピー元サーフェスが見つかりません", location);
+            }
+            auto srcSurface = srcIt->second;
 
-        // カレントサーフェス（コピー先）を取得
-        auto destSurface = getCurrentSurface();
-        if (!destSurface) return;
+            // カレントサーフェス（コピー先）を取得
+            auto destSurface = getCurrentSurface();
+            if (!destSurface) {
+                throw HspError(ERR_INVALID_HANDLE, "gcopyのカレントサーフェスが無効です", location);
+            }
 
-        // コピー元のビットマップを取得（Direct2D 1.1の共有ビットマップ）
-        auto srcBitmap = srcSurface->getTargetBitmap();
-        if (!srcBitmap) return;
+            // コピー元のビットマップを取得（Direct2D 1.1の共有ビットマップ）
+            auto srcBitmap = srcSurface->getTargetBitmap();
+            if (!srcBitmap) {
+                throw HspError(ERR_INVALID_HANDLE, "gcopyのコピー元ビットマップが無効です", location);
+            }
 
-        // コピー先のDeviceContextを取得
-        auto destContext = destSurface->getDeviceContext();
-        if (!destContext) return;
+            // コピー先のDeviceContextを取得
+            auto destContext = destSurface->getDeviceContext();
+            if (!destContext) {
+                throw HspError(ERR_INVALID_HANDLE, "gcopyのコピー先DeviceContextが無効です", location);
+            }
 
-        // カレントポジションを取得
-        int destX = destSurface->getCurrentX();
-        int destY = destSurface->getCurrentY();
+            // カレントポジションを取得
+            int destX = destSurface->getCurrentX();
+            int destY = destSurface->getCurrentY();
 
-        // 描画モードに応じて処理
-        bool wasDrawing = g_isDrawing;
-        if (g_redrawMode == 1 && !wasDrawing) {
-            beginDrawIfNeeded();
+            // 描画モードに応じて処理
+            bool wasDrawing = g_isDrawing;
+            if (g_redrawMode == 1 && !wasDrawing) {
+                beginDrawIfNeeded();
+            }
+
+            // コピー元の領域
+            D2D1_RECT_F srcRect = D2D1::RectF(
+                static_cast<FLOAT>(p2),
+                static_cast<FLOAT>(p3),
+                static_cast<FLOAT>(p2 + p4),
+                static_cast<FLOAT>(p3 + p5)
+            );
+
+            // コピー先の領域（カレントポジションから）
+            D2D1_RECT_F destRect = D2D1::RectF(
+                static_cast<FLOAT>(destX),
+                static_cast<FLOAT>(destY),
+                static_cast<FLOAT>(destX + p4),
+                static_cast<FLOAT>(destY + p5)
+            );
+
+            // コピーモードに応じた処理
+            FLOAT opacity = 1.0f;
+            D2D1_PRIMITIVE_BLEND primitiveBlend = D2D1_PRIMITIVE_BLEND_SOURCE_OVER;
+
+            if (g_gmodeMode >= 3 && g_gmodeMode <= 6) {
+                // 半透明・加算・減算モードの場合はブレンド率を適用
+                opacity = g_gmodeBlendRate / 256.0f;
+            }
+
+            if (g_gmodeMode == 5) {
+                // 加算ブレンド
+                primitiveBlend = D2D1_PRIMITIVE_BLEND_ADD;
+            } else if (g_gmodeMode == 6) {
+                // 減算ブレンド（Direct2Dに直接対応がないためMINで近似）
+                primitiveBlend = D2D1_PRIMITIVE_BLEND_MIN;
+            }
+
+            destContext->SetPrimitiveBlend(primitiveBlend);
+
+            // Direct2D 1.1では同じDeviceから作成されたビットマップを直接描画可能
+            destContext->DrawBitmap(
+                srcBitmap,
+                destRect,
+                opacity,
+                D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR,
+                srcRect
+            );
+
+            // ブレンドモードをリセット
+            if (primitiveBlend != D2D1_PRIMITIVE_BLEND_SOURCE_OVER) {
+                destContext->SetPrimitiveBlend(D2D1_PRIMITIVE_BLEND_SOURCE_OVER);
+            }
+
+            if (g_redrawMode == 1 && !wasDrawing) {
+                endDrawAndPresent();
+            }
         }
-
-        // コピー元の領域
-        D2D1_RECT_F srcRect = D2D1::RectF(
-            static_cast<FLOAT>(p2),
-            static_cast<FLOAT>(p3),
-            static_cast<FLOAT>(p2 + p4),
-            static_cast<FLOAT>(p3 + p5)
-        );
-
-        // コピー先の領域（カレントポジションから）
-        D2D1_RECT_F destRect = D2D1::RectF(
-            static_cast<FLOAT>(destX),
-            static_cast<FLOAT>(destY),
-            static_cast<FLOAT>(destX + p4),
-            static_cast<FLOAT>(destY + p5)
-        );
-
-        // コピーモードに応じた処理
-        FLOAT opacity = 1.0f;
-        D2D1_PRIMITIVE_BLEND primitiveBlend = D2D1_PRIMITIVE_BLEND_SOURCE_OVER;
-
-        if (g_gmodeMode >= 3 && g_gmodeMode <= 6) {
-            // 半透明・加算・減算モードの場合はブレンド率を適用
-            opacity = g_gmodeBlendRate / 256.0f;
-        }
-
-        if (g_gmodeMode == 5) {
-            // 加算ブレンド
-            primitiveBlend = D2D1_PRIMITIVE_BLEND_ADD;
-        } else if (g_gmodeMode == 6) {
-            // 減算ブレンド（Direct2Dに直接対応がないためMINで近似）
-            primitiveBlend = D2D1_PRIMITIVE_BLEND_MIN;
-        }
-
-        destContext->SetPrimitiveBlend(primitiveBlend);
-
-        // Direct2D 1.1では同じDeviceから作成されたビットマップを直接描画可能
-        destContext->DrawBitmap(
-            srcBitmap,
-            destRect,
-            opacity,
-            D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR,
-            srcRect
-        );
-
-        // ブレンドモードをリセット
-        if (primitiveBlend != D2D1_PRIMITIVE_BLEND_SOURCE_OVER) {
-            destContext->SetPrimitiveBlend(D2D1_PRIMITIVE_BLEND_SOURCE_OVER);
-        }
-
-        if (g_redrawMode == 1 && !wasDrawing) {
-            endDrawAndPresent();
+        catch (const std::exception& e) {
+            // 例外を書き換え
+            throw HspError(ERR_SYSTEM_ERROR, std::format("gcopyでエラーが発生しました: {}", e.what()), location);
         }
     }
 
@@ -160,7 +174,7 @@ namespace hsppp {
     // Direct2D 1.1: 共有ビットマップを使用して異なるサーフェス間でコピー
     // ============================================================
     void gzoom(OptInt dest_w, OptInt dest_h, OptInt src_id, OptInt src_x, OptInt src_y,
-               OptInt src_w, OptInt src_h, OptInt mode) {
+               OptInt src_w, OptInt src_h, OptInt mode, const std::source_location& location) {
         using namespace internal;
 
         int p1 = dest_w.value_or(g_gmodeSizeX);

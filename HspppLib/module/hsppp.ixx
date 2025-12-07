@@ -212,7 +212,9 @@ namespace hsppp {
         Screen& pos(int x, int y);
 
         /// @brief 文字列を描画
-        Screen& mes(std::string_view text);
+        /// @param text メッセージ文字列
+        /// @param sw オプション (1=改行しない, 2=影, 4=縁取り, 8=簡易描画, 16=gmode設定)
+        Screen& mes(std::string_view text, OptInt sw = {});
 
         /// @brief 矩形を塗りつぶし
         Screen& boxf(int x1, int y1, int x2, int y2);
@@ -378,7 +380,8 @@ namespace hsppp {
         OptInt pos_y    = {},
         OptInt client_w = {},
         OptInt client_h = {},
-        std::string_view title = "HSPPP Window"
+        std::string_view title = "HSPPP Window",
+        const std::source_location& location = std::source_location::current()
     );
 
     // ============================================================
@@ -394,7 +397,8 @@ namespace hsppp {
         int id,
         OptInt width  = {},
         OptInt height = {},
-        OptInt mode   = {}
+        OptInt mode   = {},
+        const std::source_location& location = std::source_location::current()
     );
 
     // ============================================================
@@ -418,7 +422,8 @@ namespace hsppp {
         OptInt pos_x    = {},
         OptInt pos_y    = {},
         OptInt client_w = {},
-        OptInt client_h = {}
+        OptInt client_h = {},
+        const std::source_location& location = std::source_location::current()
     );
 
     // ============================================================
@@ -427,7 +432,7 @@ namespace hsppp {
     /// @brief 描画先を指定したウィンドウIDに変更
     /// @param id ウィンドウID
     /// @param mode ウィンドウアクティブスイッチ (-1=非表示, 0=影響なし, 1=アクティブ, 2=アクティブ+最前面)
-    export void gsel(OptInt id = {}, OptInt mode = {});
+    export void gsel(OptInt id = {}, OptInt mode = {}, const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // gmode - 画面コピーモード設定（HSP互換）
@@ -437,7 +442,7 @@ namespace hsppp {
     /// @param size_x コピーする大きさX (デフォルト: 32)
     /// @param size_y コピーする大きさY (デフォルト: 32)
     /// @param blend_rate 半透明合成時のブレンド率 (0～256)
-    export void gmode(OptInt mode = {}, OptInt size_x = {}, OptInt size_y = {}, OptInt blend_rate = {});
+    export void gmode(OptInt mode = {}, OptInt size_x = {}, OptInt size_y = {}, OptInt blend_rate = {}, const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // gcopy - 画面コピー（HSP互換）
@@ -448,7 +453,7 @@ namespace hsppp {
     /// @param src_y コピー元の左上Y座標
     /// @param size_x コピーする大きさX (省略時=gmodeで設定したサイズ)
     /// @param size_y コピーする大きさY (省略時=gmodeで設定したサイズ)
-    export void gcopy(OptInt src_id = {}, OptInt src_x = {}, OptInt src_y = {}, OptInt size_x = {}, OptInt size_y = {});
+    export void gcopy(OptInt src_id = {}, OptInt src_x = {}, OptInt src_y = {}, OptInt size_x = {}, OptInt size_y = {}, const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // gzoom - 変倍して画面コピー（HSP互換）
@@ -462,26 +467,26 @@ namespace hsppp {
     /// @param src_w コピーする大きさX
     /// @param src_h コピーする大きさY
     /// @param mode ズームのモード (0=高速, 1=高品質ハーフトーン)
-    export void gzoom(OptInt dest_w = {}, OptInt dest_h = {}, OptInt src_id = {}, OptInt src_x = {}, OptInt src_y = {}, OptInt src_w = {}, OptInt src_h = {}, OptInt mode = {});
+    export void gzoom(OptInt dest_w = {}, OptInt dest_h = {}, OptInt src_id = {}, OptInt src_x = {}, OptInt src_y = {}, OptInt src_w = {}, OptInt src_h = {}, OptInt mode = {}, const std::source_location& location = std::source_location::current());
 
     // 描画制御
     // p1: 0=描画予約(Offscreen), 1=画面反映(Present)
-    export void redraw(int p1 = 1);
+    export void redraw(int p1 = 1, const std::source_location& location = std::source_location::current());
 
     // 待機＆メッセージ処理 (HSP互換)
     // 指定されたミリ秒だけ待機し、その間ウィンドウメッセージを処理する
-    export void await(int time_ms);
+    export void await(int time_ms, const std::source_location& location = std::source_location::current());
 
     // プログラム終了 (HSP互換)
     // p1: 終了コード（省略時は0）
-    export [[noreturn]] void end(int exitcode = 0);
+    export [[noreturn]] void end(int exitcode = 0, const std::source_location& location = std::source_location::current());
 
     // --- Drawing Functions ---
     export void color(int r, int g, int b,
                      const std::source_location& location = std::source_location::current());
     export void pos(int x, int y,
                    const std::source_location& location = std::source_location::current());
-    export void mes(std::string_view text,
+    export void mes(std::string_view text, OptInt sw = {},
                    const std::source_location& location = std::source_location::current());
     export void boxf(int x1, int y1, int x2, int y2,
                     const std::source_location& location = std::source_location::current());
@@ -497,7 +502,7 @@ namespace hsppp {
     /// @param x1 ラインの始点X座標 (省略時=カレントポジション)
     /// @param y1 ラインの始点Y座標 (省略時=カレントポジション)
     /// @note 実行後、(x2, y2)がカレントポジションになる
-    export void line(OptInt x2 = {}, OptInt y2 = {}, OptInt x1 = {}, OptInt y1 = {});
+    export void line(OptInt x2 = {}, OptInt y2 = {}, OptInt x1 = {}, OptInt y1 = {}, const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // circle - 円を描画（HSP互換）
@@ -508,7 +513,7 @@ namespace hsppp {
     /// @param x2 矩形の右下X座標
     /// @param y2 矩形の右下Y座標
     /// @param fillMode 描画モード (0=線, 1=塗りつぶし, デフォルト: 1)
-    export void circle(OptInt x1 = {}, OptInt y1 = {}, OptInt x2 = {}, OptInt y2 = {}, OptInt fillMode = {});
+    export void circle(OptInt x1 = {}, OptInt y1 = {}, OptInt x2 = {}, OptInt y2 = {}, OptInt fillMode = {}, const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // pset - 1ドットの点を描画（HSP互換）
@@ -516,7 +521,7 @@ namespace hsppp {
     /// @brief 1ドットの点を描画
     /// @param x 画面上のX座標 (省略時=カレントポジション)
     /// @param y 画面上のY座標 (省略時=カレントポジション)
-    export void pset(OptInt x = {}, OptInt y = {});
+    export void pset(OptInt x = {}, OptInt y = {}, const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // pget - 1ドットの色を取得（HSP互換）
@@ -525,7 +530,7 @@ namespace hsppp {
     /// @param x 画面上のX座標 (省略時=カレントポジション)
     /// @param y 画面上のY座標 (省略時=カレントポジション)
     /// @note 取得した色はginfo(16/17/18)またはginfo_r/g/bで参照可能
-    export void pget(OptInt x = {}, OptInt y = {});
+    export void pget(OptInt x = {}, OptInt y = {}, const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // ginfo - ウィンドウ情報の取得（HSP互換）
@@ -540,16 +545,16 @@ namespace hsppp {
     ///   14-15: メッセージ出力サイズ, 16-18: カラーコード(RGB),
     ///   19: カラーモード, 20-21: デスクトップサイズ, 22-23: カレントポジション,
     ///   24: 割り込みウィンドウID, 25: 未使用ウィンドウID, 26-27: 初期化サイズ
-    export int ginfo(int type);
+    export int ginfo(int type, const std::source_location& location = std::source_location::current());
 
     /// @brief 現在設定されている色コード(R)を取得
-    export int ginfo_r();
+    export int ginfo_r(const std::source_location& location = std::source_location::current());
 
     /// @brief 現在設定されている色コード(G)を取得
-    export int ginfo_g();
+    export int ginfo_g(const std::source_location& location = std::source_location::current());
 
     /// @brief 現在設定されている色コード(B)を取得
-    export int ginfo_b();
+    export int ginfo_b(const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // font - フォント設定（HSP互換）
@@ -560,7 +565,7 @@ namespace hsppp {
     /// @param style フォントスタイル (1=太字, 2=イタリック, 4=下線, 8=打消し線, 16=アンチエイリアス)
     /// @param decorationWidth フォント修飾の幅 (デフォルト: 1)
     /// @note statに結果が設定される (0=成功, -1=失敗)
-    export void font(std::string_view fontName, OptInt size = {}, OptInt style = {}, OptInt decorationWidth = {});
+    export void font(std::string_view fontName, OptInt size = {}, OptInt style = {}, OptInt decorationWidth = {}, const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // sysfont - システムフォント選択（HSP互換）
@@ -573,14 +578,14 @@ namespace hsppp {
     ///   12: Windows文字セットの可変幅システムフォント
     ///   13: 標準システムフォント
     ///   17: デフォルトGUIフォント
-    export void sysfont(OptInt type = {});
+    export void sysfont(OptInt type = {}, const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // title - タイトルバー設定（HSP互換）
     // ============================================================
     /// @brief ウィンドウのタイトルバーを設定
     /// @param str タイトル文字列
-    export void title(std::string_view str);
+    export void title(std::string_view str, const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // width - ウィンドウサイズ設定（HSP互換）
@@ -591,7 +596,7 @@ namespace hsppp {
     /// @param posX ウィンドウ位置X (-1=変更なし)
     /// @param posY ウィンドウ位置Y (-1=変更なし)
     /// @param option 座標設定オプション (0=負値で現在維持, 1=負値も設定)
-    export void width(OptInt clientW = {}, OptInt clientH = {}, OptInt posX = {}, OptInt posY = {}, OptInt option = {});
+    export void width(OptInt clientW = {}, OptInt clientH = {}, OptInt posX = {}, OptInt posY = {}, OptInt option = {}, const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // stick - キー入力情報取得（HSP互換）
@@ -604,7 +609,7 @@ namespace hsppp {
     ///   1=←, 2=↑, 4=→, 8=↓, 16=スペース, 32=Enter, 64=Ctrl, 128=ESC,
     ///   256=左クリック, 512=右クリック, 1024=TAB, 2048=Z, 4096=X, 8192=C,
     ///   16384=A, 32768=W, 65536=D, 131072=S
-    export int stick(OptInt nonTrigger = {}, OptInt checkActive = {});
+    export int stick(OptInt nonTrigger = {}, OptInt checkActive = {}, const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // getkey - キー入力チェック（HSP互換）
@@ -612,7 +617,7 @@ namespace hsppp {
     /// @brief 指定したキーが押されているかチェック
     /// @param keycode 仮想キーコード (VK_LEFT=37, VK_UP=38, etc.)
     /// @return 押されていれば1、押されていなければ0
-    export int getkey(int keycode);
+    export int getkey(int keycode, const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // mouse - マウスカーソル座標設定（HSP互換）
@@ -621,28 +626,28 @@ namespace hsppp {
     /// @param x X座標 (ディスプレイ座標)
     /// @param y Y座標 (ディスプレイ座標)
     /// @param mode 設定モード (0=負値で非表示, -1=移動+非表示, 1=移動のみ, 2=移動+表示)
-    export void mouse(OptInt x = {}, OptInt y = {}, OptInt mode = {});
+    export void mouse(OptInt x = {}, OptInt y = {}, OptInt mode = {}, const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // mousex - マウスカーソルのX座標（HSP互換）
     // ============================================================
     /// @brief マウスカーソルのX座標を取得
     /// @return 現在のウィンドウ内でのX座標
-    export int mousex();
+    export int mousex(const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // mousey - マウスカーソルのY座標（HSP互換）
     // ============================================================
     /// @brief マウスカーソルのY座標を取得
     /// @return 現在のウィンドウ内でのY座標
-    export int mousey();
+    export int mousey(const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // mousew - マウスカーソルのホイール値（HSP互換）
     // ============================================================
     /// @brief マウスホイールの移動量を取得
     /// @return ホイール移動量
-    export int mousew();
+    export int mousew(const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // wait - 実行を一定時間中断する（HSP互換）
@@ -650,14 +655,14 @@ namespace hsppp {
     /// @brief 指定時間だけ実行を中断する
     /// @param time 待ち時間 (10ms単位、デフォルト: 100=1秒)
     /// @note awaitよりCPU負荷が軽い
-    export void wait(OptInt time = {});
+    export void wait(OptInt time = {}, const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // stop - プログラム実行を一時停止（HSP互換）
     // ============================================================
     /// @brief プログラムを一時停止し、割り込みを待機
     /// @note 割り込みイベントによりジャンプするまで停止
-    export void stop();
+    export void stop(const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // 割り込み情報構造体
@@ -675,13 +680,13 @@ namespace hsppp {
     export const InterruptParams& getInterruptParams();
 
     /// @brief システム変数 iparam を取得
-    export int iparam();
+    export int iparam(const std::source_location& location = std::source_location::current());
 
     /// @brief システム変数 wparam を取得
-    export int wparam();
+    export int wparam(const std::source_location& location = std::source_location::current());
 
     /// @brief システム変数 lparam を取得
-    export int lparam();
+    export int lparam(const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // 文字列操作（HSP拡張）
@@ -690,7 +695,7 @@ namespace hsppp {
     /// @brief 整数を文字列に変換
     /// @param value 変換する整数値
     /// @return 文字列
-    export std::string str(int value);
+    export std::string str(int value, const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // エラーコード定義（HSP互換）
@@ -768,22 +773,22 @@ namespace hsppp {
     /// @param handler エラーハンドラ関数/ラムダ
     /// @note ハンドラはHspErrorオブジェクトを受け取る
     /// @note ハンドラ終了後、自動的にend()が呼ばれる（HSP仕様）
-    export void onerror(ErrorHandler handler);
+    export void onerror(ErrorHandler handler, const std::source_location& location = std::source_location::current());
 
     /// @brief onerror割り込みの一時停止/再開
     /// @param enable 0=停止, 1=再開
-    export void onerror(int enable);
+    export void onerror(int enable, const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // onclick - クリック割り込み実行指定（HSP互換）
     // ============================================================
     /// @brief マウスクリック時の割り込みを設定
     /// @param handler コールバック関数/ラムダ
-    export void onclick(InterruptHandler handler);
+    export void onclick(InterruptHandler handler, const std::source_location& location = std::source_location::current());
 
     /// @brief onclick割り込みの一時停止/再開
     /// @param enable 0=停止, 1=再開
-    export void onclick(int enable);
+    export void onclick(int enable, const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // oncmd - Windowsメッセージ割り込み実行指定（HSP互換）
@@ -791,16 +796,16 @@ namespace hsppp {
     /// @brief Windowsメッセージ受信時の割り込みを設定
     /// @param handler コールバック関数/ラムダ (nullptr で解除)
     /// @param messageId 監視するメッセージID
-    export void oncmd(InterruptHandler handler, int messageId);
+    export void oncmd(InterruptHandler handler, int messageId, const std::source_location& location = std::source_location::current());
 
     /// @brief 指定メッセージIDの割り込みの一時停止/再開
     /// @param enable 0=停止, 1=再開
     /// @param messageId メッセージID
-    export void oncmd(int enable, int messageId);
+    export void oncmd(int enable, int messageId, const std::source_location& location = std::source_location::current());
 
     /// @brief oncmd割り込み全体の一時停止/再開
     /// @param enable 0=停止, 1=再開
-    export void oncmd(int enable);
+    export void oncmd(int enable, const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // onexit - 終了時にジャンプ（HSP互換）
@@ -808,31 +813,31 @@ namespace hsppp {
     /// @brief 終了ボタン押下時の割り込みを設定
     /// @param handler コールバック関数/ラムダ (nullptr で解除)
     /// @note 設定されると end() を呼ぶまで終了しなくなる
-    export void onexit(InterruptHandler handler);
+    export void onexit(InterruptHandler handler, const std::source_location& location = std::source_location::current());
 
     /// @brief onexit割り込みの一時停止/再開
     /// @param enable 0=停止, 1=再開
-    export void onexit(int enable);
+    export void onexit(int enable, const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // onkey - キー割り込み実行指定（HSP互換）
     // ============================================================
     /// @brief キー入力時の割り込みを設定
     /// @param handler コールバック関数/ラムダ (nullptr で解除)
-    export void onkey(InterruptHandler handler);
+    export void onkey(InterruptHandler handler, const std::source_location& location = std::source_location::current());
 
     /// @brief onkey割り込みの一時停止/再開
     /// @param enable 0=停止, 1=再開
-    export void onkey(int enable);
+    export void onkey(int enable, const std::source_location& location = std::source_location::current());
 
     // --- System / Internal ---
     namespace internal {
         // ライブラリの初期化・終了処理(WinMainから呼ばれる)
-        export void init_system();
-        export void close_system();
+        export void init_system(const std::source_location& location = std::source_location::current());
+        export void close_system(const std::source_location& location = std::source_location::current());
 
         // HspError例外を処理（エラーハンドラを呼び出す）
-        export void handleHspError(const HspError& error);
+        export void handleHspError(const HspError& error, const std::source_location& location = std::source_location::current());
     }
 }
 

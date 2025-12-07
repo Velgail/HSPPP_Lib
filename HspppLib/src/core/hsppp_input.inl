@@ -12,7 +12,11 @@ namespace hsppp {
     // ============================================================
     // getkey - キー入力チェック（HSP互換）
     // ============================================================
-    int getkey(int keycode) {
+    int getkey(int keycode, const std::source_location& location) {
+        // パラメータチェック
+        if (keycode < 0 || keycode > 255) {
+            throw HspError(ERR_OUT_OF_RANGE, "getkeyのkeycodeは0～255の範囲で指定してください", location);
+        }
         // GetAsyncKeyState で指定キーの状態を取得
         SHORT state = GetAsyncKeyState(keycode);
         // 最上位ビットが1なら押されている
@@ -22,7 +26,7 @@ namespace hsppp {
     // ============================================================
     // stick - キー入力情報取得（HSP互換）
     // ============================================================
-    int stick(OptInt nonTrigger, OptInt checkActive) {
+    int stick(OptInt nonTrigger, OptInt checkActive, const std::source_location& location) {
         using namespace internal;
 
         int p2 = nonTrigger.value_or(0);
@@ -102,7 +106,7 @@ namespace hsppp {
     // ============================================================
     // mouse - マウスカーソル座標設定（HSP互換）
     // ============================================================
-    void mouse(OptInt x, OptInt y, OptInt mode) {
+    void mouse(OptInt x, OptInt y, OptInt mode, const std::source_location& location) {
         int p1 = x.value_or(0);
         int p2 = y.value_or(0);
         int p3 = mode.value_or(0);
@@ -144,7 +148,7 @@ namespace hsppp {
     // ============================================================
     // mousex - マウスカーソルのX座標（HSP互換）
     // ============================================================
-    int mousex() {
+    int mousex(const std::source_location& location) {
         using namespace internal;
 
         auto currentSurface = getCurrentSurface();
@@ -164,7 +168,7 @@ namespace hsppp {
     // ============================================================
     // mousey - マウスカーソルのY座標（HSP互換）
     // ============================================================
-    int mousey() {
+    int mousey(const std::source_location& location) {
         using namespace internal;
 
         auto currentSurface = getCurrentSurface();
@@ -184,7 +188,7 @@ namespace hsppp {
     // ============================================================
     // mousew - マウスカーソルのホイール値（HSP互換）
     // ============================================================
-    int mousew() {
+    int mousew(const std::source_location& location) {
         // ホイール値はウィンドウメッセージで管理する必要がある
         // 現在の実装では未サポート（0を返す）
         // TODO: WM_MOUSEWHEELをWindowProcでキャプチャして値を保持
@@ -194,7 +198,7 @@ namespace hsppp {
     // ============================================================
     // wait - 実行を一定時間中断する（HSP互換）
     // ============================================================
-    void wait(OptInt time) {
+    void wait(OptInt time, const std::source_location& location) {
         int p1 = time.value_or(100);
 
         // 10ms単位なのでミリ秒に変換

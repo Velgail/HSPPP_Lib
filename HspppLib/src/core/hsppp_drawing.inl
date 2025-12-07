@@ -9,7 +9,11 @@ namespace hsppp {
     // ============================================================
 
     // 描画制御（HSP互換）
-    void redraw(int p1) {
+    void redraw(int p1, const std::source_location& location) {
+        // パラメータチェック
+        if (p1 < 0 || p1 > 3) {
+            throw HspError(ERR_OUT_OF_RANGE, "redrawのパラメータは0～3の範囲で指定してください", location);
+        }
         // カレントサーフェス取得（自動的にデフォルトウィンドウ作成）
         auto currentSurface = getCurrentSurface();
         if (!currentSurface) return;
@@ -43,7 +47,11 @@ namespace hsppp {
     }
 
     // 待機＆メッセージ処理 (HSP互換)
-    void await(int time_ms) {
+    void await(int time_ms, const std::source_location& location) {
+        // パラメータチェック
+        if (time_ms < 0) {
+            throw HspError(ERR_OUT_OF_RANGE, "awaitの待ち時間は0以上の値を指定してください", location);
+        }
         MSG msg;
         DWORD currentTime = GetTickCount();
 
@@ -102,7 +110,7 @@ namespace hsppp {
     }
 
     // プログラム終了 (HSP互換)
-    [[noreturn]] void end(int exitcode) {
+    [[noreturn]] void end(int exitcode, const std::source_location& location) {
         // 描画中の場合は終了処理
         if (g_isDrawing) {
             endDrawAndPresent();
@@ -141,20 +149,22 @@ namespace hsppp {
     }
 
     // 文字列描画
-    void mes(std::string_view text, const std::source_location& location) {
+    void mes(std::string_view text, OptInt sw, const std::source_location& location) {
         auto currentSurface = getCurrentSurface();
         if (!currentSurface) return;
+
+        int options = sw.value_or(0);
 
         // 描画モードに応じて処理
         if (g_redrawMode == 1) {
             // モード1: 即座に反映
             beginDrawIfNeeded();
-            currentSurface->mes(text);
+            currentSurface->mes(text, options);
             endDrawAndPresent();
         }
         else {
             // モード0: 仮想画面のみ（BeginDraw済み）
-            currentSurface->mes(text);
+            currentSurface->mes(text, options);
         }
     }
 
@@ -197,7 +207,7 @@ namespace hsppp {
     // ============================================================
     // line - 直線を描画（HSP互換）
     // ============================================================
-    void line(OptInt x2, OptInt y2, OptInt x1, OptInt y1) {
+    void line(OptInt x2, OptInt y2, OptInt x1, OptInt y1, const std::source_location& location) {
         auto currentSurface = getCurrentSurface();
         if (!currentSurface) return;
 
@@ -223,7 +233,7 @@ namespace hsppp {
     // ============================================================
     // circle - 円を描画（HSP互換）
     // ============================================================
-    void circle(OptInt x1, OptInt y1, OptInt x2, OptInt y2, OptInt fillMode) {
+    void circle(OptInt x1, OptInt y1, OptInt x2, OptInt y2, OptInt fillMode, const std::source_location& location) {
         auto currentSurface = getCurrentSurface();
         if (!currentSurface) return;
 
@@ -247,7 +257,7 @@ namespace hsppp {
     // ============================================================
     // pset - 1ドットの点を描画（HSP互換）
     // ============================================================
-    void pset(OptInt x, OptInt y) {
+    void pset(OptInt x, OptInt y, const std::source_location& location) {
         auto currentSurface = getCurrentSurface();
         if (!currentSurface) return;
 
@@ -268,7 +278,7 @@ namespace hsppp {
     // ============================================================
     // pget - 1ドットの色を取得（HSP互換）
     // ============================================================
-    void pget(OptInt x, OptInt y) {
+    void pget(OptInt x, OptInt y, const std::source_location& location) {
         auto currentSurface = getCurrentSurface();
         if (!currentSurface) return;
 

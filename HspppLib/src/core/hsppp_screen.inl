@@ -25,20 +25,22 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::mes(std::string_view text) {
+    Screen& Screen::mes(std::string_view text, OptInt sw) {
         auto surface = getSurfaceById(m_id);
         if (!surface) return *this;
+
+        int options = sw.value_or(0);
 
         // 描画モードに応じて処理
         if (g_redrawMode == 1) {
             // このScreenをカレントに設定してから描画
             g_currentSurface = surface;
             beginDrawIfNeeded();
-            surface->mes(text);
+            surface->mes(text, options);
             endDrawAndPresent();
         }
         else {
-            surface->mes(text);
+            surface->mes(text, options);
         }
         return *this;
     }

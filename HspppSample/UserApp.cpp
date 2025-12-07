@@ -96,6 +96,17 @@ int hspMain() {
         mw.mes("Press 'E' to trigger error (tests onerror handler)");
         mw.pos(20, 120);
         mw.mes("Press ESC or click X to exit (with confirmation)");
+
+        // mes オプションデモ
+        mw.color(100, 100, 100).pos(20, 160);
+        mw.mes("Text without newline:", 1);  // mesopt_nocr: 改行しない
+        mw.mes("continued!");
+
+        mw.color(0, 100, 200).pos(20, 190);
+        mw.mes("Shadow text:", 2);  // mesopt_shadow: 影付き
+
+        mw.color(200, 100, 0).pos(20, 220);
+        mw.mes("Outline text:", 4);  // mesopt_outline: 縁取り
         
         // クリックカウント表示
         mw.color(0, 0, 200).pos(20, 150);

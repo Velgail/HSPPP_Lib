@@ -111,15 +111,15 @@ namespace hsppp {
         return g_interruptParams;
     }
 
-    int iparam() {
+    int iparam(const std::source_location& location) {
         return g_interruptParams.iparam;
     }
 
-    int wparam() {
+    int wparam(const std::source_location& location) {
         return g_interruptParams.wparam;
     }
 
-    int lparam() {
+    int lparam(const std::source_location& location) {
         return g_interruptParams.lparam;
     }
 
@@ -127,7 +127,7 @@ namespace hsppp {
     // stop - プログラム実行を一時停止
     // ============================================================
 
-    void stop() {
+    void stop(const std::source_location& location) {
         MSG msg;
 
         // 割り込みが発生するまでメッセージループ
@@ -155,12 +155,12 @@ namespace hsppp {
     // onclick - クリック割り込み実行指定
     // ============================================================
 
-    void onclick(InterruptHandler handler) {
+    void onclick(InterruptHandler handler, const std::source_location& location) {
         g_onclickHandler.handler = handler;
         g_onclickHandler.enabled = (handler != nullptr);
     }
 
-    void onclick(int enable) {
+    void onclick(int enable, const std::source_location& location) {
         g_onclickHandler.enabled = (enable != 0);
     }
 
@@ -168,20 +168,20 @@ namespace hsppp {
     // oncmd - Windowsメッセージ割り込み実行指定
     // ============================================================
 
-    void oncmd(InterruptHandler handler, int messageId) {
+    void oncmd(InterruptHandler handler, int messageId, const std::source_location& location) {
         auto& info = g_oncmdHandlers[messageId];
         info.handler = handler;
         info.enabled = (handler != nullptr);
     }
 
-    void oncmd(int enable, int messageId) {
+    void oncmd(int enable, int messageId, const std::source_location& location) {
         auto it = g_oncmdHandlers.find(messageId);
         if (it != g_oncmdHandlers.end()) {
             it->second.enabled = (enable != 0);
         }
     }
 
-    void oncmd(int enable) {
+    void oncmd(int enable, const std::source_location& location) {
         g_oncmdGlobalEnabled = (enable != 0);
     }
 
@@ -189,12 +189,12 @@ namespace hsppp {
     // onerror - エラー発生時にジャンプ
     // ============================================================
 
-    void onerror(ErrorHandler handler) {
+    void onerror(ErrorHandler handler, const std::source_location& location) {
         g_onerrorHandler.handler = handler;
         g_onerrorHandler.enabled = (handler != nullptr);
     }
 
-    void onerror(int enable) {
+    void onerror(int enable, const std::source_location& location) {
         g_onerrorHandler.enabled = (enable != 0);
     }
 
@@ -202,12 +202,12 @@ namespace hsppp {
     // onexit - 終了時にジャンプ
     // ============================================================
 
-    void onexit(InterruptHandler handler) {
+    void onexit(InterruptHandler handler, const std::source_location& location) {
         g_onexitHandler.handler = handler;
         g_onexitHandler.enabled = (handler != nullptr);
     }
 
-    void onexit(int enable) {
+    void onexit(int enable, const std::source_location& location) {
         g_onexitHandler.enabled = (enable != 0);
     }
 
@@ -215,12 +215,12 @@ namespace hsppp {
     // onkey - キー割り込み実行指定
     // ============================================================
 
-    void onkey(InterruptHandler handler) {
+    void onkey(InterruptHandler handler, const std::source_location& location) {
         g_onkeyHandler.handler = handler;
         g_onkeyHandler.enabled = (handler != nullptr);
     }
 
-    void onkey(int enable) {
+    void onkey(int enable, const std::source_location& location) {
         g_onkeyHandler.enabled = (enable != 0);
     }
 
@@ -306,7 +306,7 @@ namespace hsppp::internal {
     // triggerOnError関数は使用されません（後方互換性のため残していますが、実際には呼び出されない）
 
     // HspError例外を処理（メインループから呼び出し）
-    void handleHspError(const hsppp::HspError& error) {
+    void handleHspError(const hsppp::HspError& error, const std::source_location& location) {
         if (g_onerrorHandler.enabled && g_onerrorHandler.handler) {
             // HspErrorオブジェクトを直接ハンドラに渡す
             g_onerrorHandler.handler(error);

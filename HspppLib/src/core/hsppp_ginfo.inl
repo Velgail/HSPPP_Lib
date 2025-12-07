@@ -7,7 +7,11 @@ namespace hsppp {
     // ============================================================
     // ginfo - ウィンドウ情報の取得（HSP互換）
     // ============================================================
-    int ginfo(int type) {
+    int ginfo(int type, const std::source_location& location) {
+        // パラメータチェック
+        if (type < 0 || type > 27) {
+            throw HspError(ERR_OUT_OF_RANGE, "ginfoのtypeは0～27の範囲で指定してください", location);
+        }
         using namespace internal;
         
         auto currentSurface = getCurrentSurface();
@@ -184,22 +188,22 @@ namespace hsppp {
     }
 
     // ginfo_r, ginfo_g, ginfo_b マクロの代わりとなる関数
-    int ginfo_r() {
+    int ginfo_r(const std::source_location& location) {
         return ginfo(16);
     }
 
-    int ginfo_g() {
+    int ginfo_g(const std::source_location& location) {
         return ginfo(17);
     }
 
-    int ginfo_b() {
+    int ginfo_b(const std::source_location& location) {
         return ginfo(18);
     }
 
     // ============================================================
     // font - フォント設定（HSP互換）
     // ============================================================
-    void font(std::string_view fontName, OptInt size, OptInt style, OptInt decorationWidth) {
+    void font(std::string_view fontName, OptInt size, OptInt style, OptInt decorationWidth, const std::source_location& location) {
         auto currentSurface = getCurrentSurface();
         if (!currentSurface) return;
 
@@ -208,14 +212,14 @@ namespace hsppp {
         // p3 (decorationWidth) は現在未使用（mes命令のオプションで使用予定）
 
         bool success = currentSurface->font(fontName, p1, p2);
-        // TODO: stat変数に結果を設定（0=成功, -1=失敗）
+        // エラーを握りつぶす（HSP互換）
         (void)success;
     }
 
     // ============================================================
     // sysfont - システムフォント選択（HSP互換）
     // ============================================================
-    void sysfont(OptInt type) {
+    void sysfont(OptInt type, const std::source_location& location) {
         auto currentSurface = getCurrentSurface();
         if (!currentSurface) return;
 
@@ -226,7 +230,7 @@ namespace hsppp {
     // ============================================================
     // title - タイトルバー設定（HSP互換）
     // ============================================================
-    void title(std::string_view str) {
+    void title(std::string_view str, const std::source_location& location) {
         using namespace internal;
 
         auto currentSurface = getCurrentSurface();
@@ -241,7 +245,7 @@ namespace hsppp {
     // ============================================================
     // width - ウィンドウサイズ設定（HSP互換）
     // ============================================================
-    void width(OptInt clientW, OptInt clientH, OptInt posX, OptInt posY, OptInt option) {
+    void width(OptInt clientW, OptInt clientH, OptInt posX, OptInt posY, OptInt option, const std::source_location& location) {
         using namespace internal;
 
         auto currentSurface = getCurrentSurface();

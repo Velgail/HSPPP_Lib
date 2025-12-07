@@ -1,4 +1,4 @@
-// HspppLib/src/core/hsppp_factory.inl
+﻿// HspppLib/src/core/hsppp_factory.inl
 // screen/buffer/bgscr生成関数の実装
 // hsppp.cpp から #include されることを想定
 
@@ -133,7 +133,8 @@ namespace hsppp {
         OptInt pos_y,
         OptInt client_w,
         OptInt client_h,
-        std::string_view title
+        std::string_view title,
+        const std::source_location& location
     ) {
         return createWindowInternal(
             id,
@@ -194,7 +195,7 @@ namespace hsppp {
     }
 
     // HSP互換版：ID明示指定
-    Screen buffer(int id, OptInt width, OptInt height, OptInt mode) {
+    Screen buffer(int id, OptInt width, OptInt height, OptInt mode, const std::source_location& location) {
         return createBufferInternal(
             id,
             width.value_or(640),
@@ -301,7 +302,7 @@ namespace hsppp {
 
     // HSP互換版：ID明示指定
     Screen bgscr(int id, OptInt width, OptInt height, OptInt mode,
-                 OptInt pos_x, OptInt pos_y, OptInt client_w, OptInt client_h) {
+                 OptInt pos_x, OptInt pos_y, OptInt client_w, OptInt client_h, const std::source_location& location) {
         return createBgscrInternal(
             id,
             width.value_or(640),

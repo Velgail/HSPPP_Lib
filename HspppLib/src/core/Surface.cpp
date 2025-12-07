@@ -223,10 +223,17 @@ void HspSurface::boxf(int x1, int y1, int x2, int y2) {
     m_pDeviceContext->FillRectangle(rect, m_pBrush.Get());
 }
 
-void HspSurface::mes(std::string_view text) {
+void HspSurface::mes(std::string_view text, int options) {
     if (!m_pDeviceContext || !m_pBrush || !m_pTextFormat || !m_isDrawing) return;
 
     std::wstring wideText = Utf8ToWide(text);
+
+    // オプションの解析
+    bool nocr = (options & 1) != 0;        // mesopt_nocr: 改行しない
+    bool shadow = (options & 2) != 0;      // mesopt_shadow: 影付き
+    bool outline = (options & 4) != 0;     // mesopt_outline: 縁取り
+    bool light = (options & 8) != 0;       // mesopt_light: 簡易描画
+    // bool gmode = (options & 16) != 0;   // mesopt_gmode: gmode反映（未実装）
 
     D2D1_RECT_F layoutRect = D2D1::RectF(
         static_cast<FLOAT>(m_currentX),
@@ -235,13 +242,89 @@ void HspSurface::mes(std::string_view text) {
         static_cast<FLOAT>(m_currentY + m_height)
     );
 
-    m_pDeviceContext->DrawText(
-        wideText.c_str(),
-        static_cast<UINT32>(wideText.length()),
-        m_pTextFormat.Get(),
-        layoutRect,
-        m_pBrush.Get()
-    );
+    // テキストサイズを計算するため、IDWriteTextLayout を作成
+    ComPtr<IDWriteTextLayout> pTextLayout;
+    IDWriteFactory* pDWriteFactory = D2DDeviceManager::getInstance().getDWriteFactory();
+    if (pDWriteFactory) {
+        HRESULT hr = pDWriteFactory->CreateTextLayout(
+            wideText.c_str(),
+            static_cast<UINT32>(wideText.length()),
+            m_pTextFormat.Get(),
+            static_cast<FLOAT>(m_width),
+            static_cast<FLOAT>(m_height),
+            pTextLayout.GetAddressOf()
+        );
+
+        if (SUCCEEDED(hr) && pTextLayout) {
+            // テキストサイズを取得
+            DWRITE_TEXT_METRICS metrics;
+            pTextLayout->GetMetrics(&metrics);
+
+            // 影を描画（オプション指定時）
+            if (shadow) {
+                D2D1_RECT_F shadowRect = D2D1::RectF(
+                    layoutRect.left + 1.0f,
+                    layoutRect.top + 1.0f,
+                    layoutRect.right + 1.0f,
+                    layoutRect.bottom + 1.0f
+                );
+                D2D1_COLOR_F shadowColor = D2D1::ColorF(0.0f, 0.0f, 0.0f, 0.5f);
+                ComPtr<ID2D1SolidColorBrush> pShadowBrush;
+                m_pDeviceContext->CreateSolidColorBrush(shadowColor, pShadowBrush.GetAddressOf());
+                if (pShadowBrush) {
+                    m_pDeviceContext->DrawTextLayout(
+                        D2D1::Point2F(shadowRect.left, shadowRect.top),
+                        pTextLayout.Get(),
+                        pShadowBrush.Get()
+                    );
+                }
+            }
+
+            // 縁取りを描画（オプション指定時）
+            if (outline) {
+                // 簡易的な縁取り（4方向にテキストを描画）
+                for (float dx = -1.0f; dx <= 1.0f; dx += 1.0f) {
+                    for (float dy = -1.0f; dy <= 1.0f; dy += 1.0f) {
+                        if (dx == 0.0f && dy == 0.0f) continue;
+                        D2D1_RECT_F outlineRect = D2D1::RectF(
+                            layoutRect.left + dx,
+                            layoutRect.top + dy,
+                            layoutRect.right + dx,
+                            layoutRect.bottom + dy
+                        );
+                        D2D1_COLOR_F outlineColor = D2D1::ColorF(1.0f, 1.0f, 1.0f, 1.0f);
+                        ComPtr<ID2D1SolidColorBrush> pOutlineBrush;
+                        m_pDeviceContext->CreateSolidColorBrush(outlineColor, pOutlineBrush.GetAddressOf());
+                        if (pOutlineBrush) {
+                            m_pDeviceContext->DrawTextLayout(
+                                D2D1::Point2F(outlineRect.left, outlineRect.top),
+                                pTextLayout.Get(),
+                                pOutlineBrush.Get()
+                            );
+                        }
+                    }
+                }
+            }
+
+            // 通常テキストを描画
+            m_pDeviceContext->DrawTextLayout(
+                D2D1::Point2F(layoutRect.left, layoutRect.top),
+                pTextLayout.Get(),
+                m_pBrush.Get()
+            );
+
+            // カレントポジションを更新
+            if (nocr) {
+                // mesopt_nocr: テキストの右側に移動
+                m_currentX += static_cast<int>(metrics.width);
+            }
+            else {
+                // デフォルト: 次の行に移動
+                m_currentX = 0;
+                m_currentY += static_cast<int>(metrics.height) + 2;  // フォント高さ + 余白
+            }
+        }
+    }
 }
 
 void HspSurface::color(int r, int g, int b) {

@@ -1,4 +1,4 @@
-// HspppLib/src/core/hsppp_screen.inl
+﻿// HspppLib/src/core/hsppp_screen.inl
 // Screenクラスメンバ関数の実装
 // hsppp.cpp から #include されることを想定
 
@@ -25,20 +25,22 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::mes(std::string_view text) {
+    Screen& Screen::mes(std::string_view text, OptInt sw) {
         auto surface = getSurfaceById(m_id);
         if (!surface) return *this;
+
+        int options = sw.value_or(0);
 
         // 描画モードに応じて処理
         if (g_redrawMode == 1) {
             // このScreenをカレントに設定してから描画
             g_currentSurface = surface;
             beginDrawIfNeeded();
-            surface->mes(text);
+            surface->mes(text, options);
             endDrawAndPresent();
         }
         else {
-            surface->mes(text);
+            surface->mes(text, options);
         }
         return *this;
     }
@@ -303,6 +305,34 @@ namespace hsppp {
         }
 
         return *this;
+    }
+
+    int Screen::mousex() const {
+        auto surface = getSurfaceById(m_id);
+        auto pWindow = surface ? std::dynamic_pointer_cast<internal::HspWindow>(surface) : nullptr;
+
+        POINT pt;
+        GetCursorPos(&pt);
+
+        if (pWindow && pWindow->getHwnd()) {
+            ScreenToClient(pWindow->getHwnd(), &pt);
+        }
+
+        return pt.x;
+    }
+
+    int Screen::mousey() const {
+        auto surface = getSurfaceById(m_id);
+        auto pWindow = surface ? std::dynamic_pointer_cast<internal::HspWindow>(surface) : nullptr;
+
+        POINT pt;
+        GetCursorPos(&pt);
+
+        if (pWindow && pWindow->getHwnd()) {
+            ScreenToClient(pWindow->getHwnd(), &pt);
+        }
+
+        return pt.y;
     }
 
 } // namespace hsppp

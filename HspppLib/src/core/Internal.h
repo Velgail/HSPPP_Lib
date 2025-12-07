@@ -101,7 +101,7 @@ public:
 
     // 描画命令
     void boxf(int x1, int y1, int x2, int y2);
-    void mes(std::string_view text);
+    void mes(std::string_view text, int options = 0);
     void color(int r, int g, int b);
     void pos(int x, int y);
     void line(int x2, int y2, int x1, int y1, bool useStartPos);
@@ -213,3 +213,22 @@ public:
 
 } // namespace internal
 } // namespace hsppp
+
+// ============================================================
+// 割り込みトリガー関数（WindowProcから呼び出し）
+// ============================================================
+namespace hsppp::internal {
+    // クリック割り込みをトリガー
+    void triggerOnClick(int buttonId, WPARAM wp, LPARAM lp);
+
+    // キー割り込みをトリガー
+    void triggerOnKey(int charCode, WPARAM wp, LPARAM lp);
+
+    // Windowsメッセージ割り込みをトリガー
+    // 戻り値: true=カスタム戻り値を使用, false=デフォルト処理
+    bool triggerOnCmd(int messageId, WPARAM wp, LPARAM lp, int& returnValue);
+
+    // 終了割り込みをトリガー
+    // 戻り値: true=終了をブロック, false=終了を許可
+    bool triggerOnExit(int windowId, int reason);
+}

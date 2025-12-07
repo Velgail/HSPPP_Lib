@@ -8,6 +8,7 @@
 //   - hsppp_drawing.inl : 描画系関数（color, pos, mes, boxf, line, circle, pset, pget, redraw, await, end）
 //   - hsppp_ginfo.inl   : ginfo, font, sysfont, title, width
 //   - hsppp_copy.inl    : gsel, gmode, gcopy, gzoom
+//   - hsppp_interrupt.inl : 割り込みハンドラ（onclick, oncmd, onerror, onexit, onkey）
 
 // グローバルモジュールフラグメント
 module;
@@ -20,6 +21,9 @@ module;
 #include <wrl/client.h>
 #include <string>
 #include <string_view>
+#include <source_location>
+#include <format>
+#include <stdexcept>
 #include <map>
 #include <memory>
 
@@ -120,20 +124,32 @@ namespace {
 }
 
 // ============================================================
+// 文字列操作（HSP拡張）
+// ============================================================
+namespace hsppp {
+    std::string str(int value, const std::source_location& location) {
+        return std::to_string(value);
+    }
+}
+
+// ============================================================
 // 分割された実装ファイルを #include
 // ============================================================
+// 注意: hsppp_interrupt.inl は割り込み処理を定義するため最初に含める
+#include "hsppp_interrupt.inl"
 #include "hsppp_screen.inl"
 #include "hsppp_factory.inl"
 #include "hsppp_drawing.inl"
 #include "hsppp_ginfo.inl"
 #include "hsppp_copy.inl"
+#include "hsppp_input.inl"
 
 // ============================================================
 // init_system / close_system
 // ============================================================
 namespace hsppp::internal {
 
-    void init_system() {
+    void init_system(const std::source_location& location) {
         // COM初期化
         CoInitialize(nullptr);
 
@@ -152,7 +168,7 @@ namespace hsppp::internal {
         }
     }
 
-    void close_system() {
+    void close_system(const std::source_location& location) {
         // すべてのサーフェスを解放
         g_surfaces.clear();
         g_currentSurface.reset();

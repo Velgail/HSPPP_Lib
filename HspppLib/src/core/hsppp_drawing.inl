@@ -1,4 +1,4 @@
-// HspppLib/src/core/hsppp_drawing.inl
+﻿// HspppLib/src/core/hsppp_drawing.inl
 // 描画系関数の実装
 // hsppp.cpp から #include されることを想定
 
@@ -9,7 +9,11 @@ namespace hsppp {
     // ============================================================
 
     // 描画制御（HSP互換）
-    void redraw(int p1) {
+    void redraw(int p1, const std::source_location& location) {
+        // パラメータチェック
+        if (p1 < 0 || p1 > 3) {
+            throw HspError(ERR_OUT_OF_RANGE, "redrawのパラメータは0～3の範囲で指定してください", location);
+        }
         // カレントサーフェス取得（自動的にデフォルトウィンドウ作成）
         auto currentSurface = getCurrentSurface();
         if (!currentSurface) return;
@@ -43,7 +47,11 @@ namespace hsppp {
     }
 
     // 待機＆メッセージ処理 (HSP互換)
-    void await(int time_ms) {
+    void await(int time_ms, const std::source_location& location) {
+        // パラメータチェック
+        if (time_ms < 0) {
+            throw HspError(ERR_OUT_OF_RANGE, "awaitの待ち時間は0以上の値を指定してください", location);
+        }
         MSG msg;
         DWORD currentTime = GetTickCount();
 
@@ -62,6 +70,11 @@ namespace hsppp {
 
             // 待機中もメッセージを処理
             while (GetTickCount() < endTime) {
+                // ペンディング中の割り込みを処理
+                if (processPendingInterrupt()) {
+                    // 割り込みハンドラが呼ばれた
+                }
+
                 if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
                     if (msg.message == WM_QUIT) {
                         g_shouldQuit = true;
@@ -78,6 +91,11 @@ namespace hsppp {
         else {
             // すでに指定時間を超過している場合もメッセージ処理だけ行う
             while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
+                // ペンディング中の割り込みを処理
+                if (processPendingInterrupt()) {
+                    // 割り込みハンドラが呼ばれた
+                }
+
                 if (msg.message == WM_QUIT) {
                     g_shouldQuit = true;
                     return;
@@ -92,7 +110,7 @@ namespace hsppp {
     }
 
     // プログラム終了 (HSP互換)
-    [[noreturn]] void end(int exitcode) {
+    [[noreturn]] void end(int exitcode, const std::source_location& location) {
         // 描画中の場合は終了処理
         if (g_isDrawing) {
             endDrawAndPresent();
@@ -110,7 +128,12 @@ namespace hsppp {
     // ============================================================
 
     // 描画色設定
-    void color(int r, int g, int b) {
+    void color(int r, int g, int b, const std::source_location& location) {
+        // パラメータ範囲チェック（例外を使用したエラー処理のデモ）
+        if (r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255) {
+            throw HspError(ERR_OUT_OF_RANGE, "color値は0~255の範囲で指定してください", location);
+        }
+
         auto currentSurface = getCurrentSurface();
         if (currentSurface) {
             currentSurface->color(r, g, b);
@@ -118,7 +141,7 @@ namespace hsppp {
     }
 
     // 描画位置設定
-    void pos(int x, int y) {
+    void pos(int x, int y, const std::source_location& location) {
         auto currentSurface = getCurrentSurface();
         if (currentSurface) {
             currentSurface->pos(x, y);
@@ -126,25 +149,27 @@ namespace hsppp {
     }
 
     // 文字列描画
-    void mes(std::string_view text) {
+    void mes(std::string_view text, OptInt sw, const std::source_location& location) {
         auto currentSurface = getCurrentSurface();
         if (!currentSurface) return;
+
+        int options = sw.value_or(0);
 
         // 描画モードに応じて処理
         if (g_redrawMode == 1) {
             // モード1: 即座に反映
             beginDrawIfNeeded();
-            currentSurface->mes(text);
+            currentSurface->mes(text, options);
             endDrawAndPresent();
         }
         else {
             // モード0: 仮想画面のみ（BeginDraw済み）
-            currentSurface->mes(text);
+            currentSurface->mes(text, options);
         }
     }
 
     // 矩形塗りつぶし（座標指定版）
-    void boxf(int x1, int y1, int x2, int y2) {
+    void boxf(int x1, int y1, int x2, int y2, const std::source_location& location) {
         auto currentSurface = getCurrentSurface();
         if (!currentSurface) return;
 
@@ -162,7 +187,7 @@ namespace hsppp {
     }
 
     // 矩形塗りつぶし（全画面版）
-    void boxf() {
+    void boxf(const std::source_location& location) {
         auto currentSurface = getCurrentSurface();
         if (!currentSurface) return;
 
@@ -182,7 +207,7 @@ namespace hsppp {
     // ============================================================
     // line - 直線を描画（HSP互換）
     // ============================================================
-    void line(OptInt x2, OptInt y2, OptInt x1, OptInt y1) {
+    void line(OptInt x2, OptInt y2, OptInt x1, OptInt y1, const std::source_location& location) {
         auto currentSurface = getCurrentSurface();
         if (!currentSurface) return;
 
@@ -208,7 +233,7 @@ namespace hsppp {
     // ============================================================
     // circle - 円を描画（HSP互換）
     // ============================================================
-    void circle(OptInt x1, OptInt y1, OptInt x2, OptInt y2, OptInt fillMode) {
+    void circle(OptInt x1, OptInt y1, OptInt x2, OptInt y2, OptInt fillMode, const std::source_location& location) {
         auto currentSurface = getCurrentSurface();
         if (!currentSurface) return;
 
@@ -232,7 +257,7 @@ namespace hsppp {
     // ============================================================
     // pset - 1ドットの点を描画（HSP互換）
     // ============================================================
-    void pset(OptInt x, OptInt y) {
+    void pset(OptInt x, OptInt y, const std::source_location& location) {
         auto currentSurface = getCurrentSurface();
         if (!currentSurface) return;
 
@@ -253,7 +278,7 @@ namespace hsppp {
     // ============================================================
     // pget - 1ドットの色を取得（HSP互換）
     // ============================================================
-    void pget(OptInt x, OptInt y) {
+    void pget(OptInt x, OptInt y, const std::source_location& location) {
         auto currentSurface = getCurrentSurface();
         if (!currentSurface) return;
 

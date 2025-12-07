@@ -225,18 +225,17 @@ Screen& Screen::color(int r, int g, int b) {
 
 ## 今後の拡張予定
 
-- [ ] `buffer` 命令（オフスクリーンサーフェス）
-- [ ] `gcopy` / `gzoom` 命令（画像コピー）
 - [ ] `picload` 命令（画像読み込み）
-- [ ] `stick` / `getkey` 命令（入力処理）
-- [ ] `wait` 命令（待機）の改善
-- [ ] `gsel` のフル実装
+- [ ] ウィンドウ別の割り込みハンドラ管理
 
 ---
 
 ## 変更履歴
 
 ### 2025-12-01
+- 割り込みハンドラを実装（`onclick`, `oncmd`, `onerror`, `onexit`, `onkey`）
+- `stop` 命令を実装
+- システム変数 `iparam`, `wparam`, `lparam` を実装
 - デュアルスタイル（HSP/OOP）設計を確立
 - `omit` キーワードによるパラメータ省略機構を導入
 - `Screen` クラスを軽量ハンドル方式に変更

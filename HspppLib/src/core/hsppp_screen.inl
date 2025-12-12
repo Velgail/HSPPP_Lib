@@ -50,9 +50,26 @@ namespace hsppp {
     }
 
     Screen& Screen::redraw(int mode) {
-        // このScreenをカレントにしてからredraw
-        select();
-        hsppp::redraw(mode);
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        bool shouldUpdate = (mode == 1);  // p1=1の場合のみ画面更新
+        int newMode = mode % 2;           // 0 or 1
+
+        if (newMode == 0) {
+            // バッチモード開始
+            if (!surface->isDrawing()) {
+                surface->beginDraw();
+            }
+            surface->setRedrawMode(0);
+        }
+        else {
+            // 即時反映モード
+            surface->setRedrawMode(1);
+            if (shouldUpdate && surface->isDrawing()) {
+                surface->endDrawAndPresent();
+            }
+        }
         return *this;
     }
 

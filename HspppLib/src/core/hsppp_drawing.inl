@@ -24,8 +24,8 @@ namespace hsppp {
         // 2: モード0に設定のみ（画面更新なし）
         // 3: モード1に設定のみ（画面更新なし）
 
-        bool shouldUpdate = (p1 % 2 == 1);  // 奇数なら画面更新
-        int newMode = p1 % 2;                // 0 or 1
+        bool shouldUpdate = (p1 == 1);  // p1=1の場合のみ画面更新
+        int newMode = p1 % 2;           // 0 or 1
 
         if (newMode == 0) {
             // モード0に切り替え: 仮想画面のみに描画（バッチモード）

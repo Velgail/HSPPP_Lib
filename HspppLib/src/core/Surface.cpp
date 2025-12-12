@@ -189,6 +189,7 @@ HspSurface::HspSurface(int width, int height)
     , m_width(width)
     , m_height(height)
     , m_isDrawing(false)
+    , m_redrawMode(1)  // デフォルト: 即時反映
 {
 }
 
@@ -210,8 +211,20 @@ void HspSurface::endDraw() {
     }
 }
 
+void HspSurface::endDrawAndPresent() {
+    // 基底クラスでは endDraw() のみ（派生クラスでオーバーライド）
+    endDraw();
+}
+
 void HspSurface::boxf(int x1, int y1, int x2, int y2) {
-    if (!m_pDeviceContext || !m_pBrush || !m_isDrawing) return;
+    if (!m_pDeviceContext || !m_pBrush) return;
+
+    // モード1の場合、自動的にbeginDraw
+    bool autoManage = (m_redrawMode == 1 && !m_isDrawing);
+    if (autoManage) {
+        beginDraw();
+    }
+    if (!m_isDrawing) return;
 
     D2D1_RECT_F rect = D2D1::RectF(
         static_cast<FLOAT>(x1),
@@ -221,10 +234,22 @@ void HspSurface::boxf(int x1, int y1, int x2, int y2) {
     );
 
     m_pDeviceContext->FillRectangle(rect, m_pBrush.Get());
+
+    // モード1の場合、自動的にendDraw + present
+    if (autoManage) {
+        endDrawAndPresent();
+    }
 }
 
 void HspSurface::mes(std::string_view text, int options) {
-    if (!m_pDeviceContext || !m_pBrush || !m_pTextFormat || !m_isDrawing) return;
+    if (!m_pDeviceContext || !m_pBrush || !m_pTextFormat) return;
+
+    // モード1の場合、自動的にbeginDraw
+    bool autoManage = (m_redrawMode == 1 && !m_isDrawing);
+    if (autoManage) {
+        beginDraw();
+    }
+    if (!m_isDrawing) return;
 
     std::wstring wideText = Utf8ToWide(text);
 
@@ -325,6 +350,11 @@ void HspSurface::mes(std::string_view text, int options) {
             }
         }
     }
+
+    // モード1の場合、自動的にendDraw + present
+    if (autoManage) {
+        endDrawAndPresent();
+    }
 }
 
 void HspSurface::color(int r, int g, int b) {
@@ -340,7 +370,14 @@ void HspSurface::pos(int x, int y) {
 }
 
 void HspSurface::line(int x2, int y2, int x1, int y1, bool useStartPos) {
-    if (!m_pDeviceContext || !m_pBrush || !m_isDrawing) return;
+    if (!m_pDeviceContext || !m_pBrush) return;
+
+    // モード1の場合、自動的にbeginDraw
+    bool autoManage = (m_redrawMode == 1 && !m_isDrawing);
+    if (autoManage) {
+        beginDraw();
+    }
+    if (!m_isDrawing) return;
 
     // 始点を決定
     float startX = useStartPos ? static_cast<float>(x1) : static_cast<float>(m_currentX);
@@ -359,10 +396,22 @@ void HspSurface::line(int x2, int y2, int x1, int y1, bool useStartPos) {
     // カレントポジションを終点に更新
     m_currentX = x2;
     m_currentY = y2;
+
+    // モード1の場合、自動的にendDraw + present
+    if (autoManage) {
+        endDrawAndPresent();
+    }
 }
 
 void HspSurface::circle(int x1, int y1, int x2, int y2, int fillMode) {
-    if (!m_pDeviceContext || !m_pBrush || !m_isDrawing) return;
+    if (!m_pDeviceContext || !m_pBrush) return;
+
+    // モード1の場合、自動的にbeginDraw
+    bool autoManage = (m_redrawMode == 1 && !m_isDrawing);
+    if (autoManage) {
+        beginDraw();
+    }
+    if (!m_isDrawing) return;
 
     // 楕円のパラメータを計算
     float centerX = (static_cast<float>(x1) + static_cast<float>(x2)) / 2.0f;
@@ -387,10 +436,22 @@ void HspSurface::circle(int x1, int y1, int x2, int y2, int fillMode) {
         // 輪郭のみ
         m_pDeviceContext->DrawEllipse(ellipse, m_pBrush.Get(), 1.0f);
     }
+
+    // モード1の場合、自動的にendDraw + present
+    if (autoManage) {
+        endDrawAndPresent();
+    }
 }
 
 void HspSurface::pset(int x, int y) {
-    if (!m_pDeviceContext || !m_pBrush || !m_isDrawing) return;
+    if (!m_pDeviceContext || !m_pBrush) return;
+
+    // モード1の場合、自動的にbeginDraw
+    bool autoManage = (m_redrawMode == 1 && !m_isDrawing);
+    if (autoManage) {
+        beginDraw();
+    }
+    if (!m_isDrawing) return;
 
     // 1ドットの点を描画（1x1の矩形）
     D2D1_RECT_F rect = D2D1::RectF(
@@ -401,6 +462,11 @@ void HspSurface::pset(int x, int y) {
     );
 
     m_pDeviceContext->FillRectangle(rect, m_pBrush.Get());
+
+    // モード1の場合、自動的にendDraw + present
+    if (autoManage) {
+        endDrawAndPresent();
+    }
 }
 
 bool HspSurface::pget(int x, int y, int& r, int& g, int& b) {
@@ -646,6 +712,11 @@ void HspWindow::present() {
 
     // 描画先をオフスクリーンビットマップに戻す
     m_pDeviceContext->SetTarget(m_pTargetBitmap.Get());
+}
+
+void HspWindow::endDrawAndPresent() {
+    endDraw();
+    present();
 }
 
 void HspWindow::onPaint() {

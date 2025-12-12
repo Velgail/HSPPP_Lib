@@ -28,20 +28,20 @@ namespace hsppp {
         int newMode = p1 % 2;                // 0 or 1
 
         if (newMode == 0) {
-            // モード0に切り替え: 仮想画面のみに描画
+            // モード0に切り替え: 仮想画面のみに描画（バッチモード）
             // 既に描画中でなければBeginDrawを呼ぶ
-            if (!g_isDrawing) {
-                beginDrawIfNeeded();
+            if (!currentSurface->isDrawing()) {
+                currentSurface->beginDraw();
             }
-            g_redrawMode = 0;
+            currentSurface->setRedrawMode(0);
         }
         else {
             // モード1に切り替え: 即座に反映
-            g_redrawMode = 1;
+            currentSurface->setRedrawMode(1);
 
             // shouldUpdateがtrueなら即座に画面更新
-            if (shouldUpdate && g_isDrawing) {
-                endDrawAndPresent();
+            if (shouldUpdate && currentSurface->isDrawing()) {
+                currentSurface->endDrawAndPresent();
             }
         }
     }
@@ -111,9 +111,10 @@ namespace hsppp {
 
     // プログラム終了 (HSP互換)
     [[noreturn]] void end(int exitcode, const std::source_location& location) {
-        // 描画中の場合は終了処理
-        if (g_isDrawing) {
-            endDrawAndPresent();
+        // 描画中のサーフェスがあれば終了処理
+        auto currentSurface = getCurrentSurface();
+        if (currentSurface && currentSurface->isDrawing()) {
+            currentSurface->endDrawAndPresent();
         }
 
         // リソースのクリーンアップ
@@ -151,37 +152,15 @@ namespace hsppp {
     // 文字列描画
     void mes(std::string_view text, OptInt sw, const std::source_location& location) {
         auto currentSurface = getCurrentSurface();
-        if (!currentSurface) return;
-
-        int options = sw.value_or(0);
-
-        // 描画モードに応じて処理
-        if (g_redrawMode == 1) {
-            // モード1: 即座に反映
-            beginDrawIfNeeded();
-            currentSurface->mes(text, options);
-            endDrawAndPresent();
-        }
-        else {
-            // モード0: 仮想画面のみ（BeginDraw済み）
-            currentSurface->mes(text, options);
+        if (currentSurface) {
+            currentSurface->mes(text, sw.value_or(0));
         }
     }
 
     // 矩形塗りつぶし（座標指定版）
     void boxf(int x1, int y1, int x2, int y2, const std::source_location& location) {
         auto currentSurface = getCurrentSurface();
-        if (!currentSurface) return;
-
-        // 描画モードに応じて処理
-        if (g_redrawMode == 1) {
-            // モード1: 即座に反映
-            beginDrawIfNeeded();
-            currentSurface->boxf(x1, y1, x2, y2);
-            endDrawAndPresent();
-        }
-        else {
-            // モード0: 仮想画面のみ（BeginDraw済み）
+        if (currentSurface) {
             currentSurface->boxf(x1, y1, x2, y2);
         }
     }
@@ -189,17 +168,7 @@ namespace hsppp {
     // 矩形塗りつぶし（全画面版）
     void boxf(const std::source_location& location) {
         auto currentSurface = getCurrentSurface();
-        if (!currentSurface) return;
-
-        // 描画モードに応じて処理
-        if (g_redrawMode == 1) {
-            // モード1: 即座に反映
-            beginDrawIfNeeded();
-            currentSurface->boxf(0, 0, currentSurface->getWidth(), currentSurface->getHeight());
-            endDrawAndPresent();
-        }
-        else {
-            // モード0: 仮想画面のみ（BeginDraw済み）
+        if (currentSurface) {
             currentSurface->boxf(0, 0, currentSurface->getWidth(), currentSurface->getHeight());
         }
     }
@@ -213,21 +182,13 @@ namespace hsppp {
 
         int endX = x2.value_or(0);
         int endY = y2.value_or(0);
-        
+
         // x1, y1が省略されたかどうかを判定
         bool useStartPos = !x1.is_default() && !y1.is_default();
         int startX = x1.value_or(currentSurface->getCurrentX());
         int startY = y1.value_or(currentSurface->getCurrentY());
 
-        // 描画モードに応じて処理
-        if (g_redrawMode == 1) {
-            beginDrawIfNeeded();
-            currentSurface->line(endX, endY, startX, startY, useStartPos);
-            endDrawAndPresent();
-        }
-        else {
-            currentSurface->line(endX, endY, startX, startY, useStartPos);
-        }
+        currentSurface->line(endX, endY, startX, startY, useStartPos);
     }
 
     // ============================================================
@@ -243,15 +204,7 @@ namespace hsppp {
         int p4 = y2.value_or(currentSurface->getHeight());
         int p5 = fillMode.value_or(1);
 
-        // 描画モードに応じて処理
-        if (g_redrawMode == 1) {
-            beginDrawIfNeeded();
-            currentSurface->circle(p1, p2, p3, p4, p5);
-            endDrawAndPresent();
-        }
-        else {
-            currentSurface->circle(p1, p2, p3, p4, p5);
-        }
+        currentSurface->circle(p1, p2, p3, p4, p5);
     }
 
     // ============================================================
@@ -264,15 +217,7 @@ namespace hsppp {
         int px = x.is_default() ? currentSurface->getCurrentX() : x.value();
         int py = y.is_default() ? currentSurface->getCurrentY() : y.value();
 
-        // 描画モードに応じて処理
-        if (g_redrawMode == 1) {
-            beginDrawIfNeeded();
-            currentSurface->pset(px, py);
-            endDrawAndPresent();
-        }
-        else {
-            currentSurface->pset(px, py);
-        }
+        currentSurface->pset(px, py);
     }
 
     // ============================================================
@@ -286,16 +231,7 @@ namespace hsppp {
         int py = y.is_default() ? currentSurface->getCurrentY() : y.value();
 
         int r, g, b;
-        
-        // 描画モードに応じて処理
-        if (g_redrawMode == 1) {
-            beginDrawIfNeeded();
-            currentSurface->pget(px, py, r, g, b);
-            endDrawAndPresent();
-        }
-        else {
-            currentSurface->pget(px, py, r, g, b);
-        }
+        currentSurface->pget(px, py, r, g, b);
     }
 
 } // namespace hsppp

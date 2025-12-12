@@ -105,10 +105,11 @@ namespace hsppp {
             int destY = destSurface->getCurrentY();
 
             // 描画モードに応じて処理
-            bool wasDrawing = g_isDrawing;
-            if (g_redrawMode == 1 && !wasDrawing) {
-                beginDrawIfNeeded();
+            bool autoManage = (destSurface->getRedrawMode() == 1 && !destSurface->isDrawing());
+            if (autoManage) {
+                destSurface->beginDraw();
             }
+            if (!destSurface->isDrawing()) return;
 
             // コピー元の領域
             D2D1_RECT_F srcRect = D2D1::RectF(
@@ -159,8 +160,8 @@ namespace hsppp {
                 destContext->SetPrimitiveBlend(D2D1_PRIMITIVE_BLEND_SOURCE_OVER);
             }
 
-            if (g_redrawMode == 1 && !wasDrawing) {
-                endDrawAndPresent();
+            if (autoManage) {
+                destSurface->endDrawAndPresent();
             }
         }
         catch (const std::exception& e) {
@@ -208,10 +209,11 @@ namespace hsppp {
         int destY = destSurface->getCurrentY();
 
         // 描画モードに応じて処理
-        bool wasDrawing = g_isDrawing;
-        if (g_redrawMode == 1 && !wasDrawing) {
-            beginDrawIfNeeded();
+        bool autoManage = (destSurface->getRedrawMode() == 1 && !destSurface->isDrawing());
+        if (autoManage) {
+            destSurface->beginDraw();
         }
+        if (!destSurface->isDrawing()) return;
 
         // コピー元の領域
         D2D1_RECT_F srcRect = D2D1::RectF(
@@ -266,8 +268,8 @@ namespace hsppp {
             destContext->SetPrimitiveBlend(D2D1_PRIMITIVE_BLEND_SOURCE_OVER);
         }
 
-        if (g_redrawMode == 1 && !wasDrawing) {
-            endDrawAndPresent();
+        if (autoManage) {
+            destSurface->endDrawAndPresent();
         }
     }
 

@@ -150,11 +150,21 @@ bool D2DDeviceManager::initialize() {
     );
     if (FAILED(hr)) return false;
 
+    // WIC Factoryの作成
+    hr = CoCreateInstance(
+        CLSID_WICImagingFactory,
+        nullptr,
+        CLSCTX_INPROC_SERVER,
+        IID_PPV_ARGS(m_pWICFactory.GetAddressOf())
+    );
+    if (FAILED(hr)) return false;
+
     m_initialized = true;
     return true;
 }
 
 void D2DDeviceManager::shutdown() {
+    m_pWICFactory.Reset();
     m_pDWriteFactory.Reset();
     m_pD2DDevice.Reset();
     m_pD2DFactory.Reset();
@@ -289,6 +299,82 @@ void HspSurface::boxf(int x1, int y1, int x2, int y2) {
     );
 
     m_pDeviceContext->FillRectangle(rect, m_pBrush.Get());
+
+    // モード1の場合、自動的にendDraw + present
+    if (autoManage) {
+        endDrawAndPresent();
+    }
+}
+
+bool HspSurface::picload(std::string_view filename, int mode) {
+    if (!m_pDeviceContext) return false;
+
+    // モードに応じて画面をクリア
+    if (mode == 0 || mode == 2) {
+        int clsMode = (mode == 0) ? 0 : 4;  // 0=白, 2=黒
+        cls(clsMode);
+    }
+
+    // 画像読み込み
+    int width = 0, height = 0;
+    auto bitmap = loadImageFile(filename, width, height);
+    if (!bitmap) {
+        return false;
+    }
+
+    // モード1の場合、自動的にbeginDraw
+    bool autoManage = (m_redrawMode == 1 && !m_isDrawing);
+    if (autoManage) {
+        beginDraw();
+    }
+    if (!m_isDrawing) return false;
+
+    // 現在位置に描画
+    D2D1_RECT_F destRect = D2D1::RectF(
+        static_cast<float>(m_currentX),
+        static_cast<float>(m_currentY),
+        static_cast<float>(m_currentX + width),
+        static_cast<float>(m_currentY + height)
+    );
+
+    m_pDeviceContext->DrawBitmap(
+        bitmap.Get(),
+        destRect,
+        1.0f,  // opacity
+        D2D1_BITMAP_INTERPOLATION_MODE_LINEAR,
+        nullptr  // sourceRect (全体)
+    );
+
+    // モード1の場合、自動的にendDraw + present
+    if (autoManage) {
+        endDrawAndPresent();
+    }
+
+    return true;
+}
+
+bool HspSurface::bmpsave(std::string_view filename) {
+    if (!m_pTargetBitmap) return false;
+    return saveBitmapToFile(m_pTargetBitmap.Get(), filename);
+}
+
+void HspSurface::celput(ID2D1Bitmap1* pBitmap, const D2D1_RECT_F& srcRect, const D2D1_RECT_F& destRect) {
+    if (!m_pDeviceContext || !pBitmap) return;
+
+    // モード1の場合、自動的にbeginDraw
+    bool autoManage = (m_redrawMode == 1 && !m_isDrawing);
+    if (autoManage) {
+        beginDraw();
+    }
+    if (!m_isDrawing) return;
+
+    m_pDeviceContext->DrawBitmap(
+        pBitmap,
+        destRect,
+        1.0f,  // opacity
+        D2D1_BITMAP_INTERPOLATION_MODE_LINEAR,
+        srcRect
+    );
 
     // モード1の場合、自動的にendDraw + present
     if (autoManage) {
@@ -598,6 +684,10 @@ HspWindow::HspWindow(int width, int height, std::string_view title)
     , m_hwnd(nullptr)
     , m_pSwapChain(nullptr)
     , m_title(Utf8ToWide(title))
+    , m_clientWidth(width)      // 初期値はバッファサイズと同じ
+    , m_clientHeight(height)
+    , m_scrollX(0)
+    , m_scrollY(0)
 {
 }
 
@@ -751,18 +841,44 @@ void HspWindow::present() {
         return;
     }
 
-    // オフスクリーンビットマップの内容をバックバッファにコピー
+    // オフスクリーンビットマップの内容をバックバッファにコピー（ドットバイドット、スケーリングなし）
     m_pDeviceContext->SetTarget(m_pBackBufferBitmap.Get());
     m_pDeviceContext->BeginDraw();
+    
+    // 背景をクリア（バッファサイズがクライアントサイズより大きい場合の余白対策）
+    m_pDeviceContext->Clear(D2D1::ColorF(0.0f, 0.0f, 0.0f, 1.0f));
 
-    // オフスクリーンビットマップをバックバッファ全体にコピー
-    D2D1_RECT_F destRect = D2D1::RectF(0, 0, static_cast<float>(m_width), static_cast<float>(m_height));
-    m_pDeviceContext->DrawBitmap(m_pTargetBitmap.Get(), destRect);
+    // ソース領域（grollで指定されたオフセットから、クライアントサイズ分）
+    // ただし、バッファの範囲を超えないようにクランプ
+    int srcRight = (std::min)(m_scrollX + m_clientWidth, m_width);
+    int srcBottom = (std::min)(m_scrollY + m_clientHeight, m_height);
+    D2D1_RECT_F srcRect = D2D1::RectF(
+        static_cast<float>(m_scrollX),
+        static_cast<float>(m_scrollY),
+        static_cast<float>(srcRight),
+        static_cast<float>(srcBottom)
+    );
+    
+    // 描画先領域（同じサイズでドットバイドットコピー）
+    D2D1_RECT_F destRect = D2D1::RectF(
+        0.0f,
+        0.0f,
+        static_cast<float>(srcRight - m_scrollX),
+        static_cast<float>(srcBottom - m_scrollY)
+    );
+
+    // ドットバイドットでコピー（補間なし）
+    m_pDeviceContext->DrawBitmap(
+        m_pTargetBitmap.Get(),
+        destRect,
+        1.0f,
+        D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR,
+        srcRect
+    );
 
     m_pDeviceContext->EndDraw();
 
     // 画面に表示（垂直同期を待たない - redraw(1)での高速描画用）
-    // SyncInterval=0 で即座に表示
     m_pSwapChain->Present(0, 0);
 
     // 描画先をオフスクリーンビットマップに戻す
@@ -787,6 +903,12 @@ void HspWindow::setTitle(std::string_view title) {
 void HspWindow::setClientSize(int clientW, int clientH) {
     if (!m_hwnd) return;
 
+    // クライアントサイズはバッファサイズ以下にクランプ（HSP仕様）
+    clientW = (std::min)(clientW, m_width);
+    clientH = (std::min)(clientH, m_height);
+    if (clientW < 1) clientW = 1;
+    if (clientH < 1) clientH = 1;
+
     // 現在のウィンドウスタイルを取得
     DWORD style = static_cast<DWORD>(GetWindowLongPtr(m_hwnd, GWL_STYLE));
     DWORD exStyle = static_cast<DWORD>(GetWindowLongPtr(m_hwnd, GWL_EXSTYLE));
@@ -800,12 +922,71 @@ void HspWindow::setClientSize(int clientW, int clientH) {
     // ウィンドウサイズを変更（位置は維持）
     SetWindowPos(m_hwnd, nullptr, 0, 0, windowWidth, windowHeight, 
                  SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+
+    // スワップチェーンをリサイズ
+    if (resizeSwapChain(clientW, clientH)) {
+        m_clientWidth = clientW;
+        m_clientHeight = clientH;
+    }
+}
+
+void HspWindow::setScroll(int x, int y) {
+    // スクロール位置を設定（groll命令用）
+    // バッファ範囲内にクランプ
+    m_scrollX = (std::max)(0, (std::min)(x, m_width - 1));
+    m_scrollY = (std::max)(0, (std::min)(y, m_height - 1));
+}
+
+bool HspWindow::resizeSwapChain(int newWidth, int newHeight) {
+    if (!m_pSwapChain || !m_pDeviceContext) return false;
+
+    // バックバッファビットマップを解放
+    m_pBackBufferBitmap.Reset();
+    m_pDeviceContext->SetTarget(nullptr);
+
+    // スワップチェーンをリサイズ
+    HRESULT hr = m_pSwapChain->ResizeBuffers(
+        0,  // バッファ数を維持
+        static_cast<UINT>(newWidth),
+        static_cast<UINT>(newHeight),
+        DXGI_FORMAT_UNKNOWN,  // フォーマットを維持
+        0
+    );
+    if (FAILED(hr)) return false;
+
+    // 新しいバックバッファからビットマップを再作成
+    ComPtr<IDXGISurface> pBackBuffer;
+    hr = m_pSwapChain->GetBuffer(0, IID_PPV_ARGS(pBackBuffer.GetAddressOf()));
+    if (FAILED(hr)) return false;
+
+    D2D1_BITMAP_PROPERTIES1 backBufferProps = D2D1::BitmapProperties1(
+        D2D1_BITMAP_OPTIONS_TARGET | D2D1_BITMAP_OPTIONS_CANNOT_DRAW,
+        D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE)
+    );
+
+    hr = m_pDeviceContext->CreateBitmapFromDxgiSurface(
+        pBackBuffer.Get(),
+        backBufferProps,
+        m_pBackBufferBitmap.GetAddressOf()
+    );
+    if (FAILED(hr)) return false;
+
+    // 描画ターゲットをオフスクリーンビットマップに戻す
+    m_pDeviceContext->SetTarget(m_pTargetBitmap.Get());
+
+    return true;
 }
 
 void HspWindow::setWindowPos(int x, int y) {
     if (!m_hwnd) return;
     SetWindowPos(m_hwnd, nullptr, x, y, 0, 0, 
                  SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
+void HspWindow::getCurrentClientSize(int& outWidth, int& outHeight) const {
+    // メンバ変数から取得（実際のウィンドウサイズではなく、HSPの論理クライアントサイズ）
+    outWidth = m_clientWidth;
+    outHeight = m_clientHeight;
 }
 
 // ========== HspSurface フォント関連実装 ==========

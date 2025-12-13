@@ -153,6 +153,7 @@
     <ClCompile Include="module\input.ixx" />
     <ClCompile Include="src\boot\WinMain.cpp" />
     <ClCompile Include="src\core\hsppp.cpp" />
+    <ClCompile Include="src\core\ImageLoader.cpp" />
     <ClCompile Include="src\core\Surface.cpp" />
     <ClCompile Include="src\core\Window.cpp" />
     <ClCompile Include="src\utils\Random.cpp" />

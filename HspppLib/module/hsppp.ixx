@@ -173,6 +173,54 @@ namespace hsppp {
     // これにより、モジュールインターフェースと実装の型を分離できる
     // ============================================================
 
+    /// @brief Cel画像素材への軽量ハンドル
+    /// @details 画像データと分割情報を持つ。celload()で作成
+    export class Cel {
+    private:
+        int m_id;
+        bool m_valid;
+
+    public:
+        /// @brief 内部用コンストラクタ
+        Cel(int id, bool valid) noexcept
+            : m_id(id), m_valid(valid) {}
+
+        /// @brief デフォルトコンストラクタ（無効なハンドル）
+        Cel() noexcept : m_id(-1), m_valid(false) {}
+
+        // コピー・ムーブはデフォルト
+        Cel(const Cel&) = default;
+        Cel& operator=(const Cel&) = default;
+        Cel(Cel&&) noexcept = default;
+        Cel& operator=(Cel&&) noexcept = default;
+
+        /// @brief 有効なハンドルかどうか
+        [[nodiscard]] bool valid() const noexcept { return m_valid; }
+        [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
+
+        /// @brief cel IDを取得
+        [[nodiscard]] int id() const noexcept { return m_id; }
+
+        /// @brief 画像素材の分割サイズを設定
+        /// @param divX 横方向の分割数
+        /// @param divY 縦方向の分割数
+        /// @return *this（メソッドチェーン用）
+        Cel& divide(int divX, int divY);
+
+        /// @brief 画像素材を描画
+        /// @param cellIndex 表示するセル番号
+        /// @param x X座標（省略時は現在のpos）
+        /// @param y Y座標（省略時は現在のpos）
+        /// @return *this（メソッドチェーン用）
+        Cel& put(int cellIndex, OptInt x = {}, OptInt y = {});
+
+        /// @brief 画像の幅を取得
+        [[nodiscard]] int width() const;
+
+        /// @brief 画像の高さを取得
+        [[nodiscard]] int height() const;
+    };
+
     /// @brief Surfaceへの軽量ハンドル
     /// @details 実体のように `.` でアクセスできる。内部は ID のみ保持
     export class Screen {
@@ -276,8 +324,22 @@ namespace hsppp {
         /// @brief 高さを取得
         [[nodiscard]] int height() const;
 
+        /// @brief ウィンドウサイズ・位置を設定（width命令のOOP版）
+        /// @param clientW クライアントサイズX
+        /// @param clientH クライアントサイズY (-1=変更なし)
+        /// @param posX ウィンドウ位置X (-1=変更なし)
+        /// @param posY ウィンドウ位置Y (-1=変更なし)
+        /// @param option 座標設定オプション (0=負値で現在維持, 1=負値も設定)
+        /// @return *this（メソッドチェーン用）
+        Screen& width(int clientW, int clientH = -1, int posX = -1, int posY = -1, int option = 0);
+
+        /// @brief スクロール位置を設定（groll命令のOOP版）
+        /// @param scrollX 描画基点X座標
+        /// @param scrollY 描画基点Y座標
+        /// @return *this（メソッドチェーン用）
+        Screen& groll(int scrollX, int scrollY);
+
         /// @brief フォントを設定
-        /// @param fontName フォント名
         /// @param size フォントサイズ (デフォルト: 12)
         /// @param style フォントスタイル (デフォルト: 0)
         /// @return *this（メソッドチェーン用）
@@ -293,14 +355,16 @@ namespace hsppp {
         /// @return *this（メソッドチェーン用）
         Screen& title(std::string_view title);
 
-        /// @brief ウィンドウサイズ・位置を設定
-        /// @param clientW クライアントサイズX (-1=変更なし)
-        /// @param clientH クライアントサイズY (-1=変更なし)
-        /// @param posX ウィンドウ位置X (-1=変更なし)
-        /// @param posY ウィンドウ位置Y (-1=変更なし)
-        /// @param option 座標設定オプション (0=負値で現在維持, 1=負値も設定)
+        /// @brief 画像ファイルをロード
+        /// @param filename ファイル名
+        /// @param mode モード (0=初期化してロード, 1=現在の画面に重ねる, 2=黒で初期化してロード)
         /// @return *this（メソッドチェーン用）
-        Screen& windowSize(int clientW = -1, int clientH = -1, int posX = -1, int posY = -1, int option = 0);
+        Screen& picload(std::string_view filename, int mode = 0);
+
+        /// @brief 画面イメージをBMPファイルに保存
+        /// @param filename ファイル名
+        /// @return *this（メソッドチェーン用）
+        Screen& bmpsave(std::string_view filename);
 
         /// @brief このウィンドウ内でのマウスカーソルX座標を取得
         /// @return X座標
@@ -493,6 +557,40 @@ namespace hsppp {
     /// @note cls命令で画面をクリアすると、フォントやカラー設定が初期状態に戻る
     export void cls(OptInt p1 = {}, const std::source_location& location = std::source_location::current());
 
+    // --- Image Functions ---
+    /// @brief 画像ファイルをロード
+    /// @param p1 ファイル名
+    /// @param p2 モード (0=初期化してロード, 1=現在の画面に重ねる, 2=黒で初期化してロード)
+    export void picload(std::string_view p1, OptInt p2 = {},
+                       const std::source_location& location = std::source_location::current());
+    
+    /// @brief 画面イメージをBMPファイルに保存
+    /// @param p1 ファイル名
+    export void bmpsave(std::string_view p1,
+                       const std::source_location& location = std::source_location::current());
+    
+    /// @brief 画像ファイルをバッファにロード（仮想ID）
+    /// @param p1 ファイル名
+    /// @param p2 cel ID（省略時は自動割り当て）
+    /// @return 割り当てられたcel ID
+    export int celload(std::string_view p1, OptInt p2 = {},
+                      const std::source_location& location = std::source_location::current());
+    
+    /// @brief 画像素材の分割サイズを設定
+    /// @param p1 cel ID
+    /// @param p2 横方向の分割数
+    /// @param p3 縦方向の分割数
+    export void celdiv(int p1, int p2, int p3,
+                      const std::source_location& location = std::source_location::current());
+    
+    /// @brief 画像素材を描画
+    /// @param p1 cel ID
+    /// @param p2 表示するセル番号
+    /// @param p3 X座標（省略時は現在のpos）
+    /// @param p4 Y座標（省略時は現在のpos）
+    export void celput(int p1, int p2, OptInt p3 = {}, OptInt p4 = {},
+                      const std::source_location& location = std::source_location::current());
+
     // --- Drawing Functions ---
     export void color(int r, int g, int b,
                      const std::source_location& location = std::source_location::current());
@@ -609,6 +707,15 @@ namespace hsppp {
     /// @param posY ウィンドウ位置Y (-1=変更なし)
     /// @param option 座標設定オプション (0=負値で現在維持, 1=負値も設定)
     export void width(OptInt clientW = {}, OptInt clientH = {}, OptInt posX = {}, OptInt posY = {}, OptInt option = {}, const std::source_location& location = std::source_location::current());
+
+    // ============================================================
+    // groll - スクロール位置設定（HSP互換）
+    // ============================================================
+    /// @brief グラフィック面の描画基点座標を設定
+    /// @param scrollX 描画基点X座標
+    /// @param scrollY 描画基点Y座標
+    /// @note クライアントサイズが画面サイズより小さい場合に、どの部分を表示するかを設定
+    export void groll(int scrollX, int scrollY, const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // stick - キー入力情報取得（HSP互換）
@@ -841,6 +948,16 @@ namespace hsppp {
     /// @brief onkey割り込みの一時停止/再開
     /// @param enable 0=停止, 1=再開
     export void onkey(int enable, const std::source_location& location = std::source_location::current());
+
+    // ============================================================
+    // Cel Factory Function (OOP版)
+    // ============================================================
+    /// @brief 画像ファイルをロードしてCelオブジェクトを作成
+    /// @param filename ファイル名
+    /// @param celId cel ID（省略時は自動割り当て）
+    /// @return Celオブジェクト
+    export Cel loadCel(std::string_view filename, OptInt celId = {},
+                      const std::source_location& location = std::source_location::current());
 
     // --- System / Internal ---
     namespace internal {

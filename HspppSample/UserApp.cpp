@@ -1,171 +1,247 @@
 ﻿// HspppSample/UserApp.cpp
 // ═══════════════════════════════════════════════════════════════════
-// HSPPP デモ: 割り込みハンドラ＆エラーハンドリングテスト
+// HSPPP デモ: cls, font, title, width, groll 機能テスト
 // ═══════════════════════════════════════════════════════════════════
 
 import hsppp;
 using namespace hsppp;
 
-// グローバル変数（割り込みハンドラからアクセス）
-int g_clickCount = 0;
-int g_lastKeyCode = 0;
-bool g_confirmExit = false;
-bool g_errorOccurred = false;
-int g_errorCode = 0;
-int g_errorLine = 0;
+// デモモード
+enum class DemoMode {
+    Cls,
+    Font,
+    Title,
+    Width,
+    Groll
+};
 
-// onclick ハンドラ: マウスクリック時に呼び出される
-int onClickHandler() {
-    g_clickCount++;
-    return 0;  // 戻り値（現在は無視）
-}
-
-// onkey ハンドラ: キー入力時に呼び出される
-int onKeyHandler() {
-    g_lastKeyCode = iparam();  // 押されたキーコード
-    return 0;
-}
-
-// onexit ハンドラ: ウィンドウを閉じようとした時に呼び出される
-int onExitHandler() {
-    g_confirmExit = true;
-    return 0;
-}
-
-// onerror ハンドラ: エラー発生時に呼び出される
-// HspErrorオブジェクトからエラー情報を取得
-int onErrorHandler(const HspError& error) {
-    g_errorOccurred = true;
-    g_errorCode = error.error_code();    // HspErrorから取得
-    g_errorLine = error.line_number();   // HspErrorから取得
-
-    // ここで独自のエラー処理を記述できます
-    // 例: 画面にエラー情報を描画
-    color(255, 0, 0);
-    pos(10, 10);
-    mes("Error occurred!");
-    pos(10, 30);
-    mes("Error code: " + str(error.error_code()));
-    pos(10, 50);
-    mes("Line: " + str(error.line_number()));
-
-    // 画面を更新して表示
-    redraw(1);
-
-    // ユーザーがウィンドウを閉じるまで待機
-    // （実際にはstop()を呼べば良いが、今は簡略化のため省略）
-
-    // この関数が終了すると自動的に end() が呼ばれる（HSP仕様）
-    return 0;
-}
+DemoMode g_mode = DemoMode::Width;  // width/grollテスト用に初期モード変更
+int g_clsMode = 0;
+int g_fontStyle = 0;
+int g_fontSize = 12;
+int g_scrollX = 0;
+int g_scrollY = 0;
 
 // ユーザーのエントリーポイント
 int hspMain() {
     // ╔═══════════════════════════════════════════════════════════════╗
-    // ║  メインウィンドウ作成                                         ║
+    // ║  メインウィンドウ作成（バッファサイズ640x480）                ║
     // ╚═══════════════════════════════════════════════════════════════╝
-    auto mw = screen({.width = 640, .height = 480, .title = "HSPPP Interrupt Demo"});
+    auto win = screen({.width = 640, .height = 480, .title = "HSPPP Width/Groll Demo"});
     
-    // ╔═══════════════════════════════════════════════════════════════╗
-    // ║  割り込みハンドラを登録                                       ║
-    // ╚═══════════════════════════════════════════════════════════════╝
-    hsppp::onclick(onClickHandler);   // クリック割り込み
-    hsppp::onkey(onKeyHandler);       // キー割り込み
-    hsppp::onexit(onExitHandler);     // 終了割り込み
-    hsppp::onerror(onErrorHandler);   // エラー割り込み
-    hsppp::onerror(0);
-
     // メインループ
     while (true) {
-        mw.redraw(0);  // 描画開始
+        win.redraw(0);
         
-        // 背景クリア
-        mw.color(240, 240, 240).boxf();
+        // 背景（clsのデモ表示）
+        if (g_mode == DemoMode::Cls) {
+            win.cls(g_clsMode);  // クリアモードを適用
+        } else {
+            win.cls(0);  // 通常は白でクリア
+        }
         
         // タイトル
-        mw.sysfont(0);
-        mw.color(0, 0, 0).pos(20, 20);
-        mw.mes("=== HSPPP Interrupt Handler Demo ===");
+        win.font("MS Gothic", 16, 1);
+        win.color(0, 0, 128).pos(20, 20);
+        win.mes("=== HSPPP cls/font/title/width/groll Demo ===");
         
-        // 説明
-        mw.pos(20, 60);
-        mw.mes("Click anywhere to increment counter");
-        mw.pos(20, 80);
-        mw.mes("Press any key to display keycode");
-        mw.pos(20, 100);
-        mw.mes("Press 'E' to trigger error (tests onerror handler)");
-        mw.pos(20, 120);
-        mw.mes("Press ESC or click X to exit (with confirmation)");
-
-        // mes オプションデモ
-        mw.color(100, 100, 100).pos(20, 160);
-        mw.mes("Text without newline:", 1);  // mesopt_nocr: 改行しない
-        mw.mes("continued!");
-
-        mw.color(0, 100, 200).pos(20, 190);
-        mw.mes("Shadow text:", 2);  // mesopt_shadow: 影付き
-
-        mw.color(200, 100, 0).pos(20, 220);
-        mw.mes("Outline text:", 4);  // mesopt_outline: 縁取り
-        
-        // クリックカウント表示
-        mw.color(0, 0, 200).pos(20, 150);
-        mw.mes("Click count:");
-        mw.pos(150, 150);
-        mw.mes(str(g_clickCount));
-
-        // 最後に押されたキー表示
-        mw.color(0, 128, 0).pos(20, 180);
-        mw.mes("Last key code:");
-        mw.pos(150, 180);
-        mw.mes(str(g_lastKeyCode));
-        
-        if (g_lastKeyCode > 0) {
-            mw.pos(200, 180);
-            if (g_lastKeyCode >= 32 && g_lastKeyCode < 127) {
-                std::string charDisplay = "(" + std::string(1, static_cast<char>(g_lastKeyCode)) + ")";
-                mw.mes(charDisplay);
-            }
-        }
-
-        // システム変数表示
-        mw.color(128, 0, 128).pos(20, 220);
-        mw.mes("iparam/wparam/lparam:");
-        mw.pos(20, 240);
-        std::string sysVars = "ip=" + str(iparam()) + " wp=" + str(wparam()) + " lp=" + str(lparam());
-        mw.mes(sysVars);
-        
-        // 終了確認ダイアログ（簡易実装）
-        if (g_confirmExit) {
-            // 確認メッセージ表示
-            mw.color(255, 200, 200).boxf(150, 200, 490, 280);
-            mw.color(0, 0, 0).pos(180, 220);
-            mw.mes("Exit confirmation");
-            mw.pos(180, 240);
-            mw.mes("Press Y to exit, N to cancel");
+        // 現在のデモモード表示
+        win.font("MS Gothic", 14, 0);
+        win.color(0, 0, 0).pos(20, 60);
+        switch (g_mode) {
+        case DemoMode::Cls:
+            win.mes("Current: CLS (画面クリア) - Press 1");
+            win.pos(20, 85);
+            win.mes("Mode: " + str(g_clsMode) + " (0=白 1=黒 2=前回の色 3=透明保持 4=黒)");
+            win.pos(20, 110);
+            win.mes("Press UP/DOWN to change cls mode");
             
-            // Y/N入力チェック
-            if (getkey('Y')) {
-                end(0);  // 終了
+            // clsモードのビジュアルデモ
+            win.color(255, 0, 0).boxf(50, 150, 150, 250);
+            win.color(0, 255, 0).boxf(200, 150, 300, 250);
+            win.color(0, 0, 255).boxf(350, 150, 450, 250);
+            win.color(255, 255, 0).pos(50, 270);
+            win.mes("These boxes are cleared by cls(" + str(g_clsMode) + ")");
+            break;
+            
+        case DemoMode::Font:
+            win.mes("Current: FONT (フォント設定) - Press 2");
+            win.pos(20, 85);
+            win.mes("Style: " + str(g_fontStyle) + " Size: " + str(g_fontSize));
+            win.pos(20, 110);
+            win.mes("UP/DOWN: size, LEFT/RIGHT: style");
+            
+            // フォントデモ
+            win.font("MS Gothic", g_fontSize, g_fontStyle);
+            win.color(0, 0, 200).pos(50, 150);
+            win.mes("MS Gothic サンプルテキスト");
+            
+            win.font("Arial", g_fontSize, g_fontStyle);
+            win.pos(50, 180);
+            win.mes("Arial Sample Text");
+            
+            win.font("MS Mincho", g_fontSize, g_fontStyle);
+            win.pos(50, 210);
+            win.mes("MS 明朝 サンプル");
+            
+            win.font("MS Gothic", 12, 0);
+            win.color(100, 100, 100).pos(50, 250);
+            win.mes("Style: 0=Normal 1=Bold 2=Italic 3=Bold+Italic");
+            break;
+            
+        case DemoMode::Title:
+            win.mes("Current: TITLE (タイトル設定) - Press 3");
+            win.pos(20, 85);
+            win.mes("Press T to change window title");
+            win.pos(20, 110);
+            win.mes("(Look at the window title bar)");
+            
+            win.color(0, 128, 0).pos(50, 150);
+            win.mes("タイトルバーの文字列を変更できます");
+            win.pos(50, 180);
+            win.mes("HSP互換: title(\"テキスト\")");
+            win.pos(50, 210);
+            win.mes("OOP版: win.title(\"テキスト\")");
+            break;
+            
+        case DemoMode::Width:
+            win.mes("Current: WIDTH (ウィンドウサイズ) - Press 4");
+            win.pos(20, 85);
+            win.mes(std::string("Client: ") + str(win.width()) + "x" + str(win.height()));
+            win.pos(20, 110);
+            win.mes("Buffer: 640x480 (fixed, NO SCALING)");
+            win.pos(20, 135);
+            win.mes("Press W/S to resize (max = buffer size)");
+            
+            win.color(128, 0, 128).pos(50, 170);
+            win.mes("ウィンドウサイズを動的に変更できます");
+            win.pos(50, 195);
+            win.mes("クライアントサイズは画面サイズを超えられません");
+            
+            // 640x480バッファの内容を視覚的に確認するためのマーカー
+            win.color(255, 0, 0);
+            win.boxf(0, 0, 10, 480);       // 左端
+            win.boxf(630, 0, 640, 480);    // 右端
+            win.boxf(0, 0, 640, 10);       // 上端
+            win.boxf(0, 470, 640, 480);    // 下端
+            
+            win.color(0, 128, 0).pos(50, 250);
+            win.mes("Red borders mark 640x480 buffer edges");
+            win.pos(50, 275);
+            win.mes("(No blur/scaling - dot by dot)");
+            break;
+            
+        case DemoMode::Groll:
+            win.mes("Current: GROLL (スクロール) - Press 5");
+            win.pos(20, 85);
+            win.mes(std::string("Scroll: ") + str(g_scrollX) + ", " + str(g_scrollY));
+            win.pos(20, 110);
+            win.mes("Arrow keys to scroll viewport");
+            
+            win.color(128, 0, 0).pos(50, 150);
+            win.mes("width()でクライアントサイズ < 画面サイズにすると");
+            win.pos(50, 175);
+            win.mes("groll()でビューポートをスクロールできます");
+            
+            // グリッドパターンを描画（スクロール効果が見えるように）
+            for (int x = 0; x < 640; x += 50) {
+                win.color(200, 200, 200);
+                win.line(x, 0, x, 480);
             }
-            if (getkey('N')) {
-                g_confirmExit = false;  // キャンセル
+            for (int y = 0; y < 480; y += 50) {
+                win.color(200, 200, 200);
+                win.line(0, y, 640, y);
             }
+            
+            // 四隅にマーカー
+            win.color(255, 0, 0).boxf(0, 0, 50, 50);        // 左上
+            win.color(0, 255, 0).boxf(590, 0, 640, 50);     // 右上
+            win.color(0, 0, 255).boxf(0, 430, 50, 480);     // 左下
+            win.color(255, 255, 0).boxf(590, 430, 640, 480);// 右下
+            
+            win.font("MS Gothic", 12, 0);
+            win.color(0, 0, 0).pos(5, 55);
+            win.mes("TL(0,0)");
+            win.pos(570, 55);
+            win.mes("TR(640,0)");
+            win.pos(5, 400);
+            win.mes("BL(0,480)");
+            win.pos(560, 400);
+            win.mes("BR(640,480)");
+            break;
         }
         
-        // ESCキーで終了確認
-        if (stick() & 128) {
-            g_confirmExit = true;
+        // 共通ヘルプ
+        win.font("MS Gothic", 11, 0);
+        win.color(128, 128, 128).pos(20, 420);
+        win.mes("Keys: 1=cls 2=font 3=title 4=width 5=groll | ESC=Exit");
+        
+        win.redraw(1);
+        
+        // キー入力処理
+        if (getkey('1')) { g_mode = DemoMode::Cls; await(200); }
+        if (getkey('2')) { g_mode = DemoMode::Font; await(200); }
+        if (getkey('3')) { g_mode = DemoMode::Title; await(200); }
+        if (getkey('4')) { g_mode = DemoMode::Width; await(200); }
+        if (getkey('5')) { g_mode = DemoMode::Groll; await(200); }
+        
+        // モード別操作
+        switch (g_mode) {
+        case DemoMode::Cls:
+            if (getkey(0x26)) { g_clsMode = (g_clsMode + 1) % 5; await(200); }  // VK_UP
+            if (getkey(0x28)) { g_clsMode = (g_clsMode + 4) % 5; await(200); }  // VK_DOWN
+            break;
+            
+        case DemoMode::Font:
+            if (getkey(0x26)) { g_fontSize++; if (g_fontSize > 32) g_fontSize = 32; await(100); }  // VK_UP
+            if (getkey(0x28)) { g_fontSize--; if (g_fontSize < 8) g_fontSize = 8; await(100); }    // VK_DOWN
+            if (getkey(0x27)) { g_fontStyle = (g_fontStyle + 1) % 4; await(200); }  // VK_RIGHT
+            if (getkey(0x25)) { g_fontStyle = (g_fontStyle + 3) % 4; await(200); }  // VK_LEFT
+            break;
+            
+        case DemoMode::Title:
+            if (getkey('T')) {
+                static int titleNum = 1;
+                win.title("New Title " + str(titleNum++));
+                await(200);
+            }
+            break;
+            
+        case DemoMode::Width:
+            if (getkey('W')) {
+                // 現在のサイズを取得して50ピクセル増やす（クランプされる）
+                int newW = win.width() + 50;
+                int newH = win.height() + 50;
+                win.width(newW, newH);
+                await(200);
+            }
+            if (getkey('S')) {
+                // 現在のサイズを取得して50ピクセル減らす
+                int newW = win.width() - 50;
+                int newH = win.height() - 50;
+                if (newW < 200) newW = 200;
+                if (newH < 150) newH = 150;
+                win.width(newW, newH);
+                await(200);
+            }
+            break;
+            
+        case DemoMode::Groll:
+            // まずウィンドウを小さくしてスクロール効果が見えるようにする
+            if (win.width() == 640) {
+                win.width(400, 300);
+            }
+            if (getkey(0x25)) { g_scrollX -= 10; if (g_scrollX < 0) g_scrollX = 0; win.groll(g_scrollX, g_scrollY); await(50); }  // VK_LEFT
+            if (getkey(0x27)) { g_scrollX += 10; if (g_scrollX > 240) g_scrollX = 240; win.groll(g_scrollX, g_scrollY); await(50); }  // VK_RIGHT
+            if (getkey(0x26)) { g_scrollY -= 10; if (g_scrollY < 0) g_scrollY = 0; win.groll(g_scrollX, g_scrollY); await(50); }  // VK_UP
+            if (getkey(0x28)) { g_scrollY += 10; if (g_scrollY > 180) g_scrollY = 180; win.groll(g_scrollX, g_scrollY); await(50); }  // VK_DOWN
+            break;
         }
-
-        // Eキーでエラーを発生（自動的にonerrorハンドラが呼ばれる）
-        if (getkey('E')) {
-            // 範囲外の値でエラーを発生させる
-            color(999, -50, 300);  // ERR_OUT_OF_RANGE が発生 → onerrorハンドラへ
-        }
-
-        mw.redraw(1);  // 描画終了
-        await(16);     // 約60fps
+        
+        // ESCで終了
+        if (stick() & 128) break;
+        
+        await(16);
     }
     
     return 0;

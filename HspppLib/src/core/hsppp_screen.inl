@@ -49,6 +49,14 @@ namespace hsppp {
         return *this;
     }
 
+    Screen& Screen::cls(int mode) {
+        auto surface = getSurfaceById(m_id);
+        if (surface) {
+            surface->cls(mode);
+        }
+        return *this;
+    }
+
     Screen& Screen::redraw(int mode) {
         auto surface = getSurfaceById(m_id);
         if (!surface) return *this;

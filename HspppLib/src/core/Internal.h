@@ -103,6 +103,7 @@ public:
     virtual bool initialize() = 0;
 
     // 描画命令
+    void cls(int mode = 0);
     void boxf(int x1, int y1, int x2, int y2);
     void mes(std::string_view text, int options = 0);
     void color(int r, int g, int b);

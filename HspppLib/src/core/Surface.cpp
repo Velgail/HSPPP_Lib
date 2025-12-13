@@ -216,6 +216,61 @@ void HspSurface::endDrawAndPresent() {
     endDraw();
 }
 
+void HspSurface::cls(int mode) {
+    if (!m_pDeviceContext) return;
+
+    // モードに応じてクリア色を設定
+    D2D1_COLOR_F clearColor;
+    switch (mode) {
+    case 0:  // 白
+        clearColor = D2D1::ColorF(1.0f, 1.0f, 1.0f, 1.0f);
+        break;
+    case 1:  // 明るい灰色
+        clearColor = D2D1::ColorF(0.75f, 0.75f, 0.75f, 1.0f);
+        break;
+    case 2:  // 灰色
+        clearColor = D2D1::ColorF(0.5f, 0.5f, 0.5f, 1.0f);
+        break;
+    case 3:  // 暗い灰色
+        clearColor = D2D1::ColorF(0.25f, 0.25f, 0.25f, 1.0f);
+        break;
+    case 4:  // 黒
+        clearColor = D2D1::ColorF(0.0f, 0.0f, 0.0f, 1.0f);
+        break;
+    default:
+        clearColor = D2D1::ColorF(1.0f, 1.0f, 1.0f, 1.0f);  // デフォルトは白
+        break;
+    }
+
+    // モード1の場合、自動的にbeginDraw
+    bool autoManage = (m_redrawMode == 1 && !m_isDrawing);
+    if (autoManage) {
+        beginDraw();
+    }
+    if (!m_isDrawing) return;
+
+    // 画面をクリア
+    m_pDeviceContext->Clear(clearColor);
+
+    // フォント・カラー設定を初期状態に戻す
+    m_currentColor = D2D1::ColorF(0.0f, 0.0f, 0.0f, 1.0f);  // 黒
+    if (m_pBrush) {
+        m_pBrush->SetColor(m_currentColor);
+    }
+
+    // カレントポジションをリセット
+    m_currentX = 0;
+    m_currentY = 0;
+
+    // フォントを初期状態に戻す
+    sysfont(0);
+
+    // モード1の場合、自動的にendDraw + present
+    if (autoManage) {
+        endDrawAndPresent();
+    }
+}
+
 void HspSurface::boxf(int x1, int y1, int x2, int y2) {
     if (!m_pDeviceContext || !m_pBrush) return;
 

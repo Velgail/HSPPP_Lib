@@ -222,6 +222,10 @@ namespace hsppp {
         /// @brief 画面全体を塗りつぶし
         Screen& boxf();
 
+        /// @brief 画面クリア
+        /// @param mode クリアする時の色 (0=白, 1=明るい灰色, 2=灰色, 3=暗い灰色, 4=黒)
+        Screen& cls(int mode = 0);
+
         /// @brief 描画制御
         Screen& redraw(int mode = 1);
 
@@ -480,6 +484,14 @@ namespace hsppp {
     // プログラム終了 (HSP互換)
     // p1: 終了コード（省略時は0）
     export [[noreturn]] void end(int exitcode = 0, const std::source_location& location = std::source_location::current());
+
+    // ============================================================
+    // cls - 画面クリア（HSP互換）
+    // ============================================================
+    /// @brief ウィンドウ内の情報をすべてクリア
+    /// @param p1 クリアする時の色 (0=白, 1=明るい灰色, 2=灰色, 3=暗い灰色, 4=黒)
+    /// @note cls命令で画面をクリアすると、フォントやカラー設定が初期状態に戻る
+    export void cls(OptInt p1 = {}, const std::source_location& location = std::source_location::current());
 
     // --- Drawing Functions ---
     export void color(int r, int g, int b,

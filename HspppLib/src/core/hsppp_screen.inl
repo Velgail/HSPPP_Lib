@@ -27,35 +27,15 @@ namespace hsppp {
 
     Screen& Screen::mes(std::string_view text, OptInt sw) {
         auto surface = getSurfaceById(m_id);
-        if (!surface) return *this;
-
-        int options = sw.value_or(0);
-
-        // 描画モードに応じて処理
-        if (g_redrawMode == 1) {
-            // このScreenをカレントに設定してから描画
-            g_currentSurface = surface;
-            beginDrawIfNeeded();
-            surface->mes(text, options);
-            endDrawAndPresent();
-        }
-        else {
-            surface->mes(text, options);
+        if (surface) {
+            surface->mes(text, sw.value_or(0));
         }
         return *this;
     }
 
     Screen& Screen::boxf(int x1, int y1, int x2, int y2) {
         auto surface = getSurfaceById(m_id);
-        if (!surface) return *this;
-
-        if (g_redrawMode == 1) {
-            g_currentSurface = surface;
-            beginDrawIfNeeded();
-            surface->boxf(x1, y1, x2, y2);
-            endDrawAndPresent();
-        }
-        else {
+        if (surface) {
             surface->boxf(x1, y1, x2, y2);
         }
         return *this;
@@ -63,24 +43,33 @@ namespace hsppp {
 
     Screen& Screen::boxf() {
         auto surface = getSurfaceById(m_id);
-        if (!surface) return *this;
-
-        if (g_redrawMode == 1) {
-            g_currentSurface = surface;
-            beginDrawIfNeeded();
-            surface->boxf(0, 0, surface->getWidth(), surface->getHeight());
-            endDrawAndPresent();
-        }
-        else {
+        if (surface) {
             surface->boxf(0, 0, surface->getWidth(), surface->getHeight());
         }
         return *this;
     }
 
     Screen& Screen::redraw(int mode) {
-        // このScreenをカレントにしてからredraw
-        select();
-        hsppp::redraw(mode);
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        bool shouldUpdate = (mode == 1);  // p1=1の場合のみ画面更新
+        int newMode = mode % 2;           // 0 or 1
+
+        if (newMode == 0) {
+            // バッチモード開始
+            if (!surface->isDrawing()) {
+                surface->beginDraw();
+            }
+            surface->setRedrawMode(0);
+        }
+        else {
+            // 即時反映モード
+            surface->setRedrawMode(1);
+            if (shouldUpdate && surface->isDrawing()) {
+                surface->endDrawAndPresent();
+            }
+        }
         return *this;
     }
 
@@ -104,18 +93,9 @@ namespace hsppp {
 
     Screen& Screen::line(int x2, int y2) {
         auto surface = getSurfaceById(m_id);
-        if (!surface) return *this;
-
-        int startX = surface->getCurrentX();
-        int startY = surface->getCurrentY();
-
-        if (g_redrawMode == 1) {
-            g_currentSurface = surface;
-            beginDrawIfNeeded();
-            surface->line(x2, y2, startX, startY, false);
-            endDrawAndPresent();
-        }
-        else {
+        if (surface) {
+            int startX = surface->getCurrentX();
+            int startY = surface->getCurrentY();
             surface->line(x2, y2, startX, startY, false);
         }
         return *this;
@@ -123,15 +103,7 @@ namespace hsppp {
 
     Screen& Screen::line(int x2, int y2, int x1, int y1) {
         auto surface = getSurfaceById(m_id);
-        if (!surface) return *this;
-
-        if (g_redrawMode == 1) {
-            g_currentSurface = surface;
-            beginDrawIfNeeded();
-            surface->line(x2, y2, x1, y1, true);
-            endDrawAndPresent();
-        }
-        else {
+        if (surface) {
             surface->line(x2, y2, x1, y1, true);
         }
         return *this;
@@ -139,15 +111,7 @@ namespace hsppp {
 
     Screen& Screen::circle(int x1, int y1, int x2, int y2, int fillMode) {
         auto surface = getSurfaceById(m_id);
-        if (!surface) return *this;
-
-        if (g_redrawMode == 1) {
-            g_currentSurface = surface;
-            beginDrawIfNeeded();
-            surface->circle(x1, y1, x2, y2, fillMode);
-            endDrawAndPresent();
-        }
-        else {
+        if (surface) {
             surface->circle(x1, y1, x2, y2, fillMode);
         }
         return *this;
@@ -155,15 +119,7 @@ namespace hsppp {
 
     Screen& Screen::pset(int x, int y) {
         auto surface = getSurfaceById(m_id);
-        if (!surface) return *this;
-
-        if (g_redrawMode == 1) {
-            g_currentSurface = surface;
-            beginDrawIfNeeded();
-            surface->pset(x, y);
-            endDrawAndPresent();
-        }
-        else {
+        if (surface) {
             surface->pset(x, y);
         }
         return *this;
@@ -171,18 +127,9 @@ namespace hsppp {
 
     Screen& Screen::pset() {
         auto surface = getSurfaceById(m_id);
-        if (!surface) return *this;
-
-        int px = surface->getCurrentX();
-        int py = surface->getCurrentY();
-
-        if (g_redrawMode == 1) {
-            g_currentSurface = surface;
-            beginDrawIfNeeded();
-            surface->pset(px, py);
-            endDrawAndPresent();
-        }
-        else {
+        if (surface) {
+            int px = surface->getCurrentX();
+            int py = surface->getCurrentY();
             surface->pset(px, py);
         }
         return *this;
@@ -190,17 +137,8 @@ namespace hsppp {
 
     Screen& Screen::pget(int x, int y) {
         auto surface = getSurfaceById(m_id);
-        if (!surface) return *this;
-
-        int r, g, b;
-
-        if (g_redrawMode == 1) {
-            g_currentSurface = surface;
-            beginDrawIfNeeded();
-            surface->pget(x, y, r, g, b);
-            endDrawAndPresent();
-        }
-        else {
+        if (surface) {
+            int r, g, b;
             surface->pget(x, y, r, g, b);
         }
         return *this;
@@ -208,19 +146,10 @@ namespace hsppp {
 
     Screen& Screen::pget() {
         auto surface = getSurfaceById(m_id);
-        if (!surface) return *this;
-
-        int px = surface->getCurrentX();
-        int py = surface->getCurrentY();
-        int r, g, b;
-
-        if (g_redrawMode == 1) {
-            g_currentSurface = surface;
-            beginDrawIfNeeded();
-            surface->pget(px, py, r, g, b);
-            endDrawAndPresent();
-        }
-        else {
+        if (surface) {
+            int px = surface->getCurrentX();
+            int py = surface->getCurrentY();
+            int r, g, b;
             surface->pget(px, py, r, g, b);
         }
         return *this;

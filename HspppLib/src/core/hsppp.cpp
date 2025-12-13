@@ -54,10 +54,6 @@ namespace {
     bool g_shouldQuit = false;
     DWORD g_lastAwaitTime = 0;
 
-    // 描画モード管理（HSP互換）
-    int g_redrawMode = 1;
-    bool g_isDrawing = false;
-
     // gmode設定（HSP互換）
     int g_gmodeMode = 0;
     int g_gmodeSizeX = 32;
@@ -91,35 +87,6 @@ namespace {
             current = g_currentSurface.lock();
         }
         return current;
-    }
-
-    // 描画開始（内部ヘルパー）
-    void beginDrawIfNeeded() {
-        if (!g_isDrawing) {
-            auto currentSurface = getCurrentSurface();
-            if (currentSurface) {
-                currentSurface->beginDraw();
-                g_isDrawing = true;
-            }
-        }
-    }
-
-    // 描画終了＆画面反映（内部ヘルパー）
-    void endDrawAndPresent() {
-        if (g_isDrawing) {
-            auto currentSurface = g_currentSurface.lock();
-            if (currentSurface) {
-                currentSurface->endDraw();
-
-                // HspWindowの場合は画面に転送
-                auto pWindow = std::dynamic_pointer_cast<HspWindow>(currentSurface);
-                if (pWindow) {
-                    pWindow->present();
-                }
-
-                g_isDrawing = false;
-            }
-        }
     }
 }
 

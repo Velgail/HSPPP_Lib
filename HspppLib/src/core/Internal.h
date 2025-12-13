@@ -92,6 +92,9 @@ protected:
     // 描画中フラグ
     bool m_isDrawing;
 
+    // 描画モード (0: バッチモード, 1: 即時反映)
+    int m_redrawMode;
+
 public:
     HspSurface(int width, int height);
     virtual ~HspSurface() = default;
@@ -116,7 +119,12 @@ public:
     // 描画制御
     void beginDraw();
     void endDraw();
+    virtual void endDrawAndPresent();  // 派生クラスでオーバーライド
     bool isDrawing() const { return m_isDrawing; }
+
+    // 描画モード制御
+    void setRedrawMode(int mode) { m_redrawMode = mode; }
+    int getRedrawMode() const { return m_redrawMode; }
 
     // ゲッター
     int getWidth() const { return m_width; }
@@ -158,6 +166,7 @@ public:
 
     // 画面に転送
     void present();
+    void endDrawAndPresent() override;
 
     // ゲッター
     HWND getHwnd() const { return m_hwnd; }

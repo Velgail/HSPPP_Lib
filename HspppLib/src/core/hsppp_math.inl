@@ -122,6 +122,17 @@ namespace hsppp {
     // ============================================================
 
     void hsvcolor(int p1, int p2, int p3, const std::source_location& location) {
+        // パラメータ範囲チェック
+        if (p1 < 0 || p1 > 191) {
+            throw HspError(ERR_OUT_OF_RANGE, "hsvcolorのH値は0～191の範囲で指定してください", location);
+        }
+        if (p2 < 0 || p2 > 255) {
+            throw HspError(ERR_OUT_OF_RANGE, "hsvcolorのS値は0～255の範囲で指定してください", location);
+        }
+        if (p3 < 0 || p3 > 255) {
+            throw HspError(ERR_OUT_OF_RANGE, "hsvcolorのV値は0～255の範囲で指定してください", location);
+        }
+
         // HSVをRGBに変換
         // H: 0-191 (色相), S: 0-255 (彩度), V: 0-255 (明度)
         
@@ -172,6 +183,11 @@ namespace hsppp {
     }
 
     void syscolor(int p1, const std::source_location& location) {
+        // パラメータ範囲チェック（Windowsシステムカラーは0～30）
+        if (p1 < 0 || p1 > 30) {
+            throw HspError(ERR_OUT_OF_RANGE, "syscolorのインデックスは0～30の範囲で指定してください", location);
+        }
+
         // Windowsシステムカラーを取得
         DWORD sysColor = GetSysColor(p1);
         

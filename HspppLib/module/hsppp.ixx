@@ -180,7 +180,8 @@ namespace hsppp {
     /// @brief 4頂点座標（gsquareコピー先用）
     /// @details 頂点順序: 左上, 右上, 右下, 左下（時計回り）
     export struct Quad {
-        Point2i v[4];
+        static constexpr size_t vertex_count = 4;
+        Point2i v[vertex_count];
 
         constexpr Quad() noexcept = default;
         
@@ -192,15 +193,42 @@ namespace hsppp {
         constexpr Quad(int x0, int y0, int x1, int y1, int x2, int y2, int x3, int y3) noexcept
             : v{{x0, y0}, {x1, y1}, {x2, y2}, {x3, y3}} {}
 
-        /// @brief インデックスアクセス
-        constexpr Point2i& operator[](size_t i) noexcept { return v[i]; }
-        constexpr const Point2i& operator[](size_t i) const noexcept { return v[i]; }
+        /// @brief インデックスアクセス（境界チェック付き）
+        /// @throws std::out_of_range インデックスが範囲外の場合
+        constexpr Point2i& operator[](size_t i) {
+            if (i >= vertex_count) throw std::out_of_range("Quad index out of range");
+            return v[i];
+        }
+        constexpr const Point2i& operator[](size_t i) const {
+            if (i >= vertex_count) throw std::out_of_range("Quad index out of range");
+            return v[i];
+        }
+
+        /// @brief 境界チェック付きアクセス（operator[]と同等）
+        constexpr Point2i& at(size_t i) {
+            if (i >= vertex_count) throw std::out_of_range("Quad index out of range");
+            return v[i];
+        }
+        constexpr const Point2i& at(size_t i) const {
+            if (i >= vertex_count) throw std::out_of_range("Quad index out of range");
+            return v[i];
+        }
+
+        /// @brief 要素数を取得
+        [[nodiscard]] static constexpr size_t size() noexcept { return vertex_count; }
+
+        /// @brief イテレータサポート（範囲ベースfor用）
+        constexpr Point2i* begin() noexcept { return v; }
+        constexpr Point2i* end() noexcept { return v + vertex_count; }
+        constexpr const Point2i* begin() const noexcept { return v; }
+        constexpr const Point2i* end() const noexcept { return v + vertex_count; }
     };
 
     /// @brief 4頂点UV座標（gsquareコピー元用）
     /// @details Quadと同じ構造だが、意味的に区別するために別型
     export struct QuadUV {
-        Point2i v[4];
+        static constexpr size_t vertex_count = 4;
+        Point2i v[vertex_count];
 
         constexpr QuadUV() noexcept = default;
         
@@ -210,22 +238,77 @@ namespace hsppp {
         constexpr QuadUV(int x0, int y0, int x1, int y1, int x2, int y2, int x3, int y3) noexcept
             : v{{x0, y0}, {x1, y1}, {x2, y2}, {x3, y3}} {}
 
-        constexpr Point2i& operator[](size_t i) noexcept { return v[i]; }
-        constexpr const Point2i& operator[](size_t i) const noexcept { return v[i]; }
+        /// @brief インデックスアクセス（境界チェック付き）
+        /// @throws std::out_of_range インデックスが範囲外の場合
+        constexpr Point2i& operator[](size_t i) {
+            if (i >= vertex_count) throw std::out_of_range("QuadUV index out of range");
+            return v[i];
+        }
+        constexpr const Point2i& operator[](size_t i) const {
+            if (i >= vertex_count) throw std::out_of_range("QuadUV index out of range");
+            return v[i];
+        }
+
+        /// @brief 境界チェック付きアクセス（operator[]と同等）
+        constexpr Point2i& at(size_t i) {
+            if (i >= vertex_count) throw std::out_of_range("QuadUV index out of range");
+            return v[i];
+        }
+        constexpr const Point2i& at(size_t i) const {
+            if (i >= vertex_count) throw std::out_of_range("QuadUV index out of range");
+            return v[i];
+        }
+
+        /// @brief 要素数を取得
+        [[nodiscard]] static constexpr size_t size() noexcept { return vertex_count; }
+
+        /// @brief イテレータサポート（範囲ベースfor用）
+        constexpr Point2i* begin() noexcept { return v; }
+        constexpr Point2i* end() noexcept { return v + vertex_count; }
+        constexpr const Point2i* begin() const noexcept { return v; }
+        constexpr const Point2i* end() const noexcept { return v + vertex_count; }
     };
 
     /// @brief 4頂点カラー（gsquareグラデーション用）
     /// @details RGBカラーコード（0xRRGGBB形式）を4頂点分保持
     export struct QuadColors {
-        int colors[4];
+        static constexpr size_t color_count = 4;
+        int colors[color_count];
 
         constexpr QuadColors() noexcept : colors{0, 0, 0, 0} {}
         
         constexpr QuadColors(int c0, int c1, int c2, int c3) noexcept
             : colors{c0, c1, c2, c3} {}
 
-        constexpr int& operator[](size_t i) noexcept { return colors[i]; }
-        constexpr const int& operator[](size_t i) const noexcept { return colors[i]; }
+        /// @brief インデックスアクセス（境界チェック付き）
+        /// @throws std::out_of_range インデックスが範囲外の場合
+        constexpr int& operator[](size_t i) {
+            if (i >= color_count) throw std::out_of_range("QuadColors index out of range");
+            return colors[i];
+        }
+        constexpr const int& operator[](size_t i) const {
+            if (i >= color_count) throw std::out_of_range("QuadColors index out of range");
+            return colors[i];
+        }
+
+        /// @brief 境界チェック付きアクセス（operator[]と同等）
+        constexpr int& at(size_t i) {
+            if (i >= color_count) throw std::out_of_range("QuadColors index out of range");
+            return colors[i];
+        }
+        constexpr const int& at(size_t i) const {
+            if (i >= color_count) throw std::out_of_range("QuadColors index out of range");
+            return colors[i];
+        }
+
+        /// @brief 要素数を取得
+        [[nodiscard]] static constexpr size_t size() noexcept { return color_count; }
+
+        /// @brief イテレータサポート（範囲ベースfor用）
+        constexpr int* begin() noexcept { return colors; }
+        constexpr int* end() noexcept { return colors + color_count; }
+        constexpr const int* begin() const noexcept { return colors; }
+        constexpr const int* end() const noexcept { return colors + color_count; }
     };
 
 

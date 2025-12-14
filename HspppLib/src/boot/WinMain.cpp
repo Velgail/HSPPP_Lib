@@ -42,10 +42,29 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
         hsppp::internal::handleHspError(e);
         return 1;  // エラー終了（実際にはhandleHspErrorがend()を呼ぶので到達しない）
     }
+    catch (const std::out_of_range& e) {
+        // 配列境界外アクセスなどの範囲エラー
+        // HspErrorに変換してonerrorハンドラで処理
+        hsppp::HspError hspErr(hsppp::ERR_OUT_OF_ARRAY, e.what());
+        hsppp::internal::handleHspError(hspErr);
+        return 1;
+    }
+    catch (const std::invalid_argument& e) {
+        // 無効な引数エラー
+        hsppp::HspError hspErr(hsppp::ERR_OUT_OF_RANGE, e.what());
+        hsppp::internal::handleHspError(hspErr);
+        return 1;
+    }
+    catch (const std::runtime_error& e) {
+        // ランタイムエラー
+        hsppp::HspError hspErr(hsppp::ERR_SYSTEM_ERROR, e.what());
+        hsppp::internal::handleHspError(hspErr);
+        return 1;
+    }
     catch (const std::exception& e) {
-        // その他の標準例外
-        MessageBoxA(nullptr, e.what(), "Unexpected Error", MB_OK | MB_ICONERROR);
-        hsppp::internal::close_system();
+        // その他の標準例外もHspErrorに変換してonerrorで処理
+        hsppp::HspError hspErr(hsppp::ERR_INTERNAL, e.what());
+        hsppp::internal::handleHspError(hspErr);
         return 1;
     }
     catch (...) {

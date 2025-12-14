@@ -80,22 +80,21 @@ namespace hsppp {
         std::string result = p1;
         
         // p3が2バイト文字の場合（全角文字対応）
-        // 簡易実装: 1バイト文字のみ対応（全角は将来拡張）
-        char targetChar = static_cast<char>(p3 & 0xFF);
-        
-        // 2バイト文字の場合はバイト列として処理
-        bool isTwoByte = (p3 > 255);
+        // 1バイト文字（0-255）および2バイト文字（Shift-JIS等、上位バイト+下位バイト）に対応
+        // 注意: UTF-8のような可変長マルチバイト文字列では正確に動作しない可能性あり
         char targetBytes[3] = {0};
         size_t targetLen = 1;
         
-        if (isTwoByte) {
-            // Shift-JIS等の2バイト文字
+        if (p3 > 255) {
+            // Shift-JIS等の2バイト文字: 上位バイトと下位バイトに分解
             targetBytes[0] = static_cast<char>((p3 >> 8) & 0xFF);
             targetBytes[1] = static_cast<char>(p3 & 0xFF);
             targetLen = 2;
         } else {
-            targetBytes[0] = targetChar;
+            targetBytes[0] = static_cast<char>(p3 & 0xFF);
         }
+        
+        std::string_view targetView(targetBytes, targetLen);
         
         auto matchTarget = [&](size_t pos) -> bool {
             if (pos + targetLen > result.size()) return false;
@@ -137,13 +136,17 @@ namespace hsppp {
                 std::string newResult;
                 newResult.reserve(result.size());
                 
-                for (size_t i = 0; i < result.size(); ) {
-                    if (matchTarget(i)) {
-                        i += targetLen;  // スキップ
-                    } else {
-                        newResult += result[i];
-                        ++i;
+                size_t startPos = 0;
+                while (startPos < result.size()) {
+                    size_t foundPos = result.find(targetView, startPos);
+                    if (foundPos == std::string::npos) {
+                        // 残りを全て追加
+                        newResult.append(result, startPos, std::string::npos);
+                        break;
                     }
+                    // ターゲットまでの部分を追加
+                    newResult.append(result, startPos, foundPos - startPos);
+                    startPos = foundPos + targetLen;
                 }
                 result = std::move(newResult);
                 break;
@@ -236,22 +239,20 @@ namespace hsppp {
         
         // パスの区切り文字を正規化（Windows/Unix両対応）
         auto findLastSeparator = [](const std::string& path) -> size_t {
-            size_t pos1 = path.rfind('\\');
-            size_t pos2 = path.rfind('/');
-            if (pos1 == std::string::npos) return pos2;
-            if (pos2 == std::string::npos) return pos1;
-            return (pos1 > pos2) ? pos1 : pos2;
+            return path.find_last_of("/\\");
         };
         
-        auto findExtension = [](const std::string& path) -> size_t {
+        auto findExtension = [&findLastSeparator](const std::string& path) -> size_t {
             size_t dotPos = path.rfind('.');
-            size_t sepPos = path.rfind('\\');
-            size_t sepPos2 = path.rfind('/');
+            if (dotPos == std::string::npos) {
+                return std::string::npos;
+            }
             
             // 区切り文字より後にドットがある場合のみ拡張子とみなす
-            if (dotPos == std::string::npos) return std::string::npos;
-            if (sepPos != std::string::npos && dotPos < sepPos) return std::string::npos;
-            if (sepPos2 != std::string::npos && dotPos < sepPos2) return std::string::npos;
+            size_t sepPos = findLastSeparator(path);
+            if (sepPos != std::string::npos && dotPos < sepPos) {
+                return std::string::npos;  // ドットはディレクトリ名の中
+            }
             
             return dotPos;
         };

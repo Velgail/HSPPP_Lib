@@ -358,6 +358,72 @@ namespace hsppp_test {
     }
 
     // ============================================================
+    // 文字列関数テスト（実行時検証）
+    // ============================================================
+    bool test_string_functions_runtime() {
+        bool allPassed = true;
+
+        // --- instr テスト ---
+        // 基本検索
+        check(instr("ABCDEF", "CD") == 2, "instr basic search");
+        check(instr("ABCDEF", "AB") == 0, "instr at beginning");
+        check(instr("ABCDEF", "EF") == 4, "instr at end");
+        check(instr("ABCDEF", "XY") == -1, "instr not found");
+        check(instr("ABCDEF", "") == 0, "instr empty search");
+        
+        // 開始位置指定（HSP仕様: 結果はp2を起点とした相対位置）
+        check(instr("ABCABC", 3, "ABC") == 0, "instr with offset - relative position");
+        check(instr("ABCABC", 1, "BC") == 1, "instr with offset - found at relative 1");
+        check(instr("ABCDEF", 2, "CD") == 0, "instr exact match at offset");
+        check(instr("ABCDEF", 10, "AB") == -1, "instr offset beyond string");
+        check(instr("ABCDEF", -1, "AB") == -1, "instr negative offset");
+
+        // --- strmid テスト ---
+        check(strmid("ABCDEF", 0, 3) == "ABC", "strmid from start");
+        check(strmid("ABCDEF", 2, 3) == "CDE", "strmid from middle");
+        check(strmid("ABCDEF", 4, 10) == "EF", "strmid beyond end");
+        check(strmid("ABCDEF", -1, 3) == "DEF", "strmid right extract");
+        check(strmid("AB", -1, 5) == "AB", "strmid right extract full");
+        check(strmid("ABCDEF", 0, 0) == "", "strmid zero length");
+        check(strmid("ABCDEF", -2, 3) == "", "strmid invalid negative");
+
+        // --- strtrim テスト ---
+        check(strtrim("  ABC  ", 0, ' ') == "ABC", "strtrim both ends");
+        check(strtrim("  ABC  ", 1, ' ') == "ABC  ", "strtrim left only");
+        check(strtrim("  ABC  ", 2, ' ') == "  ABC", "strtrim right only");
+        check(strtrim(" A B C ", 3, ' ') == "ABC", "strtrim all");
+        check(strtrim("XXABCXX", 0, 'X') == "ABC", "strtrim custom char");
+        check(strtrim("ABC") == "ABC", "strtrim default (no spaces)");
+        check(strtrim("   ") == "", "strtrim all spaces");
+        check(strtrim("", 0, ' ') == "", "strtrim empty string");
+
+        // --- strf テスト ---
+        check(strf("Hello") == "Hello", "strf no args");
+        check(strf("Value: %d", 123) == "Value: 123", "strf int");
+        check(strf("Hex: %x", 255) == "Hex: ff", "strf hex");
+        check(strf("Padded: %05d", 42) == "Padded: 00042", "strf padded");
+        check(strf("Two: %d, %d", 1, 2) == "Two: 1, 2", "strf two ints");
+        check(strf("Three: %d, %d, %d", 1, 2, 3) == "Three: 1, 2, 3", "strf three ints");
+
+        // --- getpath テスト ---
+        std::string testPath = "c:\\disk\\test.bmp";
+        check(getpath(testPath, 0) == "c:\\disk\\test.bmp", "getpath copy");
+        check(getpath(testPath, 1) == "c:\\disk\\test", "getpath remove ext");
+        check(getpath(testPath, 2) == ".bmp", "getpath ext only");
+        check(getpath(testPath, 8) == "test.bmp", "getpath remove dir");
+        check(getpath(testPath, 8 + 1) == "test", "getpath file without ext");
+        check(getpath(testPath, 32) == "c:\\disk\\", "getpath dir only");
+        check(getpath("noext", 2) == "", "getpath no extension");
+        check(getpath("file.txt", 32) == "", "getpath no directory");
+        
+        // Unix形式パス
+        check(getpath("/home/user/file.txt", 8) == "file.txt", "getpath unix remove dir");
+        check(getpath("/home/user/file.txt", 32) == "/home/user/", "getpath unix dir only");
+
+        return allPassed;
+    }
+
+    // ============================================================
     // 公開テスト関数
     // ============================================================
 
@@ -377,6 +443,7 @@ namespace hsppp_test {
         test_title_width_functions();
         test_method_chaining();
         test_input_functions();
+        test_string_functions_runtime();
 
         return s_testsPassed;
     }

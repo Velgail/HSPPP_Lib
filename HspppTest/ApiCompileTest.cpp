@@ -530,6 +530,137 @@ namespace compile_test {
            .oncmd(test_interrupt_handler, 0x0001);
     }
 
+    // ============================================================
+    // 数学関数のテスト
+    // ============================================================
+    void test_math_functions() {
+        // abs - std::abs で int/double 両対応
+        [[maybe_unused]] int a1 = hsppp::abs(-10);
+        [[maybe_unused]] int a2 = hsppp::abs(10);
+        [[maybe_unused]] double a3 = hsppp::abs(-3.14);
+        [[maybe_unused]] double a4 = hsppp::abs(3.14);
+
+        // 三角関数 - ラジアン単位
+        [[maybe_unused]] double s1 = hsppp::sin(0.0);
+        [[maybe_unused]] double s2 = hsppp::sin(M_PI / 2);
+        [[maybe_unused]] double c1 = hsppp::cos(0.0);
+        [[maybe_unused]] double c2 = hsppp::cos(M_PI);
+        [[maybe_unused]] double t1 = hsppp::tan(0.0);
+        [[maybe_unused]] double t2 = hsppp::tan(M_PI / 4);
+
+        // 度数法対応: deg2rad() で変換
+        [[maybe_unused]] double s3 = hsppp::sin(hsppp::deg2rad(45.0));   // 45度
+        [[maybe_unused]] double c3 = hsppp::cos(hsppp::deg2rad(90.0));   // 90度
+
+        // アークタンジェント - std::atan2
+        [[maybe_unused]] double at1 = hsppp::atan2(1.0, 1.0);
+        [[maybe_unused]] double at2 = hsppp::atan2(0.0, 1.0);
+        [[maybe_unused]] double at3 = hsppp::atan2(1.0, 0.0);
+
+        // sqrt / pow / exp / log - C++標準関数
+        [[maybe_unused]] double sq1 = hsppp::sqrt(4.0);
+        [[maybe_unused]] double sq2 = hsppp::sqrt(2.0);
+        [[maybe_unused]] double pw1 = hsppp::pow(2.0, 3.0);   // 2^3 = 8
+        [[maybe_unused]] double pw2 = hsppp::pow(10.0, 2.0);  // 10^2 = 100
+        [[maybe_unused]] double ex1 = hsppp::exp(1.0);        // e^1
+        [[maybe_unused]] double ex2 = hsppp::exp(0.0);        // e^0 = 1
+        [[maybe_unused]] double lg1 = hsppp::log(M_E);        // log(e) = 1
+        [[maybe_unused]] double lg2 = hsppp::log(1.0);        // log(1) = 0
+
+        // 乱数
+        [[maybe_unused]] int r1 = hsppp::rnd(100);
+        [[maybe_unused]] int r2 = hsppp::rnd(10);
+        hsppp::randomize();                // 時刻ベース
+        hsppp::randomize(12345);           // 指定シード
+        hsppp::randomize(omit);            // 省略
+        [[maybe_unused]] int r3 = hsppp::rnd(1000);
+
+        // limit / limitf
+        [[maybe_unused]] int lm1 = hsppp::limit(50, 0, 100);       // 50
+        [[maybe_unused]] int lm2 = hsppp::limit(-10, 0, 100);      // 0
+        [[maybe_unused]] int lm3 = hsppp::limit(200, 0, 100);      // 100
+        [[maybe_unused]] int lm4 = hsppp::limit(50);               // 両方省略
+        [[maybe_unused]] int lm5 = hsppp::limit(50, 10);           // 最大省略
+        [[maybe_unused]] int lm6 = hsppp::limit(50, omit, 40);     // 最小省略
+        [[maybe_unused]] double lf1 = hsppp::limitf(0.5, 0.0, 1.0);
+        [[maybe_unused]] double lf2 = hsppp::limitf(-0.5, 0.0, 1.0);
+        [[maybe_unused]] double lf3 = hsppp::limitf(1.5, 0.0, 1.0);
+        [[maybe_unused]] double lf4 = hsppp::limitf(0.5);
+        [[maybe_unused]] double lf5 = hsppp::limitf(0.5, 0.0);
+        [[maybe_unused]] double lf6 = hsppp::limitf(0.5, omit, 0.3);
+    }
+
+    // ============================================================
+    // 型変換関数のテスト
+    // ============================================================
+    void test_conversion_functions() {
+        // toInt
+        [[maybe_unused]] int i1 = hsppp::toInt(3.14);      // 3
+        [[maybe_unused]] int i2 = hsppp::toInt(3.99);      // 3（切り捨て）
+        [[maybe_unused]] int i3 = hsppp::toInt(-2.5);      // -2
+        [[maybe_unused]] int i4 = hsppp::toInt(std::string("123"));
+        [[maybe_unused]] int i5 = hsppp::toInt(std::string("abc"));  // 0
+
+        // toDouble
+        [[maybe_unused]] double d1 = hsppp::toDouble(42);
+        [[maybe_unused]] double d2 = hsppp::toDouble(-10);
+        [[maybe_unused]] double d3 = hsppp::toDouble(std::string("3.14"));
+        [[maybe_unused]] double d4 = hsppp::toDouble(std::string("abc"));  // 0.0
+
+        // str (int版は既存、double版を追加テスト)
+        [[maybe_unused]] std::string s1 = hsppp::str(123);       // int版
+        [[maybe_unused]] std::string s2 = hsppp::str(3.14);      // double版
+        [[maybe_unused]] std::string s3 = hsppp::str(-42);
+        [[maybe_unused]] std::string s4 = hsppp::str(0.0);
+
+        // strlen
+        [[maybe_unused]] int len1 = hsppp::strlen("Hello");
+        [[maybe_unused]] int len2 = hsppp::strlen("");
+        [[maybe_unused]] int len3 = hsppp::strlen(std::string("日本語"));  // マルチバイト
+    }
+
+    // ============================================================
+    // 色関連関数のテスト
+    // ============================================================
+    void test_color_functions() {
+        // hsvcolor
+        hsppp::hsvcolor(0, 255, 255);      // 赤
+        hsppp::hsvcolor(64, 255, 255);     // 緑
+        hsppp::hsvcolor(128, 255, 255);    // 青
+        hsppp::hsvcolor(0, 0, 255);        // 白（彩度0）
+        hsppp::hsvcolor(0, 255, 0);        // 黒（明度0）
+
+        // rgbcolor
+        hsppp::rgbcolor(0xFF0000);         // 赤
+        hsppp::rgbcolor(0x00FF00);         // 緑
+        hsppp::rgbcolor(0x0000FF);         // 青
+        hsppp::rgbcolor(0xFFFFFF);         // 白
+        hsppp::rgbcolor(0x000000);         // 黒
+        hsppp::rgbcolor(0x808080);         // グレー
+
+        // syscolor
+        hsppp::syscolor(0);   // スクロールバー
+        hsppp::syscolor(1);   // デスクトップ
+        hsppp::syscolor(5);   // ウィンドウ背景
+        hsppp::syscolor(8);   // ウィンドウテキスト
+        hsppp::syscolor(15);  // 3D表面
+    }
+
+    // ============================================================
+    // 数学定数のテスト
+    // ============================================================
+    void test_math_constants() {
+        [[maybe_unused]] double pi = M_PI;
+        [[maybe_unused]] double e = M_E;
+        [[maybe_unused]] double log2e = M_LOG2E;
+        [[maybe_unused]] double log10e = M_LOG10E;
+        [[maybe_unused]] double ln2 = M_LN2;
+        [[maybe_unused]] double ln10 = M_LN10;
+        [[maybe_unused]] double sqrt2 = M_SQRT2;
+        [[maybe_unused]] double sqrt3 = M_SQRT3;
+        [[maybe_unused]] double sqrtpi = M_SQRTPI;
+    }
+
 }  // namespace compile_test
 
 // ============================================================
@@ -566,6 +697,10 @@ namespace hsppp_test {
         compile_test::test_font_window_functions();
         compile_test::test_input_functions();
         compile_test::test_interrupt_functions();
+        compile_test::test_math_functions();
+        compile_test::test_conversion_functions();
+        compile_test::test_color_functions();
+        compile_test::test_math_constants();
         // compile_test::test_end_function_signature(); // end()は呼ばない
 
         return true;

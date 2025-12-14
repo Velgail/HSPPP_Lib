@@ -1,8 +1,9 @@
 ﻿// HspppSample/UserApp.cpp
 // ═══════════════════════════════════════════════════════════════════
-// HSPPP デモ: P1 + P2 機能テスト
+// HSPPP デモ: P1 + P2 + Math 機能テスト
 // P1: cls, font, title, width, groll
 // P2: picload, celload, celput, celdiv, bmpsave
+// Math: abs, sin, cos, rnd, limit, hsvcolor, rgbcolor
 // ═══════════════════════════════════════════════════════════════════
 
 import hsppp;
@@ -19,10 +20,13 @@ enum class DemoMode {
     // P2
     Bmpsave,
     Picload,
-    Celload
+    Celload,
+    // Math/Color
+    Math,
+    Color
 };
 
-DemoMode g_mode = DemoMode::Bmpsave;  // P2テスト用に初期モード変更
+DemoMode g_mode = DemoMode::Math;  // 数学関数デモを初期モードに
 int g_clsMode = 0;
 int g_fontStyle = 0;
 int g_fontSize = 12;
@@ -34,6 +38,10 @@ bool g_testImageSaved = false;
 bool g_testImageLoaded = false;
 int g_celId = -1;
 int g_celIndex = 0;
+
+// Math用変数
+double g_angle = 0.0;
+int g_randomSeed = 0;
 
 // ユーザーのエントリーポイント
 int hspMain() {
@@ -229,6 +237,139 @@ int hspMain() {
                 win.mes("※ 先に6キー(bmpsave)でテスト画像を作成してください");
             }
             break;
+            
+        // ═══════════════════════════════════════════════════════════
+        // Math機能
+        // ═══════════════════════════════════════════════════════════
+        case DemoMode::Math:
+            win.mes("Current: MATH FUNCTIONS - Press 9");
+            win.pos(20, 85);
+            win.mes("数学関数デモ: sin, cos, rnd, limit, sqrt, powf");
+            
+            // Sin/Cos波形描画
+            win.color(0, 128, 0).pos(50, 120);
+            win.mes("sin/cos 波形 (角度を自動更新中)");
+            
+            // 波形の背景
+            win.color(240, 240, 240);
+            win.boxf(50, 150, 590, 250);
+            
+            // X軸
+            win.color(128, 128, 128);
+            win.line(590, 200, 50, 200);
+            
+            {
+                // 波形描画（スコープで括る）
+                // 注: deg2rad() を使用して度数法 → ラジアン変換
+                
+                // Sin波形（赤）
+                win.color(255, 0, 0);
+                for (int x = 0; x < 540; x++) {
+                    double angle = hsppp::deg2rad(g_angle + x * 2);  // 度数法をラジアン変換
+                    int y = 200 - static_cast<int>(hsppp::sin(angle) * 40);
+                    if (x == 0) {
+                        win.pos(50 + x, y);
+                    } else {
+                        win.line(50 + x, y);
+                    }
+                }
+                
+                // Cos波形（青）
+                win.color(0, 0, 255);
+                for (int x = 0; x < 540; x++) {
+                    double angle = hsppp::deg2rad(g_angle + x * 2);  // 度数法をラジアン変換
+                    int y = 200 - static_cast<int>(hsppp::cos(angle) * 40);
+                    if (x == 0) {
+                        win.pos(50 + x, y);
+                    } else {
+                        win.line(50 + x, y);
+                    }
+                }
+            }
+            
+            // 乱数表示
+            win.font("MS Gothic", 12, 0);
+            win.color(0, 0, 0).pos(50, 270);
+            win.mes("rnd(100) の結果:");
+            for (int i = 0; i < 10; i++) {
+                win.pos(50 + i * 50, 290);
+                win.mes(str(rnd(100)));
+            }
+            
+            // limit表示
+            win.pos(50, 320);
+            win.mes("limit デモ:");
+            win.pos(50, 340);
+            win.mes("limit(-50, 0, 100) = " + str(hsppp::limit(-50, 0, 100)));
+            win.pos(50, 355);
+            win.mes("limit(150, 0, 100) = " + str(hsppp::limit(150, 0, 100)));
+            win.pos(50, 370);
+            win.mes("limit(50, 0, 100) = " + str(hsppp::limit(50, 0, 100)));
+            
+            // sqrt/pow表示
+            win.pos(300, 320);
+            win.mes("sqrt/pow デモ:");
+            win.pos(300, 340);
+            win.mes("sqrt(2) = " + str(hsppp::sqrt(2.0)));
+            win.pos(300, 355);
+            win.mes("pow(2, 10) = " + str(hsppp::pow(2.0, 10.0)));
+            win.pos(300, 370);
+            win.mes("abs(-42) = " + str(hsppp::abs(-42)));
+            
+            // 角度を更新（アニメーション）
+            g_angle += 2.0;
+            if (g_angle >= 360.0) g_angle -= 360.0;
+            break;
+            
+        case DemoMode::Color:
+            win.mes("Current: COLOR FUNCTIONS - Press 0");
+            win.pos(20, 85);
+            win.mes("色関連関数デモ: hsvcolor, rgbcolor, syscolor");
+            
+            // HSVカラーグラデーション
+            win.color(0, 0, 0).pos(50, 120);
+            win.mes("hsvcolor グラデーション (H: 0-191):");
+            for (int h = 0; h < 192; h++) {
+                hsvcolor(h, 255, 255);
+                win.boxf(50 + h * 2, 140, 50 + h * 2 + 2, 180);
+            }
+            
+            // 彩度グラデーション
+            win.color(0, 0, 0).pos(50, 190);
+            win.mes("hsvcolor 彩度グラデーション (S: 0-255):");
+            for (int s = 0; s < 256; s++) {
+                hsvcolor(0, s, 255);  // 赤の彩度変化
+                win.boxf(50 + s * 2, 210, 50 + s * 2 + 2, 250);
+            }
+            
+            // RGBカラー
+            win.color(0, 0, 0).pos(50, 270);
+            win.mes("rgbcolor サンプル:");
+            
+            rgbcolor(0xFF0000);  // 赤
+            win.boxf(50, 290, 100, 340);
+            rgbcolor(0x00FF00);  // 緑
+            win.boxf(110, 290, 160, 340);
+            rgbcolor(0x0000FF);  // 青
+            win.boxf(170, 290, 220, 340);
+            rgbcolor(0xFFFF00);  // 黄
+            win.boxf(230, 290, 280, 340);
+            rgbcolor(0xFF00FF);  // マゼンタ
+            win.boxf(290, 290, 340, 340);
+            rgbcolor(0x00FFFF);  // シアン
+            win.boxf(350, 290, 400, 340);
+            
+            // システムカラー
+            win.color(0, 0, 0).pos(50, 360);
+            win.mes("syscolor サンプル (システムカラー):");
+            
+            for (int i = 0; i < 8; i++) {
+                syscolor(i);
+                win.boxf(50 + i * 60, 380, 100 + i * 60, 420);
+                win.color(0, 0, 0).pos(50 + i * 60, 425);
+                win.mes(str(i));
+            }
+            break;
         }
         
         // 共通ヘルプ
@@ -236,7 +377,7 @@ int hspMain() {
         win.color(128, 128, 128).pos(20, 440);
         win.mes("P1: 1=cls 2=font 3=title 4=width 5=groll");
         win.pos(20, 455);
-        win.mes("P2: 6=bmpsave 7=picload 8=celload | ESC=Exit");
+        win.mes("P2: 6=bmpsave 7=picload 8=celload | Math: 9=math 0=color | ESC=Exit");
         
         win.redraw(1);
         
@@ -249,6 +390,8 @@ int hspMain() {
         if (getkey('6')) { g_mode = DemoMode::Bmpsave; await(200); }
         if (getkey('7')) { g_mode = DemoMode::Picload; await(200); }
         if (getkey('8')) { g_mode = DemoMode::Celload; await(200); }
+        if (getkey('9')) { g_mode = DemoMode::Math; await(200); }
+        if (getkey('0')) { g_mode = DemoMode::Color; await(200); }
         
         // モード別操作
         switch (g_mode) {
@@ -334,6 +477,20 @@ int hspMain() {
                 if (getkey(0x28)) { g_celIndex = (g_celIndex + 4) % 16; await(150); }
                 if (getkey(0x26)) { g_celIndex = (g_celIndex + 12) % 16; await(150); }
             }
+            break;
+            
+        // Math/Color機能（自動更新のみ）
+        case DemoMode::Math:
+            // 角度は描画ループで自動更新
+            if (getkey('R')) {
+                // randomizeを再実行
+                randomize();
+                await(200);
+            }
+            break;
+            
+        case DemoMode::Color:
+            // 特に操作なし
             break;
         }
         

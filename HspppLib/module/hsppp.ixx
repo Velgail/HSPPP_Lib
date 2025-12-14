@@ -8,6 +8,12 @@ import <source_location>;
 import <stdexcept>;
 import <format>;
 import <functional>;
+import <random>;
+import <chrono>;
+import <cmath>;
+import <string>;
+import <algorithm>;
+import <numbers>;
 
 namespace hsppp {
 
@@ -812,11 +818,6 @@ namespace hsppp {
     // 文字列操作（HSP拡張）
     // ============================================================
 
-    /// @brief 整数を文字列に変換
-    /// @param value 変換する整数値
-    /// @return 文字列
-    export std::string str(int value, const std::source_location& location = std::source_location::current());
-
     // ============================================================
     // エラーコード定義（HSP互換）
     // ============================================================
@@ -949,6 +950,197 @@ namespace hsppp {
     /// @brief onkey割り込みの一時停止/再開
     /// @param enable 0=停止, 1=再開
     export void onkey(int enable, const std::source_location& location = std::source_location::current());
+
+    // ============================================================
+    // ============================================================
+    // <cmath> 再エクスポート
+    // ============================================================
+    // 方針: <cmath> の関数群は hsppp 名前空間に全再エクスポート。
+    //       これにより、ユーザーが std::sin と hsppp::sin を併用しても
+    //       名前衝突が発生しない（同一実体を指す）。
+    //
+    // 使用例:
+    //   import hsppp;
+    //   hsppp::sin(hsppp::deg2rad(45.0));  // 45度のサイン
+    //   hsppp::sqrt(2.0);                  // √2
+    //   hsppp::pow(2.0, 10.0);             // 2^10
+
+    // --- 基本数学関数 ---
+    export using std::abs;      // 絶対値 (int, float, double, long double)
+    export using std::fabs;     // 浮動小数点絶対値
+    export using std::fmod;     // 浮動小数点剰余
+    export using std::remainder;// IEEE剰余
+    export using std::fmax;     // 最大値
+    export using std::fmin;     // 最小値
+    export using std::fdim;     // 正の差
+    export using std::fma;      // 融合積和
+
+    // --- 指数・対数 ---
+    export using std::exp;      // e^x
+    export using std::exp2;     // 2^x
+    export using std::expm1;    // e^x - 1
+    export using std::log;      // 自然対数
+    export using std::log10;    // 常用対数
+    export using std::log2;     // 2を底とする対数
+    export using std::log1p;    // log(1 + x)
+
+    // --- 累乗・平方根 ---
+    export using std::pow;      // x^y
+    export using std::sqrt;     // 平方根
+    export using std::cbrt;     // 立方根
+    export using std::hypot;    // √(x² + y²)
+
+    // --- 三角関数（ラジアン） ---
+    export using std::sin;      // サイン
+    export using std::cos;      // コサイン
+    export using std::tan;      // タンジェント
+    export using std::asin;     // アークサイン
+    export using std::acos;     // アークコサイン
+    export using std::atan;     // アークタンジェント
+    export using std::atan2;    // アークタンジェント(y, x)
+
+    // --- 双曲線関数 ---
+    export using std::sinh;     // ハイパボリックサイン
+    export using std::cosh;     // ハイパボリックコサイン
+    export using std::tanh;     // ハイパボリックタンジェント
+    export using std::asinh;    // 逆双曲線サイン
+    export using std::acosh;    // 逆双曲線コサイン
+    export using std::atanh;    // 逆双曲線タンジェント
+
+    // --- 切り捨て・切り上げ・丸め ---
+    export using std::ceil;     // 切り上げ
+    export using std::floor;    // 切り捨て
+    export using std::trunc;    // 0方向への切り捨て
+    export using std::round;    // 四捨五入
+    export using std::nearbyint;// 現在の丸めモードで整数化
+    export using std::rint;     // 現在の丸めモードで整数化（例外通知あり）
+
+    // --- 分解・合成 ---
+    export using std::frexp;    // 仮数と指数に分解
+    export using std::ldexp;    // 仮数×2^指数
+    export using std::modf;     // 整数部と小数部に分解
+    export using std::scalbn;   // x × FLT_RADIX^n
+    export using std::ilogb;    // 指数部を整数で取得
+    export using std::logb;     // 指数部を浮動小数点で取得
+
+    // --- 符号・分類 ---
+    export using std::copysign; // 符号コピー
+    export using std::signbit;  // 符号ビット判定
+    export using std::isnan;    // NaN判定
+    export using std::isinf;    // 無限大判定
+    export using std::isfinite; // 有限判定
+    export using std::isnormal; // 正規化数判定
+    export using std::fpclassify;// 浮動小数点分類
+
+    // --- 特殊関数 (C++17) ---
+    export using std::erf;      // 誤差関数
+    export using std::erfc;     // 相補誤差関数
+    export using std::tgamma;   // ガンマ関数
+    export using std::lgamma;   // ガンマ関数の対数
+
+    // ============================================================
+    // HSPPP拡張: 度数法対応
+    // ============================================================
+
+    /// @brief 度数法（度）をラジアンに変換
+    /// @param degrees 角度（度単位）
+    /// @return ラジアン値
+    export [[nodiscard]] inline constexpr double deg2rad(double degrees) noexcept {
+        return degrees * std::numbers::pi_v<double> / 180.0;
+    }
+
+    /// @brief ラジアンを度数法（度）に変換
+    /// @param radians 角度（ラジアン単位）
+    /// @return 度数法での角度値
+    export [[nodiscard]] inline constexpr double rad2deg(double radians) noexcept {
+        return radians * 180.0 / std::numbers::pi_v<double>;
+    }
+
+    /// @brief 乱数を発生
+    /// @param p1 乱数の範囲（1〜32768）
+    /// @return 0から(p1-1)までの乱数
+    export [[nodiscard]] int rnd(int p1);
+
+    /// @brief 乱数発生の初期化
+    /// @param p1 乱数シード（省略時は時刻ベース）
+    export void randomize(OptInt p1 = {}, const std::source_location& location = std::source_location::current());
+
+    /// @brief 一定範囲内の整数を返す
+    /// @param p1 対象となる値
+    /// @param p2 最小値（省略可）
+    /// @param p3 最大値（省略可）
+    /// @return p2〜p3の範囲内に収まる整数
+    export [[nodiscard]] int limit(int p1, OptInt p2 = {}, OptInt p3 = {});
+
+    /// @brief 一定範囲内の実数を返す
+    /// @param p1 対象となる値
+    /// @param p2 最小値（省略可）
+    /// @param p3 最大値（省略可）
+    /// @return p2〜p3の範囲内に収まる実数
+    export [[nodiscard]] double limitf(double p1, OptDouble p2 = {}, OptDouble p3 = {});
+
+    // ============================================================
+    // 型変換関数（HSP互換）
+    // ============================================================
+
+    /// @brief 整数値に変換
+    /// @param p1 変換元の値
+    /// @return 整数値
+    export [[nodiscard]] int toInt(double p1);
+    export [[nodiscard]] int toInt(const std::string& p1);
+
+    /// @brief 実数値に変換
+    /// @param p1 変換元の値
+    /// @return 実数値
+    export [[nodiscard]] double toDouble(int p1);
+    export [[nodiscard]] double toDouble(const std::string& p1);
+
+    /// @brief 文字列に変換
+    /// @param p1 変換元の値
+    /// @return 文字列
+    export [[nodiscard]] std::string str(double value, const std::source_location& location = std::source_location::current());
+    export [[nodiscard]] std::string str(int value, const std::source_location& location = std::source_location::current());
+
+    /// @brief 文字列の長さを調べる
+    /// @param p1 文字列
+    /// @return 文字列の長さ（バイト数）
+    export [[nodiscard]] int strlen(const std::string& p1);
+
+    // ============================================================
+    // 色関連関数（HSP互換）
+    // ============================================================
+
+    /// @brief HSV形式でカラーを設定する
+    /// @param p1 HSV形式 H値（0〜191）
+    /// @param p2 HSV形式 S値（0〜255）
+    /// @param p3 HSV形式 V値（0〜255）
+    export void hsvcolor(int p1, int p2, int p3, const std::source_location& location = std::source_location::current());
+
+    /// @brief RGB形式でカラーを設定する
+    /// @param p1 RGB形式 カラーコード値（$rrggbb形式）
+    export void rgbcolor(int p1, const std::source_location& location = std::source_location::current());
+
+    /// @brief システムカラーを設定する
+    /// @param p1 システムカラーインデックス（0〜30）
+    export void syscolor(int p1, const std::source_location& location = std::source_location::current());
+
+    // ============================================================
+    // 数学定数（HSP hspmath.as互換）
+    // ============================================================
+    export inline constexpr double M_PI = std::numbers::pi_v<double>;           // 円周率
+    export inline constexpr double M_PI_2 = std::numbers::pi_v<double> / 2.0;   // 円周率/2
+    export inline constexpr double M_PI_4 = std::numbers::pi_v<double> / 4.0;   // 円周率/4
+    export inline constexpr double M_1_PI = 1.0 / std::numbers::pi_v<double>;   // 1/円周率
+    export inline constexpr double M_2_PI = 2.0 / std::numbers::pi_v<double>;   // 2/円周率
+    export inline constexpr double M_E = std::numbers::e_v<double>;             // ネイピア数
+    export inline constexpr double M_LOG2E = std::numbers::log2e_v<double>;     // 2を底とするeの対数
+    export inline constexpr double M_LOG10E = std::numbers::log10e_v<double>;   // 10を底とするeの対数
+    export inline constexpr double M_LN2 = std::numbers::ln2_v<double>;         // eを底とする2の対数
+    export inline constexpr double M_LN10 = std::numbers::ln10_v<double>;       // eを底とする10の対数
+    export inline constexpr double M_SQRT2 = std::numbers::sqrt2_v<double>;     // 2の平方根
+    export inline constexpr double M_SQRT1_2 = 1.0 / std::numbers::sqrt2_v<double>; // 1/√2
+    export inline constexpr double M_SQRT3 = std::numbers::sqrt3_v<double>;     // 3の平方根
+    export inline constexpr double M_SQRTPI = 1.0 / std::numbers::inv_sqrtpi_v<double>; // 円周率の平方根
 
     // ============================================================
     // Cel Factory Function (OOP版)

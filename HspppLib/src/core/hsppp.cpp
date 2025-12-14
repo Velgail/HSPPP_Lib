@@ -91,15 +91,6 @@ namespace {
 }
 
 // ============================================================
-// 文字列操作（HSP拡張）
-// ============================================================
-namespace hsppp {
-    std::string str(int value, const std::source_location& location) {
-        return std::to_string(value);
-    }
-}
-
-// ============================================================
 // 分割された実装ファイルを #include
 // ============================================================
 // 注意: hsppp_interrupt.inl は割り込み処理を定義するため最初に含める
@@ -112,6 +103,7 @@ namespace hsppp {
 #include "hsppp_input.inl"
 #include "hsppp_image.inl"
 #include "hsppp_cel.inl"
+#include "hsppp_math.inl"
 
 // ============================================================
 // init_system / close_system

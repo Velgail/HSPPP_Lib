@@ -1,558 +1,247 @@
-﻿// HspppSample/UserApp.cpp
+// HspppSample/UserApp.cpp
 // ═══════════════════════════════════════════════════════════════════
-// HSPPP デモ: P1 + P2 + Math + Interrupt 機能テスト
-// P1: cls, font, title, width, groll
-// P2: picload, celload, celput, celdiv, bmpsave
-// Math: abs, sin, cos, rnd, limit, hsvcolor, rgbcolor
-// Interrupt: onclick, onkey, onexit, onerror, oncmd
+// HSPPP 機能デモアプリケーション
+// 
+// 操作方法:
+//   F1: ヘルプウィンドウの表示/非表示
+//   1-9: 基本デモの選択
+//   Ctrl + 1-8: 拡張デモの選択
+//   Shift + 1-3: 画像関連デモの選択
+//   Alt + 1-3: 割り込みデモの選択
+//   ESC: 終了
 // ═══════════════════════════════════════════════════════════════════
 
+#include "DemoState.h"
 import hsppp;
 import <format>;
 using namespace hsppp;
 
-// デモモード
-enum class DemoMode {
-    // P1
-    Cls,
-    Font,
-    Title,
-    Width,
-    Groll,
-    // P2
-    Bmpsave,
-    Picload,
-    Celload,
-    // P3 (拡張描画)
-    Gradf,
-    Grect,
-    // Math/Color
-    Math,
-    Color,
-    // Interrupt
-    Interrupt
-};
+// ═══════════════════════════════════════════════════════════════════
+// グローバル状態（実体定義）
+// ═══════════════════════════════════════════════════════════════════
 
-DemoMode g_mode = DemoMode::Math;  // 数学関数デモを初期モードに
+// 現在のデモ状態
+DemoCategory g_category = DemoCategory::Basic;
+int g_demoIndex = static_cast<int>(BasicDemo::Line);
+
+// ヘルプウィンドウ状態
+bool g_helpVisible = false;
+
+// 描画デモ用変数
 int g_clsMode = 0;
 int g_fontStyle = 0;
 int g_fontSize = 12;
 int g_scrollX = 0;
 int g_scrollY = 0;
+double g_angle = 0.0;
 
-// P2用変数
+// 画像デモ用変数
 bool g_testImageSaved = false;
 bool g_testImageLoaded = false;
 int g_celId = -1;
 int g_celIndex = 0;
 
-// Math用変数
-double g_angle = 0.0;
-int g_randomSeed = 0;
+// バッファ用変数
+bool g_bufferCreated = false;
 
-// Interrupt用変数
+// 割り込みデモ用変数
 int g_clickCount = 0;
 int g_keyCount = 0;
 int g_lastKey = 0;
 
-// ユーザーのエントリーポイント
-int hspMain() {
-    // ╔═══════════════════════════════════════════════════════════════╗
-    // ║  メインウィンドウ作成（バッファサイズ640x480）                ║
-    // ╚═══════════════════════════════════════════════════════════════╝
-    auto win = screen({.width = 640, .height = 480, .title = "HSPPP P1+P2+Interrupt Demo"});
+// ═══════════════════════════════════════════════════════════════════
+// 外部関数宣言（各Demo~.cppで定義）
+// ═══════════════════════════════════════════════════════════════════
+
+void drawBasicDemo(Screen& win);
+void drawExtendedDemo(Screen& win);
+void drawImageDemo(Screen& win);
+void drawInterruptDemo(Screen& win);
+
+// ═══════════════════════════════════════════════════════════════════
+// ヘルプウィンドウの描画
+// ═══════════════════════════════════════════════════════════════════
+
+void drawHelpWindow(Screen& helpWin) {
+    helpWin.redraw(0);
+    helpWin.cls(4);  // 黒背景
     
-    // ╔═══════════════════════════════════════════════════════════════╗
-    // ║  割り込みハンドラ設定                                        ║
-    // ╚═══════════════════════════════════════════════════════════════╝
+    helpWin.font("MS Gothic", 14, 1);
+    helpWin.color(255, 255, 0).pos(20, 10);
+    helpWin.mes("=== HSPPP 操作ガイド ===");
     
-    // onclick - マウスクリック時の割り込み
-    onclick([]() -> int {
-        g_clickCount++;
-        return 0;
-    });
+    helpWin.font("MS Gothic", 12, 0);
+    helpWin.color(255, 255, 255).pos(20, 40);
+    helpWin.mes("【基本操作】");
+    helpWin.color(200, 200, 200).pos(20, 60);
+    helpWin.mes("  F1: このヘルプの表示/非表示");
+    helpWin.pos(20, 80);
+    helpWin.mes("  ESC: プログラム終了");
     
-    // onkey - キー入力時の割り込み
-    onkey([]() -> int {
-        g_keyCount++;
-        g_lastKey = iparam();  // 文字コードを取得
-        return 0;
-    });
+    helpWin.color(255, 255, 255).pos(20, 110);
+    helpWin.mes("【デモ選択 - 数字キー 1-9】");
+    helpWin.color(200, 200, 200).pos(20, 130);
+    helpWin.mes("  1: line (直線)     2: circle (円)");
+    helpWin.pos(20, 150);
+    helpWin.mes("  3: pset/pget (点)  4: boxf (矩形)");
+    helpWin.pos(20, 170);
+    helpWin.mes("  5: cls (クリア)    6: font (フォント)");
+    helpWin.pos(20, 190);
+    helpWin.mes("  7: title (タイトル) 8: width (サイズ)");
+    helpWin.pos(20, 210);
+    helpWin.mes("  9: groll (スクロール)");
     
-    // onexit - 終了時の割り込み（HSP互換：end()を呼ぶまで終了しない）
-    hsppp::onexit([]() -> int {
-        // 終了確認（簡易実装：2回連続でクローズボタンを押すと終了）
-        static int exitAttempts = 0;
-        exitAttempts++;
-        if (exitAttempts >= 2) {
-            end(0);  // 2回目で終了
-        }
-        return 0;
-    });
+    helpWin.color(255, 255, 255).pos(20, 240);
+    helpWin.mes("【拡張デモ - Ctrl + 数字キー】");
+    helpWin.color(200, 200, 200).pos(20, 260);
+    helpWin.mes("  Ctrl+1: 数学関数    Ctrl+2: 色関数");
+    helpWin.pos(20, 280);
+    helpWin.mes("  Ctrl+3: gradf       Ctrl+4: grect");
+    helpWin.pos(20, 300);
+    helpWin.mes("  Ctrl+5: gsquare     Ctrl+6: gcopy");
+    helpWin.pos(20, 320);
+    helpWin.mes("  Ctrl+7: gzoom       Ctrl+8: grotate");
     
-    // メインループ
-    while (true) {
-        win.redraw(0);
-        
-        // 背景（clsのデモ表示）
-        if (g_mode == DemoMode::Cls) {
-            win.cls(g_clsMode);
-        } else {
-            win.cls(0);
-        }
-        
-        // タイトル
-        win.font("MS Gothic", 16, 1);
-        win.color(0, 0, 128).pos(20, 20);
-        win.mes("=== HSPPP P1+P2 Feature Demo ===");
-        
-        // 現在のデモモード表示
-        win.font("MS Gothic", 14, 0);
-        win.color(0, 0, 0).pos(20, 60);
-        
-        switch (g_mode) {
-        // ═══════════════════════════════════════════════════════════
-        // P1機能
-        // ═══════════════════════════════════════════════════════════
-        case DemoMode::Cls:
-            win.mes("Current: CLS (画面クリア) - Press 1");
-            win.pos(20, 85);
-            win.mes("Mode: " + str(g_clsMode) + " (0=白 1=明灰 2=灰 3=暗灰 4=黒)");
-            win.pos(20, 110);
-            win.mes("Press UP/DOWN to change cls mode");
-            
-            win.color(255, 0, 0).boxf(50, 150, 150, 250);
-            win.color(0, 255, 0).boxf(200, 150, 300, 250);
-            win.color(0, 0, 255).boxf(350, 150, 450, 250);
-            win.color(0, 0, 0).pos(50, 270);
-            win.mes("These boxes are cleared by cls(" + str(g_clsMode) + ")");
-            break;
-            
-        case DemoMode::Font:
-            win.mes("Current: FONT (フォント設定) - Press 2");
-            win.pos(20, 85);
-            win.mes("Style: " + str(g_fontStyle) + " Size: " + str(g_fontSize));
-            win.pos(20, 110);
-            win.mes("UP/DOWN: size, LEFT/RIGHT: style");
-            
-            win.font("MS Gothic", g_fontSize, g_fontStyle);
-            win.color(0, 0, 200).pos(50, 150);
-            win.mes("MS Gothic サンプル");
-            
-            win.font("Arial", g_fontSize, g_fontStyle);
-            win.pos(50, 180);
-            win.mes("Arial Sample");
-            
-            win.font("MS Gothic", 12, 0);
-            win.color(100, 100, 100).pos(50, 220);
-            win.mes("Style: 0=Normal 1=Bold 2=Italic 3=Bold+Italic");
-            break;
-            
-        case DemoMode::Title:
-            win.mes("Current: TITLE (タイトル設定) - Press 3");
-            win.pos(20, 85);
-            win.mes("Press T to change window title");
-            win.color(0, 128, 0).pos(50, 150);
-            win.mes("タイトルバーを変更: title() / win.title()");
-            break;
-            
-        case DemoMode::Width:
-            win.mes("Current: WIDTH (ウィンドウサイズ) - Press 4");
-            win.pos(20, 85);
-            win.mes(std::string("Client: ") + str(win.width()) + "x" + str(win.height()));
-            win.pos(20, 110);
-            win.mes("Buffer: 640x480 (fixed, NO SCALING)");
-            win.pos(20, 135);
-            win.mes("Press W/S to resize");
-            
-            win.color(255, 0, 0);
-            win.boxf(0, 0, 10, 480);
-            win.boxf(630, 0, 640, 480);
-            win.boxf(0, 0, 640, 10);
-            win.boxf(0, 470, 640, 480);
-            
-            win.color(0, 0, 0).pos(50, 200);
-            win.mes("Red borders = 640x480 buffer edges");
-            break;
-            
-        case DemoMode::Groll:
-            win.mes("Current: GROLL (スクロール) - Press 5");
-            win.pos(20, 85);
-            win.mes(std::string("Scroll: ") + str(g_scrollX) + ", " + str(g_scrollY));
-            win.pos(20, 110);
-            win.mes("Arrow keys to scroll viewport");
-            
-            for (int x = 0; x < 640; x += 50) {
-                win.color(200, 200, 200);
-                win.line(x, 0, x, 480);
+    helpWin.color(255, 255, 255).pos(20, 350);
+    helpWin.mes("【画像デモ - Shift + 数字キー】");
+    helpWin.color(200, 200, 200).pos(20, 370);
+    helpWin.mes("  Shift+1: bmpsave    Shift+2: picload");
+    helpWin.pos(20, 390);
+    helpWin.mes("  Shift+3: celload/celput");
+    
+    helpWin.color(255, 255, 255).pos(20, 420);
+    helpWin.mes("【割り込みデモ - Alt + 数字キー】");
+    helpWin.color(200, 200, 200).pos(20, 440);
+    helpWin.mes("  Alt+1: onclick      Alt+2: onkey");
+    helpWin.pos(20, 460);
+    helpWin.mes("  Alt+3: onexit");
+    
+    helpWin.redraw(1);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// カテゴリ名とデモ名を取得
+// ═══════════════════════════════════════════════════════════════════
+
+std::string getCategoryName() {
+    switch (g_category) {
+        case DemoCategory::Basic:     return "基本 (1-9)";
+        case DemoCategory::Extended:  return "拡張 (Ctrl+1-8)";
+        case DemoCategory::Image:     return "画像 (Shift+1-3)";
+        case DemoCategory::Interrupt: return "割り込み (Alt+1-3)";
+    }
+    return "Unknown";
+}
+
+std::string getDemoName() {
+    switch (g_category) {
+        case DemoCategory::Basic:
+            switch (static_cast<BasicDemo>(g_demoIndex)) {
+                case BasicDemo::Line:   return "line (直線描画)";
+                case BasicDemo::Circle: return "circle (円描画)";
+                case BasicDemo::Pset:   return "pset/pget (点描画)";
+                case BasicDemo::Boxf:   return "boxf (矩形塗りつぶし)";
+                case BasicDemo::Cls:    return "cls (画面クリア)";
+                case BasicDemo::Font:   return "font (フォント)";
+                case BasicDemo::Title:  return "title (タイトル)";
+                case BasicDemo::Width:  return "width (ウィンドウサイズ)";
+                case BasicDemo::Groll:  return "groll (スクロール)";
+                default: break;
             }
-            for (int y = 0; y < 480; y += 50) {
-                win.color(200, 200, 200);
-                win.line(0, y, 640, y);
-            }
-            
-            win.color(255, 0, 0).boxf(0, 0, 50, 50);
-            win.color(0, 255, 0).boxf(590, 0, 640, 50);
-            win.color(0, 0, 255).boxf(0, 430, 50, 480);
-            win.color(255, 255, 0).boxf(590, 430, 640, 480);
             break;
-            
-        // ═══════════════════════════════════════════════════════════
-        // P2機能
-        // ═══════════════════════════════════════════════════════════
-        case DemoMode::Bmpsave:
-            win.mes("Current: BMPSAVE (画面イメージセーブ) - Press 6");
-            win.pos(20, 85);
-            win.mes("Press B to save this screen with bmpsave()");
-            win.pos(20, 110);
-            win.mes(std::string("Status: ") + (g_testImageSaved ? "test_sprite.bmp saved!" : "Not saved yet"));
-            
-            win.color(0, 128, 0).pos(50, 150);
-            win.mes("bmpsave() は描画対象バッファ全体をビットパーフェクトに保存");
-            win.pos(50, 175);
-            win.mes("width()で表示サイズを制限しても、バッファ全体(640x480)を保存");
-            
-            // デモ用のカラフルな描画
-            for (int y = 0; y < 4; y++) {
-                for (int x = 0; x < 4; x++) {
-                    int idx = y * 4 + x;
-                    int r = ((idx & 1) ? 255 : 0) + ((idx & 4) ? 128 : 0);
-                    int g = ((idx & 2) ? 255 : 0) + ((idx & 8) ? 128 : 0);
-                    int b = ((idx & 4) ? 255 : 0) + ((idx & 1) ? 128 : 0);
-                    win.color(r % 256, g % 256, b % 256);
-                    win.boxf(350 + x * 64, 200 + y * 64, 350 + (x + 1) * 64 - 2, 200 + (y + 1) * 64 - 2);
+        case DemoCategory::Extended:
+            switch (static_cast<ExtendedDemo>(g_demoIndex)) {
+                case ExtendedDemo::Math:     return "Math Functions";
+                case ExtendedDemo::Color:    return "Color Functions";
+                case ExtendedDemo::Gradf:    return "gradf (グラデーション)";
+                case ExtendedDemo::Grect:    return "grect (回転矩形)";
+                case ExtendedDemo::Gsquare:  return "gsquare (任意四角形)";
+                case ExtendedDemo::Gcopy:    return "gcopy (画面コピー)";
+                case ExtendedDemo::Gzoom:    return "gzoom (変倍コピー)";
+                case ExtendedDemo::Grotate:  return "grotate (回転コピー)";
+                default: break;
+            }
+            break;
+        case DemoCategory::Image:
+            switch (static_cast<ImageDemo>(g_demoIndex)) {
+                case ImageDemo::Bmpsave: return "bmpsave (BMP保存)";
+                case ImageDemo::Picload: return "picload (画像ロード)";
+                case ImageDemo::Celload: return "celload/celput";
+                default: break;
+            }
+            break;
+        case DemoCategory::Interrupt:
+            switch (static_cast<InterruptDemo>(g_demoIndex)) {
+                case InterruptDemo::OnClick: return "onclick (クリック割り込み)";
+                case InterruptDemo::OnKey:   return "onkey (キー割り込み)";
+                case InterruptDemo::OnExit:  return "onexit (終了割り込み)";
+                default: break;
+            }
+            break;
+    }
+    return "Unknown";
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// キー入力処理
+// ═══════════════════════════════════════════════════════════════════
+
+void processInput(Screen& win) {
+    bool ctrlPressed = getkey(VK::CONTROL) != 0;
+    bool shiftPressed = getkey(VK::SHIFT) != 0;
+    bool altPressed = getkey(VK::MENU) != 0;
+    
+    // モード切替（数字キー）
+    for (int i = 1; i <= 9; i++) {
+        if (getkey('0' + i)) {
+            if (ctrlPressed && !shiftPressed && !altPressed) {
+                // Ctrl + 数字: 拡張デモ
+                if (i <= static_cast<int>(ExtendedDemo::COUNT)) {
+                    g_category = DemoCategory::Extended;
+                    g_demoIndex = i - 1;
+                    await(200);
+                }
+            } else if (shiftPressed && !ctrlPressed && !altPressed) {
+                // Shift + 数字: 画像デモ
+                if (i <= static_cast<int>(ImageDemo::COUNT)) {
+                    g_category = DemoCategory::Image;
+                    g_demoIndex = i - 1;
+                    await(200);
+                }
+            } else if (altPressed && !ctrlPressed && !shiftPressed) {
+                // Alt + 数字: 割り込みデモ
+                if (i <= static_cast<int>(InterruptDemo::COUNT)) {
+                    g_category = DemoCategory::Interrupt;
+                    g_demoIndex = i - 1;
+                    await(200);
+                }
+            } else if (!ctrlPressed && !shiftPressed && !altPressed) {
+                // 数字のみ: 基本デモ
+                if (i <= static_cast<int>(BasicDemo::COUNT)) {
+                    g_category = DemoCategory::Basic;
+                    g_demoIndex = i - 1;
+                    await(200);
                 }
             }
-            
-            if (g_testImageSaved) {
-                win.color(0, 0, 200).pos(50, 220);
-                win.mes("test_sprite.bmp が作成されました (640x480)");
-                win.pos(50, 245);
-                win.mes("→ 7キーでpicload, 8キーでcelloadをテストできます");
-            }
-            break;
-            
-        case DemoMode::Picload:
-            win.mes("Current: PICLOAD (画像ファイルロード) - Press 7");
-            win.pos(20, 85);
-            win.mes("Press P to load test_sprite.bmp");
-            win.pos(20, 110);
-            win.mes(std::string("Status: ") + (g_testImageLoaded ? "Loaded!" : "Not loaded"));
-            
-            win.color(0, 128, 0).pos(50, 150);
-            win.mes("picload(filename, mode) - 画像をロード");
-            win.pos(50, 175);
-            win.mes("mode: 0=初期化してロード, 1=重ねる, 2=黒で初期化");
-            
-            if (!g_testImageSaved) {
-                win.color(255, 0, 0).pos(50, 220);
-                win.mes("※ 先に6キー(bmpsave)でテスト画像を作成してください");
-            }
-            break;
-            
-        case DemoMode::Celload:
-            win.mes("Current: CELLOAD/CELDIV/CELPUT - Press 8");
-            win.pos(20, 85);
-            win.mes("Press C to load, D to divide, Arrow keys to select cell");
-            win.pos(20, 110);
-            win.mes(std::string("Cel ID: ") + str(g_celId) + ", Cell Index: " + str(g_celIndex));
-            
-            win.color(0, 128, 0).pos(50, 150);
-            win.mes("celload(filename) - 画像をセル素材としてロード");
-            win.pos(50, 175);
-            win.mes("celdiv(id, divX, divY) - セル分割サイズ設定");
-            win.pos(50, 200);
-            win.mes("celput(id, index, x, y) - セル描画");
-            
-            if (g_celId >= 0) {
-                win.color(0, 0, 200).pos(50, 240);
-                win.mes("Cel loaded! Use arrows to change cell index");
-                
-                celput(g_celId, g_celIndex, 300, 280);
-                
-                win.color(0, 0, 0).pos(300, 420);
-                win.mes("celput(" + str(g_celId) + ", " + str(g_celIndex) + ", 300, 280)");
-            } else if (!g_testImageSaved) {
-                win.color(255, 0, 0).pos(50, 240);
-                win.mes("※ 先に6キー(bmpsave)でテスト画像を作成してください");
-            }
-            break;
-            
-        // ═══════════════════════════════════════════════════════════
-        // P3拡張描画機能
-        // ═══════════════════════════════════════════════════════════
-        case DemoMode::Gradf:
-            win.mes("Current: GRADF (グラデーション描画) - Press G");
-            win.pos(20, 85);
-            win.mes("gradf: 矩形をグラデーションで塗りつぶす");
-            
-            // 横方向グラデーション
-            win.color(0, 0, 0).pos(50, 120);
-            win.mes("横方向グラデーション (mode=0):");
-            gradf(50, 140, 200, 60, 0, 0xFF0000, 0x0000FF);  // 赤→青
-            gradf(50, 210, 200, 60, 0, 0x00FF00, 0xFFFF00);  // 緑→黄
-            
-            // 縦方向グラデーション
-            win.color(0, 0, 0).pos(300, 120);
-            win.mes("縦方向グラデーション (mode=1):");
-            gradf(300, 140, 200, 60, 1, 0xFF00FF, 0x00FFFF);  // マゼンタ→シアン
-            gradf(300, 210, 200, 60, 1, 0xFFFFFF, 0x000000);  // 白→黒
-            
-            // OOP版グラデーション
-            win.color(0, 0, 0).pos(50, 290);
-            win.mes("Screen OOP版 gradf:");
-            win.gradf(50, 310, 450, 80, 0, 0xFF8800, 0x0088FF);
-            
-            // gettime デモ
-            win.color(0, 0, 0).pos(50, 410);
-            win.mes("gettime 関数:");
-            win.pos(50, 430);
-            win.mes(std::format("現在時刻: {:04d}/{:02d}/{:02d} {:02d}:{:02d}:{:02d}",
-                gettime(0), gettime(1), gettime(3),
-                gettime(4), gettime(5), gettime(6)));
-            break;
-            
-        case DemoMode::Grect:
-            win.mes("Current: GRECT (回転矩形描画) - Press R");
-            win.pos(20, 85);
-            win.mes("grect: 回転する矩形で塗りつぶす (Press LEFT/RIGHT to rotate)");
-            
-            // 回転矩形デモ
-            win.color(255, 0, 0);
-            grect(200, 250, g_angle * 0.0174533, 100, 60);  // 度→ラジアン
-            
-            win.color(0, 255, 0);
-            grect(350, 250, g_angle * 0.0174533 + 1.0, 80, 80);
-            
-            win.color(0, 0, 255);
-            grect(500, 250, -g_angle * 0.0174533, 120, 40);
-            
-            // OOP版
-            win.color(255, 128, 0);
-            win.grect(320, 380, g_angle * 0.0174533 * 2, 60, 60);
-            
-            win.color(0, 0, 0).pos(50, 420);
-            win.mes("角度: " + str(static_cast<int>(g_angle)) + "度");
-            win.pos(50, 440);
-            win.mes("← / →: 角度変更, 自動回転中");
-            
-            // 自動回転
-            g_angle += 1.0;
-            if (g_angle >= 360.0) g_angle -= 360.0;
-            break;
-            
-        // ═══════════════════════════════════════════════════════════
-        // Math機能
-        // ═══════════════════════════════════════════════════════════
-        case DemoMode::Math:
-            win.mes("Current: MATH FUNCTIONS - Press 9");
-            win.pos(20, 85);
-            win.mes("数学関数デモ: sin, cos, rnd, limit, sqrt, powf");
-            
-            // Sin/Cos波形描画
-            win.color(0, 128, 0).pos(50, 120);
-            win.mes("sin/cos 波形 (角度を自動更新中)");
-            
-            // 波形の背景
-            win.color(240, 240, 240);
-            win.boxf(50, 150, 590, 250);
-            
-            // X軸
-            win.color(128, 128, 128);
-            win.line(590, 200, 50, 200);
-            
-            {
-                // 波形描画（スコープで括る）
-                // 注: deg2rad() を使用して度数法 → ラジアン変換
-                
-                // Sin波形（赤）
-                win.color(255, 0, 0);
-                for (int x = 0; x < 540; x++) {
-                    double angle = hsppp::deg2rad(g_angle + x * 2);  // 度数法をラジアン変換
-                    int y = 200 - static_cast<int>(hsppp::sin(angle) * 40);
-                    if (x == 0) {
-                        win.pos(50 + x, y);
-                    } else {
-                        win.line(50 + x, y);
-                    }
-                }
-                
-                // Cos波形（青）
-                win.color(0, 0, 255);
-                for (int x = 0; x < 540; x++) {
-                    double angle = hsppp::deg2rad(g_angle + x * 2);  // 度数法をラジアン変換
-                    int y = 200 - static_cast<int>(hsppp::cos(angle) * 40);
-                    if (x == 0) {
-                        win.pos(50 + x, y);
-                    } else {
-                        win.line(50 + x, y);
-                    }
-                }
-            }
-            
-            // 乱数表示
-            win.font("MS Gothic", 12, 0);
-            win.color(0, 0, 0).pos(50, 270);
-            win.mes("rnd(100) の結果:");
-            for (int i = 0; i < 10; i++) {
-                win.pos(50 + i * 50, 290);
-                win.mes(str(rnd(100)));
-            }
-            
-            // limit表示
-            win.pos(50, 320);
-            win.mes("limit デモ:");
-            win.pos(50, 340);
-            win.mes("limit(-50, 0, 100) = " + str(hsppp::limit(-50, 0, 100)));
-            win.pos(50, 355);
-            win.mes("limit(150, 0, 100) = " + str(hsppp::limit(150, 0, 100)));
-            win.pos(50, 370);
-            win.mes("limit(50, 0, 100) = " + str(hsppp::limit(50, 0, 100)));
-            
-            // sqrt/pow表示
-            win.pos(300, 320);
-            win.mes("sqrt/pow デモ:");
-            win.pos(300, 340);
-            win.mes("sqrt(2) = " + str(hsppp::sqrt(2.0)));
-            win.pos(300, 355);
-            win.mes("pow(2, 10) = " + str(hsppp::pow(2.0, 10.0)));
-            win.pos(300, 370);
-            win.mes("abs(-42) = " + str(hsppp::abs(-42)));
-            
-            // 角度を更新（アニメーション）
-            g_angle += 2.0;
-            if (g_angle >= 360.0) g_angle -= 360.0;
-            break;
-            
-        case DemoMode::Color:
-            win.mes("Current: COLOR FUNCTIONS - Press 0");
-            win.pos(20, 85);
-            win.mes("色関連関数デモ: hsvcolor, rgbcolor, syscolor");
-            
-            // HSVカラーグラデーション
-            win.color(0, 0, 0).pos(50, 120);
-            win.mes("hsvcolor グラデーション (H: 0-191):");
-            for (int h = 0; h < 192; h++) {
-                hsvcolor(h, 255, 255);
-                win.boxf(50 + h * 2, 140, 50 + h * 2 + 2, 180);
-            }
-            
-            // 彩度グラデーション
-            win.color(0, 0, 0).pos(50, 190);
-            win.mes("hsvcolor 彩度グラデーション (S: 0-255):");
-            for (int s = 0; s < 256; s++) {
-                hsvcolor(0, s, 255);  // 赤の彩度変化
-                win.boxf(50 + s * 2, 210, 50 + s * 2 + 2, 250);
-            }
-            
-            // RGBカラー
-            win.color(0, 0, 0).pos(50, 270);
-            win.mes("rgbcolor サンプル:");
-            
-            rgbcolor(0xFF0000);  // 赤
-            win.boxf(50, 290, 100, 340);
-            rgbcolor(0x00FF00);  // 緑
-            win.boxf(110, 290, 160, 340);
-            rgbcolor(0x0000FF);  // 青
-            win.boxf(170, 290, 220, 340);
-            rgbcolor(0xFFFF00);  // 黄
-            win.boxf(230, 290, 280, 340);
-            rgbcolor(0xFF00FF);  // マゼンタ
-            win.boxf(290, 290, 340, 340);
-            rgbcolor(0x00FFFF);  // シアン
-            win.boxf(350, 290, 400, 340);
-            
-            // システムカラー
-            win.color(0, 0, 0).pos(50, 360);
-            win.mes("syscolor サンプル (システムカラー):");
-            
-            for (int i = 0; i < 8; i++) {
-                syscolor(i);
-                win.boxf(50 + i * 60, 380, 100 + i * 60, 420);
-                win.color(0, 0, 0).pos(50 + i * 60, 425);
-                win.mes(str(i));
-            }
-            break;
-            
-        // ═══════════════════════════════════════════════════════════
-        // Interrupt機能
-        // ═══════════════════════════════════════════════════════════
-        case DemoMode::Interrupt:
-            win.mes("Current: INTERRUPT HANDLERS - Press I");
-            win.pos(20, 85);
-            win.mes("onclick, onkey, onexit, oncmd, onerror デモ");
-            
-            // 割り込みステータス表示
-            win.color(0, 0, 128).pos(50, 130);
-            win.mes("=== 割り込みハンドラ状態 ===");
-            
-            win.color(0, 0, 0).pos(50, 160);
-            win.mes("クリック回数 (onclick): " + str(g_clickCount));
-            win.pos(50, 180);
-            win.mes("キー入力回数 (onkey): " + str(g_keyCount));
-            win.pos(50, 200);
-            win.mes(std::format("最後のキーコード: {} (0x{:x})", g_lastKey, g_lastKey));
-            
-            win.color(128, 0, 0).pos(50, 240);
-            win.mes("=== 割り込みパラメータ (システム変数) ===");
-            win.color(0, 0, 0).pos(50, 270);
-            win.mes("iparam() = " + str(iparam()));
-            win.pos(50, 290);
-            win.mes("wparam() = " + str(wparam()));
-            win.pos(50, 310);
-            win.mes("lparam() = " + str(lparam()));
-            
-            // 使い方
-            win.color(0, 128, 0).pos(50, 360);
-            win.mes("=== 操作方法 ===");
-            win.color(0, 0, 0).pos(50, 385);
-            win.mes("- マウスクリック: onclick カウンター増加");
-            win.pos(50, 405);
-            win.mes("- キー入力: onkey カウンター増加 + キーコード表示");
-            win.pos(50, 425);
-            win.mes("- ウィンドウ閉じる: onexit で確認ダイアログ");
-            break;
         }
-        
-        // 共通ヘルプ
-        win.font("MS Gothic", 11, 0);
-        win.color(128, 128, 128).pos(20, 440);
-        win.mes("P1: 1=cls 2=font 3=title 4=width 5=groll | P2: 6=bmpsave 7=picload 8=celload");
-        win.pos(20, 455);
-        win.mes("P3: G=gradf R=grect | Math: 9=math 0=color | Interrupt: I=interrupt | ESC=Exit");
-        
-        win.redraw(1);
-        
-        // キー入力処理 - モード切替
-        if (getkey('1')) { g_mode = DemoMode::Cls; await(200); }
-        if (getkey('2')) { g_mode = DemoMode::Font; await(200); }
-        if (getkey('3')) { g_mode = DemoMode::Title; await(200); }
-        if (getkey('4')) { g_mode = DemoMode::Width; await(200); }
-        if (getkey('5')) { g_mode = DemoMode::Groll; await(200); }
-        if (getkey('6')) { g_mode = DemoMode::Bmpsave; await(200); }
-        if (getkey('7')) { g_mode = DemoMode::Picload; await(200); }
-        if (getkey('8')) { g_mode = DemoMode::Celload; await(200); }
-        if (getkey('9')) { g_mode = DemoMode::Math; await(200); }
-        if (getkey('0')) { g_mode = DemoMode::Color; await(200); }
-        if (getkey('G')) { g_mode = DemoMode::Gradf; await(200); }
-        if (getkey('R') && g_mode != DemoMode::Math) { g_mode = DemoMode::Grect; await(200); }
-        if (getkey('I')) { g_mode = DemoMode::Interrupt; await(200); }
-        
-        // モード別操作
-        switch (g_mode) {
-        case DemoMode::Cls:
-            if (getkey(0x26)) { g_clsMode = (g_clsMode + 1) % 5; await(200); }
-            if (getkey(0x28)) { g_clsMode = (g_clsMode + 4) % 5; await(200); }
+    }
+    
+    // モード別操作
+    if (g_category == DemoCategory::Basic) {
+        switch (static_cast<BasicDemo>(g_demoIndex)) {
+        case BasicDemo::Cls:
+            if (getkey(VK::UP)) { g_clsMode = (g_clsMode + 1) % 5; await(200); }
+            if (getkey(VK::DOWN)) { g_clsMode = (g_clsMode + 4) % 5; await(200); }
             break;
             
-        case DemoMode::Font:
-            if (getkey(0x26)) { g_fontSize++; if (g_fontSize > 32) g_fontSize = 32; await(100); }
-            if (getkey(0x28)) { g_fontSize--; if (g_fontSize < 8) g_fontSize = 8; await(100); }
-            if (getkey(0x27)) { g_fontStyle = (g_fontStyle + 1) % 4; await(200); }
-            if (getkey(0x25)) { g_fontStyle = (g_fontStyle + 3) % 4; await(200); }
+        case BasicDemo::Font:
+            if (getkey(VK::UP)) { g_fontSize++; if (g_fontSize > 32) g_fontSize = 32; await(100); }
+            if (getkey(VK::DOWN)) { g_fontSize--; if (g_fontSize < 8) g_fontSize = 8; await(100); }
+            if (getkey(VK::RIGHT)) { g_fontStyle = (g_fontStyle + 1) % 4; await(200); }
+            if (getkey(VK::LEFT)) { g_fontStyle = (g_fontStyle + 3) % 4; await(200); }
             break;
             
-        case DemoMode::Title:
+        case BasicDemo::Title:
             if (getkey('T')) {
                 static int titleNum = 1;
                 win.title("New Title " + str(titleNum++));
@@ -560,7 +249,7 @@ int hspMain() {
             }
             break;
             
-        case DemoMode::Width:
+        case BasicDemo::Width:
             if (getkey('W')) {
                 int newW = win.width() + 50;
                 int newH = win.height() + 50;
@@ -577,28 +266,70 @@ int hspMain() {
             }
             break;
             
-        case DemoMode::Groll:
+        case BasicDemo::Groll:
             if (win.width() == 640) {
                 win.width(400, 300);
             }
-            if (getkey(0x25)) { g_scrollX -= 10; if (g_scrollX < 0) g_scrollX = 0; win.groll(g_scrollX, g_scrollY); await(50); }
-            if (getkey(0x27)) { g_scrollX += 10; if (g_scrollX > 240) g_scrollX = 240; win.groll(g_scrollX, g_scrollY); await(50); }
-            if (getkey(0x26)) { g_scrollY -= 10; if (g_scrollY < 0) g_scrollY = 0; win.groll(g_scrollX, g_scrollY); await(50); }
-            if (getkey(0x28)) { g_scrollY += 10; if (g_scrollY > 180) g_scrollY = 180; win.groll(g_scrollX, g_scrollY); await(50); }
+            if (getkey(VK::LEFT)) { g_scrollX -= 10; if (g_scrollX < 0) g_scrollX = 0; win.groll(g_scrollX, g_scrollY); await(50); }
+            if (getkey(VK::RIGHT)) { g_scrollX += 10; if (g_scrollX > 240) g_scrollX = 240; win.groll(g_scrollX, g_scrollY); await(50); }
+            if (getkey(VK::UP)) { g_scrollY -= 10; if (g_scrollY < 0) g_scrollY = 0; win.groll(g_scrollX, g_scrollY); await(50); }
+            if (getkey(VK::DOWN)) { g_scrollY += 10; if (g_scrollY > 180) g_scrollY = 180; win.groll(g_scrollX, g_scrollY); await(50); }
             break;
             
-        // P2機能
-        case DemoMode::Bmpsave:
+        default:
+            break;
+        }
+    }
+    else if (g_category == DemoCategory::Extended) {
+        switch (static_cast<ExtendedDemo>(g_demoIndex)) {
+        case ExtendedDemo::Math:
+            if (getkey('R')) {
+                randomize();
+                await(200);
+            }
+            break;
+            
+        case ExtendedDemo::Grect:
+            if (getkey(VK::LEFT)) { g_angle -= 5.0; await(50); }
+            if (getkey(VK::RIGHT)) { g_angle += 5.0; await(50); }
+            break;
+            
+        case ExtendedDemo::Gcopy:
+            if (getkey('C') && !g_bufferCreated) {
+                // バッファを作成してコピーデモ
+                auto buf = buffer({.width = 200, .height = 200});
+                buf.color(255, 128, 0).boxf();
+                buf.color(0, 0, 200);
+                buf.circle(20, 20, 180, 180, 1);
+                buf.color(255, 255, 255).pos(50, 90);
+                buf.mes("Buffer");
+                
+                // メインウィンドウにコピー
+                win.select();
+                pos(50, 320);
+                gmode(0, 100, 100);
+                gcopy(buf.id(), 0, 0, 200, 200);
+                
+                g_bufferCreated = true;
+                await(200);
+            }
+            break;
+            
+        default:
+            break;
+        }
+    }
+    else if (g_category == DemoCategory::Image) {
+        switch (static_cast<ImageDemo>(g_demoIndex)) {
+        case ImageDemo::Bmpsave:
             if (getkey('B')) {
-                // 現在のメインウィンドウの画面をそのままBMPに保存
-                // bmpsave()はバッファ全体(640x480)をビットパーフェクトに保存
                 win.bmpsave("test_sprite.bmp");
                 g_testImageSaved = true;
                 await(200);
             }
             break;
             
-        case DemoMode::Picload:
+        case ImageDemo::Picload:
             if (getkey('P') && g_testImageSaved) {
                 win.pos(0, 0);
                 win.picload("test_sprite.bmp", 1);
@@ -607,7 +338,7 @@ int hspMain() {
             }
             break;
             
-        case DemoMode::Celload:
+        case ImageDemo::Celload:
             if (getkey('C') && g_testImageSaved) {
                 g_celId = celload("test_sprite.bmp");
                 await(200);
@@ -617,41 +348,112 @@ int hspMain() {
                 await(200);
             }
             if (g_celId >= 0) {
-                if (getkey(0x27)) { g_celIndex = (g_celIndex + 1) % 16; await(150); }
-                if (getkey(0x25)) { g_celIndex = (g_celIndex + 15) % 16; await(150); }
-                if (getkey(0x28)) { g_celIndex = (g_celIndex + 4) % 16; await(150); }
-                if (getkey(0x26)) { g_celIndex = (g_celIndex + 12) % 16; await(150); }
+                if (getkey(VK::RIGHT)) { g_celIndex = (g_celIndex + 1) % 16; await(150); }
+                if (getkey(VK::LEFT)) { g_celIndex = (g_celIndex + 15) % 16; await(150); }
+                if (getkey(VK::DOWN)) { g_celIndex = (g_celIndex + 4) % 16; await(150); }
+                if (getkey(VK::UP)) { g_celIndex = (g_celIndex + 12) % 16; await(150); }
             }
             break;
             
-        // Math/Color機能（自動更新のみ）
-        case DemoMode::Math:
-            // 角度は描画ループで自動更新
-            if (getkey('R')) {
-                // randomizeを再実行
-                randomize();
-                await(200);
-            }
-            break;
-            
-        case DemoMode::Color:
-            // 特に操作なし
-            break;
-        
-        case DemoMode::Gradf:
-            // 特に操作なし（表示のみ）
-            break;
-            
-        case DemoMode::Grect:
-            // 手動回転
-            if (getkey(0x25)) { g_angle -= 5.0; await(50); }
-            if (getkey(0x27)) { g_angle += 5.0; await(50); }
-            break;
-            
-        case DemoMode::Interrupt:
-            // 特に操作なし
+        default:
             break;
         }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// メインエントリーポイント
+// ═══════════════════════════════════════════════════════════════════
+
+int hspMain() {
+    // メインウィンドウ作成
+    auto win = screen({.width = 640, .height = 480, .title = "HSPPP Feature Demo - Press F1 for Help"});
+    
+    // ヘルプウィンドウ作成（初期は非表示）
+    auto helpWin = screen({.width = 320, .height = 500, .mode = screen_hide, .title = "HSPPP Help"});
+    
+    // 割り込みハンドラ設定
+    onclick([]() -> int {
+        g_clickCount++;
+        return 0;
+    });
+    
+    onkey([]() -> int {
+        g_keyCount++;
+        g_lastKey = iparam();
+        return 0;
+    });
+    
+    hsppp::onexit([]() -> int {
+        static int exitAttempts = 0;
+        exitAttempts++;
+        if (exitAttempts >= 2) {
+            end(0);
+        }
+        return 0;
+    });
+    
+    // メインループ
+    while (true) {
+        // F1でヘルプ表示切替
+        if (getkey(VK::F1)) {
+            g_helpVisible = !g_helpVisible;
+            gsel(helpWin.id(), g_helpVisible ? 1 : -1);
+            if (g_helpVisible) {
+                drawHelpWindow(helpWin);
+            }
+            await(200);
+        }
+        
+        // メインウィンドウの描画
+        win.select();
+        win.redraw(0);
+        
+        // 背景クリア
+        if (g_category == DemoCategory::Basic && g_demoIndex == static_cast<int>(BasicDemo::Cls)) {
+            win.cls(g_clsMode);
+        } else {
+            win.cls(0);
+        }
+        
+        // タイトル
+        win.font("MS Gothic", 16, 1);
+        win.color(0, 0, 128).pos(20, 20);
+        win.mes("=== HSPPP Feature Demo ===");
+        
+        // 現在のカテゴリとデモ名
+        win.font("MS Gothic", 12, 0);
+        win.color(0, 128, 0).pos(20, 45);
+        win.mes("[" + getCategoryName() + "] " + getDemoName());
+        
+        win.font("MS Gothic", 14, 0);
+        win.color(0, 0, 0).pos(20, 60);
+        
+        // デモ内容の描画
+        switch (g_category) {
+        case DemoCategory::Basic:
+            drawBasicDemo(win);
+            break;
+        case DemoCategory::Extended:
+            drawExtendedDemo(win);
+            break;
+        case DemoCategory::Image:
+            drawImageDemo(win);
+            break;
+        case DemoCategory::Interrupt:
+            drawInterruptDemo(win);
+            break;
+        }
+        
+        // フッター（ヘルプ表示案内）
+        win.font("MS Gothic", 11, 0);
+        win.color(128, 128, 128).pos(20, 455);
+        win.mes("F1: ヘルプ表示  |  ESC: 終了  |  1-9: 基本  |  Ctrl+1-8: 拡張  |  Shift+1-3: 画像  |  Alt+1-3: 割り込み");
+        
+        win.redraw(1);
+        
+        // キー入力処理
+        processInput(win);
         
         // ESCで終了
         if (stick() & 128) break;

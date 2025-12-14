@@ -1,11 +1,12 @@
 ﻿// HspppLib/src/core/Surface.cpp
-// HspSurface, HspWindow, HspBuffer の実装（Direct2D 1.1対応）
+// HspSurface, HspWindow, HspBuffer の実装（Direct2D 1.3対応）
 
 // グローバルモジュールフラグメント
 module;
 
 #include <windows.h>
 #include <d2d1_1.h>
+#include <d2d1_3.h>
 #include <d3d11.h>
 #include <dxgi1_2.h>
 #include <dwrite.h>
@@ -1000,6 +1001,23 @@ void HspSurface::gsquare(const int (&dstX)[4], const int (&dstY)[4], ID2D1Bitmap
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// gsquareGrad - 4頂点バイリニア補間グラデーション
+// 
+// 【パフォーマンス警告】
+// この関数はHSP互換のバイリニア補間を実現するため、ピクセル単位で
+// CPU計算を行います。大きな四角形では処理が重くなる可能性があります。
+// 
+// GPU代替案を検討しましたが、以下の理由で採用していません：
+// - ID2D1GradientMesh: Coonsパッチ補間であり、HSPのバイリニア補間と
+//   見た目が異なる
+// - 三角形分割: 対角線上で色の不連続が生じる
+// 
+// 将来的な最適化案：
+// - SIMD (AVX2) による並列ピクセル処理
+// - カスタムピクセルシェーダー（Direct3D連携）
+// - サイズに応じた細分割へのフォールバック
+// ═══════════════════════════════════════════════════════════════════
 void HspSurface::gsquareGrad(const int (&dstX)[4], const int (&dstY)[4], const int (&colors)[4]) {
     if (!m_pDeviceContext) return;
 
@@ -1010,74 +1028,132 @@ void HspSurface::gsquareGrad(const int (&dstX)[4], const int (&dstY)[4], const i
     }
     if (!m_isDrawing) return;
 
-    // Direct2Dでは4頂点グラデーションが直接サポートされないため、
-    // 4つの三角形に分割して描画する簡易実装
-    auto pFactory = D2DDeviceManager::getInstance().getFactory();
-    if (!pFactory) {
+    // HSP頂点順序: 0=左上, 1=右上, 2=右下, 3=左下
+    // バウンディングボックスを計算
+    int minX = (std::min)({dstX[0], dstX[1], dstX[2], dstX[3]});
+    int maxX = (std::max)({dstX[0], dstX[1], dstX[2], dstX[3]});
+    int minY = (std::min)({dstY[0], dstY[1], dstY[2], dstY[3]});
+    int maxY = (std::max)({dstY[0], dstY[1], dstY[2], dstY[3]});
+    
+    int bmpW = maxX - minX + 1;
+    int bmpH = maxY - minY + 1;
+    if (bmpW <= 0 || bmpH <= 0) {
         if (autoManage) endDrawAndPresent();
         return;
     }
 
-    // 4頂点の色
-    D2D1_COLOR_F vertexColors[4];
+    // 4頂点の色をfloatに変換
+    float r[4], g[4], b[4];
     for (int i = 0; i < 4; i++) {
-        float r = ((colors[i] >> 16) & 0xFF) / 255.0f;
-        float g = ((colors[i] >> 8) & 0xFF) / 255.0f;
-        float b = (colors[i] & 0xFF) / 255.0f;
-        vertexColors[i] = D2D1::ColorF(r, g, b, 1.0f);
+        r[i] = static_cast<float>((colors[i] >> 16) & 0xFF);
+        g[i] = static_cast<float>((colors[i] >> 8) & 0xFF);
+        b[i] = static_cast<float>(colors[i] & 0xFF);
     }
 
-    // 中央の色を計算（平均）
-    D2D1_COLOR_F centerColor = D2D1::ColorF(
-        (vertexColors[0].r + vertexColors[1].r + vertexColors[2].r + vertexColors[3].r) / 4.0f,
-        (vertexColors[0].g + vertexColors[1].g + vertexColors[2].g + vertexColors[3].g) / 4.0f,
-        (vertexColors[0].b + vertexColors[1].b + vertexColors[2].b + vertexColors[3].b) / 4.0f,
-        1.0f
+    // ローカル座標に変換（バウンディングボックス基準）
+    float vx[4], vy[4];
+    for (int i = 0; i < 4; i++) {
+        vx[i] = static_cast<float>(dstX[i] - minX);
+        vy[i] = static_cast<float>(dstY[i] - minY);
+    }
+
+    // ピクセルが四角形内にあるかチェック（外積法）
+    auto isInsideQuad = [&](float px, float py) -> bool {
+        // 4辺すべてについて、点が同じ側にあるかチェック
+        auto cross = [](float ax, float ay, float bx, float by, float px, float py) {
+            return (bx - ax) * (py - ay) - (by - ay) * (px - ax);
+        };
+        float c0 = cross(vx[0], vy[0], vx[1], vy[1], px, py);
+        float c1 = cross(vx[1], vy[1], vx[2], vy[2], px, py);
+        float c2 = cross(vx[2], vy[2], vx[3], vy[3], px, py);
+        float c3 = cross(vx[3], vy[3], vx[0], vy[0], px, py);
+        // すべて同符号（または0）なら内部
+        return (c0 >= 0 && c1 >= 0 && c2 >= 0 && c3 >= 0) ||
+               (c0 <= 0 && c1 <= 0 && c2 <= 0 && c3 <= 0);
+    };
+
+    // ピクセル座標から(u,v)パラメータを逆算（ニュートン法）
+    auto pixelToUV = [&](float px, float py, float& u, float& v) -> bool {
+        // 初期値
+        u = 0.5f; v = 0.5f;
+        
+        for (int iter = 0; iter < 10; iter++) {
+            // バイリニア補間: P(u,v) = (1-u)(1-v)*P0 + u(1-v)*P1 + uv*P2 + (1-u)v*P3
+            float x = (1-u)*(1-v)*vx[0] + u*(1-v)*vx[1] + u*v*vx[2] + (1-u)*v*vx[3];
+            float y = (1-u)*(1-v)*vy[0] + u*(1-v)*vy[1] + u*v*vy[2] + (1-u)*v*vy[3];
+            
+            float dx = px - x;
+            float dy = py - y;
+            
+            if (std::abs(dx) < 0.01f && std::abs(dy) < 0.01f) return true;
+            
+            // ヤコビアン
+            float dxdu = -(1-v)*vx[0] + (1-v)*vx[1] + v*vx[2] - v*vx[3];
+            float dxdv = -(1-u)*vx[0] - u*vx[1] + u*vx[2] + (1-u)*vx[3];
+            float dydu = -(1-v)*vy[0] + (1-v)*vy[1] + v*vy[2] - v*vy[3];
+            float dydv = -(1-u)*vy[0] - u*vy[1] + u*vy[2] + (1-u)*vy[3];
+            
+            float det = dxdu * dydv - dxdv * dydu;
+            if (std::abs(det) < 1e-6f) break;
+            
+            float du = (dydv * dx - dxdv * dy) / det;
+            float dv = (-dydu * dx + dxdu * dy) / det;
+            
+            u += du;
+            v += dv;
+            u = std::clamp(u, 0.0f, 1.0f);
+            v = std::clamp(v, 0.0f, 1.0f);
+        }
+        return (u >= 0 && u <= 1 && v >= 0 && v <= 1);
+    };
+
+    // ビットマップデータを作成
+    std::vector<uint32_t> pixels(bmpW * bmpH, 0);
+    
+    for (int py = 0; py < bmpH; py++) {
+        for (int px = 0; px < bmpW; px++) {
+            float fpx = static_cast<float>(px) + 0.5f;
+            float fpy = static_cast<float>(py) + 0.5f;
+            
+            if (!isInsideQuad(fpx, fpy)) continue;
+            
+            float u, v;
+            if (!pixelToUV(fpx, fpy, u, v)) continue;
+            
+            // バイリニア補間で色を計算
+            float cr = (1-u)*(1-v)*r[0] + u*(1-v)*r[1] + u*v*r[2] + (1-u)*v*r[3];
+            float cg = (1-u)*(1-v)*g[0] + u*(1-v)*g[1] + u*v*g[2] + (1-u)*v*g[3];
+            float cb = (1-u)*(1-v)*b[0] + u*(1-v)*b[1] + u*v*b[2] + (1-u)*v*b[3];
+            
+            uint8_t rb = static_cast<uint8_t>(std::clamp(cr, 0.0f, 255.0f));
+            uint8_t gb = static_cast<uint8_t>(std::clamp(cg, 0.0f, 255.0f));
+            uint8_t bb = static_cast<uint8_t>(std::clamp(cb, 0.0f, 255.0f));
+            
+            // BGRA形式
+            pixels[py * bmpW + px] = 0xFF000000 | (rb << 16) | (gb << 8) | bb;
+        }
+    }
+
+    // D2Dビットマップを作成
+    D2D1_BITMAP_PROPERTIES bmpProps = D2D1::BitmapProperties(
+        D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED)
     );
-
-    // 中央点を計算
-    float centerX = (dstX[0] + dstX[1] + dstX[2] + dstX[3]) / 4.0f;
-    float centerY = (dstY[0] + dstY[1] + dstY[2] + dstY[3]) / 4.0f;
-
-    // 4つの三角形として描画（簡易グラデーション）
-    // 各三角形の中心色を使用
-    ComPtr<ID2D1SolidColorBrush> pTriBrush;
-    HRESULT hr = m_pDeviceContext->CreateSolidColorBrush(D2D1::ColorF(0.0f, 0.0f, 0.0f), pTriBrush.GetAddressOf());
-    if (FAILED(hr)) {
-        if (autoManage) endDrawAndPresent();
-        return;
-    }
-
-    for (int i = 0; i < 4; i++) {
-        int next = (i + 1) % 4;
-
-        // 三角形の色（2頂点と中央の平均）
-        D2D1_COLOR_F triColor = D2D1::ColorF(
-            (vertexColors[i].r + vertexColors[next].r + centerColor.r) / 3.0f,
-            (vertexColors[i].g + vertexColors[next].g + centerColor.g) / 3.0f,
-            (vertexColors[i].b + vertexColors[next].b + centerColor.b) / 3.0f,
-            1.0f
+    
+    ComPtr<ID2D1Bitmap> pBitmap;
+    HRESULT hr = m_pDeviceContext->CreateBitmap(
+        D2D1::SizeU(bmpW, bmpH),
+        pixels.data(),
+        bmpW * sizeof(uint32_t),
+        bmpProps,
+        pBitmap.GetAddressOf()
+    );
+    
+    if (SUCCEEDED(hr)) {
+        m_pDeviceContext->DrawBitmap(
+            pBitmap.Get(),
+            D2D1::RectF(static_cast<float>(minX), static_cast<float>(minY),
+                       static_cast<float>(maxX + 1), static_cast<float>(maxY + 1))
         );
-        pTriBrush->SetColor(triColor);
-
-        ComPtr<ID2D1PathGeometry> pPath;
-        hr = pFactory->CreatePathGeometry(pPath.GetAddressOf());
-        if (FAILED(hr)) continue;
-
-        ComPtr<ID2D1GeometrySink> pSink;
-        hr = pPath->Open(pSink.GetAddressOf());
-        if (FAILED(hr)) continue;
-
-        pSink->BeginFigure(
-            D2D1::Point2F(static_cast<float>(dstX[i]), static_cast<float>(dstY[i])),
-            D2D1_FIGURE_BEGIN_FILLED
-        );
-        pSink->AddLine(D2D1::Point2F(static_cast<float>(dstX[next]), static_cast<float>(dstY[next])));
-        pSink->AddLine(D2D1::Point2F(centerX, centerY));
-        pSink->EndFigure(D2D1_FIGURE_END_CLOSED);
-        pSink->Close();
-
-        m_pDeviceContext->FillGeometry(pPath.Get(), pTriBrush.Get());
     }
 
     // モード1の場合、自動的にendDraw + present

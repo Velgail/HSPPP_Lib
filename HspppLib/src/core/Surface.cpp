@@ -13,6 +13,7 @@ module;
 #include <string>
 #include <string_view>
 #include <cstring>
+#include <algorithm>
 
 #include "Internal.h"
 
@@ -26,6 +27,9 @@ module hsppp;
 
 namespace hsppp {
 namespace internal {
+
+// ラジアンから度への変換用定数
+constexpr double kRadToDeg = 180.0 / 3.14159265358979323846;
 
 // UTF-8文字列をUTF-16(wchar_t)に変換
 std::wstring Utf8ToWide(std::string_view utf8str) {
@@ -690,6 +694,396 @@ bool HspSurface::pget(int x, int y, int& r, int& g, int& b) {
     }
 
     return SUCCEEDED(hr);
+}
+
+void HspSurface::gradf(int x, int y, int w, int h, int mode, int color1, int color2) {
+    if (!m_pDeviceContext) return;
+
+    // モード1の場合、自動的にbeginDraw
+    bool autoManage = (m_redrawMode == 1 && !m_isDrawing);
+    if (autoManage) {
+        beginDraw();
+    }
+    if (!m_isDrawing) return;
+
+    // RGBカラーコードを分解
+    float r1 = ((color1 >> 16) & 0xFF) / 255.0f;
+    float g1 = ((color1 >> 8) & 0xFF) / 255.0f;
+    float b1 = (color1 & 0xFF) / 255.0f;
+    float r2 = ((color2 >> 16) & 0xFF) / 255.0f;
+    float g2 = ((color2 >> 8) & 0xFF) / 255.0f;
+    float b2 = (color2 & 0xFF) / 255.0f;
+
+    D2D1_COLOR_F colorStart = D2D1::ColorF(r1, g1, b1, 1.0f);
+    D2D1_COLOR_F colorEnd = D2D1::ColorF(r2, g2, b2, 1.0f);
+
+    // グラデーションブラシを作成
+    D2D1_GRADIENT_STOP gradientStops[2];
+    gradientStops[0].color = colorStart;
+    gradientStops[0].position = 0.0f;
+    gradientStops[1].color = colorEnd;
+    gradientStops[1].position = 1.0f;
+
+    ComPtr<ID2D1GradientStopCollection> pGradientStops;
+    HRESULT hr = m_pDeviceContext->CreateGradientStopCollection(
+        gradientStops,
+        2,
+        D2D1_GAMMA_2_2,
+        D2D1_EXTEND_MODE_CLAMP,
+        pGradientStops.GetAddressOf()
+    );
+    if (FAILED(hr)) {
+        if (autoManage) endDrawAndPresent();
+        return;
+    }
+
+    D2D1_POINT_2F startPoint, endPoint;
+    if (mode == 0) {
+        // 横方向のグラデーション（左から右）
+        startPoint = D2D1::Point2F(static_cast<float>(x), static_cast<float>(y));
+        endPoint = D2D1::Point2F(static_cast<float>(x + w), static_cast<float>(y));
+    } else {
+        // 縦方向のグラデーション（上から下）
+        startPoint = D2D1::Point2F(static_cast<float>(x), static_cast<float>(y));
+        endPoint = D2D1::Point2F(static_cast<float>(x), static_cast<float>(y + h));
+    }
+
+    ComPtr<ID2D1LinearGradientBrush> pGradientBrush;
+    hr = m_pDeviceContext->CreateLinearGradientBrush(
+        D2D1::LinearGradientBrushProperties(startPoint, endPoint),
+        pGradientStops.Get(),
+        pGradientBrush.GetAddressOf()
+    );
+    if (FAILED(hr)) {
+        if (autoManage) endDrawAndPresent();
+        return;
+    }
+
+    // 矩形を描画
+    D2D1_RECT_F rect = D2D1::RectF(
+        static_cast<float>(x),
+        static_cast<float>(y),
+        static_cast<float>(x + w),
+        static_cast<float>(y + h)
+    );
+    m_pDeviceContext->FillRectangle(rect, pGradientBrush.Get());
+
+    // モード1の場合、自動的にendDraw + present
+    if (autoManage) {
+        endDrawAndPresent();
+    }
+}
+
+void HspSurface::grect(int cx, int cy, double angle, int w, int h) {
+    if (!m_pDeviceContext || !m_pBrush) return;
+
+    // モード1の場合、自動的にbeginDraw
+    bool autoManage = (m_redrawMode == 1 && !m_isDrawing);
+    if (autoManage) {
+        beginDraw();
+    }
+    if (!m_isDrawing) return;
+
+    // 回転変換を適用
+    float centerX = static_cast<float>(cx);
+    float centerY = static_cast<float>(cy);
+    float halfW = static_cast<float>(w) / 2.0f;
+    float halfH = static_cast<float>(h) / 2.0f;
+
+    // 現在の変換を保存
+    D2D1_MATRIX_3X2_F oldTransform;
+    m_pDeviceContext->GetTransform(&oldTransform);
+
+    // 回転変換を設定（中心を指定）
+    float angleInDegrees = static_cast<float>(angle * kRadToDeg);
+    D2D1_MATRIX_3X2_F rotationMatrix = D2D1::Matrix3x2F::Rotation(
+        angleInDegrees,
+        D2D1::Point2F(centerX, centerY)
+    );
+    m_pDeviceContext->SetTransform(rotationMatrix * oldTransform);
+
+    // 矩形を描画（中心を基準に）
+    D2D1_RECT_F rect = D2D1::RectF(
+        centerX - halfW,
+        centerY - halfH,
+        centerX + halfW,
+        centerY + halfH
+    );
+    m_pDeviceContext->FillRectangle(rect, m_pBrush.Get());
+
+    // 変換を元に戻す
+    m_pDeviceContext->SetTransform(oldTransform);
+
+    // モード1の場合、自動的にendDraw + present
+    if (autoManage) {
+        endDrawAndPresent();
+    }
+}
+
+void HspSurface::grotate(ID2D1Bitmap1* pSrcBitmap, int srcX, int srcY, int srcW, int srcH, double angle, int dstW, int dstH) {
+    if (!m_pDeviceContext || !pSrcBitmap) return;
+
+    // モード1の場合、自動的にbeginDraw
+    bool autoManage = (m_redrawMode == 1 && !m_isDrawing);
+    if (autoManage) {
+        beginDraw();
+    }
+    if (!m_isDrawing) return;
+
+    // コピー先は現在のpos位置を中心とする
+    float centerX = static_cast<float>(m_currentX);
+    float centerY = static_cast<float>(m_currentY);
+    float halfW = static_cast<float>(dstW) / 2.0f;
+    float halfH = static_cast<float>(dstH) / 2.0f;
+
+    // 現在の変換を保存
+    D2D1_MATRIX_3X2_F oldTransform;
+    m_pDeviceContext->GetTransform(&oldTransform);
+
+    // 回転変換を設定（中心を指定）
+    float angleInDegrees = static_cast<float>(angle * kRadToDeg);
+    D2D1_MATRIX_3X2_F rotationMatrix = D2D1::Matrix3x2F::Rotation(
+        angleInDegrees,
+        D2D1::Point2F(centerX, centerY)
+    );
+    m_pDeviceContext->SetTransform(rotationMatrix * oldTransform);
+
+    // コピー元とコピー先の矩形
+    D2D1_RECT_F srcRect = D2D1::RectF(
+        static_cast<float>(srcX),
+        static_cast<float>(srcY),
+        static_cast<float>(srcX + srcW),
+        static_cast<float>(srcY + srcH)
+    );
+    D2D1_RECT_F dstRect = D2D1::RectF(
+        centerX - halfW,
+        centerY - halfH,
+        centerX + halfW,
+        centerY + halfH
+    );
+
+    // 画像を描画
+    m_pDeviceContext->DrawBitmap(
+        pSrcBitmap,
+        dstRect,
+        1.0f,
+        D2D1_BITMAP_INTERPOLATION_MODE_LINEAR,
+        srcRect
+    );
+
+    // 変換を元に戻す
+    m_pDeviceContext->SetTransform(oldTransform);
+
+    // モード1の場合、自動的にendDraw + present
+    if (autoManage) {
+        endDrawAndPresent();
+    }
+}
+
+void HspSurface::gsquare(const int (&dstX)[4], const int (&dstY)[4], ID2D1Bitmap1* pSrcBitmap, const int* srcX, const int* srcY) {
+    if (!m_pDeviceContext) return;
+
+    // モード1の場合、自動的にbeginDraw
+    bool autoManage = (m_redrawMode == 1 && !m_isDrawing);
+    if (autoManage) {
+        beginDraw();
+    }
+    if (!m_isDrawing) return;
+
+    // 塗りつぶしモード（pSrcBitmap == nullptr）
+    if (!pSrcBitmap) {
+        // パスジオメトリを作成
+        auto pFactory = D2DDeviceManager::getInstance().getFactory();
+        if (!pFactory) {
+            if (autoManage) endDrawAndPresent();
+            return;
+        }
+
+        ComPtr<ID2D1PathGeometry> pPath;
+        HRESULT hr = pFactory->CreatePathGeometry(pPath.GetAddressOf());
+        if (FAILED(hr)) {
+            if (autoManage) endDrawAndPresent();
+            return;
+        }
+
+        ComPtr<ID2D1GeometrySink> pSink;
+        hr = pPath->Open(pSink.GetAddressOf());
+        if (FAILED(hr)) {
+            if (autoManage) endDrawAndPresent();
+            return;
+        }
+
+        // 四角形のパスを構築（左上から時計回り）
+        pSink->BeginFigure(
+            D2D1::Point2F(static_cast<float>(dstX[0]), static_cast<float>(dstY[0])),
+            D2D1_FIGURE_BEGIN_FILLED
+        );
+        pSink->AddLine(D2D1::Point2F(static_cast<float>(dstX[1]), static_cast<float>(dstY[1])));
+        pSink->AddLine(D2D1::Point2F(static_cast<float>(dstX[2]), static_cast<float>(dstY[2])));
+        pSink->AddLine(D2D1::Point2F(static_cast<float>(dstX[3]), static_cast<float>(dstY[3])));
+        pSink->EndFigure(D2D1_FIGURE_END_CLOSED);
+        pSink->Close();
+
+        m_pDeviceContext->FillGeometry(pPath.Get(), m_pBrush.Get());
+    } else {
+        // 画像コピーモード（アフィン変換で近似）
+        // Direct2Dでは任意の四角形へのマッピングは直接サポートされないため、
+        // ソース矩形からデスティネーション矩形へのアフィン変換で近似
+        if (!srcX || !srcY) {
+            if (autoManage) endDrawAndPresent();
+            return;
+        }
+
+        // ソースのバウンディングボックスを計算
+        float srcMinX = static_cast<float>((std::min)({srcX[0], srcX[1], srcX[2], srcX[3]}));
+        float srcMinY = static_cast<float>((std::min)({srcY[0], srcY[1], srcY[2], srcY[3]}));
+        float srcMaxX = static_cast<float>((std::max)({srcX[0], srcX[1], srcX[2], srcX[3]}));
+        float srcMaxY = static_cast<float>((std::max)({srcY[0], srcY[1], srcY[2], srcY[3]}));
+        float srcW = srcMaxX - srcMinX;
+        float srcH = srcMaxY - srcMinY;
+
+        // デスティネーションのバウンディングボックスを計算
+        float dstMinX = static_cast<float>((std::min)({dstX[0], dstX[1], dstX[2], dstX[3]}));
+        float dstMinY = static_cast<float>((std::min)({dstY[0], dstY[1], dstY[2], dstY[3]}));
+        float dstMaxX = static_cast<float>((std::max)({dstX[0], dstX[1], dstX[2], dstX[3]}));
+        float dstMaxY = static_cast<float>((std::max)({dstY[0], dstY[1], dstY[2], dstY[3]}));
+        float dstW = dstMaxX - dstMinX;
+        float dstH = dstMaxY - dstMinY;
+
+        if (srcW <= 0 || srcH <= 0 || dstW <= 0 || dstH <= 0) {
+            if (autoManage) endDrawAndPresent();
+            return;
+        }
+
+        // 現在の変換を保存
+        D2D1_MATRIX_3X2_F oldTransform;
+        m_pDeviceContext->GetTransform(&oldTransform);
+
+        // ソースの中心とデスティネーションの中心を計算
+        float srcCenterX = (srcMinX + srcMaxX) / 2.0f;
+        float srcCenterY = (srcMinY + srcMaxY) / 2.0f;
+        float dstCenterX = (dstMinX + dstMaxX) / 2.0f;
+        float dstCenterY = (dstMinY + dstMaxY) / 2.0f;
+
+        // スケール変換を計算
+        float scaleX = dstW / srcW;
+        float scaleY = dstH / srcH;
+
+        // 変換行列を構築（スケールと平行移動）
+        // ソース中心を原点に移動 → スケール → デスティネーション中心に移動
+        D2D1_MATRIX_3X2_F transform = D2D1::Matrix3x2F::Translation(-srcCenterX, -srcCenterY)
+            * D2D1::Matrix3x2F::Scale(scaleX, scaleY)
+            * D2D1::Matrix3x2F::Translation(dstCenterX, dstCenterY);
+
+        m_pDeviceContext->SetTransform(transform * oldTransform);
+
+        // ソース矩形
+        D2D1_RECT_F srcRect = D2D1::RectF(srcMinX, srcMinY, srcMaxX, srcMaxY);
+        // デスティネーション矩形（変換前の座標系なのでソースと同じ）
+        D2D1_RECT_F destRect = srcRect;
+
+        m_pDeviceContext->DrawBitmap(
+            pSrcBitmap,
+            destRect,
+            1.0f,
+            D2D1_BITMAP_INTERPOLATION_MODE_LINEAR,
+            srcRect
+        );
+
+        // 変換を元に戻す
+        m_pDeviceContext->SetTransform(oldTransform);
+    }
+    
+    // モード1の場合、自動的にendDraw + present
+    if (autoManage) {
+        endDrawAndPresent();
+    }
+}
+
+void HspSurface::gsquareGrad(const int (&dstX)[4], const int (&dstY)[4], const int (&colors)[4]) {
+    if (!m_pDeviceContext) return;
+
+    // モード1の場合、自動的にbeginDraw
+    bool autoManage = (m_redrawMode == 1 && !m_isDrawing);
+    if (autoManage) {
+        beginDraw();
+    }
+    if (!m_isDrawing) return;
+
+    // Direct2Dでは4頂点グラデーションが直接サポートされないため、
+    // 4つの三角形に分割して描画する簡易実装
+    auto pFactory = D2DDeviceManager::getInstance().getFactory();
+    if (!pFactory) {
+        if (autoManage) endDrawAndPresent();
+        return;
+    }
+
+    // 4頂点の色
+    D2D1_COLOR_F vertexColors[4];
+    for (int i = 0; i < 4; i++) {
+        float r = ((colors[i] >> 16) & 0xFF) / 255.0f;
+        float g = ((colors[i] >> 8) & 0xFF) / 255.0f;
+        float b = (colors[i] & 0xFF) / 255.0f;
+        vertexColors[i] = D2D1::ColorF(r, g, b, 1.0f);
+    }
+
+    // 中央の色を計算（平均）
+    D2D1_COLOR_F centerColor = D2D1::ColorF(
+        (vertexColors[0].r + vertexColors[1].r + vertexColors[2].r + vertexColors[3].r) / 4.0f,
+        (vertexColors[0].g + vertexColors[1].g + vertexColors[2].g + vertexColors[3].g) / 4.0f,
+        (vertexColors[0].b + vertexColors[1].b + vertexColors[2].b + vertexColors[3].b) / 4.0f,
+        1.0f
+    );
+
+    // 中央点を計算
+    float centerX = (dstX[0] + dstX[1] + dstX[2] + dstX[3]) / 4.0f;
+    float centerY = (dstY[0] + dstY[1] + dstY[2] + dstY[3]) / 4.0f;
+
+    // 4つの三角形として描画（簡易グラデーション）
+    // 各三角形の中心色を使用
+    ComPtr<ID2D1SolidColorBrush> pTriBrush;
+    HRESULT hr = m_pDeviceContext->CreateSolidColorBrush(D2D1::ColorF(0.0f, 0.0f, 0.0f), pTriBrush.GetAddressOf());
+    if (FAILED(hr)) {
+        if (autoManage) endDrawAndPresent();
+        return;
+    }
+
+    for (int i = 0; i < 4; i++) {
+        int next = (i + 1) % 4;
+
+        // 三角形の色（2頂点と中央の平均）
+        D2D1_COLOR_F triColor = D2D1::ColorF(
+            (vertexColors[i].r + vertexColors[next].r + centerColor.r) / 3.0f,
+            (vertexColors[i].g + vertexColors[next].g + centerColor.g) / 3.0f,
+            (vertexColors[i].b + vertexColors[next].b + centerColor.b) / 3.0f,
+            1.0f
+        );
+        pTriBrush->SetColor(triColor);
+
+        ComPtr<ID2D1PathGeometry> pPath;
+        hr = pFactory->CreatePathGeometry(pPath.GetAddressOf());
+        if (FAILED(hr)) continue;
+
+        ComPtr<ID2D1GeometrySink> pSink;
+        hr = pPath->Open(pSink.GetAddressOf());
+        if (FAILED(hr)) continue;
+
+        pSink->BeginFigure(
+            D2D1::Point2F(static_cast<float>(dstX[i]), static_cast<float>(dstY[i])),
+            D2D1_FIGURE_BEGIN_FILLED
+        );
+        pSink->AddLine(D2D1::Point2F(static_cast<float>(dstX[next]), static_cast<float>(dstY[next])));
+        pSink->AddLine(D2D1::Point2F(centerX, centerY));
+        pSink->EndFigure(D2D1_FIGURE_END_CLOSED);
+        pSink->Close();
+
+        m_pDeviceContext->FillGeometry(pPath.Get(), pTriBrush.Get());
+    }
+
+    // モード1の場合、自動的にendDraw + present
+    if (autoManage) {
+        endDrawAndPresent();
+    }
 }
 
 // ========== HspWindow 実装 ==========

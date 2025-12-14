@@ -57,6 +57,63 @@ Screen& Screen::color(int r, int g, int b) {
 }
 ```
 
+### 非安全コーディングの禁止
+
+HSPPP「利用者」が、非安全コーディングを使うことを強制することは一切行わない原則。
+例えば生ポインターでの受け渡しなど。
+
+ライブラリは標準機能が非安全コーディングのものをできる限り安全に使えるように取り計らうことが責務である。
+
+### assert の使用禁止
+
+`assert` マクロは使用しないこと。理由：
+
+- `assert` はデバッグビルドでのみ有効で、リリースビルドでは保護されない
+- ユーザーが気づかないうちに未定義動作を引き起こす可能性がある
+
+代わりに以下を使用すること：
+
+- **コンパイル時チェック**: `static_assert` を使用
+- **実行時チェック**: `HspError` または `std::out_of_range` などの例外をスロー
+
+```cpp
+// NG: assert は使用禁止
+assert(i < size && "index out of range");
+
+// OK: 例外による境界チェック
+if (i >= size) throw std::out_of_range("index out of range");
+
+// OK: コンパイル時チェック
+static_assert(sizeof(T) == 4, "T must be 4 bytes");
+```
+
+### 例外とエラーハンドリング
+
+ライブラリ関数では以下の方針でエラー処理を行うこと：
+
+1. **ライブラリ関数内では `HspError` を使用**
+   - `std::source_location` を受け取り、ユーザーコードの場所を記録
+   - `onerror` ハンドラで処理可能
+
+2. **データ構造体（Quad等）では `std::out_of_range` を使用**
+   - `source_location` を取得できない場合は標準例外を使用
+   - WinMain.cpp で `HspError` に変換されて `onerror` で処理される
+
+```cpp
+// ライブラリ関数: source_location を受け取れるので HspError を使用
+void color(int r, int g, int b, const std::source_location& location) {
+    if (r < 0 || r > 255) {
+        throw HspError(ERR_OUT_OF_RANGE, "colorの値は0~255の範囲で", location);
+    }
+}
+
+// データ構造体: source_location が取れないので標準例外
+constexpr Point2i& operator[](size_t i) {
+    if (i >= vertex_count) throw std::out_of_range("Quad index out of range");
+    return v[i];
+}
+```
+
 ---
 
 ## ビルド手順

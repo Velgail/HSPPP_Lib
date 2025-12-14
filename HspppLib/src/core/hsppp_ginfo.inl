@@ -221,6 +221,17 @@ namespace hsppp {
         int p2 = style.value_or(0);
         // p3 (decorationWidth) は現在未使用（mes命令のオプションで使用予定）
 
+        // パラメータ範囲チェック
+        if (p1 <= 0) {
+            throw HspError(ERR_OUT_OF_RANGE, "fontのサイズは正の値を指定してください", location);
+        }
+        if (p1 > 10000) {
+            throw HspError(ERR_OUT_OF_RANGE, "fontのサイズが大きすぎます（10000以下）", location);
+        }
+        if (p2 < 0 || p2 > 31) {
+            throw HspError(ERR_OUT_OF_RANGE, "fontのスタイルは0～31の範囲で指定してください", location);
+        }
+
         bool success = currentSurface->font(fontName, p1, p2);
         // エラーを握りつぶす（HSP互換）
         (void)success;
@@ -234,6 +245,13 @@ namespace hsppp {
         if (!currentSurface) return;
 
         int p1 = type.value_or(0);
+
+        // パラメータ範囲チェック (0, 10-17が有効)
+        bool validType = (p1 == 0) || (p1 >= 10 && p1 <= 17);
+        if (!validType) {
+            throw HspError(ERR_OUT_OF_RANGE, "sysfontのtypeは0または10～17の範囲で指定してください", location);
+        }
+
         currentSurface->sysfont(p1);
     }
 

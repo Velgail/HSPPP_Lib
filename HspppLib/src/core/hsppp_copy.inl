@@ -55,10 +55,26 @@ namespace hsppp {
     // gmode - 画面コピーモード設定（HSP互換）
     // ============================================================
     void gmode(OptInt mode, OptInt size_x, OptInt size_y, OptInt blend_rate, const std::source_location& location) {
-        g_gmodeMode = mode.value_or(0);
-        g_gmodeSizeX = size_x.value_or(32);
-        g_gmodeSizeY = size_y.value_or(32);
-        g_gmodeBlendRate = blend_rate.value_or(0);
+        int m = mode.value_or(0);
+        int sx = size_x.value_or(32);
+        int sy = size_y.value_or(32);
+        int br = blend_rate.value_or(0);
+
+        // パラメータ範囲チェック
+        if (m < 0 || m > 6) {
+            throw HspError(ERR_OUT_OF_RANGE, "gmodeのモードは0～6の範囲で指定してください", location);
+        }
+        if (sx <= 0 || sy <= 0) {
+            throw HspError(ERR_OUT_OF_RANGE, "gmodeのサイズは正の値を指定してください", location);
+        }
+        if (br < 0 || br > 256) {
+            throw HspError(ERR_OUT_OF_RANGE, "gmodeのブレンド率は0～256の範囲で指定してください", location);
+        }
+
+        g_gmodeMode = m;
+        g_gmodeSizeX = sx;
+        g_gmodeSizeY = sy;
+        g_gmodeBlendRate = br;
     }
 
     // ============================================================

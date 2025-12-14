@@ -133,6 +133,25 @@ public:
     void pset(int x, int y);
     bool pget(int x, int y, int& r, int& g, int& b);
 
+    // 拡張描画命令
+    void gradf(int x, int y, int w, int h, int mode, int color1, int color2);
+    void grect(int cx, int cy, double angle, int w, int h);
+    void grotate(ID2D1Bitmap1* pSrcBitmap, int srcX, int srcY, int srcW, int srcH, double angle, int dstW, int dstH);
+    
+    /// @brief 任意の四角形を描画（単色塗りつぶしまたは画像コピー）
+    /// @param dstX コピー先X座標配列（4要素参照）
+    /// @param dstY コピー先Y座標配列（4要素参照）
+    /// @param pSrcBitmap コピー元ビットマップ（nullptrの場合は塗りつぶし）
+    /// @param srcX コピー元X座標配列（画像コピー時は必須）
+    /// @param srcY コピー元Y座標配列（画像コピー時は必須）
+    void gsquare(const int (&dstX)[4], const int (&dstY)[4], ID2D1Bitmap1* pSrcBitmap, const int* srcX, const int* srcY);
+    
+    /// @brief 任意の四角形をグラデーション塗りつぶし
+    /// @param dstX コピー先X座標配列（4要素参照）
+    /// @param dstY コピー先Y座標配列（4要素参照）
+    /// @param colors 頂点の色配列（4要素参照）
+    void gsquareGrad(const int (&dstX)[4], const int (&dstY)[4], const int (&colors)[4]);
+
     // フォント設定
     bool font(std::string_view fontName, int size, int style);
     bool sysfont(int type);

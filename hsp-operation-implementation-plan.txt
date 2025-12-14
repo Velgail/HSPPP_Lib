@@ -50,10 +50,10 @@ HSP操作リスト - 実装計画
 ✓ [P2] celdiv          画像素材の分割サイズを設定
 ✓ [P2] bmpsave         画面イメージセーブ
 
-○ [P3] gradf           矩形をグラデーションで塗りつぶす
-○ [P3] grect           回転する矩形で塗りつぶす
-○ [P3] grotate         矩形画像を回転してコピー
-○ [P3] gsquare         任意の四角形を描画
+✓ [P3] gradf           矩形をグラデーションで塗りつぶす
+✓ [P3] grect           回転する矩形で塗りつぶす
+✓ [P3] grotate         矩形画像を回転してコピー
+✓ [P3] gsquare         任意の四角形を描画
 ✓ [P3] groll           ウィンドウの描画基点とスケールを設定
 
 × [--] axobj           ActiveXコントロールの配置（COM/ActiveX依存）
@@ -66,7 +66,7 @@ HSP操作リスト - 実装計画
 × [--] palette         パレット設定（256色モード非対応）
 ✓ [P2] syscolor        システムカラーを設定する
 
-○ [P3] print           メッセージ表示（mes互換・改行付き）
+✓ [P3] print           メッセージ表示（mes互換・改行付き）
 ○ [P3] sendmsg         ウィンドウメッセージの送信
 
 ○ [P4] dialog          ダイアログを開く
@@ -134,7 +134,7 @@ HSP操作リスト - 実装計画
 ✓ [P2] M_SQRT3         √3 (std::numbers::sqrt3)
 ✓ [P2] M_SQRTPI        √π (std::numbers::inv_sqrtpi)
 
-○ [P2] gettime         時間・日付を取得する
+✓ [P2] gettime         時間・日付を取得する
 ○ [P2] sysinfo         システム情報の取得
 ○ [P2] dirinfo         ディレクトリ情報の取得
 

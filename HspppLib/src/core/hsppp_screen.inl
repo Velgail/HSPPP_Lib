@@ -183,6 +183,22 @@ namespace hsppp {
         return *this;
     }
 
+    Screen& Screen::gradf(int x, int y, int w, int h, int mode, int color1, int color2) {
+        auto surface = getSurfaceById(m_id);
+        if (surface) {
+            surface->gradf(x, y, w, h, mode, color1, color2);
+        }
+        return *this;
+    }
+
+    Screen& Screen::grect(int cx, int cy, double angle, int w, int h) {
+        auto surface = getSurfaceById(m_id);
+        if (surface) {
+            surface->grect(cx, cy, angle, w, h);
+        }
+        return *this;
+    }
+
     Screen& Screen::font(std::string_view fontName, int size, int style) {
         auto surface = getSurfaceById(m_id);
         if (surface) {

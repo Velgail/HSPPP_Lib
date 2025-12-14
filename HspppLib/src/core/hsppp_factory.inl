@@ -22,6 +22,14 @@ namespace hsppp {
     ) {
         using namespace internal;
 
+        // パラメータ範囲チェック
+        if (width <= 0 || height <= 0) {
+            throw HspError(ERR_OUT_OF_RANGE, "screenのサイズは正の値を指定してください", std::source_location::current());
+        }
+        if (width > 16384 || height > 16384) {
+            throw HspError(ERR_OUT_OF_RANGE, "screenのサイズが大きすぎます（16384以下）", std::source_location::current());
+        }
+
         // 既存のサーフェスを削除
         if (g_surfaces.find(id) != g_surfaces.end()) {
             g_surfaces.erase(id);
@@ -157,6 +165,14 @@ namespace hsppp {
     static Screen createBufferInternal(int id, int width, int height, int mode) {
         using namespace internal;
 
+        // パラメータ範囲チェック
+        if (width <= 0 || height <= 0) {
+            throw HspError(ERR_OUT_OF_RANGE, "bufferのサイズは正の値を指定してください", std::source_location::current());
+        }
+        if (width > 16384 || height > 16384) {
+            throw HspError(ERR_OUT_OF_RANGE, "bufferのサイズが大きすぎます（16384以下）", std::source_location::current());
+        }
+
         // 既存のサーフェスがある場合の処理
         // HSPでは既存のIDに対してbuffer()を呼ぶと上書きされる（エラーではない）
         auto it = g_surfaces.find(id);
@@ -220,6 +236,14 @@ namespace hsppp {
         int client_h
     ) {
         using namespace internal;
+
+        // パラメータ範囲チェック
+        if (width <= 0 || height <= 0) {
+            throw HspError(ERR_OUT_OF_RANGE, "bgscrのサイズは正の値を指定してください", std::source_location::current());
+        }
+        if (width > 16384 || height > 16384) {
+            throw HspError(ERR_OUT_OF_RANGE, "bgscrのサイズが大きすぎます（16384以下）", std::source_location::current());
+        }
 
         // 既存のサーフェスを削除
         if (g_surfaces.find(id) != g_surfaces.end()) {

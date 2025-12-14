@@ -151,6 +151,168 @@ namespace hsppp {
 
 
     // ============================================================
+    // Quad構造体 - gsquare用の4頂点座標（HSP互換）
+    // ============================================================
+    // HSPのgsquare命令では、4頂点を配列で指定する:
+    //   gsquare srcId, dstX, dstY, srcX, srcY
+    // C++では型安全な構造体で表現する。
+    // 
+    // 使用例:
+    //   Quad dst = {{0, 0}, {100, 0}, {100, 100}, {0, 100}};
+    //   gsquare(-1, dst);  // 単色塗りつぶし
+    //
+    //   QuadUV src = {{0, 0}, {32, 0}, {32, 32}, {0, 32}};
+    //   gsquare(0, dst, src);  // 画像コピー
+    //
+    //   QuadColors colors = {0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00};
+    //   gsquare(gsquare_grad, dst, colors);  // グラデーション
+    // ============================================================
+
+    /// @brief 2次元座標（gsquare頂点用）
+    export struct Point2i {
+        int x = 0;
+        int y = 0;
+        
+        constexpr Point2i() noexcept = default;
+        constexpr Point2i(int px, int py) noexcept : x(px), y(py) {}
+    };
+
+    /// @brief 4頂点座標（gsquareコピー先用）
+    /// @details 頂点順序: 左上, 右上, 右下, 左下（時計回り）
+    export struct Quad {
+        static constexpr size_t vertex_count = 4;
+        Point2i v[vertex_count];
+
+        constexpr Quad() noexcept = default;
+        
+        /// @brief 4つのPoint2iで初期化
+        constexpr Quad(Point2i p0, Point2i p1, Point2i p2, Point2i p3) noexcept
+            : v{p0, p1, p2, p3} {}
+
+        /// @brief 直接座標で初期化（HSP互換の配列順）
+        constexpr Quad(int x0, int y0, int x1, int y1, int x2, int y2, int x3, int y3) noexcept
+            : v{{x0, y0}, {x1, y1}, {x2, y2}, {x3, y3}} {}
+
+        /// @brief インデックスアクセス（境界チェック付き）
+        /// @throws std::out_of_range インデックスが範囲外の場合
+        constexpr Point2i& operator[](size_t i) {
+            if (i >= vertex_count) throw std::out_of_range("Quad index out of range");
+            return v[i];
+        }
+        constexpr const Point2i& operator[](size_t i) const {
+            if (i >= vertex_count) throw std::out_of_range("Quad index out of range");
+            return v[i];
+        }
+
+        /// @brief 境界チェック付きアクセス（operator[]と同等）
+        constexpr Point2i& at(size_t i) {
+            if (i >= vertex_count) throw std::out_of_range("Quad index out of range");
+            return v[i];
+        }
+        constexpr const Point2i& at(size_t i) const {
+            if (i >= vertex_count) throw std::out_of_range("Quad index out of range");
+            return v[i];
+        }
+
+        /// @brief 要素数を取得
+        [[nodiscard]] static constexpr size_t size() noexcept { return vertex_count; }
+
+        /// @brief イテレータサポート（範囲ベースfor用）
+        constexpr Point2i* begin() noexcept { return v; }
+        constexpr Point2i* end() noexcept { return v + vertex_count; }
+        constexpr const Point2i* begin() const noexcept { return v; }
+        constexpr const Point2i* end() const noexcept { return v + vertex_count; }
+    };
+
+    /// @brief 4頂点UV座標（gsquareコピー元用）
+    /// @details Quadと同じ構造だが、意味的に区別するために別型
+    export struct QuadUV {
+        static constexpr size_t vertex_count = 4;
+        Point2i v[vertex_count];
+
+        constexpr QuadUV() noexcept = default;
+        
+        constexpr QuadUV(Point2i p0, Point2i p1, Point2i p2, Point2i p3) noexcept
+            : v{p0, p1, p2, p3} {}
+
+        constexpr QuadUV(int x0, int y0, int x1, int y1, int x2, int y2, int x3, int y3) noexcept
+            : v{{x0, y0}, {x1, y1}, {x2, y2}, {x3, y3}} {}
+
+        /// @brief インデックスアクセス（境界チェック付き）
+        /// @throws std::out_of_range インデックスが範囲外の場合
+        constexpr Point2i& operator[](size_t i) {
+            if (i >= vertex_count) throw std::out_of_range("QuadUV index out of range");
+            return v[i];
+        }
+        constexpr const Point2i& operator[](size_t i) const {
+            if (i >= vertex_count) throw std::out_of_range("QuadUV index out of range");
+            return v[i];
+        }
+
+        /// @brief 境界チェック付きアクセス（operator[]と同等）
+        constexpr Point2i& at(size_t i) {
+            if (i >= vertex_count) throw std::out_of_range("QuadUV index out of range");
+            return v[i];
+        }
+        constexpr const Point2i& at(size_t i) const {
+            if (i >= vertex_count) throw std::out_of_range("QuadUV index out of range");
+            return v[i];
+        }
+
+        /// @brief 要素数を取得
+        [[nodiscard]] static constexpr size_t size() noexcept { return vertex_count; }
+
+        /// @brief イテレータサポート（範囲ベースfor用）
+        constexpr Point2i* begin() noexcept { return v; }
+        constexpr Point2i* end() noexcept { return v + vertex_count; }
+        constexpr const Point2i* begin() const noexcept { return v; }
+        constexpr const Point2i* end() const noexcept { return v + vertex_count; }
+    };
+
+    /// @brief 4頂点カラー（gsquareグラデーション用）
+    /// @details RGBカラーコード（0xRRGGBB形式）を4頂点分保持
+    export struct QuadColors {
+        static constexpr size_t color_count = 4;
+        int colors[color_count];
+
+        constexpr QuadColors() noexcept : colors{0, 0, 0, 0} {}
+        
+        constexpr QuadColors(int c0, int c1, int c2, int c3) noexcept
+            : colors{c0, c1, c2, c3} {}
+
+        /// @brief インデックスアクセス（境界チェック付き）
+        /// @throws std::out_of_range インデックスが範囲外の場合
+        constexpr int& operator[](size_t i) {
+            if (i >= color_count) throw std::out_of_range("QuadColors index out of range");
+            return colors[i];
+        }
+        constexpr const int& operator[](size_t i) const {
+            if (i >= color_count) throw std::out_of_range("QuadColors index out of range");
+            return colors[i];
+        }
+
+        /// @brief 境界チェック付きアクセス（operator[]と同等）
+        constexpr int& at(size_t i) {
+            if (i >= color_count) throw std::out_of_range("QuadColors index out of range");
+            return colors[i];
+        }
+        constexpr const int& at(size_t i) const {
+            if (i >= color_count) throw std::out_of_range("QuadColors index out of range");
+            return colors[i];
+        }
+
+        /// @brief 要素数を取得
+        [[nodiscard]] static constexpr size_t size() noexcept { return color_count; }
+
+        /// @brief イテレータサポート（範囲ベースfor用）
+        constexpr int* begin() noexcept { return colors; }
+        constexpr int* end() noexcept { return colors + color_count; }
+        constexpr const int* begin() const noexcept { return colors; }
+        constexpr const int* end() const noexcept { return colors + color_count; }
+    };
+
+
+    // ============================================================
     // 割り込みハンドラ型定義（Screen クラスより前に定義が必要）
     // ============================================================
 
@@ -323,6 +485,26 @@ namespace hsppp {
         /// @brief カレントポジションの色を取得し、選択色として設定
         /// @return *this（メソッドチェーン用）
         Screen& pget();
+
+        /// @brief 矩形をグラデーションで塗りつぶす（OOP版）
+        /// @param x 矩形の左上X座標
+        /// @param y 矩形の左上Y座標
+        /// @param w 矩形のXサイズ
+        /// @param h 矩形のYサイズ
+        /// @param mode グラデーションのモード (0=横方向, 1=縦方向)
+        /// @param color1 塗りつぶし色1 (RGBカラーコード)
+        /// @param color2 塗りつぶし色2 (RGBカラーコード)
+        /// @return *this（メソッドチェーン用）
+        Screen& gradf(int x, int y, int w, int h, int mode, int color1, int color2);
+
+        /// @brief 回転する矩形で塗りつぶす（OOP版）
+        /// @param cx 矩形の中心X座標
+        /// @param cy 矩形の中心Y座標
+        /// @param angle 回転角度（ラジアン）
+        /// @param w Xサイズ
+        /// @param h Yサイズ
+        /// @return *this（メソッドチェーン用）
+        Screen& grect(int cx, int cy, double angle, int w, int h);
 
         /// @brief 幅を取得
         [[nodiscard]] int width() const;
@@ -648,6 +830,92 @@ namespace hsppp {
     /// @param y 画面上のY座標 (省略時=カレントポジション)
     /// @note 取得した色はginfo(16/17/18)またはginfo_r/g/bで参照可能
     export void pget(OptInt x = {}, OptInt y = {}, const std::source_location& location = std::source_location::current());
+
+    // ============================================================
+    // gradf - 矩形をグラデーションで塗りつぶす（HSP互換）
+    // ============================================================
+    /// @brief 矩形をグラデーションで塗りつぶす
+    /// @param x 矩形の左上X座標 (省略時=0)
+    /// @param y 矩形の左上Y座標 (省略時=0)
+    /// @param w 矩形のXサイズ (省略時=画面サイズ)
+    /// @param h 矩形のYサイズ (省略時=画面サイズ)
+    /// @param mode グラデーションのモード (0=横方向, 1=縦方向)
+    /// @param color1 塗りつぶし色1 (RGBカラーコード $rrggbb形式)
+    /// @param color2 塗りつぶし色2 (RGBカラーコード $rrggbb形式)
+    export void gradf(OptInt x = {}, OptInt y = {}, OptInt w = {}, OptInt h = {}, OptInt mode = {}, OptInt color1 = {}, OptInt color2 = {}, const std::source_location& location = std::source_location::current());
+
+    // ============================================================
+    // grect - 回転する矩形で塗りつぶす（HSP互換）
+    // ============================================================
+    /// @brief 回転する矩形で塗りつぶす
+    /// @param cx 矩形の中心X座標
+    /// @param cy 矩形の中心Y座標
+    /// @param angle 回転角度（ラジアン）
+    /// @param w Xサイズ (省略時=gmodeで設定したサイズ)
+    /// @param h Yサイズ (省略時=gmodeで設定したサイズ)
+    export void grect(OptInt cx = {}, OptInt cy = {}, OptDouble angle = {}, OptInt w = {}, OptInt h = {}, const std::source_location& location = std::source_location::current());
+
+    // ============================================================
+    // grotate - 矩形画像を回転してコピー（HSP互換）
+    // ============================================================
+    /// @brief 矩形画像を回転してコピー
+    /// @param srcId コピー元のウィンドウID
+    /// @param srcX コピー元の左上X座標
+    /// @param srcY コピー元の左上Y座標
+    /// @param angle 回転角度（ラジアン）
+    /// @param dstW コピー先のXサイズ (省略時=gmodeで設定したサイズ)
+    /// @param dstH コピー先のYサイズ (省略時=gmodeで設定したサイズ)
+    export void grotate(OptInt srcId = {}, OptInt srcX = {}, OptInt srcY = {}, OptDouble angle = {}, OptInt dstW = {}, OptInt dstH = {}, const std::source_location& location = std::source_location::current());
+
+    // ============================================================
+    // gsquare - 任意の四角形を描画（HSP互換）
+    // ============================================================
+    // 使用例:
+    //   Quad dst = {{0, 0}, {100, 0}, {100, 100}, {0, 100}};
+    //   gsquare(-1, dst);  // 単色塗りつぶし
+    //
+    //   QuadUV src = {{0, 0}, {32, 0}, {32, 32}, {0, 32}};
+    //   gsquare(0, dst, src);  // 画像コピー
+    //
+    //   QuadColors colors = {0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00};
+    //   gsquare(gsquare_grad, dst, colors);  // グラデーション
+    // ============================================================
+
+    /// @brief 任意の四角形を単色塗りつぶし
+    /// @param srcId ウィンドウID (マイナス値=-1～-256で単色塗りつぶし)
+    /// @param dst コピー先座標（4頂点: 左上, 右上, 右下, 左下）
+    export void gsquare(int srcId, const Quad& dst, const std::source_location& location = std::source_location::current());
+
+    /// @brief 任意の四角形へ画像をコピー
+    /// @param srcId コピー元のウィンドウID (0以上)
+    /// @param dst コピー先座標（4頂点）
+    /// @param src コピー元座標（4頂点）
+    export void gsquare(int srcId, const Quad& dst, const QuadUV& src, const std::source_location& location = std::source_location::current());
+
+    /// @brief 任意の四角形をグラデーション塗りつぶし
+    /// @param srcId gsquare_grad (-257) を指定
+    /// @param dst コピー先座標（4頂点）
+    /// @param colors 頂点の色（4色、RGBカラーコード 0xRRGGBB形式）
+    export void gsquare(int srcId, const Quad& dst, const QuadColors& colors, const std::source_location& location = std::source_location::current());
+
+    // gsquare用定数
+    export inline constexpr int gsquare_grad = -257;
+
+    // ============================================================
+    // print - メッセージ表示（HSP互換・mes別名）
+    // ============================================================
+    /// @brief メッセージを表示（mes命令の別名）
+    /// @param text 表示するメッセージ
+    /// @param sw オプション (1=改行しない, 2=影, 4=縁取り, 8=簡易描画, 16=gmode設定)
+    export void print(std::string_view text, OptInt sw = {}, const std::source_location& location = std::source_location::current());
+
+    // ============================================================
+    // gettime - 時間・日付を取得（HSP互換）
+    // ============================================================
+    /// @brief 時間・日付を取得する
+    /// @param type 取得するタイプ (0=年, 1=月, 2=曜日, 3=日, 4=時, 5=分, 6=秒, 7=ミリ秒)
+    /// @return 指定したタイプの時間・日付情報
+    export int gettime(int type, const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // ginfo - ウィンドウ情報の取得（HSP互換）

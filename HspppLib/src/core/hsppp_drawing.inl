@@ -250,4 +250,164 @@ namespace hsppp {
         currentSurface->pget(px, py, r, g, b);
     }
 
+    // ============================================================
+    // gradf - 矩形をグラデーションで塗りつぶす（HSP互換）
+    // ============================================================
+    void gradf(OptInt x, OptInt y, OptInt w, OptInt h, OptInt mode, OptInt color1, OptInt color2, const std::source_location& location) {
+        auto currentSurface = getCurrentSurface();
+        if (!currentSurface) return;
+
+        int px = x.value_or(0);
+        int py = y.value_or(0);
+        int pw = w.value_or(currentSurface->getWidth());
+        int ph = h.value_or(currentSurface->getHeight());
+        int pmode = mode.value_or(0);
+        
+        // 色が省略された場合は現在の描画色を使用
+        D2D1_COLOR_F curColor = currentSurface->getCurrentColor();
+        int curColorCode = (static_cast<int>(curColor.r * 255) << 16) |
+                          (static_cast<int>(curColor.g * 255) << 8) |
+                          static_cast<int>(curColor.b * 255);
+        int c1 = color1.value_or(curColorCode);
+        int c2 = color2.value_or(curColorCode);
+
+        currentSurface->gradf(px, py, pw, ph, pmode, c1, c2);
+    }
+
+    // ============================================================
+    // grect - 回転する矩形で塗りつぶす（HSP互換）
+    // ============================================================
+    void grect(OptInt cx, OptInt cy, OptDouble angle, OptInt w, OptInt h, const std::source_location& location) {
+        auto currentSurface = getCurrentSurface();
+        if (!currentSurface) return;
+
+        int pcx = cx.value_or(0);
+        int pcy = cy.value_or(0);
+        double pangle = angle.value_or(0.0);
+        int pw = w.value_or(g_gmodeSizeX);
+        int ph = h.value_or(g_gmodeSizeY);
+
+        currentSurface->grect(pcx, pcy, pangle, pw, ph);
+    }
+
+    // ============================================================
+    // grotate - 矩形画像を回転してコピー（HSP互換）
+    // ============================================================
+    void grotate(OptInt srcId, OptInt srcX, OptInt srcY, OptDouble angle, OptInt dstW, OptInt dstH, const std::source_location& location) {
+        auto currentSurface = getCurrentSurface();
+        if (!currentSurface) return;
+
+        int psrcId = srcId.value_or(0);
+        int psrcX = srcX.value_or(0);
+        int psrcY = srcY.value_or(0);
+        double pangle = angle.value_or(0.0);
+        int pdstW = dstW.value_or(g_gmodeSizeX);
+        int pdstH = dstH.value_or(g_gmodeSizeY);
+
+        // ソースサーフェスを取得
+        auto srcSurface = getSurfaceById(psrcId);
+        if (!srcSurface) return;
+
+        auto* pSrcBitmap = srcSurface->getTargetBitmap();
+        if (!pSrcBitmap) return;
+
+        // ソースサイズはgmodeで設定されたサイズ
+        currentSurface->grotate(pSrcBitmap, psrcX, psrcY, g_gmodeSizeX, g_gmodeSizeY, pangle, pdstW, pdstH);
+    }
+
+    // ============================================================
+    // gsquare - 任意の四角形を描画（HSP互換）
+    // ============================================================
+    
+    // 単色塗りつぶし
+    void gsquare(int srcId, const Quad& dst, const std::source_location& location) {
+        auto currentSurface = getCurrentSurface();
+        if (!currentSurface) return;
+
+        // Quadから配列を抽出
+        int dstX[4] = { dst.v[0].x, dst.v[1].x, dst.v[2].x, dst.v[3].x };
+        int dstY[4] = { dst.v[0].y, dst.v[1].y, dst.v[2].y, dst.v[3].y };
+
+        if (srcId < 0) {
+            // 塗りつぶしモード (-1 ～ -256)
+            currentSurface->gsquare(dstX, dstY, nullptr, nullptr, nullptr);
+        } else {
+            // srcIdが0以上の場合、全体コピーとして扱う（srcは全体領域）
+            // 本来は画像コピーモードなので、QuadUV版を使うべき
+            // ここでは塗りつぶしとして処理
+            currentSurface->gsquare(dstX, dstY, nullptr, nullptr, nullptr);
+        }
+    }
+
+    // 画像コピー
+    void gsquare(int srcId, const Quad& dst, const QuadUV& src, const std::source_location& location) {
+        auto currentSurface = getCurrentSurface();
+        if (!currentSurface) return;
+
+        // Quad/QuadUVから配列を抽出
+        int dstX[4] = { dst.v[0].x, dst.v[1].x, dst.v[2].x, dst.v[3].x };
+        int dstY[4] = { dst.v[0].y, dst.v[1].y, dst.v[2].y, dst.v[3].y };
+        int srcX[4] = { src.v[0].x, src.v[1].x, src.v[2].x, src.v[3].x };
+        int srcY[4] = { src.v[0].y, src.v[1].y, src.v[2].y, src.v[3].y };
+
+        if (srcId < 0) {
+            // 負の値は塗りつぶし
+            currentSurface->gsquare(dstX, dstY, nullptr, nullptr, nullptr);
+        } else {
+            // 画像コピーモード
+            auto srcSurface = getSurfaceById(srcId);
+            if (!srcSurface) return;
+            auto* pSrcBitmap = srcSurface->getTargetBitmap();
+            currentSurface->gsquare(dstX, dstY, pSrcBitmap, srcX, srcY);
+        }
+    }
+
+    // グラデーション
+    void gsquare(int srcId, const Quad& dst, const QuadColors& colors, const std::source_location& location) {
+        auto currentSurface = getCurrentSurface();
+        if (!currentSurface) return;
+
+        // Quad/QuadColorsから配列を抽出
+        int dstX[4] = { dst.v[0].x, dst.v[1].x, dst.v[2].x, dst.v[3].x };
+        int dstY[4] = { dst.v[0].y, dst.v[1].y, dst.v[2].y, dst.v[3].y };
+        int cols[4] = { colors.colors[0], colors.colors[1], colors.colors[2], colors.colors[3] };
+
+        if (srcId == gsquare_grad) {
+            // グラデーションモード
+            currentSurface->gsquareGrad(dstX, dstY, cols);
+        } else {
+            // グラデーション以外は単色塗りつぶし
+            currentSurface->gsquare(dstX, dstY, nullptr, nullptr, nullptr);
+        }
+    }
+
+    // ============================================================
+    // print - メッセージ表示（HSP互換・mes別名）
+    // ============================================================
+    void print(std::string_view text, OptInt sw, const std::source_location& location) {
+        // mes命令と同等
+        mes(text, sw, location);
+    }
+
+    // ============================================================
+    // gettime - 時間・日付を取得（HSP互換）
+    // ============================================================
+    int gettime(int type, const std::source_location& location) {
+        SYSTEMTIME st;
+        GetLocalTime(&st);
+
+        switch (type) {
+        case 0: return st.wYear;         // 年
+        case 1: return st.wMonth;        // 月
+        case 2: return st.wDayOfWeek;    // 曜日 (0=日曜)
+        case 3: return st.wDay;          // 日
+        case 4: return st.wHour;         // 時
+        case 5: return st.wMinute;       // 分
+        case 6: return st.wSecond;       // 秒
+        case 7: return st.wMilliseconds; // ミリ秒
+        default:
+            throw HspError(ERR_OUT_OF_RANGE, "gettimeのタイプは0～7の範囲で指定してください", location);
+        }
+    }
+
 } // namespace hsppp

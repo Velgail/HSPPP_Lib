@@ -14,46 +14,18 @@ namespace hsppp {
     // ============================================================
     // 数学関数
     // ============================================================
-
-    int abs(int p1) {
-        return p1 < 0 ? -p1 : p1;
-    }
-
-    double absf(double p1) {
-        return std::fabs(p1);
-    }
-
-    double sin(double p1) {
-        return std::sin(p1);
-    }
-
-    double cos(double p1) {
-        return std::cos(p1);
-    }
-
-    double tan(double p1) {
-        return std::tan(p1);
-    }
-
-    double atan(double p1, double p2) {
-        return std::atan2(p1, p2);
-    }
-
-    double sqrt(double p1) {
-        return std::sqrt(p1);
-    }
-
-    double powf(double p1, double p2) {
-        return std::pow(p1, p2);
-    }
-
-    double expf(double p1) {
-        return std::exp(p1);
-    }
-
-    double logf(double p1) {
-        return std::log(p1);
-    }
+    // 注: 三角関数等は std::cmath から直接再エクスポートされます。
+    //     度数法対応は deg2rad/rad2deg() で行ってください。
+    //
+    // エクスポート対象:
+    //   - std::abs (int, float, double, long double)
+    //   - std::sin, std::cos, std::tan (ラジアン単位)
+    //   - std::atan2
+    //   - std::sqrt, std::pow, std::exp, std::log
+    //
+    // 新規追加:
+    //   - deg2rad(double) : 度 → ラジアン変換
+    //   - rad2deg(double) : ラジアン → 度 変換
 
     int rnd(int p1) {
         if (!g_randomInitialized) {
@@ -81,26 +53,22 @@ namespace hsppp {
 
     int limit(int p1, OptInt p2, OptInt p3) {
         int result = p1;
-        if (!p2.is_default()) {
-            // 最小値制限
-            if (result < p2.value()) result = p2.value();
+        if (!p2.is_default() && result < p2.value()) {
+            result = p2.value();
         }
-        if (!p3.is_default()) {
-            // 最大値制限
-            if (result > p3.value()) result = p3.value();
+        if (!p3.is_default() && result > p3.value()) {
+            result = p3.value();
         }
         return result;
     }
 
     double limitf(double p1, OptDouble p2, OptDouble p3) {
         double result = p1;
-        if (!p2.is_default()) {
-            // 最小値制限
-            if (result < p2.value()) result = p2.value();
+        if (!p2.is_default() && result < p2.value()) {
+            result = p2.value();
         }
-        if (!p3.is_default()) {
-            // 最大値制限
-            if (result > p3.value()) result = p3.value();
+        if (!p3.is_default() && result > p3.value()) {
+            result = p3.value();
         }
         return result;
     }
@@ -116,7 +84,9 @@ namespace hsppp {
     int toInt(const std::string& p1) {
         try {
             return std::stoi(p1);
-        } catch (...) {
+        } catch (const std::invalid_argument&) {
+            return 0;  // 変換失敗時は0を返す（HSP互換）
+        } catch (const std::out_of_range&) {
             return 0;  // 変換失敗時は0を返す（HSP互換）
         }
     }
@@ -128,7 +98,9 @@ namespace hsppp {
     double toDouble(const std::string& p1) {
         try {
             return std::stod(p1);
-        } catch (...) {
+        } catch (const std::invalid_argument&) {
+            return 0.0;  // 変換失敗時は0を返す（HSP互換）
+        } catch (const std::out_of_range&) {
             return 0.0;  // 変換失敗時は0を返す（HSP互換）
         }
     }

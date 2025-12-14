@@ -258,27 +258,32 @@ int hspMain() {
             win.color(128, 128, 128);
             win.line(590, 200, 50, 200);
             
-            // Sin波形（赤）
-            win.color(255, 0, 0);
-            for (int x = 0; x < 540; x++) {
-                double angle = (g_angle + x * 2) * M_PI / 180.0;
-                int y = 200 - static_cast<int>(hsppp::sin(angle) * 40);
-                if (x == 0) {
-                    win.pos(50 + x, y);
-                } else {
-                    win.line(50 + x, y);
+            {
+                // 波形描画（スコープで括る）
+                // 注: deg2rad() を使用して度数法 → ラジアン変換
+                
+                // Sin波形（赤）
+                win.color(255, 0, 0);
+                for (int x = 0; x < 540; x++) {
+                    double angle = hsppp::deg2rad(g_angle + x * 2);  // 度数法をラジアン変換
+                    int y = 200 - static_cast<int>(hsppp::sin(angle) * 40);
+                    if (x == 0) {
+                        win.pos(50 + x, y);
+                    } else {
+                        win.line(50 + x, y);
+                    }
                 }
-            }
-            
-            // Cos波形（青）
-            win.color(0, 0, 255);
-            for (int x = 0; x < 540; x++) {
-                double angle = (g_angle + x * 2) * M_PI / 180.0;
-                int y = 200 - static_cast<int>(hsppp::cos(angle) * 40);
-                if (x == 0) {
-                    win.pos(50 + x, y);
-                } else {
-                    win.line(50 + x, y);
+                
+                // Cos波形（青）
+                win.color(0, 0, 255);
+                for (int x = 0; x < 540; x++) {
+                    double angle = hsppp::deg2rad(g_angle + x * 2);  // 度数法をラジアン変換
+                    int y = 200 - static_cast<int>(hsppp::cos(angle) * 40);
+                    if (x == 0) {
+                        win.pos(50 + x, y);
+                    } else {
+                        win.line(50 + x, y);
+                    }
                 }
             }
             
@@ -301,13 +306,13 @@ int hspMain() {
             win.pos(50, 370);
             win.mes("limit(50, 0, 100) = " + str(hsppp::limit(50, 0, 100)));
             
-            // sqrt/powf表示
+            // sqrt/pow表示
             win.pos(300, 320);
-            win.mes("sqrt/powf デモ:");
+            win.mes("sqrt/pow デモ:");
             win.pos(300, 340);
             win.mes("sqrt(2) = " + str(hsppp::sqrt(2.0)));
             win.pos(300, 355);
-            win.mes("powf(2, 10) = " + str(hsppp::powf(2.0, 10.0)));
+            win.mes("pow(2, 10) = " + str(hsppp::pow(2.0, 10.0)));
             win.pos(300, 370);
             win.mes("abs(-42) = " + str(hsppp::abs(-42)));
             

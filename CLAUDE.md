@@ -61,6 +61,13 @@ Screen& Screen::color(int r, int g, int b) {
 
 ## ビルド手順
 
+必ず`
+```
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+```
+としてビルドすること。文字化けの被害を避けられます。
+
 ### VS 18 (Visual Studio 2026) を使用
 
 ```powershell

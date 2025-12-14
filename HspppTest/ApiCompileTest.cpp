@@ -534,13 +534,13 @@ namespace compile_test {
     // 数学関数のテスト
     // ============================================================
     void test_math_functions() {
-        // abs / absf
+        // abs - std::abs で int/double 両対応
         [[maybe_unused]] int a1 = hsppp::abs(-10);
         [[maybe_unused]] int a2 = hsppp::abs(10);
-        [[maybe_unused]] double a3 = hsppp::absf(-3.14);
-        [[maybe_unused]] double a4 = hsppp::absf(3.14);
+        [[maybe_unused]] double a3 = hsppp::abs(-3.14);
+        [[maybe_unused]] double a4 = hsppp::abs(3.14);
 
-        // 三角関数
+        // 三角関数 - ラジアン単位
         [[maybe_unused]] double s1 = hsppp::sin(0.0);
         [[maybe_unused]] double s2 = hsppp::sin(M_PI / 2);
         [[maybe_unused]] double c1 = hsppp::cos(0.0);
@@ -548,20 +548,24 @@ namespace compile_test {
         [[maybe_unused]] double t1 = hsppp::tan(0.0);
         [[maybe_unused]] double t2 = hsppp::tan(M_PI / 4);
 
-        // アークタンジェント
-        [[maybe_unused]] double at1 = hsppp::atan(1.0);        // p2省略（デフォルト1.0）
-        [[maybe_unused]] double at2 = hsppp::atan(1.0, 1.0);   // atan2相当
-        [[maybe_unused]] double at3 = hsppp::atan(0.0, 1.0);
+        // 度数法対応: deg2rad() で変換
+        [[maybe_unused]] double s3 = hsppp::sin(hsppp::deg2rad(45.0));   // 45度
+        [[maybe_unused]] double c3 = hsppp::cos(hsppp::deg2rad(90.0));   // 90度
 
-        // sqrt / powf / expf / logf
+        // アークタンジェント - std::atan2
+        [[maybe_unused]] double at1 = hsppp::atan2(1.0, 1.0);
+        [[maybe_unused]] double at2 = hsppp::atan2(0.0, 1.0);
+        [[maybe_unused]] double at3 = hsppp::atan2(1.0, 0.0);
+
+        // sqrt / pow / exp / log - C++標準関数
         [[maybe_unused]] double sq1 = hsppp::sqrt(4.0);
         [[maybe_unused]] double sq2 = hsppp::sqrt(2.0);
-        [[maybe_unused]] double pw1 = hsppp::powf(2.0, 3.0);   // 2^3 = 8
-        [[maybe_unused]] double pw2 = hsppp::powf(10.0, 2.0);  // 10^2 = 100
-        [[maybe_unused]] double ex1 = hsppp::expf(1.0);        // e^1
-        [[maybe_unused]] double ex2 = hsppp::expf(0.0);        // e^0 = 1
-        [[maybe_unused]] double lg1 = hsppp::logf(M_E);        // log(e) = 1
-        [[maybe_unused]] double lg2 = hsppp::logf(1.0);        // log(1) = 0
+        [[maybe_unused]] double pw1 = hsppp::pow(2.0, 3.0);   // 2^3 = 8
+        [[maybe_unused]] double pw2 = hsppp::pow(10.0, 2.0);  // 10^2 = 100
+        [[maybe_unused]] double ex1 = hsppp::exp(1.0);        // e^1
+        [[maybe_unused]] double ex2 = hsppp::exp(0.0);        // e^0 = 1
+        [[maybe_unused]] double lg1 = hsppp::log(M_E);        // log(e) = 1
+        [[maybe_unused]] double lg2 = hsppp::log(1.0);        // log(1) = 0
 
         // 乱数
         [[maybe_unused]] int r1 = hsppp::rnd(100);

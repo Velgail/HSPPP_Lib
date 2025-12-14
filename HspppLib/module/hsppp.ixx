@@ -952,60 +952,58 @@ namespace hsppp {
     export void onkey(int enable, const std::source_location& location = std::source_location::current());
 
     // ============================================================
-    // 数学関数（HSP互換）
+    // 数学関数（C++標準ライブラリの再エクスポート）
     // ============================================================
+    // 注: HSP互換性を保ちながら、C++標準ライブラリ(std::cmath)を直接利用。
+    //     度数法対応は deg2rad/rad2deg() で行う。
+    //     例: sin(deg2rad(45.0)) で 45度 のサイン値を計算
 
     /// @brief 整数の絶対値を返す
-    /// @param p1 絶対値に変換する整数値
-    /// @return 整数の絶対値
-    export [[nodiscard]] int abs(int p1);
+    export using std::abs;
 
-    /// @brief 実数の絶対値を返す
-    /// @param p1 絶対値に変換する実数値
-    /// @return 実数の絶対値
-    export [[nodiscard]] double absf(double p1);
+    /// @brief サイン値を返す（ラジアン入力）
+    export using std::sin;
 
-    /// @brief サイン値を返す
-    /// @param p1 角度値（ラジアン）
-    /// @return サイン値（実数）
-    export [[nodiscard]] double sin(double p1);
+    /// @brief コサイン値を返す（ラジアン入力）
+    export using std::cos;
 
-    /// @brief コサイン値を返す
-    /// @param p1 角度値（ラジアン）
-    /// @return コサイン値（実数）
-    export [[nodiscard]] double cos(double p1);
+    /// @brief タンジェント値を返す（ラジアン入力）
+    export using std::tan;
 
-    /// @brief タンジェント値を返す
-    /// @param p1 角度値（ラジアン）
-    /// @return タンジェント値（実数）
-    export [[nodiscard]] double tan(double p1);
+    /// @brief アークタンジェント値を返す（ラジアン出力）
+    export using std::atan2;
 
-    /// @brief アークタンジェント値を返す
-    /// @param p1 Y値
-    /// @param p2 X値（デフォルト: 1.0）
-    /// @return アークタンジェント値（ラジアン）
-    export [[nodiscard]] double atan(double p1, double p2 = 1.0);
-
-    /// @brief ルート（平方根）値を返す
-    /// @param p1 ルートを求める値（0以上）
-    /// @return 平方根（実数）
-    export [[nodiscard]] double sqrt(double p1);
+    /// @brief 平方根を求める
+    export using std::sqrt;
 
     /// @brief 累乗（べき乗）を求める
-    /// @param p1 底（0以上）
-    /// @param p2 指数
-    /// @return p1のp2乗（実数）
-    export [[nodiscard]] double powf(double p1, double p2);
+    export using std::pow;
 
-    /// @brief 指数を返す
-    /// @param p1 指数を求める値
-    /// @return exp(p1)の値（実数）
-    export [[nodiscard]] double expf(double p1);
+    /// @brief 指数を求める
+    export using std::exp;
 
-    /// @brief 対数（自然対数）を返す
-    /// @param p1 対数を求める値（0より大きい値）
-    /// @return log(p1)の値（実数）
-    export [[nodiscard]] double logf(double p1);
+    /// @brief 自然対数を求める
+    export using std::log;
+
+    /// @brief 度数法（度）をラジアンに変換
+    /// @param degrees 角度（度単位）
+    /// @return ラジアン値
+    export [[nodiscard]] inline constexpr double deg2rad(double degrees) noexcept {
+        return degrees * std::numbers::pi_v<double> / 180.0;
+    }
+
+    /// @brief ラジアンを度数法（度）に変換
+    /// @param radians 角度（ラジアン単位）
+    /// @return 度数法での角度値
+    export [[nodiscard]] inline constexpr double rad2deg(double radians) noexcept {
+        return radians * 180.0 / std::numbers::pi_v<double>;
+    }
+
+    // 旧互換: absf は削除（std::abs で int/double 両対応）
+    // 旧互換: atan は std::atan2 に統一
+    // 旧互換: powf は std::pow に統一
+    // 旧互換: expf は std::exp に統一
+    // 旧互換: logf は std::log に統一
 
     /// @brief 乱数を発生
     /// @param p1 乱数の範囲（1〜32768）

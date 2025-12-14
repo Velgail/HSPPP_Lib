@@ -70,6 +70,8 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 
 ### VS 18 (Visual Studio 2026) を使用
 
+VS 2022ではなく、必ずVS 18 (Visual Studio 2026) を使用してください。旧バージョンではビルドが通りません。
+
 ```powershell
 # リビルド
 & "C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\amd64\MSBuild.exe" `

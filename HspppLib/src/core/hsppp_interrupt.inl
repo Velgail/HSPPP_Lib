@@ -295,9 +295,11 @@ namespace hsppp::internal {
         }
 
         // onexit が設定されている場合は終了をブロック
+        // HSP仕様: iparam=終了理由 (0=ユーザー終了, 1=シャットダウン)
+        //          wparam=終了通知を受けたウィンドウID
         setPendingInterrupt(PendingInterruptType::OnExit, 
-                           reason,  // 0=ユーザー終了, 1=シャットダウン
-                           windowId, 
+                           reason,    // iparam: 0=ユーザー終了, 1=シャットダウン
+                           windowId,  // wparam: ウィンドウID
                            0);
         return true;  // 終了をブロック
     }

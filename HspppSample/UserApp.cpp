@@ -23,6 +23,9 @@ enum class DemoMode {
     Bmpsave,
     Picload,
     Celload,
+    // P3 (拡張描画)
+    Gradf,
+    Grect,
     // Math/Color
     Math,
     Color,
@@ -276,6 +279,69 @@ int hspMain() {
             break;
             
         // ═══════════════════════════════════════════════════════════
+        // P3拡張描画機能
+        // ═══════════════════════════════════════════════════════════
+        case DemoMode::Gradf:
+            win.mes("Current: GRADF (グラデーション描画) - Press G");
+            win.pos(20, 85);
+            win.mes("gradf: 矩形をグラデーションで塗りつぶす");
+            
+            // 横方向グラデーション
+            win.color(0, 0, 0).pos(50, 120);
+            win.mes("横方向グラデーション (mode=0):");
+            gradf(50, 140, 200, 60, 0, 0xFF0000, 0x0000FF);  // 赤→青
+            gradf(50, 210, 200, 60, 0, 0x00FF00, 0xFFFF00);  // 緑→黄
+            
+            // 縦方向グラデーション
+            win.color(0, 0, 0).pos(300, 120);
+            win.mes("縦方向グラデーション (mode=1):");
+            gradf(300, 140, 200, 60, 1, 0xFF00FF, 0x00FFFF);  // マゼンタ→シアン
+            gradf(300, 210, 200, 60, 1, 0xFFFFFF, 0x000000);  // 白→黒
+            
+            // OOP版グラデーション
+            win.color(0, 0, 0).pos(50, 290);
+            win.mes("Screen OOP版 gradf:");
+            win.gradf(50, 310, 450, 80, 0, 0xFF8800, 0x0088FF);
+            
+            // gettime デモ
+            win.color(0, 0, 0).pos(50, 410);
+            win.mes("gettime 関数:");
+            win.pos(50, 430);
+            win.mes(std::format("現在時刻: {:04d}/{:02d}/{:02d} {:02d}:{:02d}:{:02d}",
+                gettime(0), gettime(1), gettime(3),
+                gettime(4), gettime(5), gettime(6)));
+            break;
+            
+        case DemoMode::Grect:
+            win.mes("Current: GRECT (回転矩形描画) - Press R");
+            win.pos(20, 85);
+            win.mes("grect: 回転する矩形で塗りつぶす (Press LEFT/RIGHT to rotate)");
+            
+            // 回転矩形デモ
+            win.color(255, 0, 0);
+            grect(200, 250, g_angle * 0.0174533, 100, 60);  // 度→ラジアン
+            
+            win.color(0, 255, 0);
+            grect(350, 250, g_angle * 0.0174533 + 1.0, 80, 80);
+            
+            win.color(0, 0, 255);
+            grect(500, 250, -g_angle * 0.0174533, 120, 40);
+            
+            // OOP版
+            win.color(255, 128, 0);
+            win.grect(320, 380, g_angle * 0.0174533 * 2, 60, 60);
+            
+            win.color(0, 0, 0).pos(50, 420);
+            win.mes("角度: " + str(static_cast<int>(g_angle)) + "度");
+            win.pos(50, 440);
+            win.mes("← / →: 角度変更, 自動回転中");
+            
+            // 自動回転
+            g_angle += 1.0;
+            if (g_angle >= 360.0) g_angle -= 360.0;
+            break;
+            
+        // ═══════════════════════════════════════════════════════════
         // Math機能
         // ═══════════════════════════════════════════════════════════
         case DemoMode::Math:
@@ -453,7 +519,7 @@ int hspMain() {
         win.color(128, 128, 128).pos(20, 440);
         win.mes("P1: 1=cls 2=font 3=title 4=width 5=groll | P2: 6=bmpsave 7=picload 8=celload");
         win.pos(20, 455);
-        win.mes("Math: 9=math 0=color | Interrupt: I=interrupt | ESC=Exit");
+        win.mes("P3: G=gradf R=grect | Math: 9=math 0=color | Interrupt: I=interrupt | ESC=Exit");
         
         win.redraw(1);
         
@@ -468,6 +534,8 @@ int hspMain() {
         if (getkey('8')) { g_mode = DemoMode::Celload; await(200); }
         if (getkey('9')) { g_mode = DemoMode::Math; await(200); }
         if (getkey('0')) { g_mode = DemoMode::Color; await(200); }
+        if (getkey('G')) { g_mode = DemoMode::Gradf; await(200); }
+        if (getkey('R') && g_mode != DemoMode::Math) { g_mode = DemoMode::Grect; await(200); }
         if (getkey('I')) { g_mode = DemoMode::Interrupt; await(200); }
         
         // モード別操作
@@ -567,6 +635,20 @@ int hspMain() {
             break;
             
         case DemoMode::Color:
+            // 特に操作なし
+            break;
+        
+        case DemoMode::Gradf:
+            // 特に操作なし（表示のみ）
+            break;
+            
+        case DemoMode::Grect:
+            // 手動回転
+            if (getkey(0x25)) { g_angle -= 5.0; await(50); }
+            if (getkey(0x27)) { g_angle += 5.0; await(50); }
+            break;
+            
+        case DemoMode::Interrupt:
             // 特に操作なし
             break;
         }

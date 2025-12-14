@@ -133,6 +133,13 @@ public:
     void pset(int x, int y);
     bool pget(int x, int y, int& r, int& g, int& b);
 
+    // 拡張描画命令
+    void gradf(int x, int y, int w, int h, int mode, int color1, int color2);
+    void grect(int cx, int cy, double angle, int w, int h);
+    void grotate(ID2D1Bitmap1* pSrcBitmap, int srcX, int srcY, int srcW, int srcH, double angle, int dstW, int dstH);
+    void gsquare(int* dstX, int* dstY, ID2D1Bitmap1* pSrcBitmap = nullptr, int* srcX = nullptr, int* srcY = nullptr);
+    void gsquareGrad(int* dstX, int* dstY, int* colors);
+
     // フォント設定
     bool font(std::string_view fontName, int size, int style);
     bool sysfont(int type);

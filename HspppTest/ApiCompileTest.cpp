@@ -101,6 +101,10 @@ namespace compile_test {
         scr.pget(50, 50);
         scr.pget();
 
+        // 拡張描画命令（OOP版）
+        scr.gradf(0, 0, 100, 100, 0, 0xFF0000, 0x0000FF);
+        scr.grect(100, 100, 0.5, 50, 30);
+
         // 画像操作
         scr.picload("test.bmp");
         scr.picload("test.png", 0);
@@ -231,6 +235,54 @@ namespace compile_test {
         pget();
         pget(50, 50);
         pget(omit, omit);
+
+        // gradf
+        gradf();
+        gradf(0, 0);
+        gradf(0, 0, 100, 100);
+        gradf(0, 0, 100, 100, 0);
+        gradf(0, 0, 100, 100, 1, 0xFF0000, 0x0000FF);
+        gradf(omit, omit, omit, omit, omit, omit, omit);
+
+        // grect
+        grect();
+        grect(100, 100);
+        grect(100, 100, 0.5);
+        grect(100, 100, 0.5, 50, 30);
+        grect(omit, omit, omit, omit, omit);
+
+        // grotate
+        grotate();
+        grotate(0);
+        grotate(0, 0, 0);
+        grotate(0, 0, 0, 0.0);
+        grotate(0, 0, 0, 0.0, 64, 64);
+        grotate(omit, omit, omit, omit, omit, omit);
+
+        // gsquare
+        int dstX[4] = {0, 100, 100, 0};
+        int dstY[4] = {0, 0, 100, 100};
+        int srcX[4] = {0, 32, 32, 0};
+        int srcY[4] = {0, 0, 32, 32};
+        int colors[4] = {0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00};
+        gsquare(-1, dstX, dstY);                      // 単色塗りつぶし
+        gsquare(0, dstX, dstY, srcX, srcY);           // 画像コピー
+        gsquare(gsquare_grad, dstX, dstY, &colors[0], nullptr);    // グラデーション
+
+        // print (mes互換)
+        print("Test message");
+        print("Test", 1);  // 改行なし
+        print("Shadow", 2);  // 影付き
+
+        // gettime
+        [[maybe_unused]] int year = gettime(0);
+        [[maybe_unused]] int month = gettime(1);
+        [[maybe_unused]] int dayOfWeek = gettime(2);
+        [[maybe_unused]] int day = gettime(3);
+        [[maybe_unused]] int hour = gettime(4);
+        [[maybe_unused]] int minute = gettime(5);
+        [[maybe_unused]] int second = gettime(6);
+        [[maybe_unused]] int millisec = gettime(7);
     }
 
     // ============================================================

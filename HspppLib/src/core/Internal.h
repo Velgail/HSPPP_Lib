@@ -8,10 +8,12 @@
 #include <d3d11.h>
 #include <dxgi1_2.h>
 #include <dwrite.h>
+#include <wincodec.h>
 #include <wrl/client.h>
 #include <string>
 #include <string_view>
 #include <memory>
+#include <map>
 
 // COMスマートポインタのエイリアス
 template<typename T>
@@ -28,6 +30,22 @@ class HspSurface;
 class HspWindow;
 class HspBuffer;
 
+// ============================================================
+// 画像素材管理構造体（celシリーズ用）
+// ============================================================
+struct CelData {
+    ComPtr<ID2D1Bitmap1> pBitmap;     // 画像ビットマップ
+    int width;                         // 画像の幅
+    int height;                        // 画像の高さ
+    int divX;                          // 横方向の分割サイズ
+    int divY;                          // 縦方向の分割サイズ
+    int centerX;                       // 中心X座標
+    int centerY;                       // 中心Y座標
+    std::string filename;              // ファイル名（再利用チェック用）
+    
+    CelData() : width(0), height(0), divX(0), divY(0), centerX(0), centerY(0) {}
+};
+
 // Direct2D 1.1 デバイスマネージャー（シングルトン）
 // すべてのSurfaceで共有するD3D11/D2Dデバイスを管理
 class D2DDeviceManager {
@@ -38,6 +56,7 @@ private:
     ComPtr<ID2D1Factory1> m_pD2DFactory;
     ComPtr<ID2D1Device> m_pD2DDevice;
     ComPtr<IDWriteFactory> m_pDWriteFactory;
+    ComPtr<IWICImagingFactory> m_pWICFactory;
 
     bool m_initialized;
 
@@ -60,6 +79,7 @@ public:
     // ゲッター
     ID2D1Factory1* getFactory() const { return m_pD2DFactory.Get(); }
     ID2D1Device* getDevice() const { return m_pD2DDevice.Get(); }
+    IWICImagingFactory* getWICFactory() const { return m_pWICFactory.Get(); }
     IDWriteFactory* getDWriteFactory() const { return m_pDWriteFactory.Get(); }
     ID3D11Device* getD3DDevice() const { return m_pD3DDevice.Get(); }
     IDXGIDevice1* getDxgiDevice() const { return m_pDxgiDevice.Get(); }
@@ -103,6 +123,7 @@ public:
     virtual bool initialize() = 0;
 
     // 描画命令
+    void cls(int mode = 0);
     void boxf(int x1, int y1, int x2, int y2);
     void mes(std::string_view text, int options = 0);
     void color(int r, int g, int b);
@@ -115,6 +136,11 @@ public:
     // フォント設定
     bool font(std::string_view fontName, int size, int style);
     bool sysfont(int type);
+
+    // 画像操作
+    bool picload(std::string_view filename, int mode);
+    bool bmpsave(std::string_view filename);
+    void celput(ID2D1Bitmap1* pBitmap, const D2D1_RECT_F& srcRect, const D2D1_RECT_F& destRect);
 
     // 描画制御
     void beginDraw();
@@ -144,6 +170,14 @@ private:
     ComPtr<IDXGISwapChain1> m_pSwapChain;
     ComPtr<ID2D1Bitmap1> m_pBackBufferBitmap;  // スワップチェーンのバックバッファ
     std::wstring m_title;
+    
+    // クライアントサイズ（実際のウィンドウ表示サイズ、m_width/m_height以下）
+    int m_clientWidth;
+    int m_clientHeight;
+    
+    // スクロール位置（groll用）
+    int m_scrollX;
+    int m_scrollY;
 
 public:
     HspWindow(int width, int height, std::string_view title);
@@ -170,6 +204,10 @@ public:
 
     // ゲッター
     HWND getHwnd() const { return m_hwnd; }
+    int getClientWidth() const { return m_clientWidth; }
+    int getClientHeight() const { return m_clientHeight; }
+    int getScrollX() const { return m_scrollX; }
+    int getScrollY() const { return m_scrollY; }
 
     // WM_PAINT処理
     void onPaint();
@@ -177,9 +215,20 @@ public:
     // タイトル設定
     void setTitle(std::string_view title);
 
-    // ウィンドウサイズ・位置設定
+    // ウィンドウサイズ・位置設定（width命令用）
+    // クライアントサイズは画面サイズ（m_width, m_height）以下にクランプ
     void setClientSize(int clientW, int clientH);
     void setWindowPos(int x, int y);
+    
+    // スクロール位置設定（groll命令用）
+    void setScroll(int x, int y);
+
+    // 現在のクライアントサイズを取得（width関数用）
+    void getCurrentClientSize(int& outWidth, int& outHeight) const;
+    
+private:
+    // スワップチェーンをリサイズ（内部用）
+    bool resizeSwapChain(int newWidth, int newHeight);
 };
 
 // 派生クラス: HspBuffer
@@ -240,4 +289,12 @@ namespace hsppp::internal {
     // 終了割り込みをトリガー
     // 戻り値: true=終了をブロック, false=終了を許可
     bool triggerOnExit(int windowId, int reason);
+
+    // 画像読み込み・保存（ImageLoader.cpp）
+    ComPtr<ID2D1Bitmap1> loadImageFile(std::string_view filename, int& width, int& height);
+    bool saveBitmapToFile(ID2D1Bitmap1* pBitmap, std::string_view filename);
+
+    // cel素材管理（ImageLoader.cpp）
+    extern std::map<int, CelData> g_celDataMap;
+    extern int g_nextCelId;
 }

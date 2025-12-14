@@ -278,9 +278,9 @@ namespace hsppp_test {
         // HSP互換版 width（サイズ変更）
         width(350, 250);
         
-        // OOP版 windowSize
-        scr.windowSize(300, 200);
-        scr.windowSize(-1, -1, 100, 100);  // 位置のみ変更
+        // OOP版 width
+        scr.width(300, 200);
+        scr.width(-1, -1, 100, 100);  // 位置のみ変更
 
         return true;
     }

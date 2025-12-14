@@ -110,6 +110,8 @@ namespace hsppp {
 #include "hsppp_ginfo.inl"
 #include "hsppp_copy.inl"
 #include "hsppp_input.inl"
+#include "hsppp_image.inl"
+#include "hsppp_cel.inl"
 
 // ============================================================
 // init_system / close_system

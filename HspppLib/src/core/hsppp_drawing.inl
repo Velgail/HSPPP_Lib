@@ -8,6 +8,22 @@ namespace hsppp {
     // 描画制御関数
     // ============================================================
 
+    // cls - 画面クリア（HSP互換）
+    void cls(OptInt p1, const std::source_location& location) {
+        int mode = p1.value_or(0);
+
+        // パラメータチェック
+        if (mode < 0 || mode > 4) {
+            throw HspError(ERR_OUT_OF_RANGE, "clsのパラメータは0～4の範囲で指定してください", location);
+        }
+
+        // カレントサーフェス取得（自動的にデフォルトウィンドウ作成）
+        auto currentSurface = getCurrentSurface();
+        if (!currentSurface) return;
+
+        currentSurface->cls(mode);
+    }
+
     // 描画制御（HSP互換）
     void redraw(int p1, const std::source_location& location) {
         // パラメータチェック

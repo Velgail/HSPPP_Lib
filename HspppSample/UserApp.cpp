@@ -8,6 +8,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import hsppp;
+import <format>;
 using namespace hsppp;
 
 // デモモード
@@ -50,7 +51,6 @@ int g_randomSeed = 0;
 int g_clickCount = 0;
 int g_keyCount = 0;
 int g_lastKey = 0;
-bool g_exitRequested = false;
 
 // ユーザーのエントリーポイント
 int hspMain() {
@@ -84,7 +84,6 @@ int hspMain() {
         if (exitAttempts >= 2) {
             end(0);  // 2回目で終了
         }
-        g_exitRequested = true;
         return 0;
     });
     
@@ -426,7 +425,7 @@ int hspMain() {
             win.pos(50, 180);
             win.mes("キー入力回数 (onkey): " + str(g_keyCount));
             win.pos(50, 200);
-            win.mes("最後のキーコード: " + str(g_lastKey) + " (0x" + str(g_lastKey) + ")");
+            win.mes(std::format("最後のキーコード: {} (0x{:x})", g_lastKey, g_lastKey));
             
             win.color(128, 0, 0).pos(50, 240);
             win.mes("=== 割り込みパラメータ (システム変数) ===");

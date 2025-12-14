@@ -135,12 +135,17 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="DemoState.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="HspppSample.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="DemoDrawBasic.cpp" />
+    <ClCompile Include="DemoDrawExtended.cpp" />
+    <ClCompile Include="DemoDrawImage.cpp" />
+    <ClCompile Include="DemoDrawInterrupt.cpp" />
     <ClCompile Include="UserApp.cpp" />
   </ItemGroup>
   <ItemGroup>

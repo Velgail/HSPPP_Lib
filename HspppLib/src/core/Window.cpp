@@ -102,6 +102,7 @@ LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
         // ウィンドウIDは今のところ0固定（将来的にはウィンドウ管理が必要）
         if (triggerOnExit(0, 0)) {
             // 割り込みハンドラが設定されている場合は終了をブロック
+            // ウィンドウは閉じず、ハンドラ内でend()が呼ばれるまで待機
             return 0;
         }
         DestroyWindow(hwnd);

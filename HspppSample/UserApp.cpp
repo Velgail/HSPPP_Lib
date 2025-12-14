@@ -1,9 +1,10 @@
 ﻿// HspppSample/UserApp.cpp
 // ═══════════════════════════════════════════════════════════════════
-// HSPPP デモ: P1 + P2 + Math 機能テスト
+// HSPPP デモ: P1 + P2 + Math + Interrupt 機能テスト
 // P1: cls, font, title, width, groll
 // P2: picload, celload, celput, celdiv, bmpsave
 // Math: abs, sin, cos, rnd, limit, hsvcolor, rgbcolor
+// Interrupt: onclick, onkey, onexit, onerror, oncmd
 // ═══════════════════════════════════════════════════════════════════
 
 import hsppp;
@@ -23,7 +24,9 @@ enum class DemoMode {
     Celload,
     // Math/Color
     Math,
-    Color
+    Color,
+    // Interrupt
+    Interrupt
 };
 
 DemoMode g_mode = DemoMode::Math;  // 数学関数デモを初期モードに
@@ -43,12 +46,47 @@ int g_celIndex = 0;
 double g_angle = 0.0;
 int g_randomSeed = 0;
 
+// Interrupt用変数
+int g_clickCount = 0;
+int g_keyCount = 0;
+int g_lastKey = 0;
+bool g_exitRequested = false;
+
 // ユーザーのエントリーポイント
 int hspMain() {
     // ╔═══════════════════════════════════════════════════════════════╗
     // ║  メインウィンドウ作成（バッファサイズ640x480）                ║
     // ╚═══════════════════════════════════════════════════════════════╝
-    auto win = screen({.width = 640, .height = 480, .title = "HSPPP P1+P2 Demo"});
+    auto win = screen({.width = 640, .height = 480, .title = "HSPPP P1+P2+Interrupt Demo"});
+    
+    // ╔═══════════════════════════════════════════════════════════════╗
+    // ║  割り込みハンドラ設定                                        ║
+    // ╚═══════════════════════════════════════════════════════════════╝
+    
+    // onclick - マウスクリック時の割り込み
+    onclick([]() -> int {
+        g_clickCount++;
+        return 0;
+    });
+    
+    // onkey - キー入力時の割り込み
+    onkey([]() -> int {
+        g_keyCount++;
+        g_lastKey = iparam();  // 文字コードを取得
+        return 0;
+    });
+    
+    // onexit - 終了時の割り込み（HSP互換：end()を呼ぶまで終了しない）
+    hsppp::onexit([]() -> int {
+        // 終了確認（簡易実装：2回連続でクローズボタンを押すと終了）
+        static int exitAttempts = 0;
+        exitAttempts++;
+        if (exitAttempts >= 2) {
+            end(0);  // 2回目で終了
+        }
+        g_exitRequested = true;
+        return 0;
+    });
     
     // メインループ
     while (true) {
@@ -370,14 +408,53 @@ int hspMain() {
                 win.mes(str(i));
             }
             break;
+            
+        // ═══════════════════════════════════════════════════════════
+        // Interrupt機能
+        // ═══════════════════════════════════════════════════════════
+        case DemoMode::Interrupt:
+            win.mes("Current: INTERRUPT HANDLERS - Press I");
+            win.pos(20, 85);
+            win.mes("onclick, onkey, onexit, oncmd, onerror デモ");
+            
+            // 割り込みステータス表示
+            win.color(0, 0, 128).pos(50, 130);
+            win.mes("=== 割り込みハンドラ状態 ===");
+            
+            win.color(0, 0, 0).pos(50, 160);
+            win.mes("クリック回数 (onclick): " + str(g_clickCount));
+            win.pos(50, 180);
+            win.mes("キー入力回数 (onkey): " + str(g_keyCount));
+            win.pos(50, 200);
+            win.mes("最後のキーコード: " + str(g_lastKey) + " (0x" + str(g_lastKey) + ")");
+            
+            win.color(128, 0, 0).pos(50, 240);
+            win.mes("=== 割り込みパラメータ (システム変数) ===");
+            win.color(0, 0, 0).pos(50, 270);
+            win.mes("iparam() = " + str(iparam()));
+            win.pos(50, 290);
+            win.mes("wparam() = " + str(wparam()));
+            win.pos(50, 310);
+            win.mes("lparam() = " + str(lparam()));
+            
+            // 使い方
+            win.color(0, 128, 0).pos(50, 360);
+            win.mes("=== 操作方法 ===");
+            win.color(0, 0, 0).pos(50, 385);
+            win.mes("- マウスクリック: onclick カウンター増加");
+            win.pos(50, 405);
+            win.mes("- キー入力: onkey カウンター増加 + キーコード表示");
+            win.pos(50, 425);
+            win.mes("- ウィンドウ閉じる: onexit で確認ダイアログ");
+            break;
         }
         
         // 共通ヘルプ
         win.font("MS Gothic", 11, 0);
         win.color(128, 128, 128).pos(20, 440);
-        win.mes("P1: 1=cls 2=font 3=title 4=width 5=groll");
+        win.mes("P1: 1=cls 2=font 3=title 4=width 5=groll | P2: 6=bmpsave 7=picload 8=celload");
         win.pos(20, 455);
-        win.mes("P2: 6=bmpsave 7=picload 8=celload | Math: 9=math 0=color | ESC=Exit");
+        win.mes("Math: 9=math 0=color | Interrupt: I=interrupt | ESC=Exit");
         
         win.redraw(1);
         
@@ -392,6 +469,7 @@ int hspMain() {
         if (getkey('8')) { g_mode = DemoMode::Celload; await(200); }
         if (getkey('9')) { g_mode = DemoMode::Math; await(200); }
         if (getkey('0')) { g_mode = DemoMode::Color; await(200); }
+        if (getkey('I')) { g_mode = DemoMode::Interrupt; await(200); }
         
         // モード別操作
         switch (g_mode) {

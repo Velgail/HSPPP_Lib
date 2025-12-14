@@ -259,15 +259,13 @@ namespace compile_test {
         grotate(0, 0, 0, 0.0, 64, 64);
         grotate(omit, omit, omit, omit, omit, omit);
 
-        // gsquare
-        int dstX[4] = {0, 100, 100, 0};
-        int dstY[4] = {0, 0, 100, 100};
-        int srcX[4] = {0, 32, 32, 0};
-        int srcY[4] = {0, 0, 32, 32};
-        int colors[4] = {0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00};
-        gsquare(-1, dstX, dstY);                      // 単色塗りつぶし
-        gsquare(0, dstX, dstY, srcX, srcY);           // 画像コピー
-        gsquare(gsquare_grad, dstX, dstY, &colors[0], nullptr);    // グラデーション
+        // gsquare - 構造体版API
+        Quad dst = {{0, 0}, {100, 0}, {100, 100}, {0, 100}};
+        QuadUV src = {{0, 0}, {32, 0}, {32, 32}, {0, 32}};
+        QuadColors colors = {0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00};
+        gsquare(-1, dst);                      // 単色塗りつぶし
+        gsquare(0, dst, src);                  // 画像コピー
+        gsquare(gsquare_grad, dst, colors);    // グラデーション
 
         // print (mes互換)
         print("Test message");

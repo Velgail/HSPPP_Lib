@@ -151,6 +151,85 @@ namespace hsppp {
 
 
     // ============================================================
+    // Quad構造体 - gsquare用の4頂点座標（HSP互換）
+    // ============================================================
+    // HSPのgsquare命令では、4頂点を配列で指定する:
+    //   gsquare srcId, dstX, dstY, srcX, srcY
+    // C++では型安全な構造体で表現する。
+    // 
+    // 使用例:
+    //   Quad dst = {{0, 0}, {100, 0}, {100, 100}, {0, 100}};
+    //   gsquare(-1, dst);  // 単色塗りつぶし
+    //
+    //   QuadUV src = {{0, 0}, {32, 0}, {32, 32}, {0, 32}};
+    //   gsquare(0, dst, src);  // 画像コピー
+    //
+    //   QuadColors colors = {0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00};
+    //   gsquare(gsquare_grad, dst, colors);  // グラデーション
+    // ============================================================
+
+    /// @brief 2次元座標（gsquare頂点用）
+    export struct Point2i {
+        int x = 0;
+        int y = 0;
+        
+        constexpr Point2i() noexcept = default;
+        constexpr Point2i(int px, int py) noexcept : x(px), y(py) {}
+    };
+
+    /// @brief 4頂点座標（gsquareコピー先用）
+    /// @details 頂点順序: 左上, 右上, 右下, 左下（時計回り）
+    export struct Quad {
+        Point2i v[4];
+
+        constexpr Quad() noexcept = default;
+        
+        /// @brief 4つのPoint2iで初期化
+        constexpr Quad(Point2i p0, Point2i p1, Point2i p2, Point2i p3) noexcept
+            : v{p0, p1, p2, p3} {}
+
+        /// @brief 直接座標で初期化（HSP互換の配列順）
+        constexpr Quad(int x0, int y0, int x1, int y1, int x2, int y2, int x3, int y3) noexcept
+            : v{{x0, y0}, {x1, y1}, {x2, y2}, {x3, y3}} {}
+
+        /// @brief インデックスアクセス
+        constexpr Point2i& operator[](size_t i) noexcept { return v[i]; }
+        constexpr const Point2i& operator[](size_t i) const noexcept { return v[i]; }
+    };
+
+    /// @brief 4頂点UV座標（gsquareコピー元用）
+    /// @details Quadと同じ構造だが、意味的に区別するために別型
+    export struct QuadUV {
+        Point2i v[4];
+
+        constexpr QuadUV() noexcept = default;
+        
+        constexpr QuadUV(Point2i p0, Point2i p1, Point2i p2, Point2i p3) noexcept
+            : v{p0, p1, p2, p3} {}
+
+        constexpr QuadUV(int x0, int y0, int x1, int y1, int x2, int y2, int x3, int y3) noexcept
+            : v{{x0, y0}, {x1, y1}, {x2, y2}, {x3, y3}} {}
+
+        constexpr Point2i& operator[](size_t i) noexcept { return v[i]; }
+        constexpr const Point2i& operator[](size_t i) const noexcept { return v[i]; }
+    };
+
+    /// @brief 4頂点カラー（gsquareグラデーション用）
+    /// @details RGBカラーコード（0xRRGGBB形式）を4頂点分保持
+    export struct QuadColors {
+        int colors[4];
+
+        constexpr QuadColors() noexcept : colors{0, 0, 0, 0} {}
+        
+        constexpr QuadColors(int c0, int c1, int c2, int c3) noexcept
+            : colors{c0, c1, c2, c3} {}
+
+        constexpr int& operator[](size_t i) noexcept { return colors[i]; }
+        constexpr const int& operator[](size_t i) const noexcept { return colors[i]; }
+    };
+
+
+    // ============================================================
     // 割り込みハンドラ型定義（Screen クラスより前に定義が必要）
     // ============================================================
 
@@ -708,20 +787,33 @@ namespace hsppp {
     // ============================================================
     // gsquare - 任意の四角形を描画（HSP互換）
     // ============================================================
-    /// @brief 任意の四角形を描画
-    /// @param srcId コピー元のウィンドウID (マイナス値=-1～-256は単色塗りつぶし, -257=グラデーション)
-    /// @param dstX コピー先X座標配列（4要素: 左上, 右上, 右下, 左下）
-    /// @param dstY コピー先Y座標配列（4要素: 左上, 右上, 右下, 左下）
-    /// @param srcX コピー元X座標配列（4要素、塗りつぶし時は省略可）
-    /// @param srcY コピー元Y座標配列（4要素、塗りつぶし時は省略可）
-    export void gsquare(int srcId, int* dstX, int* dstY, int* srcX = nullptr, int* srcY = nullptr, const std::source_location& location = std::source_location::current());
+    // 使用例:
+    //   Quad dst = {{0, 0}, {100, 0}, {100, 100}, {0, 100}};
+    //   gsquare(-1, dst);  // 単色塗りつぶし
+    //
+    //   QuadUV src = {{0, 0}, {32, 0}, {32, 32}, {0, 32}};
+    //   gsquare(0, dst, src);  // 画像コピー
+    //
+    //   QuadColors colors = {0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00};
+    //   gsquare(gsquare_grad, dst, colors);  // グラデーション
+    // ============================================================
 
-    /// @brief 任意の四角形を描画（グラデーション対応版）
+    /// @brief 任意の四角形を単色塗りつぶし
+    /// @param srcId ウィンドウID (マイナス値=-1～-256で単色塗りつぶし)
+    /// @param dst コピー先座標（4頂点: 左上, 右上, 右下, 左下）
+    export void gsquare(int srcId, const Quad& dst, const std::source_location& location = std::source_location::current());
+
+    /// @brief 任意の四角形へ画像をコピー
+    /// @param srcId コピー元のウィンドウID (0以上)
+    /// @param dst コピー先座標（4頂点）
+    /// @param src コピー元座標（4頂点）
+    export void gsquare(int srcId, const Quad& dst, const QuadUV& src, const std::source_location& location = std::source_location::current());
+
+    /// @brief 任意の四角形をグラデーション塗りつぶし
     /// @param srcId gsquare_grad (-257) を指定
-    /// @param dstX コピー先X座標配列（4要素）
-    /// @param dstY コピー先Y座標配列（4要素）
-    /// @param colors 頂点の色配列（4要素、RGBカラーコード $rrggbb形式）
-    export void gsquare(int srcId, int* dstX, int* dstY, int* colors, const std::source_location& location = std::source_location::current());
+    /// @param dst コピー先座標（4頂点）
+    /// @param colors 頂点の色（4色、RGBカラーコード 0xRRGGBB形式）
+    export void gsquare(int srcId, const Quad& dst, const QuadColors& colors, const std::source_location& location = std::source_location::current());
 
     // gsquare用定数
     export inline constexpr int gsquare_grad = -257;

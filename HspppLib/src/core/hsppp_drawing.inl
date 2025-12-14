@@ -318,12 +318,40 @@ namespace hsppp {
     // ============================================================
     // gsquare - 任意の四角形を描画（HSP互換）
     // ============================================================
-    void gsquare(int srcId, int* dstX, int* dstY, int* srcX, int* srcY, const std::source_location& location) {
+    
+    // 単色塗りつぶし
+    void gsquare(int srcId, const Quad& dst, const std::source_location& location) {
         auto currentSurface = getCurrentSurface();
         if (!currentSurface) return;
 
+        // Quadから配列を抽出
+        int dstX[4] = { dst.v[0].x, dst.v[1].x, dst.v[2].x, dst.v[3].x };
+        int dstY[4] = { dst.v[0].y, dst.v[1].y, dst.v[2].y, dst.v[3].y };
+
         if (srcId < 0) {
-            // 塗りつぶしモード
+            // 塗りつぶしモード (-1 ～ -256)
+            currentSurface->gsquare(dstX, dstY, nullptr, nullptr, nullptr);
+        } else {
+            // srcIdが0以上の場合、全体コピーとして扱う（srcは全体領域）
+            // 本来は画像コピーモードなので、QuadUV版を使うべき
+            // ここでは塗りつぶしとして処理
+            currentSurface->gsquare(dstX, dstY, nullptr, nullptr, nullptr);
+        }
+    }
+
+    // 画像コピー
+    void gsquare(int srcId, const Quad& dst, const QuadUV& src, const std::source_location& location) {
+        auto currentSurface = getCurrentSurface();
+        if (!currentSurface) return;
+
+        // Quad/QuadUVから配列を抽出
+        int dstX[4] = { dst.v[0].x, dst.v[1].x, dst.v[2].x, dst.v[3].x };
+        int dstY[4] = { dst.v[0].y, dst.v[1].y, dst.v[2].y, dst.v[3].y };
+        int srcX[4] = { src.v[0].x, src.v[1].x, src.v[2].x, src.v[3].x };
+        int srcY[4] = { src.v[0].y, src.v[1].y, src.v[2].y, src.v[3].y };
+
+        if (srcId < 0) {
+            // 負の値は塗りつぶし
             currentSurface->gsquare(dstX, dstY, nullptr, nullptr, nullptr);
         } else {
             // 画像コピーモード
@@ -334,16 +362,22 @@ namespace hsppp {
         }
     }
 
-    void gsquare(int srcId, int* dstX, int* dstY, int* colors, const std::source_location& location) {
+    // グラデーション
+    void gsquare(int srcId, const Quad& dst, const QuadColors& colors, const std::source_location& location) {
         auto currentSurface = getCurrentSurface();
         if (!currentSurface) return;
 
+        // Quad/QuadColorsから配列を抽出
+        int dstX[4] = { dst.v[0].x, dst.v[1].x, dst.v[2].x, dst.v[3].x };
+        int dstY[4] = { dst.v[0].y, dst.v[1].y, dst.v[2].y, dst.v[3].y };
+        int cols[4] = { colors.colors[0], colors.colors[1], colors.colors[2], colors.colors[3] };
+
         if (srcId == gsquare_grad) {
             // グラデーションモード
-            currentSurface->gsquareGrad(dstX, dstY, colors);
+            currentSurface->gsquareGrad(dstX, dstY, cols);
         } else {
-            // srcIdが-257でない場合は通常のgsquareを呼び出し
-            gsquare(srcId, dstX, dstY, colors, nullptr, location);
+            // グラデーション以外は単色塗りつぶし
+            currentSurface->gsquare(dstX, dstY, nullptr, nullptr, nullptr);
         }
     }
 

@@ -13,6 +13,7 @@ module;
 #include <string>
 #include <string_view>
 #include <cstring>
+#include <algorithm>
 
 #include "Internal.h"
 
@@ -26,6 +27,9 @@ module hsppp;
 
 namespace hsppp {
 namespace internal {
+
+// ラジアンから度への変換用定数
+constexpr double kRadToDeg = 180.0 / 3.14159265358979323846;
 
 // UTF-8文字列をUTF-16(wchar_t)に変換
 std::wstring Utf8ToWide(std::string_view utf8str) {
@@ -791,7 +795,7 @@ void HspSurface::grect(int cx, int cy, double angle, int w, int h) {
     m_pDeviceContext->GetTransform(&oldTransform);
 
     // 回転変換を設定（中心を指定）
-    float angleInDegrees = static_cast<float>(angle * 180.0 / 3.14159265358979323846);
+    float angleInDegrees = static_cast<float>(angle * kRadToDeg);
     D2D1_MATRIX_3X2_F rotationMatrix = D2D1::Matrix3x2F::Rotation(
         angleInDegrees,
         D2D1::Point2F(centerX, centerY)
@@ -837,7 +841,7 @@ void HspSurface::grotate(ID2D1Bitmap1* pSrcBitmap, int srcX, int srcY, int srcW,
     m_pDeviceContext->GetTransform(&oldTransform);
 
     // 回転変換を設定（中心を指定）
-    float angleInDegrees = static_cast<float>(angle * 180.0 / 3.14159265358979323846);
+    float angleInDegrees = static_cast<float>(angle * kRadToDeg);
     D2D1_MATRIX_3X2_F rotationMatrix = D2D1::Matrix3x2F::Rotation(
         angleInDegrees,
         D2D1::Point2F(centerX, centerY)
@@ -876,8 +880,8 @@ void HspSurface::grotate(ID2D1Bitmap1* pSrcBitmap, int srcX, int srcY, int srcW,
     }
 }
 
-void HspSurface::gsquare(int* dstX, int* dstY, ID2D1Bitmap1* pSrcBitmap, int* srcX, int* srcY) {
-    if (!m_pDeviceContext || !dstX || !dstY) return;
+void HspSurface::gsquare(const int (&dstX)[4], const int (&dstY)[4], ID2D1Bitmap1* pSrcBitmap, const int* srcX, const int* srcY) {
+    if (!m_pDeviceContext) return;
 
     // モード1の場合、自動的にbeginDraw
     bool autoManage = (m_redrawMode == 1 && !m_isDrawing);
@@ -921,9 +925,74 @@ void HspSurface::gsquare(int* dstX, int* dstY, ID2D1Bitmap1* pSrcBitmap, int* sr
         pSink->Close();
 
         m_pDeviceContext->FillGeometry(pPath.Get(), m_pBrush.Get());
+    } else {
+        // 画像コピーモード（アフィン変換で近似）
+        // Direct2Dでは任意の四角形へのマッピングは直接サポートされないため、
+        // ソース矩形からデスティネーション矩形へのアフィン変換で近似
+        if (!srcX || !srcY) {
+            if (autoManage) endDrawAndPresent();
+            return;
+        }
+
+        // ソースのバウンディングボックスを計算
+        float srcMinX = static_cast<float>((std::min)({srcX[0], srcX[1], srcX[2], srcX[3]}));
+        float srcMinY = static_cast<float>((std::min)({srcY[0], srcY[1], srcY[2], srcY[3]}));
+        float srcMaxX = static_cast<float>((std::max)({srcX[0], srcX[1], srcX[2], srcX[3]}));
+        float srcMaxY = static_cast<float>((std::max)({srcY[0], srcY[1], srcY[2], srcY[3]}));
+        float srcW = srcMaxX - srcMinX;
+        float srcH = srcMaxY - srcMinY;
+
+        // デスティネーションのバウンディングボックスを計算
+        float dstMinX = static_cast<float>((std::min)({dstX[0], dstX[1], dstX[2], dstX[3]}));
+        float dstMinY = static_cast<float>((std::min)({dstY[0], dstY[1], dstY[2], dstY[3]}));
+        float dstMaxX = static_cast<float>((std::max)({dstX[0], dstX[1], dstX[2], dstX[3]}));
+        float dstMaxY = static_cast<float>((std::max)({dstY[0], dstY[1], dstY[2], dstY[3]}));
+        float dstW = dstMaxX - dstMinX;
+        float dstH = dstMaxY - dstMinY;
+
+        if (srcW <= 0 || srcH <= 0 || dstW <= 0 || dstH <= 0) {
+            if (autoManage) endDrawAndPresent();
+            return;
+        }
+
+        // 現在の変換を保存
+        D2D1_MATRIX_3X2_F oldTransform;
+        m_pDeviceContext->GetTransform(&oldTransform);
+
+        // ソースの中心とデスティネーションの中心を計算
+        float srcCenterX = (srcMinX + srcMaxX) / 2.0f;
+        float srcCenterY = (srcMinY + srcMaxY) / 2.0f;
+        float dstCenterX = (dstMinX + dstMaxX) / 2.0f;
+        float dstCenterY = (dstMinY + dstMaxY) / 2.0f;
+
+        // スケール変換を計算
+        float scaleX = dstW / srcW;
+        float scaleY = dstH / srcH;
+
+        // 変換行列を構築（スケールと平行移動）
+        // ソース中心を原点に移動 → スケール → デスティネーション中心に移動
+        D2D1_MATRIX_3X2_F transform = D2D1::Matrix3x2F::Translation(-srcCenterX, -srcCenterY)
+            * D2D1::Matrix3x2F::Scale(scaleX, scaleY)
+            * D2D1::Matrix3x2F::Translation(dstCenterX, dstCenterY);
+
+        m_pDeviceContext->SetTransform(transform * oldTransform);
+
+        // ソース矩形
+        D2D1_RECT_F srcRect = D2D1::RectF(srcMinX, srcMinY, srcMaxX, srcMaxY);
+        // デスティネーション矩形（変換前の座標系なのでソースと同じ）
+        D2D1_RECT_F destRect = srcRect;
+
+        m_pDeviceContext->DrawBitmap(
+            pSrcBitmap,
+            destRect,
+            1.0f,
+            D2D1_BITMAP_INTERPOLATION_MODE_LINEAR,
+            srcRect
+        );
+
+        // 変換を元に戻す
+        m_pDeviceContext->SetTransform(oldTransform);
     }
-    // 画像コピーモード（Direct2Dでは直接サポートされないため、簡易実装）
-    // TODO: 頂点変換による画像描画（エフェクト使用）
     
     // モード1の場合、自動的にendDraw + present
     if (autoManage) {
@@ -931,8 +1000,8 @@ void HspSurface::gsquare(int* dstX, int* dstY, ID2D1Bitmap1* pSrcBitmap, int* sr
     }
 }
 
-void HspSurface::gsquareGrad(int* dstX, int* dstY, int* colors) {
-    if (!m_pDeviceContext || !dstX || !dstY || !colors) return;
+void HspSurface::gsquareGrad(const int (&dstX)[4], const int (&dstY)[4], const int (&colors)[4]) {
+    if (!m_pDeviceContext) return;
 
     // モード1の場合、自動的にbeginDraw
     bool autoManage = (m_redrawMode == 1 && !m_isDrawing);
@@ -942,7 +1011,7 @@ void HspSurface::gsquareGrad(int* dstX, int* dstY, int* colors) {
     if (!m_isDrawing) return;
 
     // Direct2Dでは4頂点グラデーションが直接サポートされないため、
-    // 2つの三角形に分割して描画する簡易実装
+    // 4つの三角形に分割して描画する簡易実装
     auto pFactory = D2DDeviceManager::getInstance().getFactory();
     if (!pFactory) {
         if (autoManage) endDrawAndPresent();
@@ -972,6 +1041,13 @@ void HspSurface::gsquareGrad(int* dstX, int* dstY, int* colors) {
 
     // 4つの三角形として描画（簡易グラデーション）
     // 各三角形の中心色を使用
+    ComPtr<ID2D1SolidColorBrush> pTriBrush;
+    HRESULT hr = m_pDeviceContext->CreateSolidColorBrush(D2D1::ColorF(0.0f, 0.0f, 0.0f), pTriBrush.GetAddressOf());
+    if (FAILED(hr)) {
+        if (autoManage) endDrawAndPresent();
+        return;
+    }
+
     for (int i = 0; i < 4; i++) {
         int next = (i + 1) % 4;
 
@@ -982,13 +1058,10 @@ void HspSurface::gsquareGrad(int* dstX, int* dstY, int* colors) {
             (vertexColors[i].b + vertexColors[next].b + centerColor.b) / 3.0f,
             1.0f
         );
-
-        ComPtr<ID2D1SolidColorBrush> pTriBrush;
-        m_pDeviceContext->CreateSolidColorBrush(triColor, pTriBrush.GetAddressOf());
-        if (!pTriBrush) continue;
+        pTriBrush->SetColor(triColor);
 
         ComPtr<ID2D1PathGeometry> pPath;
-        HRESULT hr = pFactory->CreatePathGeometry(pPath.GetAddressOf());
+        hr = pFactory->CreatePathGeometry(pPath.GetAddressOf());
         if (FAILED(hr)) continue;
 
         ComPtr<ID2D1GeometrySink> pSink;

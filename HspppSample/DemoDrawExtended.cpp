@@ -267,6 +267,101 @@ void drawExtendedDemo(Screen& win) {
         if (g_angle >= 360.0) g_angle -= 360.0;
         break;
         
+    case ExtendedDemo::StringFunc:
+        win.color(0, 0, 0).pos(20, 85);
+        win.mes("文字列操作関数: instr, strmid, strtrim, strf, getpath");
+        
+        // instr デモ
+        win.font("MS Gothic", 12, 1);
+        win.color(0, 0, 128).pos(50, 120);
+        win.mes("instr - 文字列の検索:");
+        win.font("MS Gothic", 12, 0);
+        win.color(0, 0, 0).pos(50, 140);
+        {
+            std::string text = "Hello World, Hello HSP";
+            win.mes("検索対象: \"" + text + "\"");
+            win.pos(50, 158);
+            win.mes("instr(text, \"World\") = " + str(instr(text, "World")));
+            win.pos(50, 176);
+            win.mes("instr(text, 7, \"Hello\") = " + str(instr(text, 7, "Hello")));
+            win.pos(50, 194);
+            win.mes("instr(text, \"XYZ\") = " + str(instr(text, "XYZ")));
+        }
+        
+        // strmid デモ
+        win.font("MS Gothic", 12, 1);
+        win.color(0, 128, 0).pos(350, 120);
+        win.mes("strmid - 文字列の一部を取り出す:");
+        win.font("MS Gothic", 12, 0);
+        win.color(0, 0, 0).pos(350, 140);
+        {
+            std::string text = "ABCDEFGHIJ";
+            win.mes("元文字列: \"" + text + "\"");
+            win.pos(350, 158);
+            win.mes("strmid(text, 2, 3) = \"" + strmid(text, 2, 3) + "\"");
+            win.pos(350, 176);
+            win.mes("strmid(text, -1, 3) = \"" + strmid(text, -1, 3) + "\"");
+            win.pos(350, 194);
+            win.mes("strmid(text, 0, 5) = \"" + strmid(text, 0, 5) + "\"");
+        }
+        
+        // strtrim デモ
+        win.font("MS Gothic", 12, 1);
+        win.color(128, 0, 0).pos(50, 230);
+        win.mes("strtrim - 指定文字を除去:");
+        win.font("MS Gothic", 12, 0);
+        win.color(0, 0, 0).pos(50, 250);
+        {
+            std::string text = "  Hello  World  ";
+            win.mes("元文字列: \"" + text + "\"");
+            win.pos(50, 268);
+            win.mes("strtrim(text, 0, ' ') = \"" + strtrim(text, 0, ' ') + "\" (両端)");
+            win.pos(50, 286);
+            win.mes("strtrim(text, 1, ' ') = \"" + strtrim(text, 1, ' ') + "\" (左端)");
+            win.pos(50, 304);
+            win.mes("strtrim(text, 3, ' ') = \"" + strtrim(text, 3, ' ') + "\" (全て)");
+        }
+        
+        // strf デモ
+        win.font("MS Gothic", 12, 1);
+        win.color(128, 0, 128).pos(350, 230);
+        win.mes("strf - 書式付き文字列変換:");
+        win.font("MS Gothic", 12, 0);
+        win.color(0, 0, 0).pos(350, 250);
+        {
+            win.mes(strf("strf(\"%%d\", 123) = \"%d\"", 123));
+            win.pos(350, 268);
+            win.mes(strf("strf(\"%%05d\", 42) = \"%05d\"", 42));
+            win.pos(350, 286);
+            win.mes(strf("strf(\"%%x\", 255) = \"%x\"", 255));
+            win.pos(350, 304);
+            win.mes(strf("strf(\"%%f\", 3.14) = \"%f\"", 3.14));
+        }
+        
+        // getpath デモ
+        win.font("MS Gothic", 12, 1);
+        win.color(0, 128, 128).pos(50, 340);
+        win.mes("getpath - パスの一部を取得:");
+        win.font("MS Gothic", 12, 0);
+        win.color(0, 0, 0).pos(50, 360);
+        {
+            std::string path = "c:\\folder\\test.bmp";
+            win.mes("パス: \"" + path + "\"");
+            win.pos(50, 378);
+            win.mes("getpath(path, 1) = \"" + getpath(path, 1) + "\" (拡張子除去)");
+            win.pos(50, 396);
+            win.mes("getpath(path, 2) = \"" + getpath(path, 2) + "\" (拡張子のみ)");
+            win.pos(50, 414);
+            win.mes("getpath(path, 8) = \"" + getpath(path, 8) + "\" (ファイル名のみ)");
+            win.pos(50, 432);
+            win.mes("getpath(path, 8+1) = \"" + getpath(path, 8+1) + "\" (拡張子なしファイル名)");
+            win.pos(350, 378);
+            win.mes("getpath(path, 32) = \"" + getpath(path, 32) + "\" (ディレクトリのみ)");
+            win.pos(350, 396);
+            win.mes("getpath(path, 16) = \"" + getpath(path, 16) + "\" (小文字)");
+        }
+        break;
+        
     default:
         break;
     }

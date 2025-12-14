@@ -1375,6 +1375,63 @@ namespace hsppp {
     export [[nodiscard]] int strlen(const std::string& p1);
 
     // ============================================================
+    // 文字列操作関数（HSP互換）
+    // ============================================================
+
+    /// @brief 文字列の検索をする
+    /// @param p1 検索される文字列が格納されている文字列型変数名
+    /// @param p2 検索を始めるインデックス (デフォルト: 0)
+    /// @param search 検索する文字列
+    /// @return 見つかった場合はインデックス、見つからなかった場合は-1
+    /// @note p2がマイナス値の場合は常に-1が返される
+    export [[nodiscard]] int instr(const std::string& p1, int p2, const std::string& search);
+    export [[nodiscard]] int instr(const std::string& p1, const std::string& search);
+
+    /// @brief 文字列の一部を取り出す
+    /// @param p1 取り出すもとの文字列が格納されている変数
+    /// @param p2 取り出し始めのインデックス (-1で右から取り出し)
+    /// @param p3 取り出す文字数
+    /// @return 取り出した文字列
+    /// @note p2=-1の場合は右からp3文字を取り出す
+    export [[nodiscard]] std::string strmid(const std::string& p1, int p2, int p3);
+
+    /// @brief 指定した文字だけを取り除く
+    /// @param p1 元の文字列が代入された変数
+    /// @param p2 除去する位置の指定 (0=両端, 1=左端, 2=右端, 3=全て)
+    /// @param p3 文字コード (デフォルト: 32=半角スペース)
+    /// @return 除去後の文字列
+    export [[nodiscard]] std::string strtrim(const std::string& p1, int p2 = 0, int p3 = 32);
+
+    /// @brief 書式付き文字列を変換（HSP互換）
+    /// @param format 書式指定文字列（printf形式）
+    /// @return 変換された文字列
+    /// @note HSPのstrf互換。%d, %x, %f, %s等をサポート
+    export [[nodiscard]] std::string strf(const std::string& format);
+    export [[nodiscard]] std::string strf(const std::string& format, int arg1);
+    export [[nodiscard]] std::string strf(const std::string& format, double arg1);
+    export [[nodiscard]] std::string strf(const std::string& format, const std::string& arg1);
+    export [[nodiscard]] std::string strf(const std::string& format, int arg1, int arg2);
+    export [[nodiscard]] std::string strf(const std::string& format, int arg1, double arg2);
+    export [[nodiscard]] std::string strf(const std::string& format, int arg1, const std::string& arg2);
+    export [[nodiscard]] std::string strf(const std::string& format, double arg1, int arg2);
+    export [[nodiscard]] std::string strf(const std::string& format, double arg1, double arg2);
+    export [[nodiscard]] std::string strf(const std::string& format, int arg1, int arg2, int arg3);
+    export [[nodiscard]] std::string strf(const std::string& format, int arg1, double arg2, const std::string& arg3);
+
+    /// @brief パスの一部を取得
+    /// @param p1 取り出す元の文字列（ファイルパス）
+    /// @param p2 情報のタイプ指定
+    ///   0: 文字列のコピー（操作なし）
+    ///   1: 拡張子を除くファイル名
+    ///   2: 拡張子のみ（.???）
+    ///   8: ディレクトリ情報を取り除く
+    ///   16: 文字列を小文字に変換
+    ///   32: ディレクトリ情報のみ
+    /// @return 変換された文字列
+    /// @note タイプ値は合計して複数指定可能
+    export [[nodiscard]] std::string getpath(const std::string& p1, int p2);
+
+    // ============================================================
     // 色関連関数（HSP互換）
     // ============================================================
 
@@ -1409,6 +1466,123 @@ namespace hsppp {
     export inline constexpr double M_SQRT1_2 = 1.0 / std::numbers::sqrt2_v<double>; // 1/√2
     export inline constexpr double M_SQRT3 = std::numbers::sqrt3_v<double>;     // 3の平方根
     export inline constexpr double M_SQRTPI = 1.0 / std::numbers::inv_sqrtpi_v<double>; // 円周率の平方根
+
+    // ============================================================
+    // C++標準ライブラリ: 文字列関連 (std::formatなど)
+    // ============================================================
+    // C++20 <format> - 型安全なフォーマット（printfの現代的代替）
+    //
+    // 使用例:
+    //   import hsppp;
+    //   auto s1 = hsppp::format("Hello, {}!", "World");
+    //   auto s2 = hsppp::format("{:05d}", 42);          // "00042"
+    //   auto s3 = hsppp::format("{:.2f}", 3.14159);     // "3.14"
+    //   auto s4 = hsppp::format("{0} + {0} = {1}", 2, 4); // "2 + 2 = 4"
+
+    export using std::format;           // 書式付き文字列生成
+    export using std::format_to;        // イテレータへフォーマット出力
+    export using std::format_to_n;      // 最大n文字までフォーマット出力
+    export using std::formatted_size;   // 必要なバッファサイズを計算
+    export using std::vformat;          // 動的引数フォーマット
+    export using std::vformat_to;       // 動的引数でイテレータへ出力
+    export using std::make_format_args; // フォーマット引数作成
+
+    // フォーマットエラー
+    export using std::format_error;     // フォーマットエラー例外
+
+    // ============================================================
+    // C++標準ライブラリ: 文字列型
+    // ============================================================
+    // <string> - 文字列クラス
+    //
+    // 使用例:
+    //   import hsppp;
+    //   hsppp::string s = "Hello";       // std::string
+    //   auto len = s.size();             // 5
+    //   s += " World";                   // "Hello World"
+
+    export using std::string;           // 文字列クラス
+    export using std::wstring;          // ワイド文字列クラス
+    export using std::u8string;         // UTF-8文字列 (C++20)
+    export using std::u16string;        // UTF-16文字列
+    export using std::u32string;        // UTF-32文字列
+
+    // <string_view> - 文字列ビュー（非所有、軽量参照）
+    //
+    // 使用例:
+    //   import hsppp;
+    //   void process(hsppp::string_view sv) { /* コピーなしで参照 */ }
+    //   process("literal");              // 文字列リテラルから変換
+    //   process(myString);               // std::stringから変換
+
+    export using std::string_view;      // 文字列ビュー
+    export using std::wstring_view;     // ワイド文字列ビュー
+    export using std::u8string_view;    // UTF-8文字列ビュー (C++20)
+    export using std::u16string_view;   // UTF-16文字列ビュー
+    export using std::u32string_view;   // UTF-32文字列ビュー
+
+    // 文字列変換 (数値 <-> 文字列)
+    export using std::to_string;        // 数値→文字列
+    export using std::to_wstring;       // 数値→ワイド文字列
+    export using std::stoi;             // 文字列→int
+    export using std::stol;             // 文字列→long
+    export using std::stoll;            // 文字列→long long
+    export using std::stoul;            // 文字列→unsigned long
+    export using std::stoull;           // 文字列→unsigned long long
+    export using std::stof;             // 文字列→float
+    export using std::stod;             // 文字列→double
+    export using std::stold;            // 文字列→long double
+
+    // getline (ストリームから1行読み込み)
+    export using std::getline;
+
+    // ============================================================
+    // C++標準ライブラリ: アルゴリズム (文字列操作に便利)
+    // ============================================================
+    // 
+    // 使用例:
+    //   import hsppp;
+    //   hsppp::string s = "Hello";
+    //   hsppp::transform(s.begin(), s.end(), s.begin(), ::toupper);
+    //   // s = "HELLO"
+
+    export using std::transform;        // 変換
+    export using std::copy;             // コピー
+    export using std::copy_if;          // 条件付きコピー
+    export using std::fill;             // 埋める
+    export using std::find;             // 検索
+    export using std::find_if;          // 条件検索
+    export using std::find_if_not;      // 否定条件検索
+    export using std::count;            // カウント
+    export using std::count_if;         // 条件カウント
+    export using std::replace;          // 置換
+    export using std::replace_if;       // 条件置換
+    export using std::remove;           // 削除（イテレータ移動）
+    export using std::remove_if;        // 条件削除
+    export using std::unique;           // 重複削除
+    export using std::reverse;          // 反転
+    export using std::sort;             // ソート
+    export using std::stable_sort;      // 安定ソート
+    export using std::all_of;           // 全て満たすか
+    export using std::any_of;           // いずれか満たすか
+    export using std::none_of;          // 全て満たさないか
+    export using std::equal;            // 等価判定
+    export using std::mismatch;         // 不一致検出
+    export using std::search;           // 部分列検索
+
+    // ============================================================
+    // C++標準ライブラリ: ユーティリティ
+    // ============================================================
+
+    // <optional> - 省略可能な値
+    export using std::optional;
+    export using std::nullopt;
+    export using std::make_optional;
+
+    // <functional> - 関数オブジェクト
+    export using std::function;
+    export using std::invoke;
+    export using std::bind_front;       // 前方引数束縛 (C++20)
 
     // ============================================================
     // Cel Factory Function (OOP版)

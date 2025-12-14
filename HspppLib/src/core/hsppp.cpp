@@ -9,6 +9,7 @@
 //   - hsppp_ginfo.inl   : ginfo, font, sysfont, title, width
 //   - hsppp_copy.inl    : gsel, gmode, gcopy, gzoom
 //   - hsppp_interrupt.inl : 割り込みハンドラ（onclick, oncmd, onerror, onexit, onkey）
+//   - hsppp_string.inl  : 文字列操作関数（instr, strmid, strtrim, strf, getpath）
 
 // グローバルモジュールフラグメント
 module;
@@ -26,6 +27,8 @@ module;
 #include <stdexcept>
 #include <map>
 #include <memory>
+#include <cstdio>
+#include <cctype>
 
 #include "Internal.h"
 
@@ -104,6 +107,7 @@ namespace {
 #include "hsppp_image.inl"
 #include "hsppp_cel.inl"
 #include "hsppp_math.inl"
+#include "hsppp_string.inl"
 
 // ============================================================
 // init_system / close_system

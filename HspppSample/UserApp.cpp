@@ -101,19 +101,21 @@ void drawHelpWindow(Screen& helpWin) {
     helpWin.mes("  Ctrl+5: gsquare     Ctrl+6: gcopy");
     helpWin.pos(20, 320);
     helpWin.mes("  Ctrl+7: gzoom       Ctrl+8: grotate");
+    helpWin.pos(20, 340);
+    helpWin.mes("  Ctrl+9: 文字列操作関数");
     
-    helpWin.color(255, 255, 255).pos(20, 350);
+    helpWin.color(255, 255, 255).pos(20, 370);
     helpWin.mes("【画像デモ - Shift + 数字キー】");
-    helpWin.color(200, 200, 200).pos(20, 370);
+    helpWin.color(200, 200, 200).pos(20, 390);
     helpWin.mes("  Shift+1: bmpsave    Shift+2: picload");
-    helpWin.pos(20, 390);
+    helpWin.pos(20, 410);
     helpWin.mes("  Shift+3: celload/celput");
     
-    helpWin.color(255, 255, 255).pos(20, 420);
+    helpWin.color(255, 255, 255).pos(20, 440);
     helpWin.mes("【割り込みデモ - Alt + 数字キー】");
-    helpWin.color(200, 200, 200).pos(20, 440);
+    helpWin.color(200, 200, 200).pos(20, 460);
     helpWin.mes("  Alt+1: onclick      Alt+2: onkey");
-    helpWin.pos(20, 460);
+    helpWin.pos(20, 480);
     helpWin.mes("  Alt+3: onexit");
     
     helpWin.redraw(1);
@@ -126,7 +128,7 @@ void drawHelpWindow(Screen& helpWin) {
 std::string getCategoryName() {
     switch (g_category) {
         case DemoCategory::Basic:     return "基本 (1-9)";
-        case DemoCategory::Extended:  return "拡張 (Ctrl+1-8)";
+        case DemoCategory::Extended:  return "拡張 (Ctrl+1-9)";
         case DemoCategory::Image:     return "画像 (Shift+1-3)";
         case DemoCategory::Interrupt: return "割り込み (Alt+1-3)";
     }
@@ -151,14 +153,15 @@ std::string getDemoName() {
             break;
         case DemoCategory::Extended:
             switch (static_cast<ExtendedDemo>(g_demoIndex)) {
-                case ExtendedDemo::Math:     return "Math Functions";
-                case ExtendedDemo::Color:    return "Color Functions";
-                case ExtendedDemo::Gradf:    return "gradf (グラデーション)";
-                case ExtendedDemo::Grect:    return "grect (回転矩形)";
-                case ExtendedDemo::Gsquare:  return "gsquare (任意四角形)";
-                case ExtendedDemo::Gcopy:    return "gcopy (画面コピー)";
-                case ExtendedDemo::Gzoom:    return "gzoom (変倍コピー)";
-                case ExtendedDemo::Grotate:  return "grotate (回転コピー)";
+                case ExtendedDemo::Math:       return "Math Functions";
+                case ExtendedDemo::Color:      return "Color Functions";
+                case ExtendedDemo::Gradf:      return "gradf (グラデーション)";
+                case ExtendedDemo::Grect:      return "grect (回転矩形)";
+                case ExtendedDemo::Gsquare:    return "gsquare (任意四角形)";
+                case ExtendedDemo::Gcopy:      return "gcopy (画面コピー)";
+                case ExtendedDemo::Gzoom:      return "gzoom (変倍コピー)";
+                case ExtendedDemo::Grotate:    return "grotate (回転コピー)";
+                case ExtendedDemo::StringFunc: return "String Functions (文字列操作)";
                 default: break;
             }
             break;

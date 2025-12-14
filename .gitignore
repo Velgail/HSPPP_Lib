@@ -363,3 +363,4 @@ MigrationBackup/
 FodyWeavers.xsd
 .claude/settings.local.json
 *.hs
+output.bmp

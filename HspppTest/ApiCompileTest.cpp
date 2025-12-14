@@ -5,6 +5,8 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import hsppp;
+#include <vector>    // テスト用
+#include <cctype>    // std::toupper
 using namespace hsppp;
 
 // ============================================================
@@ -697,6 +699,68 @@ namespace compile_test {
     }
 
     // ============================================================
+    // 文字列操作関数のテスト
+    // ============================================================
+    void test_string_functions() {
+        // instr - 文字列の検索
+        [[maybe_unused]] int pos1 = hsppp::instr("ABCDEF", "CD");          // 2
+        [[maybe_unused]] int pos2 = hsppp::instr("ABCDEF", 2, "CD");       // 0 (2を起点)
+        [[maybe_unused]] int pos3 = hsppp::instr("ABCDEF", "XY");          // -1
+        [[maybe_unused]] int pos4 = hsppp::instr("ABCDEF", -1, "CD");      // -1 (負のインデックス)
+        [[maybe_unused]] int pos5 = hsppp::instr("", "ABC");               // -1
+        [[maybe_unused]] int pos6 = hsppp::instr("ABCABC", 3, "ABC");      // 0 (3を起点)
+        [[maybe_unused]] int pos7 = hsppp::instr("Hello World", 0, "World"); // 6
+        [[maybe_unused]] int pos8 = hsppp::instr("ABC", "");               // 0 (空文字検索)
+
+        // strmid - 文字列の一部を取り出す
+        [[maybe_unused]] std::string mid1 = hsppp::strmid("ABCDEF", 1, 3);   // "BCD"
+        [[maybe_unused]] std::string mid2 = hsppp::strmid("ABCDEF", -1, 3);  // "DEF" (右から3文字)
+        [[maybe_unused]] std::string mid3 = hsppp::strmid("ABCDEF", 0, 100); // "ABCDEF" (超過は実際の長さまで)
+        [[maybe_unused]] std::string mid4 = hsppp::strmid("ABCDEF", 10, 3);  // "" (範囲外)
+        [[maybe_unused]] std::string mid5 = hsppp::strmid("", 0, 3);         // ""
+        [[maybe_unused]] std::string mid6 = hsppp::strmid("ABCDEF", 0, 0);   // ""
+        [[maybe_unused]] std::string mid7 = hsppp::strmid("AB", -1, 5);      // "AB" (右から5文字、実際は2文字)
+
+        // strtrim - 指定した文字だけを取り除く
+        [[maybe_unused]] std::string trim1 = hsppp::strtrim("  ABC  ", 0, ' ');    // "ABC" (両端)
+        [[maybe_unused]] std::string trim2 = hsppp::strtrim("  ABC  ", 1, ' ');    // "ABC  " (左端)
+        [[maybe_unused]] std::string trim3 = hsppp::strtrim("  ABC  ", 2, ' ');    // "  ABC" (右端)
+        [[maybe_unused]] std::string trim4 = hsppp::strtrim(" A B C ", 3, ' ');    // "ABC" (全て)
+        [[maybe_unused]] std::string trim5 = hsppp::strtrim("ABC");                // "ABC" (デフォルト: 両端のスペース)
+        [[maybe_unused]] std::string trim6 = hsppp::strtrim("XXABCXX", 0, 'X');    // "ABC"
+        [[maybe_unused]] std::string trim7 = hsppp::strtrim("", 0, ' ');           // ""
+
+        // strf - 書式付き文字列を変換
+        [[maybe_unused]] std::string fmt1 = hsppp::strf("Hello");                      // "Hello"
+        [[maybe_unused]] std::string fmt2 = hsppp::strf("Value: %d", 123);             // "Value: 123"
+        [[maybe_unused]] std::string fmt3 = hsppp::strf("Hex: %x", 255);               // "Hex: ff"
+        [[maybe_unused]] std::string fmt4 = hsppp::strf("Float: %f", 3.14);            // "Float: 3.140000"
+        [[maybe_unused]] std::string fmt5 = hsppp::strf("Padded: %05d", 42);           // "Padded: 00042"
+        [[maybe_unused]] std::string fmt6 = hsppp::strf("String: %s", std::string("test")); // "String: test"
+        [[maybe_unused]] std::string fmt7 = hsppp::strf("Two: %d, %d", 1, 2);          // "Two: 1, 2"
+        [[maybe_unused]] std::string fmt8 = hsppp::strf("Mix: %d, %f", 10, 2.5);       // "Mix: 10, 2.500000"
+        [[maybe_unused]] std::string fmt9 = hsppp::strf("Three: %d, %d, %d", 1, 2, 3); // "Three: 1, 2, 3"
+
+        // getpath - パスの一部を取得
+        std::string testPath = "c:\\disk\\test.bmp";
+        [[maybe_unused]] std::string path1 = hsppp::getpath(testPath, 0);        // "c:\\disk\\test.bmp" (そのまま)
+        [[maybe_unused]] std::string path2 = hsppp::getpath(testPath, 1);        // "c:\\disk\\test" (拡張子除去)
+        [[maybe_unused]] std::string path3 = hsppp::getpath(testPath, 2);        // ".bmp" (拡張子のみ)
+        [[maybe_unused]] std::string path4 = hsppp::getpath(testPath, 8);        // "test.bmp" (ディレクトリ除去)
+        [[maybe_unused]] std::string path5 = hsppp::getpath(testPath, 8 + 1);    // "test" (ディレクトリ+拡張子除去)
+        [[maybe_unused]] std::string path6 = hsppp::getpath(testPath, 16);       // "c:\\disk\\test.bmp" (小文字)
+        [[maybe_unused]] std::string path7 = hsppp::getpath(testPath, 32);       // "c:\\disk\\" (ディレクトリのみ)
+        [[maybe_unused]] std::string path8 = hsppp::getpath("", 0);              // ""
+        [[maybe_unused]] std::string path9 = hsppp::getpath("noext", 2);         // "" (拡張子なし)
+        [[maybe_unused]] std::string pathA = hsppp::getpath("file.txt", 32);     // "" (ディレクトリなし)
+
+        // Unix形式パスも対応
+        std::string unixPath = "/home/user/file.txt";
+        [[maybe_unused]] std::string pathB = hsppp::getpath(unixPath, 8);        // "file.txt"
+        [[maybe_unused]] std::string pathC = hsppp::getpath(unixPath, 32);       // "/home/user/"
+    }
+
+    // ============================================================
     // 数学定数のテスト
     // ============================================================
     void test_math_constants() {
@@ -709,6 +773,76 @@ namespace compile_test {
         [[maybe_unused]] double sqrt2 = M_SQRT2;
         [[maybe_unused]] double sqrt3 = M_SQRT3;
         [[maybe_unused]] double sqrtpi = M_SQRTPI;
+    }
+
+    // ============================================================
+    // C++標準ライブラリエクスポートのテスト
+    // ============================================================
+    void test_cpp_stdlib_exports() {
+        // --- std::format (C++20) ---
+        [[maybe_unused]] auto fmt1 = hsppp::format("Hello, {}!", "World");
+        [[maybe_unused]] auto fmt2 = hsppp::format("{:05d}", 42);           // "00042"
+        [[maybe_unused]] auto fmt3 = hsppp::format("{:.2f}", 3.14159);      // "3.14"
+        [[maybe_unused]] auto fmt4 = hsppp::format("{0} + {0} = {1}", 2, 4);// "2 + 2 = 4"
+        [[maybe_unused]] auto fmt5 = hsppp::format("{:#x}", 255);           // "0xff"
+
+        // vformat (動的引数) - make_format_argsは左辺値参照が必要
+        int val = 42;
+        [[maybe_unused]] auto vfmt = hsppp::vformat("Value: {}", hsppp::make_format_args(val));
+
+        // --- 文字列型 ---
+        [[maybe_unused]] hsppp::string str1 = "Hello";
+        [[maybe_unused]] hsppp::wstring wstr1 = L"Wide";
+        [[maybe_unused]] hsppp::u8string u8str1 = u8"UTF-8";
+        [[maybe_unused]] hsppp::u16string u16str1 = u"UTF-16";
+        [[maybe_unused]] hsppp::u32string u32str1 = U"UTF-32";
+
+        // --- 文字列ビュー ---
+        [[maybe_unused]] hsppp::string_view sv1 = "View";
+        [[maybe_unused]] hsppp::wstring_view wsv1 = L"WideView";
+        [[maybe_unused]] hsppp::u8string_view u8sv1 = u8"UTF-8 View";
+
+        // --- 文字列変換 ---
+        [[maybe_unused]] hsppp::string s_from_int = hsppp::to_string(42);
+        [[maybe_unused]] hsppp::string s_from_dbl = hsppp::to_string(3.14);
+        [[maybe_unused]] hsppp::wstring ws_from_int = hsppp::to_wstring(42);
+
+        [[maybe_unused]] int i1 = hsppp::stoi("123");
+        [[maybe_unused]] long l1 = hsppp::stol("123456");
+        [[maybe_unused]] long long ll1 = hsppp::stoll("123456789012");
+        [[maybe_unused]] unsigned long ul1 = hsppp::stoul("12345");
+        [[maybe_unused]] unsigned long long ull1 = hsppp::stoull("1234567890");
+        [[maybe_unused]] float f1 = hsppp::stof("3.14");
+        [[maybe_unused]] double d1 = hsppp::stod("3.14159");
+        [[maybe_unused]] long double ld1 = hsppp::stold("3.14159265358979");
+
+        // --- アルゴリズム ---
+        hsppp::string alg_str = "hello";
+        hsppp::transform(alg_str.begin(), alg_str.end(), alg_str.begin(), 
+                        [](char c) { return static_cast<char>(std::toupper(c)); });
+        
+        std::vector<int> vec = {1, 2, 3, 4, 5};
+        [[maybe_unused]] auto it1 = hsppp::find(vec.begin(), vec.end(), 3);
+        [[maybe_unused]] auto it2 = hsppp::find_if(vec.begin(), vec.end(), [](int x) { return x > 3; });
+        [[maybe_unused]] auto cnt = hsppp::count(vec.begin(), vec.end(), 3);
+        [[maybe_unused]] bool all = hsppp::all_of(vec.begin(), vec.end(), [](int x) { return x > 0; });
+        [[maybe_unused]] bool any = hsppp::any_of(vec.begin(), vec.end(), [](int x) { return x == 3; });
+        [[maybe_unused]] bool none = hsppp::none_of(vec.begin(), vec.end(), [](int x) { return x < 0; });
+        
+        hsppp::sort(vec.begin(), vec.end());
+        hsppp::reverse(vec.begin(), vec.end());
+
+        // --- optional ---
+        [[maybe_unused]] hsppp::optional<int> opt1;
+        [[maybe_unused]] hsppp::optional<int> opt2 = hsppp::nullopt;
+        [[maybe_unused]] hsppp::optional<int> opt3 = hsppp::make_optional(42);
+
+        // --- functional ---
+        [[maybe_unused]] hsppp::function<int(int, int)> fn = [](int a, int b) { return a + b; };
+        [[maybe_unused]] int result = hsppp::invoke(fn, 1, 2);
+        
+        auto add_five = hsppp::bind_front([](int a, int b) { return a + b; }, 5);
+        [[maybe_unused]] int r2 = add_five(3);  // 5 + 3 = 8
     }
 
 }  // namespace compile_test
@@ -750,7 +884,9 @@ namespace hsppp_test {
         compile_test::test_math_functions();
         compile_test::test_conversion_functions();
         compile_test::test_color_functions();
+        compile_test::test_string_functions();
         compile_test::test_math_constants();
+        compile_test::test_cpp_stdlib_exports();
         // compile_test::test_end_function_signature(); // end()は呼ばない
 
         return true;

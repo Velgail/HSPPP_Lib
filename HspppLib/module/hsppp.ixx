@@ -952,38 +952,95 @@ namespace hsppp {
     export void onkey(int enable, const std::source_location& location = std::source_location::current());
 
     // ============================================================
-    // 数学関数（C++標準ライブラリの再エクスポート）
     // ============================================================
-    // 注: HSP互換性を保ちながら、C++標準ライブラリ(std::cmath)を直接利用。
-    //     度数法対応は deg2rad/rad2deg() で行う。
-    //     例: sin(deg2rad(45.0)) で 45度 のサイン値を計算
+    // <cmath> 再エクスポート
+    // ============================================================
+    // 方針: <cmath> の関数群は hsppp 名前空間に全再エクスポート。
+    //       これにより、ユーザーが std::sin と hsppp::sin を併用しても
+    //       名前衝突が発生しない（同一実体を指す）。
+    //
+    // 使用例:
+    //   import hsppp;
+    //   hsppp::sin(hsppp::deg2rad(45.0));  // 45度のサイン
+    //   hsppp::sqrt(2.0);                  // √2
+    //   hsppp::pow(2.0, 10.0);             // 2^10
 
-    /// @brief 整数の絶対値を返す
-    export using std::abs;
+    // --- 基本数学関数 ---
+    export using std::abs;      // 絶対値 (int, float, double, long double)
+    export using std::fabs;     // 浮動小数点絶対値
+    export using std::fmod;     // 浮動小数点剰余
+    export using std::remainder;// IEEE剰余
+    export using std::fmax;     // 最大値
+    export using std::fmin;     // 最小値
+    export using std::fdim;     // 正の差
+    export using std::fma;      // 融合積和
 
-    /// @brief サイン値を返す（ラジアン入力）
-    export using std::sin;
+    // --- 指数・対数 ---
+    export using std::exp;      // e^x
+    export using std::exp2;     // 2^x
+    export using std::expm1;    // e^x - 1
+    export using std::log;      // 自然対数
+    export using std::log10;    // 常用対数
+    export using std::log2;     // 2を底とする対数
+    export using std::log1p;    // log(1 + x)
 
-    /// @brief コサイン値を返す（ラジアン入力）
-    export using std::cos;
+    // --- 累乗・平方根 ---
+    export using std::pow;      // x^y
+    export using std::sqrt;     // 平方根
+    export using std::cbrt;     // 立方根
+    export using std::hypot;    // √(x² + y²)
 
-    /// @brief タンジェント値を返す（ラジアン入力）
-    export using std::tan;
+    // --- 三角関数（ラジアン） ---
+    export using std::sin;      // サイン
+    export using std::cos;      // コサイン
+    export using std::tan;      // タンジェント
+    export using std::asin;     // アークサイン
+    export using std::acos;     // アークコサイン
+    export using std::atan;     // アークタンジェント
+    export using std::atan2;    // アークタンジェント(y, x)
 
-    /// @brief アークタンジェント値を返す（ラジアン出力）
-    export using std::atan2;
+    // --- 双曲線関数 ---
+    export using std::sinh;     // ハイパボリックサイン
+    export using std::cosh;     // ハイパボリックコサイン
+    export using std::tanh;     // ハイパボリックタンジェント
+    export using std::asinh;    // 逆双曲線サイン
+    export using std::acosh;    // 逆双曲線コサイン
+    export using std::atanh;    // 逆双曲線タンジェント
 
-    /// @brief 平方根を求める
-    export using std::sqrt;
+    // --- 切り捨て・切り上げ・丸め ---
+    export using std::ceil;     // 切り上げ
+    export using std::floor;    // 切り捨て
+    export using std::trunc;    // 0方向への切り捨て
+    export using std::round;    // 四捨五入
+    export using std::nearbyint;// 現在の丸めモードで整数化
+    export using std::rint;     // 現在の丸めモードで整数化（例外通知あり）
 
-    /// @brief 累乗（べき乗）を求める
-    export using std::pow;
+    // --- 分解・合成 ---
+    export using std::frexp;    // 仮数と指数に分解
+    export using std::ldexp;    // 仮数×2^指数
+    export using std::modf;     // 整数部と小数部に分解
+    export using std::scalbn;   // x × FLT_RADIX^n
+    export using std::ilogb;    // 指数部を整数で取得
+    export using std::logb;     // 指数部を浮動小数点で取得
 
-    /// @brief 指数を求める
-    export using std::exp;
+    // --- 符号・分類 ---
+    export using std::copysign; // 符号コピー
+    export using std::signbit;  // 符号ビット判定
+    export using std::isnan;    // NaN判定
+    export using std::isinf;    // 無限大判定
+    export using std::isfinite; // 有限判定
+    export using std::isnormal; // 正規化数判定
+    export using std::fpclassify;// 浮動小数点分類
 
-    /// @brief 自然対数を求める
-    export using std::log;
+    // --- 特殊関数 (C++17) ---
+    export using std::erf;      // 誤差関数
+    export using std::erfc;     // 相補誤差関数
+    export using std::tgamma;   // ガンマ関数
+    export using std::lgamma;   // ガンマ関数の対数
+
+    // ============================================================
+    // HSPPP拡張: 度数法対応
+    // ============================================================
 
     /// @brief 度数法（度）をラジアンに変換
     /// @param degrees 角度（度単位）
@@ -998,12 +1055,6 @@ namespace hsppp {
     export [[nodiscard]] inline constexpr double rad2deg(double radians) noexcept {
         return radians * 180.0 / std::numbers::pi_v<double>;
     }
-
-    // 旧互換: absf は削除（std::abs で int/double 両対応）
-    // 旧互換: atan は std::atan2 に統一
-    // 旧互換: powf は std::pow に統一
-    // 旧互換: expf は std::exp に統一
-    // 旧互換: logf は std::log に統一
 
     /// @brief 乱数を発生
     /// @param p1 乱数の範囲（1〜32768）

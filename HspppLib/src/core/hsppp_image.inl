@@ -44,38 +44,47 @@ void bmpsave(std::string_view p1, const std::source_location& location) {
 }
 
 // ============================================================
+// celload読み込みヘルパー（celloadとloadCelで共有）
+// ============================================================
+namespace {
+    int loadCelDataInternal(std::string_view filename, hsppp::OptInt celId, const std::source_location& location) {
+        int id = celId.value_or(-1);
+        
+        // 自動割り当てモード
+        if (id < 0) {
+            id = internal::g_nextCelId++;
+        }
+        
+        // 画像読み込み
+        int width = 0, height = 0;
+        auto bitmap = internal::loadImageFile(filename, width, height);
+        if (!bitmap) {
+            throw HspError(ERR_FILE_IO, "cel loading: failed to load image", location);
+        }
+        
+        // CelDataを作成
+        internal::CelData celData;
+        celData.pBitmap = bitmap;
+        celData.width = width;
+        celData.height = height;
+        celData.divX = 1;
+        celData.divY = 1;
+        celData.centerX = 0;
+        celData.centerY = 0;
+        celData.filename = std::string(filename);
+        
+        // マップに登録
+        internal::g_celDataMap[id] = std::move(celData);
+        
+        return id;
+    }
+}
+
+// ============================================================
 // celload - 画像ファイルをバッファにロード（仮想ID）
 // ============================================================
 int celload(std::string_view p1, OptInt p2, const std::source_location& location) {
-    int celId = p2.value_or(-1);
-    
-    // 自動割り当てモード
-    if (celId < 0) {
-        celId = internal::g_nextCelId++;
-    }
-    
-    // 画像読み込み
-    int width = 0, height = 0;
-    auto bitmap = internal::loadImageFile(p1, width, height);
-    if (!bitmap) {
-        throw HspError(ERR_FILE_IO, "celload: failed to load image", location);
-    }
-    
-    // CelDataを作成
-    internal::CelData celData;
-    celData.pBitmap = bitmap;
-    celData.width = width;
-    celData.height = height;
-    celData.divX = 1;
-    celData.divY = 1;
-    celData.centerX = 0;
-    celData.centerY = 0;
-    celData.filename = std::string(p1);
-    
-    // マップに登録
-    internal::g_celDataMap[celId] = std::move(celData);
-    
-    return celId;
+    return loadCelDataInternal(p1, p2, location);
 }
 
 // ============================================================

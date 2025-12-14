@@ -38,7 +38,6 @@ struct CelData {
     int width;                         // 画像の幅
     int height;                        // 画像の高さ
     int divX;                          // 横方向の分割サイズ
-    ComPtr<IWICImagingFactory> m_pWICFactory;
     int divY;                          // 縦方向の分割サイズ
     int centerX;                       // 中心X座標
     int centerY;                       // 中心Y座標

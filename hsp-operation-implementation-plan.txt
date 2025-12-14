@@ -54,7 +54,7 @@ HSP操作リスト - 実装計画
 ○ [P3] grect           回転する矩形で塗りつぶす
 ○ [P3] grotate         矩形画像を回転してコピー
 ○ [P3] gsquare         任意の四角形を描画
-○ [P3] groll           ウィンドウの描画基点とスケールを設定
+✓ [P3] groll           ウィンドウの描画基点とスケールを設定
 
 × [--] axobj           ActiveXコントロールの配置（COM/ActiveX依存）
 × [--] winobj          ウィンドウオブジェクトの配置（Win32 GUI依存）

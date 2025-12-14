@@ -340,6 +340,7 @@ namespace hsppp {
         Screen& groll(int scrollX, int scrollY);
 
         /// @brief フォントを設定
+        /// @param fontName フォント名
         /// @param size フォントサイズ (デフォルト: 12)
         /// @param style フォントスタイル (デフォルト: 0)
         /// @return *this（メソッドチェーン用）

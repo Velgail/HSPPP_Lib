@@ -49,6 +49,14 @@ namespace hsppp {
         return *this;
     }
 
+    Screen& Screen::cls(int mode) {
+        auto surface = getSurfaceById(m_id);
+        if (surface) {
+            surface->cls(mode);
+        }
+        return *this;
+    }
+
     Screen& Screen::redraw(int mode) {
         auto surface = getSurfaceById(m_id);
         if (!surface) return *this;
@@ -83,12 +91,32 @@ namespace hsppp {
 
     int Screen::width() const {
         auto surface = getSurfaceById(m_id);
-        return surface ? surface->getWidth() : 0;
+        if (!surface) return 0;
+
+        // HspWindowの場合は現在のクライアントサイズを返す
+        auto pWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
+        if (pWindow) {
+            int w, h;
+            pWindow->getCurrentClientSize(w, h);
+            return w;
+        }
+
+        return surface->getWidth();
     }
 
     int Screen::height() const {
         auto surface = getSurfaceById(m_id);
-        return surface ? surface->getHeight() : 0;
+        if (!surface) return 0;
+
+        // HspWindowの場合は現在のクライアントサイズを返す
+        auto pWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
+        if (pWindow) {
+            int w, h;
+            pWindow->getCurrentClientSize(w, h);
+            return h;
+        }
+
+        return surface->getHeight();
     }
 
     Screen& Screen::line(int x2, int y2) {
@@ -182,7 +210,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::windowSize(int clientW, int clientH, int posX, int posY, int option) {
+    Screen& Screen::width(int clientW, int clientH, int posX, int posY, int option) {
         auto surface = getSurfaceById(m_id);
         if (!surface) return *this;
 
@@ -236,6 +264,17 @@ namespace hsppp {
         return *this;
     }
 
+    Screen& Screen::groll(int scrollX, int scrollY) {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        auto pWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
+        if (!pWindow) return *this;
+
+        pWindow->setScroll(scrollX, scrollY);
+        return *this;
+    }
+
     int Screen::mousex() const {
         auto surface = getSurfaceById(m_id);
         auto pWindow = surface ? std::dynamic_pointer_cast<internal::HspWindow>(surface) : nullptr;
@@ -262,6 +301,22 @@ namespace hsppp {
         }
 
         return pt.y;
+    }
+
+    Screen& Screen::picload(std::string_view filename, int mode) {
+        auto surface = getSurfaceById(m_id);
+        if (surface) {
+            surface->picload(filename, mode);
+        }
+        return *this;
+    }
+
+    Screen& Screen::bmpsave(std::string_view filename) {
+        auto surface = getSurfaceById(m_id);
+        if (surface) {
+            surface->bmpsave(filename);
+        }
+        return *this;
     }
 
 } // namespace hsppp

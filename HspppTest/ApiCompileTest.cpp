@@ -75,6 +75,14 @@ namespace compile_test {
         [[maybe_unused]] bool b = static_cast<bool>(scr);
         [[maybe_unused]] int id = scr.id();
 
+        // cls
+        scr.cls();
+        scr.cls(0);
+        scr.cls(1);
+        scr.cls(2);
+        scr.cls(3);
+        scr.cls(4);
+
         // 描画設定（メソッドチェーン対応）
         scr.color(255, 255, 255);
         scr.pos(10, 10);
@@ -92,6 +100,13 @@ namespace compile_test {
         scr.pset();
         scr.pget(50, 50);
         scr.pget();
+
+        // 画像操作
+        scr.picload("test.bmp");
+        scr.picload("test.png", 0);
+        scr.picload("test.jpg", 1);
+        scr.picload("test.bmp", 2);
+        scr.bmpsave("output.bmp");
 
         // 制御
         scr.redraw(0);
@@ -115,10 +130,10 @@ namespace compile_test {
         scr.title("Test Title");
 
         // ウィンドウサイズ設定
-        scr.windowSize(100, 100);
-        scr.windowSize(100, 100, 50, 50);
-        scr.windowSize(-1, -1, 100, 100, 0);
-        scr.windowSize(-1, -1, -100, -100, 1);  // マルチモニタ対応
+        scr.width(100, 100);
+        scr.width(100, 100, 50, 50);
+        scr.width(-1, -1, 100, 100, 0);
+        scr.width(-1, -1, -100, -100, 1);  // マルチモニタ対応
 
         // メソッドチェーン
         scr.color(255, 0, 0)
@@ -176,6 +191,15 @@ namespace compile_test {
     // グローバル描画関数のテスト
     // ============================================================
     void test_global_drawing_functions() {
+        // cls
+        cls();
+        cls(0);
+        cls(1);
+        cls(2);
+        cls(3);
+        cls(4);
+        cls(omit);
+
         // 基本描画設定
         color(255, 255, 255);
         pos(10, 10);
@@ -207,6 +231,75 @@ namespace compile_test {
         pget();
         pget(50, 50);
         pget(omit, omit);
+    }
+
+    // ============================================================
+    // 画像操作関数のテスト
+    // ============================================================
+    void test_image_functions() {
+        // picload - HSP互換
+        picload("test.bmp");
+        picload("test.png", 0);
+        picload("test.jpg", 1);
+        picload("test.bmp", 2);
+        picload("test.bmp", {});
+        picload("test.bmp", omit);
+
+        // bmpsave - HSP互換
+        bmpsave("output.bmp");
+
+        // celload - HSP互換
+        [[maybe_unused]] int celId1 = celload("sprite.png");
+        [[maybe_unused]] int celId2 = celload("sprite.png", 1);
+        [[maybe_unused]] int celId3 = celload("sprite.png", {});
+        [[maybe_unused]] int celId4 = celload("sprite.png", omit);
+
+        // celdiv - HSP互換
+        celdiv(1, 8, 8);
+        celdiv(celId1, 4, 4);
+
+        // celput - HSP互換
+        celput(1, 0);
+        celput(1, 0, 100, 100);
+        celput(1, 0, {}, {});
+        celput(1, 0, omit, omit);
+        celput(celId1, 5);
+        celput(celId1, 5, 200);
+        celput(celId1, 5, 200, 150);
+    }
+
+    // ============================================================
+    // Celクラスのテスト
+    // ============================================================
+    void test_cel_class() {
+        // loadCel - OOP版ファクトリー
+        [[maybe_unused]] Cel cel1 = loadCel("sprite.png");
+        [[maybe_unused]] Cel cel2 = loadCel("sprite.png", 10);
+        [[maybe_unused]] Cel cel3 = loadCel("sprite.png", {});
+        [[maybe_unused]] Cel cel4 = loadCel("sprite.png", omit);
+
+        // 有効性チェック
+        [[maybe_unused]] bool valid = cel1.valid();
+        [[maybe_unused]] bool b = static_cast<bool>(cel1);
+        [[maybe_unused]] int id = cel1.id();
+
+        // サイズ取得
+        [[maybe_unused]] int w = cel1.width();
+        [[maybe_unused]] int h = cel1.height();
+
+        // メソッドチェーン
+        cel1.divide(8, 8);
+        cel1.put(0);
+        cel1.put(0, 100, 100);
+        cel1.put(0, {}, {});
+        cel1.put(0, omit, omit);
+        cel1.divide(4, 4).put(5, 200, 150);
+
+        // コピー・ムーブ
+        [[maybe_unused]] Cel cel5 = cel1;
+        [[maybe_unused]] Cel cel6 = std::move(cel2);
+        cel3 = cel4;
+        cel4 = std::move(cel5);
     }
 
     // ============================================================
@@ -466,6 +559,8 @@ namespace hsppp_test {
         // compile_test::test_hsp_compat_functions(); // 多数のウィンドウを作成
 
         compile_test::test_global_drawing_functions();
+        compile_test::test_image_functions();
+        compile_test::test_cel_class();
         compile_test::test_window_control_functions();
         compile_test::test_control_functions();
         compile_test::test_font_window_functions();

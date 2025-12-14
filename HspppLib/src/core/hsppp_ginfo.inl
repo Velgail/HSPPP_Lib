@@ -90,10 +90,20 @@ namespace hsppp {
             }
             return 0;
         }
-        case 8:  // ウィンドウの描画基点X座標（スクロール未対応のため常に0）
+        case 8:  // ウィンドウの描画基点X座標（grollで設定）
+        {
+            if (pWindow) {
+                return pWindow->getScrollX();
+            }
             return 0;
-        case 9:  // ウィンドウの描画基点Y座標（スクロール未対応のため常に0）
+        }
+        case 9:  // ウィンドウの描画基点Y座標（grollで設定）
+        {
+            if (pWindow) {
+                return pWindow->getScrollY();
+            }
             return 0;
+        }
         case 10:  // ウィンドウ全体のXサイズ
         {
             if (pWindow && pWindow->getHwnd()) {
@@ -294,6 +304,21 @@ namespace hsppp {
             // option=1: 負の値も含めて設定（マルチモニタ対応）
             pWindow->setWindowPos(p3, p4);
         }
+    }
+
+    // ============================================================
+    // groll - スクロール位置設定（HSP互換）
+    // ============================================================
+    void groll(int scrollX, int scrollY, const std::source_location& location) {
+        using namespace internal;
+
+        auto currentSurface = getCurrentSurface();
+        if (!currentSurface) return;
+
+        auto pWindow = std::dynamic_pointer_cast<HspWindow>(currentSurface);
+        if (!pWindow) return;
+
+        pWindow->setScroll(scrollX, scrollY);
     }
 
 } // namespace hsppp

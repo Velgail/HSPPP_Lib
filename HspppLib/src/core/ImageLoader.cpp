@@ -93,40 +93,54 @@ bool saveBitmapToFile(ID2D1Bitmap1* pBitmap, std::string_view filename) {
 
     std::wstring wideFilename = Utf8ToWide(filename);
 
-    // ビットマップのサイズとピクセルデータを取得
+    // ビットマップのサイズを取得
     D2D1_SIZE_U size = pBitmap->GetPixelSize();
     UINT width = size.width;
     UINT height = size.height;
 
-    // WICビットマップを作成
-    ComPtr<IWICBitmap> pWICBitmap;
-    HRESULT hr = deviceMgr.getWICFactory()->CreateBitmap(
-        width,
-        height,
-        GUID_WICPixelFormat32bppBGRA,
-        WICBitmapCacheOnDemand,
-        pWICBitmap.GetAddressOf()
+    // CPU読み取り可能なビットマップを作成してコピー
+    ComPtr<ID2D1DeviceContext> pContext = deviceMgr.createDeviceContext();
+    if (!pContext) return false;
+
+    D2D1_BITMAP_PROPERTIES1 cpuReadProps = D2D1::BitmapProperties1(
+        D2D1_BITMAP_OPTIONS_CPU_READ | D2D1_BITMAP_OPTIONS_CANNOT_DRAW,
+        D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE)
+    );
+
+    ComPtr<ID2D1Bitmap1> pCpuBitmap;
+    HRESULT hr = pContext->CreateBitmap(
+        size,
+        nullptr, 0,
+        cpuReadProps,
+        pCpuBitmap.GetAddressOf()
     );
     if (FAILED(hr)) return false;
 
-    // D2Dビットマップからピクセルをコピー
+    // ソースビットマップからCPU読み取り可能ビットマップへコピー
     D2D1_POINT_2U destPoint = { 0, 0 };
     D2D1_RECT_U srcRect = { 0, 0, width, height };
+    hr = pCpuBitmap->CopyFromBitmap(&destPoint, pBitmap, &srcRect);
+    if (FAILED(hr)) return false;
+
+    // Mapでピクセルデータを取得
+    D2D1_MAPPED_RECT mappedRect;
+    hr = pCpuBitmap->Map(D2D1_MAP_OPTIONS_READ, &mappedRect);
+    if (FAILED(hr)) return false;
+
+    // WICビットマップを作成
+    ComPtr<IWICBitmap> pWICBitmap;
+    hr = deviceMgr.getWICFactory()->CreateBitmapFromMemory(
+        width,
+        height,
+        GUID_WICPixelFormat32bppBGRA,
+        mappedRect.pitch,
+        mappedRect.pitch * height,
+        mappedRect.bits,
+        pWICBitmap.GetAddressOf()
+    );
     
-    // まずWICビットマップのロックを取得
-    ComPtr<IWICBitmapLock> pLock;
-    WICRect lockRect = { 0, 0, static_cast<INT>(width), static_cast<INT>(height) };
-    hr = pWICBitmap->Lock(&lockRect, WICBitmapLockWrite, pLock.GetAddressOf());
-    if (FAILED(hr)) return false;
-
-    UINT bufferSize = 0;
-    BYTE* pData = nullptr;
-    hr = pLock->GetDataPointer(&bufferSize, &pData);
-    if (FAILED(hr)) return false;
-
-    // D2Dビットマップからピクセルをコピー
-    hr = pBitmap->CopyFromMemory(&srcRect, pData, width * 4);
-    pLock.Reset();  // ロック解除
+    pCpuBitmap->Unmap();
+    
     if (FAILED(hr)) return false;
 
     // エンコーダーを作成

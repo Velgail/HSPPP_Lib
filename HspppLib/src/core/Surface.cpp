@@ -355,7 +355,22 @@ bool HspSurface::picload(std::string_view filename, int mode) {
 
 bool HspSurface::bmpsave(std::string_view filename) {
     if (!m_pTargetBitmap) return false;
-    return saveBitmapToFile(m_pTargetBitmap.Get(), filename);
+    
+    // 描画中の場合、描画をフラッシュしてからビットマップを保存
+    // (EndDrawを呼ばないとD2Dの描画コマンドがビットマップに反映されない)
+    bool wasDrawing = m_isDrawing;
+    if (wasDrawing) {
+        endDraw();
+    }
+    
+    bool result = saveBitmapToFile(m_pTargetBitmap.Get(), filename);
+    
+    // 描画中だった場合は描画状態を復元
+    if (wasDrawing) {
+        beginDraw();
+    }
+    
+    return result;
 }
 
 void HspSurface::celput(ID2D1Bitmap1* pBitmap, const D2D1_RECT_F& srcRect, const D2D1_RECT_F& destRect) {

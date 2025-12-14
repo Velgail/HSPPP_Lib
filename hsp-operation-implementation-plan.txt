@@ -60,11 +60,11 @@ HSP操作リスト - 実装計画
 × [--] winobj          ウィンドウオブジェクトの配置（Win32 GUI依存）
 × [--] chgdisp         画像解像度を変更する（実行時解像度変更は非推奨）
 
-○ [P2] hsvcolor        HSV形式でカラーを設定する
-○ [P2] rgbcolor        RGB形式でカラーを設定する
+✓ [P2] hsvcolor        HSV形式でカラーを設定する
+✓ [P2] rgbcolor        RGB形式でカラーを設定する
 ○ [P2] palcolor        描画パレット設定
 × [--] palette         パレット設定（256色モード非対応）
-○ [P2] syscolor        システムカラーを設定する
+✓ [P2] syscolor        システムカラーを設定する
 
 ○ [P3] print           メッセージ表示（mes互換・改行付き）
 ○ [P3] sendmsg         ウィンドウメッセージの送信
@@ -77,7 +77,7 @@ HSP操作リスト - 実装計画
 ✓ [P1] stick           キー入力情報取得
 ✓ [P1] getkey          キー入力チェック
 ✓ [P1] mouse           マウスカーソル座標設定
-△ [P1] randomize       乱数発生の初期化（宣言のみ）
+✓ [P1] randomize       乱数発生の初期化
 
 ○ [P3] setease         イージング関数の計算式を設定
 ○ [P3] sortget         ソート元のインデックスを取得
@@ -99,25 +99,40 @@ HSP操作リスト - 実装計画
 ✓ [P1] mousey          マウスカーソルのY座標
 ✓ [P1] mousew          マウスカーソルのホイール値
 
-○ [P1] int             整数値に変換
-○ [P1] double          実数値に変換
-△ [P1] str             文字列に変換（宣言のみ）
-○ [P1] strlen          文字列の長さを調べる
+✓ [P1] int             整数値に変換
+✓ [P1] double          実数値に変換
+✓ [P1] str             文字列に変換
+✓ [P1] strlen          文字列の長さを調べる
 
-○ [P2] abs             整数の絶対値を返す
-○ [P2] absf            実数の絶対値を返す
-○ [P2] sin             サイン値を返す
-○ [P2] cos             コサイン値を返す
-○ [P2] tan             タンジェント値を返す
-○ [P2] atan            アークタンジェント値を返す
-○ [P2] sqrt            ルート値を返す
-○ [P2] powf            累乗（べき乗）を求める
-○ [P2] expf            指数を返す
-○ [P2] logf            対数を返す
+✓ [P2] abs             整数の絶対値を返す
+✓ [P2] absf            実数の絶対値を返す
+✓ [P2] sin             サイン値を返す
+✓ [P2] cos             コサイン値を返す
+✓ [P2] tan             タンジェント値を返す
+✓ [P2] atan            アークタンジェント値を返す
+✓ [P2] sqrt            ルート値を返す
+✓ [P2] powf            累乗（べき乗）を求める
+✓ [P2] expf            指数を返す
+✓ [P2] logf            対数を返す
 
-○ [P2] rnd             乱数を発生
-○ [P2] limit           一定範囲内の整数を返す
-○ [P2] limitf          一定範囲内の実数を返す
+✓ [P2] rnd             乱数を発生
+✓ [P2] limit           一定範囲内の整数を返す
+✓ [P2] limitf          一定範囲内の実数を返す
+
+✓ [P2] M_PI            円周率 (std::numbers::pi)
+✓ [P2] M_PI_2          円周率/2
+✓ [P2] M_PI_4          円周率/4
+✓ [P2] M_1_PI          1/円周率
+✓ [P2] M_2_PI          2/円周率
+✓ [P2] M_E             自然対数の底 (std::numbers::e)
+✓ [P2] M_LOG2E         log2(e) (std::numbers::log2e)
+✓ [P2] M_LOG10E        log10(e) (std::numbers::log10e)
+✓ [P2] M_LN2           ln(2) (std::numbers::ln2)
+✓ [P2] M_LN10          ln(10) (std::numbers::ln10)
+✓ [P2] M_SQRT2         √2 (std::numbers::sqrt2)
+✓ [P2] M_SQRT1_2       1/√2
+✓ [P2] M_SQRT3         √3 (std::numbers::sqrt3)
+✓ [P2] M_SQRTPI        √π (std::numbers::inv_sqrtpi)
 
 ○ [P2] gettime         時間・日付を取得する
 ○ [P2] sysinfo         システム情報の取得
@@ -147,11 +162,11 @@ HSP操作リスト - 実装計画
 ✓ [P1] stop            プログラム中断
 ✓ [P1] end             プログラム終了
 
-○ [P1] if              条件を満たしていればその行の命令を実行
-○ [P1] else            条件を満たしていなければその行の命令を実行
-○ [P1] goto            指定ラベルにジャンプ
-○ [P1] gosub           指定ラベルにサブルーチンジャンプ
-○ [P1] return          サブルーチンから復帰
+× [P1] if              条件を満たしていればその行の命令を実行（C++）
+× [P1] else            条件を満たしていなければその行の命令を実行（C++）
+× [P1] goto            指定ラベルにジャンプ（なし）
+× [P1] gosub           指定ラベルにサブルーチンジャンプ（なし）
+× [P1] return          サブルーチンから復帰（C++）
 
 ○ [P1] repeat          ループの始まりの場所を示す
 ○ [P1] loop            ループの始まりに戻る
@@ -163,7 +178,7 @@ HSP操作リスト - 実装計画
 ○ [P2] exgoto          指定ラベルに条件ジャンプ
 
 ○ [P3] exec            Windowsのファイルを実行する
-○ [P3] run             指定したファイルに制御を移す
+× [P3] run             指定したファイルに制御を移す（実現不可）
 
 ※ HSPスクリプトではなくC++なので、if/else/for/while/switch等は
   C++標準構文を使用。HSP互換マクロとして提供可能。

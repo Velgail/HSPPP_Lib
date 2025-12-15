@@ -29,6 +29,8 @@ module;
 #include <memory>
 #include <cstdio>
 #include <cctype>
+#include <shlobj.h>
+#include <lmcons.h>
 
 #include "Internal.h"
 
@@ -108,6 +110,7 @@ namespace {
 #include "hsppp_cel.inl"
 #include "hsppp_math.inl"
 #include "hsppp_string.inl"
+#include "hsppp_system.inl"
 
 // ============================================================
 // init_system / close_system

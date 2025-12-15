@@ -42,6 +42,7 @@ enum class ExtendedDemo {
     Gzoom,          // Ctrl+7: 変倍コピー
     Grotate,        // Ctrl+8: 回転コピー
     StringFunc,     // Ctrl+9: 文字列操作関数
+    SystemInfo,     // Ctrl+0: システム情報関数
     COUNT
 };
 

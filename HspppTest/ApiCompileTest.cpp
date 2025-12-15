@@ -837,12 +837,106 @@ namespace compile_test {
         [[maybe_unused]] hsppp::optional<int> opt2 = hsppp::nullopt;
         [[maybe_unused]] hsppp::optional<int> opt3 = hsppp::make_optional(42);
 
+        // --- vector ---
+        [[maybe_unused]] hsppp::vector<int> vec1;
+        [[maybe_unused]] hsppp::vector<unsigned char> vec2 = {1, 2, 3, 4};
+
         // --- functional ---
         [[maybe_unused]] hsppp::function<int(int, int)> fn = [](int a, int b) { return a + b; };
         [[maybe_unused]] int result = hsppp::invoke(fn, 1, 2);
         
         auto add_five = hsppp::bind_front([](int a, int b) { return a + b; }, 5);
         [[maybe_unused]] int r2 = add_five(3);  // 5 + 3 = 8
+    }
+
+    // ============================================================
+    // システム情報関数のテスト
+    // ============================================================
+    void test_sysinfo_functions() {
+        // sysinfo_str - 文字列を返すシステム情報
+        [[maybe_unused]] std::string osName = sysinfo_str(0);       // OS名
+        [[maybe_unused]] std::string userName = sysinfo_str(1);     // ユーザー名
+        [[maybe_unused]] std::string compName = sysinfo_str(2);     // コンピュータ名
+
+        // sysinfo_int - 整数を返すシステム情報（int64対応）
+        [[maybe_unused]] long long lang = sysinfo_int(3);         // 言語（常に1=日本語）
+        [[maybe_unused]] long long cpuType = sysinfo_int(16);     // CPU種類
+        [[maybe_unused]] long long cpuCount = sysinfo_int(17);    // CPU数
+        [[maybe_unused]] long long memLoad = sysinfo_int(33);     // メモリ使用率(%)
+        [[maybe_unused]] long long totalPhys = sysinfo_int(34);   // 全物理メモリ(MB)
+        [[maybe_unused]] long long availPhys = sysinfo_int(35);   // 空き物理メモリ(MB)
+        [[maybe_unused]] long long totalSwap = sysinfo_int(36);   // スワップファイル合計(MB)
+        [[maybe_unused]] long long availSwap = sysinfo_int(37);   // スワップファイル空き(MB)
+        [[maybe_unused]] long long totalVirt = sysinfo_int(38);   // 仮想メモリ合計(MB)
+        [[maybe_unused]] long long availVirt = sysinfo_int(39);   // 仮想メモリ空き(MB)
+    }
+
+    // ============================================================
+    // ディレクトリ情報関数のテスト
+    // ============================================================
+    void test_dirinfo_functions() {
+        // dirinfo
+        [[maybe_unused]] std::string curDir = dirinfo(0);       // カレントディレクトリ
+        [[maybe_unused]] std::string exeDir = dirinfo(1);       // 実行ファイルディレクトリ
+        [[maybe_unused]] std::string winDir = dirinfo(2);       // Windowsディレクトリ
+        [[maybe_unused]] std::string sysDir = dirinfo(3);       // システムディレクトリ
+        [[maybe_unused]] std::string cmdLine = dirinfo(4);      // コマンドライン
+        [[maybe_unused]] std::string tvDir = dirinfo(5);        // HSPTVディレクトリ（空）
+        [[maybe_unused]] std::string desktop = dirinfo(0x10000); // デスクトップ(CSIDL_DESKTOP)
+        [[maybe_unused]] std::string mydoc = dirinfo(0x10005);  // マイドキュメント(CSIDL_PERSONAL)
+
+        // dir_* 関数
+        [[maybe_unused]] std::string d_cur = dir_cur();
+        [[maybe_unused]] std::string d_exe = dir_exe();
+        [[maybe_unused]] std::string d_win = dir_win();
+        [[maybe_unused]] std::string d_sys = dir_sys();
+        [[maybe_unused]] std::string d_cmd = dir_cmdline();
+        [[maybe_unused]] std::string d_desk = dir_desktop();
+        [[maybe_unused]] std::string d_mydoc = dir_mydoc();
+    }
+
+    // ============================================================
+    // メモリ管理関数のテスト（peek/wpeek/lpeek/poke/wpoke/lpoke）
+    // ============================================================
+    void test_memory_functions() {
+        // string バッファでのテスト
+        std::string strBuffer(16, '\0');
+        
+        // poke - 1byte書き込み
+        poke(strBuffer, 0, 0x12);
+        poke(strBuffer, 1, 0x34);
+        poke(strBuffer, 2, 0x56);
+        poke(strBuffer, 3, 0x78);
+
+        // wpoke - 2byte書き込み（リトルエンディアン）
+        wpoke(strBuffer, 4, 0x9ABC);
+
+        // lpoke - 4byte書き込み（リトルエンディアン）
+        lpoke(strBuffer, 8, 0xDEADBEEF);
+
+        // peek - 1byte読み出し
+        [[maybe_unused]] int b0 = peek(strBuffer, 0);  // 0x12
+        [[maybe_unused]] int b1 = peek(strBuffer, 1);  // 0x34
+
+        // wpeek - 2byte読み出し
+        [[maybe_unused]] int w0 = wpeek(strBuffer, 4);  // 0x9ABC
+
+        // lpeek - 4byte読み出し
+        [[maybe_unused]] int l0 = lpeek(strBuffer, 8);  // 0xDEADBEEF
+
+        // poke - 文字列書き込み
+        poke(strBuffer, 0, std::string("AB"));
+
+        // vector<unsigned char> バッファでのテスト
+        hsppp::vector<unsigned char> vecBuffer(16, 0);
+
+        poke(vecBuffer, 0, 0xAB);
+        wpoke(vecBuffer, 2, 0xCDEF);
+        lpoke(vecBuffer, 4, 0x12345678);
+
+        [[maybe_unused]] int vb0 = peek(vecBuffer, 0);
+        [[maybe_unused]] int vw0 = wpeek(vecBuffer, 2);
+        [[maybe_unused]] int vl0 = lpeek(vecBuffer, 4);
     }
 
 }  // namespace compile_test
@@ -887,6 +981,9 @@ namespace hsppp_test {
         compile_test::test_string_functions();
         compile_test::test_math_constants();
         compile_test::test_cpp_stdlib_exports();
+        compile_test::test_sysinfo_functions();
+        compile_test::test_dirinfo_functions();
+        compile_test::test_memory_functions();
         // compile_test::test_end_function_signature(); // end()は呼ばない
 
         return true;

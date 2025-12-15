@@ -14,6 +14,7 @@ import <cmath>;
 import <string>;
 import <algorithm>;
 import <numbers>;
+import <vector>;
 
 namespace hsppp {
 
@@ -1450,6 +1451,119 @@ namespace hsppp {
     export void syscolor(int p1, const std::source_location& location = std::source_location::current());
 
     // ============================================================
+    // システム情報関数（HSP互換）
+    // ============================================================
+
+    /// @brief システム情報を文字列で取得する
+    /// @param type 取得するタイプ (0=OS名, 1=ユーザー名, 2=コンピュータ名)
+    /// @return システム情報文字列
+    export [[nodiscard]] std::string sysinfo_str(int type, const std::source_location& location = std::source_location::current());
+
+    /// @brief システム情報を整数で取得する
+    /// @param type 取得するタイプ
+    ///   3: HSPが使用する言語 (0=英語/1=日本語)
+    ///   16: CPUの種類（アーキテクチャコード）
+    ///   17: CPUの数
+    ///   33: 物理メモリ使用量(%)
+    ///   34: 全体の物理メモリサイズ(MB)
+    ///   35: 空き物理メモリサイズ(MB)
+    ///   36: スワップファイルのトータルサイズ(MB)
+    ///   37: スワップファイルの空きサイズ(MB)
+    ///   38: 仮想メモリを含めた全メモリサイズ(MB)
+    ///   39: 仮想メモリを含めた空きメモリサイズ(MB)
+    /// @return システム情報値（int64で64bitメモリに対応）
+    export [[nodiscard]] long long sysinfo_int(int type, const std::source_location& location = std::source_location::current());
+
+    // ============================================================
+    // ディレクトリ情報関数（HSP互換）
+    // ============================================================
+
+    /// @brief ディレクトリ情報を取得する
+    /// @param type 取得するタイプ
+    ///   0: カレントディレクトリ(dir_cur)
+    ///   1: 実行ファイルがあるディレクトリ(dir_exe)
+    ///   2: Windowsディレクトリ(dir_win)
+    ///   3: Windowsシステムディレクトリ(dir_sys)
+    ///   4: コマンドライン文字列(dir_cmdline)
+    ///   5: HSPTVディレクトリ(dir_tv) ※常に空文字列
+    ///   0x10000以上: CSIDL値として特殊フォルダを取得
+    /// @return ディレクトリパス
+    export [[nodiscard]] std::string dirinfo(int type, const std::source_location& location = std::source_location::current());
+
+    /// @brief カレントディレクトリを取得
+    export [[nodiscard]] std::string dir_cur(const std::source_location& location = std::source_location::current());
+
+    /// @brief 実行ファイルがあるディレクトリを取得
+    export [[nodiscard]] std::string dir_exe(const std::source_location& location = std::source_location::current());
+
+    /// @brief Windowsディレクトリを取得
+    export [[nodiscard]] std::string dir_win(const std::source_location& location = std::source_location::current());
+
+    /// @brief Windowsシステムディレクトリを取得
+    export [[nodiscard]] std::string dir_sys(const std::source_location& location = std::source_location::current());
+
+    /// @brief コマンドライン文字列を取得
+    export [[nodiscard]] std::string dir_cmdline(const std::source_location& location = std::source_location::current());
+
+    /// @brief デスクトップディレクトリを取得
+    export [[nodiscard]] std::string dir_desktop(const std::source_location& location = std::source_location::current());
+
+    /// @brief マイドキュメントディレクトリを取得
+    export [[nodiscard]] std::string dir_mydoc(const std::source_location& location = std::source_location::current());
+
+    // ============================================================
+    // メモリ管理関数（HSP互換）
+    // ============================================================
+
+    /// @brief バッファから1byte読み出し
+    /// @param buffer 読み出し元のバッファ
+    /// @param index バッファのインデックス（バイト単位）
+    /// @return 0〜255の整数値
+    export [[nodiscard]] int peek(const std::string& buffer, int index);
+    export [[nodiscard]] int peek(const std::vector<unsigned char>& buffer, int index);
+
+    /// @brief バッファから2byte読み出し（リトルエンディアン）
+    /// @param buffer 読み出し元のバッファ
+    /// @param index バッファのインデックス（バイト単位）
+    /// @return 0〜65535の整数値
+    export [[nodiscard]] int wpeek(const std::string& buffer, int index);
+    export [[nodiscard]] int wpeek(const std::vector<unsigned char>& buffer, int index);
+
+    /// @brief バッファから4byte読み出し（リトルエンディアン）
+    /// @param buffer 読み出し元のバッファ
+    /// @param index バッファのインデックス（バイト単位）
+    /// @return 32bit整数値
+    export [[nodiscard]] int lpeek(const std::string& buffer, int index);
+    export [[nodiscard]] int lpeek(const std::vector<unsigned char>& buffer, int index);
+
+    /// @brief バッファに1byte書き込み
+    /// @param buffer 書き込み先のバッファ
+    /// @param index バッファのインデックス（バイト単位）
+    /// @param value 書き込む値（0〜255）
+    export void poke(std::string& buffer, int index, int value, const std::source_location& location = std::source_location::current());
+    export void poke(std::vector<unsigned char>& buffer, int index, int value, const std::source_location& location = std::source_location::current());
+
+    /// @brief バッファに文字列を書き込み
+    /// @param buffer 書き込み先のバッファ
+    /// @param index バッファのインデックス（バイト単位）
+    /// @param value 書き込む文字列
+    export void poke(std::string& buffer, int index, const std::string& value, const std::source_location& location = std::source_location::current());
+
+    /// @brief バッファに2byte書き込み（リトルエンディアン）
+    /// @param buffer 書き込み先のバッファ
+    /// @param index バッファのインデックス（バイト単位）
+    /// @param value 書き込む値（0〜65535）
+    export void wpoke(std::string& buffer, int index, int value, const std::source_location& location = std::source_location::current());
+    export void wpoke(std::vector<unsigned char>& buffer, int index, int value, const std::source_location& location = std::source_location::current());
+
+    /// @brief バッファに4byte書き込み（リトルエンディアン）
+    /// @param buffer 書き込み先のバッファ
+    /// @param index バッファのインデックス（バイト単位）
+    /// @param value 書き込む値（32bit整数）
+    export void lpoke(std::string& buffer, int index, int value, const std::source_location& location = std::source_location::current());
+    export void lpoke(std::vector<unsigned char>& buffer, int index, int value, const std::source_location& location = std::source_location::current());
+
+    // ============================================================
     // 数学定数（HSP hspmath.as互換）
     // ============================================================
     export inline constexpr double M_PI = std::numbers::pi_v<double>;           // 円周率
@@ -1578,6 +1692,9 @@ namespace hsppp {
     export using std::optional;
     export using std::nullopt;
     export using std::make_optional;
+
+    // <vector> - 動的配列
+    export using std::vector;
 
     // <functional> - 関数オブジェクト
     export using std::function;

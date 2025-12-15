@@ -135,8 +135,8 @@ HSP操作リスト - 実装計画
 ✓ [P2] M_SQRTPI        √π (std::numbers::inv_sqrtpi)
 
 ✓ [P2] gettime         時間・日付を取得する
-○ [P2] sysinfo         システム情報の取得
-○ [P2] dirinfo         ディレクトリ情報の取得
+✓ [P2] sysinfo         システム情報の取得
+✓ [P2] dirinfo         ディレクトリ情報の取得
 
 ○ [P3] getease         イージング値を整数で取得
 ○ [P3] geteasef        イージング値を実数で取得
@@ -243,9 +243,9 @@ HSP操作リスト - 実装計画
 ○ [P3] memset          メモリブロックのクリア
 ○ [P3] memexpand       メモリブロックの再確保
 
-○ [P3] poke            バッファに1byte書き込み
-○ [P3] wpoke           バッファに2byte書き込み
-○ [P3] lpoke           バッファに4byte書き込み
+✓ [P3] poke            バッファに1byte書き込み
+✓ [P3] wpoke           バッファに2byte書き込み
+✓ [P3] lpoke           バッファに4byte書き込み
 
 × [--] comres          メソッド返値代入変数を設定する（COM専用）
 × [--] dup             クローン変数を作成（C++では参照/ポインタで代替）
@@ -255,9 +255,9 @@ HSP操作リスト - 実装計画
 
 ■ メモリ管理関数 [P3]
 ----------------------------------------
-○ [P3] peek            バッファから1byte読み出し
-○ [P3] wpeek           バッファから2byte読み出し
-○ [P3] lpeek           バッファから4byte読み出し
+✓ [P3] peek            バッファから1byte読み出し
+✓ [P3] wpeek           バッファから2byte読み出し
+✓ [P3] lpeek           バッファから4byte読み出し
 
 
 ■ ファイル操作命令 [P2]

@@ -102,7 +102,7 @@ void drawHelpWindow(Screen& helpWin) {
     helpWin.pos(20, 320);
     helpWin.mes("  Ctrl+7: gzoom       Ctrl+8: grotate");
     helpWin.pos(20, 340);
-    helpWin.mes("  Ctrl+9: 文字列操作関数");
+    helpWin.mes("  Ctrl+9: 文字列操作  Ctrl+0: システム情報");
     
     helpWin.color(255, 255, 255).pos(20, 370);
     helpWin.mes("【画像デモ - Shift + 数字キー】");
@@ -128,7 +128,7 @@ void drawHelpWindow(Screen& helpWin) {
 std::string getCategoryName() {
     switch (g_category) {
         case DemoCategory::Basic:     return "基本 (1-9)";
-        case DemoCategory::Extended:  return "拡張 (Ctrl+1-9)";
+        case DemoCategory::Extended:  return "拡張 (Ctrl+1-9,0)";
         case DemoCategory::Image:     return "画像 (Shift+1-3)";
         case DemoCategory::Interrupt: return "割り込み (Alt+1-3)";
     }
@@ -162,6 +162,7 @@ std::string getDemoName() {
                 case ExtendedDemo::Gzoom:      return "gzoom (変倍コピー)";
                 case ExtendedDemo::Grotate:    return "grotate (回転コピー)";
                 case ExtendedDemo::StringFunc: return "String Functions (文字列操作)";
+                case ExtendedDemo::SystemInfo: return "System Info (sysinfo/dirinfo/peek/poke)";
                 default: break;
             }
             break;
@@ -195,35 +196,38 @@ void processInput(Screen& win) {
     bool altPressed = getkey(VK::MENU) != 0;
     
     // モード切替（数字キー）
-    for (int i = 1; i <= 9; i++) {
+    for (int i = 0; i <= 9; i++) {
         if (getkey('0' + i)) {
             if (ctrlPressed && !shiftPressed && !altPressed) {
-                // Ctrl + 数字: 拡張デモ
-                if (i <= static_cast<int>(ExtendedDemo::COUNT)) {
+                // Ctrl + 数字: 拡張デモ (0-9)
+                int index = (i == 0) ? 9 : (i - 1);  // 0は10番目（インデックス9）
+                if (index < static_cast<int>(ExtendedDemo::COUNT)) {
                     g_category = DemoCategory::Extended;
-                    g_demoIndex = i - 1;
+                    g_demoIndex = index;
                     await(200);
                 }
-            } else if (shiftPressed && !ctrlPressed && !altPressed) {
-                // Shift + 数字: 画像デモ
-                if (i <= static_cast<int>(ImageDemo::COUNT)) {
-                    g_category = DemoCategory::Image;
-                    g_demoIndex = i - 1;
-                    await(200);
-                }
-            } else if (altPressed && !ctrlPressed && !shiftPressed) {
-                // Alt + 数字: 割り込みデモ
-                if (i <= static_cast<int>(InterruptDemo::COUNT)) {
-                    g_category = DemoCategory::Interrupt;
-                    g_demoIndex = i - 1;
-                    await(200);
-                }
-            } else if (!ctrlPressed && !shiftPressed && !altPressed) {
-                // 数字のみ: 基本デモ
-                if (i <= static_cast<int>(BasicDemo::COUNT)) {
-                    g_category = DemoCategory::Basic;
-                    g_demoIndex = i - 1;
-                    await(200);
+            } else if (i >= 1) {
+                if (shiftPressed && !ctrlPressed && !altPressed) {
+                    // Shift + 数字: 画像デモ
+                    if (i <= static_cast<int>(ImageDemo::COUNT)) {
+                        g_category = DemoCategory::Image;
+                        g_demoIndex = i - 1;
+                        await(200);
+                    }
+                } else if (altPressed && !ctrlPressed && !shiftPressed) {
+                    // Alt + 数字: 割り込みデモ
+                    if (i <= static_cast<int>(InterruptDemo::COUNT)) {
+                        g_category = DemoCategory::Interrupt;
+                        g_demoIndex = i - 1;
+                        await(200);
+                    }
+                } else if (!ctrlPressed && !shiftPressed && !altPressed) {
+                    // 数字のみ: 基本デモ
+                    if (i <= static_cast<int>(BasicDemo::COUNT)) {
+                        g_category = DemoCategory::Basic;
+                        g_demoIndex = i - 1;
+                        await(200);
+                    }
                 }
             }
         }

@@ -361,6 +361,73 @@ void drawExtendedDemo(Screen& win) {
             win.mes("getpath(path, 16) = \"" + getpath(path, 16) + "\" (小文字)");
         }
         break;
+
+    case ExtendedDemo::SystemInfo:
+        win.color(0, 0, 0).pos(20, 85);
+        win.mes("システム情報関数: sysinfo, dirinfo, peek/poke");
+        
+        // sysinfo デモ
+        win.font("MS Gothic", 12, 1);
+        win.color(0, 0, 128).pos(50, 115);
+        win.mes("sysinfo - システム情報の取得:");
+        win.font("MS Gothic", 12, 0);
+        win.color(0, 0, 0).pos(50, 135);
+        {
+            win.mes("sysinfo_str(0) = \"" + sysinfo_str(0) + "\" (OS名)");
+            win.pos(50, 153);
+            win.mes("sysinfo_str(1) = \"" + sysinfo_str(1) + "\" (ユーザー名)");
+            win.pos(50, 171);
+            win.mes("sysinfo_str(2) = \"" + sysinfo_str(2) + "\" (コンピュータ名)");
+            win.pos(50, 189);
+            long long cpuNum = sysinfo_int(17);
+            win.mes("sysinfo_int(17) = " + std::to_string(cpuNum) + " (CPU数)");
+            win.pos(50, 207);
+            long long totalMem = sysinfo_int(34);
+            win.mes("sysinfo_int(34) = " + std::to_string(totalMem) + " (物理メモリMB)");
+            win.pos(50, 225);
+            long long freeMem = sysinfo_int(35);
+            win.mes("sysinfo_int(35) = " + std::to_string(freeMem) + " (空きメモリMB)");
+        }
+        
+        // dirinfo デモ
+        win.font("MS Gothic", 12, 1);
+        win.color(0, 128, 0).pos(50, 255);
+        win.mes("dirinfo - ディレクトリ情報の取得:");
+        win.font("MS Gothic", 12, 0);
+        win.color(0, 0, 0).pos(50, 275);
+        {
+            win.mes("dir_cur() = \"" + dir_cur() + "\"");
+            win.pos(50, 293);
+            win.mes("dir_exe() = \"" + dir_exe() + "\"");
+            win.pos(50, 311);
+            win.mes("dir_win() = \"" + dir_win() + "\"");
+            win.pos(50, 329);
+            win.mes("dir_sys() = \"" + dir_sys() + "\"");
+            win.pos(50, 347);
+            win.mes("dir_desktop() = \"" + dir_desktop() + "\"");
+            win.pos(50, 365);
+            win.mes("dir_mydoc() = \"" + dir_mydoc() + "\"");
+        }
+        
+        // peek/poke デモ
+        win.font("MS Gothic", 12, 1);
+        win.color(128, 0, 0).pos(50, 395);
+        win.mes("peek/poke - メモリバッファ操作:");
+        win.font("MS Gothic", 12, 0);
+        win.color(0, 0, 0).pos(50, 415);
+        {
+            std::vector<unsigned char> buf(16, 0);
+            poke(buf, 0, 0x41);      // 'A'
+            wpoke(buf, 2, 0x1234);   // 2バイト値
+            lpoke(buf, 4, 0xDEADBEEF); // 4バイト値
+            
+            win.mes("poke(buf, 0, 0x41) -> peek(buf, 0) = 0x" + strf("%02X", peek(buf, 0)));
+            win.pos(50, 433);
+            win.mes("wpoke(buf, 2, 0x1234) -> wpeek(buf, 2) = 0x" + strf("%04X", wpeek(buf, 2)));
+            win.pos(50, 451);
+            win.mes("lpoke(buf, 4, 0xDEADBEEF) -> lpeek(buf, 4) = 0x" + strf("%08X", lpeek(buf, 4)));
+        }
+        break;
         
     default:
         break;

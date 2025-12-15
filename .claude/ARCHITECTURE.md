@@ -187,7 +187,7 @@ Screen& Screen::color(int r, int g, int b) {
 
 ### 環境
 
-- Visual Studio 18 (VS 2025 Preview)
+- Visual Studio 18 (VS 2026)
 - C++23 以降（`/std:c++latest`）
 - Platform Toolset: v145
 

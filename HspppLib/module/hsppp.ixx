@@ -1403,6 +1403,31 @@ namespace hsppp {
     /// @return 除去後の文字列
     export [[nodiscard]] std::string strtrim(const std::string& p1, int p2 = 0, int p3 = 32);
 
+    /// @brief 文字列の置換をする
+    /// @param p1 検索される文字列が格納されている文字列型変数（参照で変更される）
+    /// @param search 検索する文字列
+    /// @param replace 置換する文字列
+    /// @return 置換した回数
+    /// @note HSPでは変数を直接書き換えるが、C++では戻り値で置換回数を返す
+    export int strrep(std::string& p1, const std::string& search, const std::string& replace, const std::source_location& location = std::source_location::current());
+
+    /// @brief バッファから文字列読み出し
+    /// @param dest 内容を読み出す先の変数
+    /// @param src バッファを割り当てた変数
+    /// @param index バッファのインデックス（バイト単位）
+    /// @param delimiter 区切りキャラクタのASCIIコード（デフォルト: 0=改行まで）
+    /// @param maxLen 読み出しを行う最大文字数（デフォルト: 1024）
+    /// @return 読み出されたバイト数（次のインデックスまでの移動量）
+    export int getstr(std::string& dest, const std::string& src, int index, int delimiter = 0, int maxLen = 1024, const std::source_location& location = std::source_location::current());
+    export int getstr(std::string& dest, const std::vector<uint8_t>& src, int index, int delimiter = 0, int maxLen = 1024, const std::source_location& location = std::source_location::current());
+
+    /// @brief 文字列から分割された要素を取得（HSP互換版）
+    /// @param src 元の文字列が代入された変数
+    /// @param delimiter 区切り用文字列
+    /// @return 分割された文字列のベクター
+    /// @note HSPと異なり、C++ではvectorで返す（要素数制限なし）
+    export std::vector<std::string> split(const std::string& src, const std::string& delimiter, const std::source_location& location = std::source_location::current());
+
     /// @brief 書式付き文字列を変換（HSP互換）
     /// @param format 書式指定文字列（printf形式）
     /// @return 変換された文字列
@@ -1471,8 +1496,8 @@ namespace hsppp {
     ///   37: スワップファイルの空きサイズ(MB)
     ///   38: 仮想メモリを含めた全メモリサイズ(MB)
     ///   39: 仮想メモリを含めた空きメモリサイズ(MB)
-    /// @return システム情報値（int64で64bitメモリに対応）
-    export [[nodiscard]] long long sysinfo_int(int type, const std::source_location& location = std::source_location::current());
+    /// @return システム情報値（int64_tで64bitメモリに対応）
+    export [[nodiscard]] int64_t sysinfo_int(int type, const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // ディレクトリ情報関数（HSP互換）
@@ -1520,28 +1545,28 @@ namespace hsppp {
     /// @param index バッファのインデックス（バイト単位）
     /// @return 0〜255の整数値
     export [[nodiscard]] int peek(const std::string& buffer, int index);
-    export [[nodiscard]] int peek(const std::vector<unsigned char>& buffer, int index);
+    export [[nodiscard]] int peek(const std::vector<uint8_t>& buffer, int index);
 
     /// @brief バッファから2byte読み出し（リトルエンディアン）
     /// @param buffer 読み出し元のバッファ
     /// @param index バッファのインデックス（バイト単位）
     /// @return 0〜65535の整数値
     export [[nodiscard]] int wpeek(const std::string& buffer, int index);
-    export [[nodiscard]] int wpeek(const std::vector<unsigned char>& buffer, int index);
+    export [[nodiscard]] int wpeek(const std::vector<uint8_t>& buffer, int index);
 
     /// @brief バッファから4byte読み出し（リトルエンディアン）
     /// @param buffer 読み出し元のバッファ
     /// @param index バッファのインデックス（バイト単位）
     /// @return 32bit整数値
     export [[nodiscard]] int lpeek(const std::string& buffer, int index);
-    export [[nodiscard]] int lpeek(const std::vector<unsigned char>& buffer, int index);
+    export [[nodiscard]] int lpeek(const std::vector<uint8_t>& buffer, int index);
 
     /// @brief バッファに1byte書き込み
     /// @param buffer 書き込み先のバッファ
     /// @param index バッファのインデックス（バイト単位）
     /// @param value 書き込む値（0〜255）
     export void poke(std::string& buffer, int index, int value, const std::source_location& location = std::source_location::current());
-    export void poke(std::vector<unsigned char>& buffer, int index, int value, const std::source_location& location = std::source_location::current());
+    export void poke(std::vector<uint8_t>& buffer, int index, int value, const std::source_location& location = std::source_location::current());
 
     /// @brief バッファに文字列を書き込み
     /// @param buffer 書き込み先のバッファ
@@ -1554,14 +1579,40 @@ namespace hsppp {
     /// @param index バッファのインデックス（バイト単位）
     /// @param value 書き込む値（0〜65535）
     export void wpoke(std::string& buffer, int index, int value, const std::source_location& location = std::source_location::current());
-    export void wpoke(std::vector<unsigned char>& buffer, int index, int value, const std::source_location& location = std::source_location::current());
+    export void wpoke(std::vector<uint8_t>& buffer, int index, int value, const std::source_location& location = std::source_location::current());
 
     /// @brief バッファに4byte書き込み（リトルエンディアン）
     /// @param buffer 書き込み先のバッファ
     /// @param index バッファのインデックス（バイト単位）
     /// @param value 書き込む値（32bit整数）
     export void lpoke(std::string& buffer, int index, int value, const std::source_location& location = std::source_location::current());
-    export void lpoke(std::vector<unsigned char>& buffer, int index, int value, const std::source_location& location = std::source_location::current());
+    export void lpoke(std::vector<uint8_t>& buffer, int index, int value, const std::source_location& location = std::source_location::current());
+
+    /// @brief メモリブロックのコピー
+    /// @param dest コピー先の変数
+    /// @param src コピー元の変数
+    /// @param size コピーするサイズ（バイト単位）
+    /// @param destOffset コピー先の変数メモリオフセット（省略時: 0）
+    /// @param srcOffset コピー元の変数メモリオフセット（省略時: 0）
+    export void memcpy(std::string& dest, const std::string& src, int size, int destOffset = 0, int srcOffset = 0, const std::source_location& location = std::source_location::current());
+    export void memcpy(std::vector<uint8_t>& dest, const std::vector<uint8_t>& src, int size, int destOffset = 0, int srcOffset = 0, const std::source_location& location = std::source_location::current());
+    export void memcpy(std::vector<uint8_t>& dest, const std::string& src, int size, int destOffset = 0, int srcOffset = 0, const std::source_location& location = std::source_location::current());
+    export void memcpy(std::string& dest, const std::vector<uint8_t>& src, int size, int destOffset = 0, int srcOffset = 0, const std::source_location& location = std::source_location::current());
+
+    /// @brief メモリブロックのクリア
+    /// @param dest 書き込み先の変数
+    /// @param value クリアする値（1バイト、デフォルト: 0）
+    /// @param size クリアするサイズ（バイト単位、デフォルト: 0=全体）
+    /// @param offset 書き込み先の変数メモリオフセット（省略時: 0）
+    export void memset(std::string& dest, int value = 0, int size = 0, int offset = 0, const std::source_location& location = std::source_location::current());
+    export void memset(std::vector<uint8_t>& dest, int value = 0, int size = 0, int offset = 0, const std::source_location& location = std::source_location::current());
+
+    /// @brief メモリブロックの再確保
+    /// @param dest 対象となる変数
+    /// @param newSize 再確保サイズ（バイト単位、最小64）
+    /// @note 再確保しても以前の内容は保持される
+    export void memexpand(std::string& dest, int newSize = 64, const std::source_location& location = std::source_location::current());
+    export void memexpand(std::vector<uint8_t>& dest, int newSize = 64, const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // 数学定数（HSP hspmath.as互換）
@@ -1642,7 +1693,7 @@ namespace hsppp {
     export using std::stol;             // 文字列→long
     export using std::stoll;            // 文字列→long long
     export using std::stoul;            // 文字列→unsigned long
-    export using std::stoull;           // 文字列→unsigned long long
+    export using std::stoull;           // 文字列→uint64_t
     export using std::stof;             // 文字列→float
     export using std::stod;             // 文字列→double
     export using std::stold;            // 文字列→long double

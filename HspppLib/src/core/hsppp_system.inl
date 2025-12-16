@@ -83,9 +83,9 @@ namespace hsppp {
         }
     }
 
-    // int64版のsysinfo（メモリサイズ対応）
+    // int64_t版のsysinfo（メモリサイズ対応）
     // メモリ関連の情報取得を最適化（GlobalMemoryStatusExを一度だけ呼び出す）
-    long long sysinfo_int(int type, const std::source_location& location) {
+    int64_t sysinfo_int(int type, const std::source_location& location) {
         // メモリ情報取得の最適化：type 33-39 の場合は一度だけ呼び出す
         if (type >= 33 && type <= 39) {
             MEMORYSTATUSEX ms = {};
@@ -93,19 +93,19 @@ namespace hsppp {
             if (GlobalMemoryStatusEx(&ms)) {
                 switch (type) {
                     case 33:
-                        return static_cast<long long>(ms.dwMemoryLoad);
+                        return static_cast<int64_t>(ms.dwMemoryLoad);
                     case 34:
-                        return static_cast<long long>(ms.ullTotalPhys / (1024 * 1024));
+                        return static_cast<int64_t>(ms.ullTotalPhys / (1024 * 1024));
                     case 35:
-                        return static_cast<long long>(ms.ullAvailPhys / (1024 * 1024));
+                        return static_cast<int64_t>(ms.ullAvailPhys / (1024 * 1024));
                     case 36:
-                        return static_cast<long long>(ms.ullTotalPageFile / (1024 * 1024));
+                        return static_cast<int64_t>(ms.ullTotalPageFile / (1024 * 1024));
                     case 37:
-                        return static_cast<long long>(ms.ullAvailPageFile / (1024 * 1024));
+                        return static_cast<int64_t>(ms.ullAvailPageFile / (1024 * 1024));
                     case 38:
-                        return static_cast<long long>(ms.ullTotalVirtual / (1024 * 1024));
+                        return static_cast<int64_t>(ms.ullTotalVirtual / (1024 * 1024));
                     case 39:
-                        return static_cast<long long>(ms.ullAvailVirtual / (1024 * 1024));
+                        return static_cast<int64_t>(ms.ullAvailVirtual / (1024 * 1024));
                 }
             }
             return 0;
@@ -120,13 +120,13 @@ namespace hsppp {
                 // CPUの種類
                 SYSTEM_INFO si = {};
                 GetSystemInfo(&si);
-                return static_cast<long long>(si.wProcessorArchitecture);
+                return static_cast<int64_t>(si.wProcessorArchitecture);
             }
             case 17: {
                 // CPUの数
                 SYSTEM_INFO si = {};
                 GetSystemInfo(&si);
-                return static_cast<long long>(si.dwNumberOfProcessors);
+                return static_cast<int64_t>(si.dwNumberOfProcessors);
             }
             default:
                 return 0;
@@ -253,7 +253,7 @@ namespace hsppp {
             if (index < 0 || static_cast<size_t>(index) >= buffer.size()) {
                 return 0;
             }
-            return static_cast<unsigned char>(buffer[index]);
+            return static_cast<uint8_t>(buffer[index]);
         }
 
         template<typename BufferType>
@@ -261,8 +261,8 @@ namespace hsppp {
             if (index < 0 || static_cast<size_t>(index + 1) >= buffer.size()) {
                 return 0;
             }
-            auto lo = static_cast<unsigned char>(buffer[index]);
-            auto hi = static_cast<unsigned char>(buffer[index + 1]);
+            auto lo = static_cast<uint8_t>(buffer[index]);
+            auto hi = static_cast<uint8_t>(buffer[index + 1]);
             return lo | (hi << 8);
         }
 
@@ -271,10 +271,10 @@ namespace hsppp {
             if (index < 0 || static_cast<size_t>(index + 3) >= buffer.size()) {
                 return 0;
             }
-            auto b0 = static_cast<unsigned char>(buffer[index]);
-            auto b1 = static_cast<unsigned char>(buffer[index + 1]);
-            auto b2 = static_cast<unsigned char>(buffer[index + 2]);
-            auto b3 = static_cast<unsigned char>(buffer[index + 3]);
+            auto b0 = static_cast<uint8_t>(buffer[index]);
+            auto b1 = static_cast<uint8_t>(buffer[index + 1]);
+            auto b2 = static_cast<uint8_t>(buffer[index + 2]);
+            auto b3 = static_cast<uint8_t>(buffer[index + 3]);
             return b0 | (b1 << 8) | (b2 << 16) | (b3 << 24);
         }
 
@@ -328,7 +328,7 @@ namespace hsppp {
         return peek_impl(buffer, index);
     }
 
-    int peek(const std::vector<unsigned char>& buffer, int index) {
+    int peek(const std::vector<uint8_t>& buffer, int index) {
         return peek_impl(buffer, index);
     }
 
@@ -340,7 +340,7 @@ namespace hsppp {
         return wpeek_impl(buffer, index);
     }
 
-    int wpeek(const std::vector<unsigned char>& buffer, int index) {
+    int wpeek(const std::vector<uint8_t>& buffer, int index) {
         return wpeek_impl(buffer, index);
     }
 
@@ -352,7 +352,7 @@ namespace hsppp {
         return lpeek_impl(buffer, index);
     }
 
-    int lpeek(const std::vector<unsigned char>& buffer, int index) {
+    int lpeek(const std::vector<uint8_t>& buffer, int index) {
         return lpeek_impl(buffer, index);
     }
 
@@ -364,7 +364,7 @@ namespace hsppp {
         poke_impl(buffer, index, value, location);
     }
 
-    void poke(std::vector<unsigned char>& buffer, int index, int value, const std::source_location& location) {
+    void poke(std::vector<uint8_t>& buffer, int index, int value, const std::source_location& location) {
         poke_impl(buffer, index, value, location);
     }
 
@@ -389,7 +389,7 @@ namespace hsppp {
         wpoke_impl(buffer, index, value, location);
     }
 
-    void wpoke(std::vector<unsigned char>& buffer, int index, int value, const std::source_location& location) {
+    void wpoke(std::vector<uint8_t>& buffer, int index, int value, const std::source_location& location) {
         wpoke_impl(buffer, index, value, location);
     }
 
@@ -401,8 +401,140 @@ namespace hsppp {
         lpoke_impl(buffer, index, value, location);
     }
 
-    void lpoke(std::vector<unsigned char>& buffer, int index, int value, const std::source_location& location) {
+    void lpoke(std::vector<uint8_t>& buffer, int index, int value, const std::source_location& location) {
         lpoke_impl(buffer, index, value, location);
+    }
+
+    // ============================================================
+    // memcpy - メモリブロックのコピー（HSP互換）
+    // ============================================================
+
+    void memcpy(std::string& dest, const std::string& src, int size, int destOffset, int srcOffset, const std::source_location& location) {
+        if (size <= 0) {
+            return;
+        }
+        if (destOffset < 0 || srcOffset < 0) {
+            throw HspError(ERR_OUT_OF_RANGE, "memcpyのオフセットが負の値です", location);
+        }
+        if (static_cast<size_t>(srcOffset + size) > src.size()) {
+            throw HspError(ERR_BUFFER_OVERFLOW, "memcpyのコピー元がバッファ範囲を超えています", location);
+        }
+        // コピー先のサイズを必要に応じて拡張
+        size_t requiredSize = static_cast<size_t>(destOffset) + size;
+        if (requiredSize > dest.size()) {
+            dest.resize(requiredSize, '\0');
+        }
+        // std::memcpyを使用（高速）
+        std::memcpy(dest.data() + destOffset, src.data() + srcOffset, size);
+    }
+
+    void memcpy(std::vector<uint8_t>& dest, const std::vector<uint8_t>& src, int size, int destOffset, int srcOffset, const std::source_location& location) {
+        if (size <= 0) {
+            return;
+        }
+        if (destOffset < 0 || srcOffset < 0) {
+            throw HspError(ERR_OUT_OF_RANGE, "memcpyのオフセットが負の値です", location);
+        }
+        if (static_cast<size_t>(srcOffset + size) > src.size()) {
+            throw HspError(ERR_BUFFER_OVERFLOW, "memcpyのコピー元がバッファ範囲を超えています", location);
+        }
+        size_t requiredSize = static_cast<size_t>(destOffset) + size;
+        if (requiredSize > dest.size()) {
+            dest.resize(requiredSize, 0);
+        }
+        std::memcpy(dest.data() + destOffset, src.data() + srcOffset, size);
+    }
+
+    void memcpy(std::vector<uint8_t>& dest, const std::string& src, int size, int destOffset, int srcOffset, const std::source_location& location) {
+        if (size <= 0) {
+            return;
+        }
+        if (destOffset < 0 || srcOffset < 0) {
+            throw HspError(ERR_OUT_OF_RANGE, "memcpyのオフセットが負の値です", location);
+        }
+        if (static_cast<size_t>(srcOffset + size) > src.size()) {
+            throw HspError(ERR_BUFFER_OVERFLOW, "memcpyのコピー元がバッファ範囲を超えています", location);
+        }
+        size_t requiredSize = static_cast<size_t>(destOffset) + size;
+        if (requiredSize > dest.size()) {
+            dest.resize(requiredSize, 0);
+        }
+        std::memcpy(dest.data() + destOffset, src.data() + srcOffset, size);
+    }
+
+    void memcpy(std::string& dest, const std::vector<uint8_t>& src, int size, int destOffset, int srcOffset, const std::source_location& location) {
+        if (size <= 0) {
+            return;
+        }
+        if (destOffset < 0 || srcOffset < 0) {
+            throw HspError(ERR_OUT_OF_RANGE, "memcpyのオフセットが負の値です", location);
+        }
+        if (static_cast<size_t>(srcOffset + size) > src.size()) {
+            throw HspError(ERR_BUFFER_OVERFLOW, "memcpyのコピー元がバッファ範囲を超えています", location);
+        }
+        size_t requiredSize = static_cast<size_t>(destOffset) + size;
+        if (requiredSize > dest.size()) {
+            dest.resize(requiredSize, '\0');
+        }
+        std::memcpy(dest.data() + destOffset, src.data() + srcOffset, size);
+    }
+
+    // ============================================================
+    // memset - メモリブロックのクリア（HSP互換）
+    // ============================================================
+
+    namespace {
+        template<typename BufferType>
+        void memset_impl(BufferType& dest, int value, int size, int offset, const std::source_location& location) {
+            if (offset < 0) {
+                throw HspError(ERR_OUT_OF_RANGE, "memsetのオフセットが負の値です", location);
+            }
+            
+            // size=0 の場合は全体をクリア
+            size_t actualSize = (size <= 0) ? dest.size() - offset : static_cast<size_t>(size);
+            
+            if (static_cast<size_t>(offset) + actualSize > dest.size()) {
+                throw HspError(ERR_BUFFER_OVERFLOW, "memsetがバッファ範囲を超えています", location);
+            }
+            
+            std::memset(dest.data() + offset, value & 0xFF, actualSize);
+        }
+    }
+
+    void memset(std::string& dest, int value, int size, int offset, const std::source_location& location) {
+        memset_impl(dest, value, size, offset, location);
+    }
+
+    void memset(std::vector<uint8_t>& dest, int value, int size, int offset, const std::source_location& location) {
+        memset_impl(dest, value, size, offset, location);
+    }
+
+    // ============================================================
+    // memexpand - メモリブロックの再確保（HSP互換）
+    // ============================================================
+
+    namespace {
+        template<typename BufferType, typename FillValue>
+        void memexpand_impl(BufferType& dest, int newSize, FillValue fillValue) {
+            // 最小サイズは64（HSP互換）
+            int actualSize = (newSize < 64) ? 64 : newSize;
+            
+            // 既存のサイズより小さい場合は何もしない（HSP互換）
+            if (static_cast<size_t>(actualSize) <= dest.size()) {
+                return;
+            }
+            
+            // 以前の内容を保持しつつサイズを拡張
+            dest.resize(actualSize, fillValue);
+        }
+    }
+
+    void memexpand(std::string& dest, int newSize, const std::source_location& location) {
+        memexpand_impl(dest, newSize, '\0');
+    }
+
+    void memexpand(std::vector<uint8_t>& dest, int newSize, const std::source_location& location) {
+        memexpand_impl(dest, newSize, static_cast<uint8_t>(0));
     }
 
 } // namespace hsppp

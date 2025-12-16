@@ -1,4 +1,4 @@
-// HspppSample/DemoDrawExtended.cpp
+﻿// HspppSample/DemoDrawExtended.cpp
 // ═══════════════════════════════════════════════════════════════════
 // HSPPP デモアプリケーション - 拡張デモ描画
 // ═══════════════════════════════════════════════════════════════════
@@ -269,97 +269,148 @@ void drawExtendedDemo(Screen& win) {
         
     case ExtendedDemo::StringFunc:
         win.color(0, 0, 0).pos(20, 85);
-        win.mes("文字列操作関数: instr, strmid, strtrim, strf, getpath");
+        win.mes("文字列操作関数: instr, strmid, split, strrep, getstr");
         
         // instr デモ
         win.font("MS Gothic", 12, 1);
-        win.color(0, 0, 128).pos(50, 120);
+        win.color(0, 0, 128).pos(50, 115);
         win.mes("instr - 文字列の検索:");
         win.font("MS Gothic", 12, 0);
-        win.color(0, 0, 0).pos(50, 140);
+        win.color(0, 0, 0).pos(50, 132);
         {
             std::string text = "Hello World, Hello HSP";
             win.mes("検索対象: \"" + text + "\"");
-            win.pos(50, 158);
+            win.pos(50, 147);
             win.mes("instr(text, \"World\") = " + str(instr(text, "World")));
-            win.pos(50, 176);
+            win.pos(50, 162);
             win.mes("instr(text, 7, \"Hello\") = " + str(instr(text, 7, "Hello")));
-            win.pos(50, 194);
-            win.mes("instr(text, \"XYZ\") = " + str(instr(text, "XYZ")));
         }
         
         // strmid デモ
         win.font("MS Gothic", 12, 1);
-        win.color(0, 128, 0).pos(350, 120);
+        win.color(0, 128, 0).pos(350, 115);
         win.mes("strmid - 文字列の一部を取り出す:");
         win.font("MS Gothic", 12, 0);
-        win.color(0, 0, 0).pos(350, 140);
+        win.color(0, 0, 0).pos(350, 132);
         {
             std::string text = "ABCDEFGHIJ";
             win.mes("元文字列: \"" + text + "\"");
-            win.pos(350, 158);
+            win.pos(350, 147);
             win.mes("strmid(text, 2, 3) = \"" + strmid(text, 2, 3) + "\"");
-            win.pos(350, 176);
+            win.pos(350, 162);
             win.mes("strmid(text, -1, 3) = \"" + strmid(text, -1, 3) + "\"");
-            win.pos(350, 194);
-            win.mes("strmid(text, 0, 5) = \"" + strmid(text, 0, 5) + "\"");
+        }
+
+        // split デモ（新規追加）
+        win.font("MS Gothic", 12, 1);
+        win.color(128, 0, 0).pos(50, 190);
+        win.mes("split - 文字列を分割:");
+        win.font("MS Gothic", 12, 0);
+        win.color(0, 0, 0).pos(50, 207);
+        {
+            std::string csv = "12,34,56,78";
+            std::vector<std::string> parts = split(csv, ",");
+            win.mes("split(\"" + csv + "\", \",\") = ");
+            win.pos(50, 222);
+            std::string result = "  結果: [";
+            for (size_t i = 0; i < parts.size(); ++i) {
+                if (i > 0) result += ", ";
+                result += "\"" + parts[i] + "\"";
+            }
+            result += "] (" + str(static_cast<int>(parts.size())) + "要素)";
+            win.mes(result);
+        }
+
+        // strrep デモ（新規追加）
+        win.font("MS Gothic", 12, 1);
+        win.color(0, 128, 0).pos(350, 190);
+        win.mes("strrep - 文字列の置換:");
+        win.font("MS Gothic", 12, 0);
+        win.color(0, 0, 0).pos(350, 207);
+        {
+            std::string text = "AAA BBB AAA CCC";
+            win.mes("元文字列: \"" + text + "\"");
+            int count = strrep(text, "AAA", "XXX");
+            win.pos(350, 222);
+            win.mes("strrep(text, \"AAA\", \"XXX\") = " + str(count) + "回");
+            win.pos(350, 237);
+            win.mes("  結果: \"" + text + "\"");
+        }
+
+        // getstr デモ（新規追加）
+        win.font("MS Gothic", 12, 1);
+        win.color(128, 0, 128).pos(50, 265);
+        win.mes("getstr - バッファから文字列読み出し:");
+        win.font("MS Gothic", 12, 0);
+        win.color(0, 0, 0).pos(50, 282);
+        {
+            std::string buf = "ABC,DEF,GHI";
+            std::string dest;
+            int len1 = getstr(dest, buf, 0, ',');
+            win.mes("getstr(dest, \"ABC,DEF,GHI\", 0, ',') = \"" + dest + "\" (len=" + str(len1) + ")");
+            win.pos(50, 297);
+            int len2 = getstr(dest, buf, len1, ',');
+            win.mes("getstr(dest, buf, " + str(len1) + ", ',') = \"" + dest + "\" (len=" + str(len2) + ")");
         }
         
         // strtrim デモ
         win.font("MS Gothic", 12, 1);
-        win.color(128, 0, 0).pos(50, 230);
+        win.color(0, 0, 128).pos(350, 265);
         win.mes("strtrim - 指定文字を除去:");
         win.font("MS Gothic", 12, 0);
-        win.color(0, 0, 0).pos(50, 250);
+        win.color(0, 0, 0).pos(350, 282);
         {
-            std::string text = "  Hello  World  ";
-            win.mes("元文字列: \"" + text + "\"");
-            win.pos(50, 268);
-            win.mes("strtrim(text, 0, ' ') = \"" + strtrim(text, 0, ' ') + "\" (両端)");
-            win.pos(50, 286);
-            win.mes("strtrim(text, 1, ' ') = \"" + strtrim(text, 1, ' ') + "\" (左端)");
-            win.pos(50, 304);
-            win.mes("strtrim(text, 3, ' ') = \"" + strtrim(text, 3, ' ') + "\" (全て)");
+            std::string text = "  Hello World  ";
+            win.mes("strtrim(\"" + text + "\", 0) = \"" + strtrim(text, 0, ' ') + "\"");
+            win.pos(350, 297);
+            win.mes("strtrim(text, 3) = \"" + strtrim(text, 3, ' ') + "\" (全除去)");
         }
         
-        // strf デモ
+        // memcpy/memset/memexpand デモ（新規追加）
         win.font("MS Gothic", 12, 1);
-        win.color(128, 0, 128).pos(350, 230);
-        win.mes("strf - 書式付き文字列変換:");
+        win.color(128, 64, 0).pos(50, 330);
+        win.mes("memcpy/memset/memexpand - メモリ操作:");
         win.font("MS Gothic", 12, 0);
-        win.color(0, 0, 0).pos(350, 250);
+        win.color(0, 0, 0).pos(50, 347);
         {
-            win.mes(strf("strf(\"%%d\", 123) = \"%d\"", 123));
-            win.pos(350, 268);
-            win.mes(strf("strf(\"%%05d\", 42) = \"%05d\"", 42));
-            win.pos(350, 286);
-            win.mes(strf("strf(\"%%x\", 255) = \"%x\"", 255));
-            win.pos(350, 304);
-            win.mes(strf("strf(\"%%f\", 3.14) = \"%f\"", 3.14));
+            std::string src = "ABCDEFGH";
+            std::string dest(8, '.');
+            hsppp::memcpy(dest, src, 4);  // 先頭4バイトをコピー
+            win.mes("memcpy: src=\"ABCDEFGH\", dest=\"........\"");
+            win.pos(50, 362);
+            win.mes("  memcpy(dest, src, 4) -> dest=\"" + dest + "\"");
+            
+            win.pos(50, 380);
+            std::string setbuf(8, 'X');
+            hsppp::memset(setbuf, 'A', 4);
+            win.mes("memset: buf=\"XXXXXXXX\" -> memset(buf, 'A', 4)");
+            win.pos(50, 395);
+            win.mes("  結果: \"" + setbuf + "\"");
+            
+            win.pos(50, 413);
+            std::string expbuf(16, 'Z');
+            size_t oldSize = expbuf.size();
+            hsppp::memexpand(expbuf, 64);
+            win.mes("memexpand: 元size=" + str(static_cast<int>(oldSize)) + " -> memexpand(expbuf, 64) -> size=" + str(static_cast<int>(expbuf.size())));
         }
         
         // getpath デモ
         win.font("MS Gothic", 12, 1);
-        win.color(0, 128, 128).pos(50, 340);
+        win.color(0, 128, 128).pos(350, 330);
         win.mes("getpath - パスの一部を取得:");
         win.font("MS Gothic", 12, 0);
-        win.color(0, 0, 0).pos(50, 360);
+        win.color(0, 0, 0).pos(350, 347);
         {
             std::string path = "c:\\folder\\test.bmp";
             win.mes("パス: \"" + path + "\"");
-            win.pos(50, 378);
-            win.mes("getpath(path, 1) = \"" + getpath(path, 1) + "\" (拡張子除去)");
-            win.pos(50, 396);
-            win.mes("getpath(path, 2) = \"" + getpath(path, 2) + "\" (拡張子のみ)");
-            win.pos(50, 414);
-            win.mes("getpath(path, 8) = \"" + getpath(path, 8) + "\" (ファイル名のみ)");
-            win.pos(50, 432);
-            win.mes("getpath(path, 8+1) = \"" + getpath(path, 8+1) + "\" (拡張子なしファイル名)");
-            win.pos(350, 378);
-            win.mes("getpath(path, 32) = \"" + getpath(path, 32) + "\" (ディレクトリのみ)");
-            win.pos(350, 396);
-            win.mes("getpath(path, 16) = \"" + getpath(path, 16) + "\" (小文字)");
+            win.pos(350, 362);
+            win.mes("getpath(path, 1) = \"" + getpath(path, 1) + "\"");
+            win.pos(350, 377);
+            win.mes("getpath(path, 8) = \"" + getpath(path, 8) + "\"");
+            win.pos(350, 392);
+            win.mes("getpath(path, 32) = \"" + getpath(path, 32) + "\"");
         }
+        
         break;
 
     case ExtendedDemo::SystemInfo:
@@ -379,13 +430,13 @@ void drawExtendedDemo(Screen& win) {
             win.pos(50, 171);
             win.mes("sysinfo_str(2) = \"" + sysinfo_str(2) + "\" (コンピュータ名)");
             win.pos(50, 189);
-            long long cpuNum = sysinfo_int(17);
+            int64_t cpuNum = sysinfo_int(17);
             win.mes("sysinfo_int(17) = " + std::to_string(cpuNum) + " (CPU数)");
             win.pos(50, 207);
-            long long totalMem = sysinfo_int(34);
+            int64_t totalMem = sysinfo_int(34);
             win.mes("sysinfo_int(34) = " + std::to_string(totalMem) + " (物理メモリMB)");
             win.pos(50, 225);
-            long long freeMem = sysinfo_int(35);
+            int64_t freeMem = sysinfo_int(35);
             win.mes("sysinfo_int(35) = " + std::to_string(freeMem) + " (空きメモリMB)");
         }
         
@@ -416,7 +467,7 @@ void drawExtendedDemo(Screen& win) {
         win.font("MS Gothic", 12, 0);
         win.color(0, 0, 0).pos(50, 415);
         {
-            std::vector<unsigned char> buf(16, 0);
+            std::vector<uint8_t> buf(16, 0);
             poke(buf, 0, 0x41);      // 'A'
             wpoke(buf, 2, 0x1234);   // 2バイト値
             lpoke(buf, 4, 0xDEADBEEF); // 4バイト値

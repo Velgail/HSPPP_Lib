@@ -1775,7 +1775,7 @@ namespace hsppp {
     export using std::stol;             // 文字列→long
     export using std::stoll;            // 文字列→long long
     export using std::stoul;            // 文字列→unsigned long
-    export using std::stoull;           // 文字列→unsigned long long
+    export using std::stoull;           // 文字列→uint64_t
     export using std::stof;             // 文字列→float
     export using std::stod;             // 文字列→double
     export using std::stold;            // 文字列→long double

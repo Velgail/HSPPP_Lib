@@ -296,7 +296,7 @@ namespace hsppp {
         // タイプ16: 文字列を小文字に変換
         if (p2 & 16) {
             std::transform(result.begin(), result.end(), result.begin(),
-                [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                [](uint8_t c) { return static_cast<char>(std::tolower(c)); });
         }
         
         return result;

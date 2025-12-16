@@ -871,9 +871,9 @@ namespace compile_test {
 
         [[maybe_unused]] int i1 = hsppp::stoi("123");
         [[maybe_unused]] long l1 = hsppp::stol("123456");
-        [[maybe_unused]] long long ll1 = hsppp::stoll("123456789012");
+        [[maybe_unused]] int64_t ll1 = hsppp::stoll("123456789012");
         [[maybe_unused]] unsigned long ul1 = hsppp::stoul("12345");
-        [[maybe_unused]] unsigned long long ull1 = hsppp::stoull("1234567890");
+        [[maybe_unused]] unsigned int64_t ull1 = hsppp::stoull("1234567890");
         [[maybe_unused]] float f1 = hsppp::stof("3.14");
         [[maybe_unused]] double d1 = hsppp::stod("3.14159");
         [[maybe_unused]] long double ld1 = hsppp::stold("3.14159265358979");

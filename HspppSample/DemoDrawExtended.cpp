@@ -454,13 +454,13 @@ void drawExtendedDemo(Screen& win) {
             win.pos(50, 171);
             win.mes("sysinfo_str(2) = \"" + sysinfo_str(2) + "\" (コンピュータ名)");
             win.pos(50, 189);
-            long long cpuNum = sysinfo_int(17);
+            int64_t cpuNum = sysinfo_int(17);
             win.mes("sysinfo_int(17) = " + std::to_string(cpuNum) + " (CPU数)");
             win.pos(50, 207);
-            long long totalMem = sysinfo_int(34);
+            int64_t totalMem = sysinfo_int(34);
             win.mes("sysinfo_int(34) = " + std::to_string(totalMem) + " (物理メモリMB)");
             win.pos(50, 225);
-            long long freeMem = sysinfo_int(35);
+            int64_t freeMem = sysinfo_int(35);
             win.mes("sysinfo_int(35) = " + std::to_string(freeMem) + " (空きメモリMB)");
         }
         
@@ -491,7 +491,7 @@ void drawExtendedDemo(Screen& win) {
         win.font("MS Gothic", 12, 0);
         win.color(0, 0, 0).pos(50, 415);
         {
-            std::vector<unsigned char> buf(16, 0);
+            std::vector<uint8_t> buf(16, 0);
             poke(buf, 0, 0x41);      // 'A'
             wpoke(buf, 2, 0x1234);   // 2バイト値
             lpoke(buf, 4, 0xDEADBEEF); // 4バイト値

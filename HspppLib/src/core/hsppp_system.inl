@@ -483,60 +483,58 @@ namespace hsppp {
     // memset - メモリブロックのクリア（HSP互換）
     // ============================================================
 
+    namespace {
+        template<typename BufferType>
+        void memset_impl(BufferType& dest, int value, int size, int offset, const std::source_location& location) {
+            if (offset < 0) {
+                throw HspError(ERR_OUT_OF_RANGE, "memsetのオフセットが負の値です", location);
+            }
+            
+            // size=0 の場合は全体をクリア
+            size_t actualSize = (size <= 0) ? dest.size() - offset : static_cast<size_t>(size);
+            
+            if (static_cast<size_t>(offset) + actualSize > dest.size()) {
+                throw HspError(ERR_BUFFER_OVERFLOW, "memsetがバッファ範囲を超えています", location);
+            }
+            
+            std::memset(dest.data() + offset, value & 0xFF, actualSize);
+        }
+    }
+
     void memset(std::string& dest, int value, int size, int offset, const std::source_location& location) {
-        if (offset < 0) {
-            throw HspError(ERR_OUT_OF_RANGE, "memsetのオフセットが負の値です", location);
-        }
-        
-        // size=0 の場合は全体をクリア
-        size_t actualSize = (size <= 0) ? dest.size() - offset : static_cast<size_t>(size);
-        
-        if (static_cast<size_t>(offset) + actualSize > dest.size()) {
-            throw HspError(ERR_BUFFER_OVERFLOW, "memsetがバッファ範囲を超えています", location);
-        }
-        
-        std::memset(dest.data() + offset, value & 0xFF, actualSize);
+        memset_impl(dest, value, size, offset, location);
     }
 
     void memset(std::vector<uint8_t>& dest, int value, int size, int offset, const std::source_location& location) {
-        if (offset < 0) {
-            throw HspError(ERR_OUT_OF_RANGE, "memsetのオフセットが負の値です", location);
-        }
-        
-        size_t actualSize = (size <= 0) ? dest.size() - offset : static_cast<size_t>(size);
-        
-        if (static_cast<size_t>(offset) + actualSize > dest.size()) {
-            throw HspError(ERR_BUFFER_OVERFLOW, "memsetがバッファ範囲を超えています", location);
-        }
-        
-        std::memset(dest.data() + offset, value & 0xFF, actualSize);
+        memset_impl(dest, value, size, offset, location);
     }
 
     // ============================================================
     // memexpand - メモリブロックの再確保（HSP互換）
     // ============================================================
 
-    void memexpand(std::string& dest, int newSize, const std::source_location& location) {
-        // 最小サイズは64（HSP互換）
-        int actualSize = (newSize < 64) ? 64 : newSize;
-        
-        // 既存のサイズより小さい場合は何もしない（HSP互換）
-        if (static_cast<size_t>(actualSize) <= dest.size()) {
-            return;
+    namespace {
+        template<typename BufferType, typename FillValue>
+        void memexpand_impl(BufferType& dest, int newSize, FillValue fillValue) {
+            // 最小サイズは64（HSP互換）
+            int actualSize = (newSize < 64) ? 64 : newSize;
+            
+            // 既存のサイズより小さい場合は何もしない（HSP互換）
+            if (static_cast<size_t>(actualSize) <= dest.size()) {
+                return;
+            }
+            
+            // 以前の内容を保持しつつサイズを拡張
+            dest.resize(actualSize, fillValue);
         }
-        
-        // 以前の内容を保持しつつサイズを拡張
-        dest.resize(actualSize, '\0');
+    }
+
+    void memexpand(std::string& dest, int newSize, const std::source_location& location) {
+        memexpand_impl(dest, newSize, '\0');
     }
 
     void memexpand(std::vector<uint8_t>& dest, int newSize, const std::source_location& location) {
-        int actualSize = (newSize < 64) ? 64 : newSize;
-        
-        if (static_cast<size_t>(actualSize) <= dest.size()) {
-            return;
-        }
-        
-        dest.resize(actualSize, 0);
+        memexpand_impl(dest, newSize, static_cast<uint8_t>(0));
     }
 
 } // namespace hsppp

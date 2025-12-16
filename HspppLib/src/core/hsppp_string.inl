@@ -462,41 +462,19 @@ namespace hsppp {
     // ============================================================
 
     std::vector<String> String::split(const std::string& delimiter) const {
+        // フリー関数を呼び出して結果を変換
+        std::vector<std::string> parts = hsppp::split(*this, delimiter);
         std::vector<String> result;
-        
-        if (delimiter.empty()) {
-            result.push_back(*this);
-            return result;
+        result.reserve(parts.size());
+        for (const auto& part : parts) {
+            result.push_back(part);
         }
-        
-        size_t start = 0;
-        size_t end = find(delimiter);
-        
-        while (end != std::string::npos) {
-            result.push_back(substr(start, end - start));
-            start = end + delimiter.length();
-            end = find(delimiter, start);
-        }
-        
-        result.push_back(substr(start));
         return result;
     }
 
     int String::replace(const std::string& search, const std::string& replacement) {
-        if (search.empty()) {
-            return 0;
-        }
-        
-        int count = 0;
-        size_t pos = 0;
-        
-        while ((pos = find(search, pos)) != std::string::npos) {
-            std::string::replace(pos, search.length(), replacement);
-            pos += replacement.length();
-            ++count;
-        }
-        
-        return count;
+        // フリー関数を呼び出し
+        return hsppp::strrep(*this, search, replacement);
     }
 
     String String::mid(int start, int len) const {

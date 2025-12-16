@@ -1673,8 +1673,11 @@ namespace hsppp {
     //   hsppp::String hspStr = stdStr;    // std::stringから変換
     //   std::string back = hspStr;        // std::stringへ暗黙変換
     //   const std::string& ref = hspStr;  // 参照でもOK
+    //
+    // 注意: final指定によりこのクラスの継承は禁止されています。
+    //       ポインタ経由の操作は避け、値セマンティクスで使用してください。
 
-    export class String : public std::string {
+    export class String final : public std::string {
     public:
         // std::stringの全コンストラクタを継承
         using std::string::string;

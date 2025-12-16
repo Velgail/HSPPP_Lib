@@ -391,7 +391,7 @@ void drawExtendedDemo(Screen& win) {
             std::string expbuf(16, 'Z');
             size_t oldSize = expbuf.size();
             hsppp::memexpand(expbuf, 64);
-            win.mes("memexpand: 元size=" + str(static_cast<int>(oldSize)) + " -> memexpand(buf, 64) -> size=" + str(static_cast<int>(expbuf.size())));
+            win.mes("memexpand: 元size=" + str(static_cast<int>(oldSize)) + " -> memexpand(expbuf, 64) -> size=" + str(static_cast<int>(expbuf.size())));
         }
         
         // getpath デモ

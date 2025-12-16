@@ -1,4 +1,4 @@
-// HspppTest/ApiCompileTest.cpp
+﻿// HspppTest/ApiCompileTest.cpp
 // ═══════════════════════════════════════════════════════════════════
 // HSPPP API コンパイルテスト
 // すべてのAPIが正常にコンパイルできることを確認する
@@ -791,30 +791,6 @@ namespace compile_test {
         std::vector<std::string> result3 = hsppp::split("A::B::C", "::");        // {"A", "B", "C"}
         std::vector<std::string> result4 = hsppp::split("", ",");                // {""}
         std::vector<std::string> result5 = hsppp::split("A,B,", ",");            // {"A", "B", ""}
-
-        // hsppp::String OOP版のテスト
-        hsppp::String hspStr = "Hello,World,Test";
-        std::vector<hsppp::String> strParts = hspStr.split(",");   // {"Hello", "World", "Test"}
-        [[maybe_unused]] size_t strPartsCount = strParts.size();    // 3
-        
-        hsppp::String oopRepStr = "AAA BBB AAA";
-        [[maybe_unused]] int oopRepCount = oopRepStr.replace("AAA", "XXX");  // 2回、oopRepStr = "XXX BBB XXX"
-        
-        hsppp::String midStr = "ABCDEFGH";
-        [[maybe_unused]] hsppp::String oopMid1 = midStr.mid(2, 3);     // "CDE"
-        [[maybe_unused]] hsppp::String oopMid2 = midStr.mid(-1, 3);    // "FGH"
-        
-        hsppp::String trimStr = "  Hello  ";
-        [[maybe_unused]] hsppp::String trimmed = trimStr.trim(0, ' ');  // "Hello"
-        
-        hsppp::String searchStr = "Hello World";
-        [[maybe_unused]] int idx = searchStr.indexOf("World");         // 6
-        
-        hsppp::String pathStr = "c:\\folder\\test.bmp";
-        [[maybe_unused]] hsppp::String ext = pathStr.getPath(2);       // ".bmp"
-        [[maybe_unused]] hsppp::String fname = pathStr.getPath(8);     // "test.bmp"
-        
-        [[maybe_unused]] int strLen = hspStr.len();                    // 16
         
         // std::stringとの相互変換
         std::string stdStr = "standard";

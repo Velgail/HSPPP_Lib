@@ -1,4 +1,4 @@
-// HspppSample/DemoDrawExtended.cpp
+﻿// HspppSample/DemoDrawExtended.cpp
 // ═══════════════════════════════════════════════════════════════════
 // HSPPP デモアプリケーション - 拡張デモ描画
 // ═══════════════════════════════════════════════════════════════════
@@ -411,30 +411,6 @@ void drawExtendedDemo(Screen& win) {
             win.mes("getpath(path, 32) = \"" + getpath(path, 32) + "\"");
         }
         
-        // hsppp::String OOP版デモ
-        win.font("MS Gothic", 12, 1);
-        win.color(64, 0, 128).pos(50, 438);
-        win.mes("hsppp::String OOP版:");
-        win.font("MS Gothic", 12, 0);
-        win.color(0, 0, 0).pos(50, 455);
-        {
-            hsppp::String str = "Hello,World,Test";
-            auto parts = str.split(",");
-            std::string partsStr = "[";
-            for (size_t i = 0; i < parts.size(); ++i) {
-                if (i > 0) partsStr += ", ";
-                partsStr += "\"" + std::string(parts[i]) + "\"";
-            }
-            partsStr += "]";
-            win.mes("String(\"Hello,World,Test\").split(\",\") = " + partsStr);
-            
-            win.pos(350, 438);
-            hsppp::String repStr = "AAA BBB AAA";
-            int repCount = repStr.replace("AAA", "XXX");
-            win.mes("String(\"AAA BBB AAA\").replace(\"AAA\", \"XXX\")");
-            win.pos(350, 455);
-            win.mes("  = \"" + std::string(repStr) + "\" (" + hsppp::str(repCount) + "回)");
-        }
         break;
 
     case ExtendedDemo::SystemInfo:

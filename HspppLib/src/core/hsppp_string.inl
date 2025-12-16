@@ -302,4 +302,234 @@ namespace hsppp {
         return result;
     }
 
+    // ============================================================
+    // strrep - 文字列の置換
+    // ============================================================
+    
+    int strrep(std::string& p1, const std::string& search, const std::string& replace, const std::source_location&) {
+        if (search.empty()) {
+            return 0;  // 検索文字列が空の場合は何もしない
+        }
+        
+        int count = 0;
+        size_t pos = 0;
+        
+        while ((pos = p1.find(search, pos)) != std::string::npos) {
+            p1.replace(pos, search.length(), replace);
+            pos += replace.length();  // 置換後の文字列の後ろから検索を再開
+            ++count;
+        }
+        
+        return count;
+    }
+
+    // ============================================================
+    // getstr - バッファから文字列読み出し
+    // ============================================================
+    
+    int getstr(std::string& dest, const std::string& src, int index, int delimiter, int maxLen, const std::source_location&) {
+        dest.clear();
+        
+        if (index < 0 || static_cast<size_t>(index) >= src.size()) {
+            return 0;
+        }
+        
+        size_t startPos = static_cast<size_t>(index);
+        size_t endPos = startPos;
+        size_t srcSize = src.size();
+        int readCount = 0;
+        
+        // 区切り文字または改行を探す
+        while (endPos < srcSize && readCount < maxLen) {
+            uint8_t c = static_cast<uint8_t>(src[endPos]);
+            
+            // 改行コードのチェック（\r\n, \n, \r）
+            if (c == '\r') {
+                if (endPos + 1 < srcSize && src[endPos + 1] == '\n') {
+                    // \r\n の場合は2バイト消費
+                    dest = src.substr(startPos, endPos - startPos);
+                    return static_cast<int>(endPos - startPos + 2);
+                }
+                // \r のみ
+                dest = src.substr(startPos, endPos - startPos);
+                return static_cast<int>(endPos - startPos + 1);
+            }
+            
+            if (c == '\n') {
+                dest = src.substr(startPos, endPos - startPos);
+                return static_cast<int>(endPos - startPos + 1);
+            }
+            
+            // NULL終端（delimiter=0のデフォルト時のみ）
+            if (c == 0 && delimiter == 0) {
+                dest = src.substr(startPos, endPos - startPos);
+                return static_cast<int>(endPos - startPos + 1);
+            }
+            
+            // 区切り文字のチェック（delimiter > 0の場合）
+            if (delimiter > 0 && c == static_cast<uint8_t>(delimiter)) {
+                dest = src.substr(startPos, endPos - startPos);
+                return static_cast<int>(endPos - startPos + 1);
+            }
+            
+            ++endPos;
+            ++readCount;
+        }
+        
+        // 最大文字数に達した、または文字列の終端に達した
+        dest = src.substr(startPos, endPos - startPos);
+        return static_cast<int>(endPos - startPos);
+    }
+
+    int getstr(std::string& dest, const std::vector<uint8_t>& src, int index, int delimiter, int maxLen, const std::source_location& loc) {
+        // vector<uint8_t>をstring_viewとして扱い、同じロジックを適用
+        dest.clear();
+        
+        if (index < 0 || static_cast<size_t>(index) >= src.size()) {
+            return 0;
+        }
+        
+        size_t startPos = static_cast<size_t>(index);
+        size_t endPos = startPos;
+        size_t srcSize = src.size();
+        int readCount = 0;
+        
+        while (endPos < srcSize && readCount < maxLen) {
+            uint8_t c = src[endPos];
+            
+            if (c == '\r') {
+                if (endPos + 1 < srcSize && src[endPos + 1] == '\n') {
+                    dest.assign(reinterpret_cast<const char*>(&src[startPos]), endPos - startPos);
+                    return static_cast<int>(endPos - startPos + 2);
+                }
+                dest.assign(reinterpret_cast<const char*>(&src[startPos]), endPos - startPos);
+                return static_cast<int>(endPos - startPos + 1);
+            }
+            
+            if (c == '\n') {
+                dest.assign(reinterpret_cast<const char*>(&src[startPos]), endPos - startPos);
+                return static_cast<int>(endPos - startPos + 1);
+            }
+            
+            if (c == 0 && delimiter == 0) {
+                dest.assign(reinterpret_cast<const char*>(&src[startPos]), endPos - startPos);
+                return static_cast<int>(endPos - startPos + 1);
+            }
+            
+            if (delimiter > 0 && c == static_cast<uint8_t>(delimiter)) {
+                dest.assign(reinterpret_cast<const char*>(&src[startPos]), endPos - startPos);
+                return static_cast<int>(endPos - startPos + 1);
+            }
+            
+            ++endPos;
+            ++readCount;
+        }
+        
+        dest.assign(reinterpret_cast<const char*>(&src[startPos]), endPos - startPos);
+        return static_cast<int>(endPos - startPos);
+    }
+
+    // ============================================================
+    // split - 文字列から分割された要素を取得
+    // ============================================================
+    
+    std::vector<std::string> split(const std::string& src, const std::string& delimiter, const std::source_location&) {
+        std::vector<std::string> result;
+        
+        if (delimiter.empty()) {
+            // 区切り文字が空の場合は元の文字列をそのまま返す
+            result.push_back(src);
+            return result;
+        }
+        
+        size_t start = 0;
+        size_t end = src.find(delimiter);
+        
+        while (end != std::string::npos) {
+            result.push_back(src.substr(start, end - start));
+            start = end + delimiter.length();
+            end = src.find(delimiter, start);
+        }
+        
+        // 最後の要素を追加
+        result.push_back(src.substr(start));
+        
+        return result;
+    }
+
+    // ============================================================
+    // String クラスのメソッド実装
+    // ============================================================
+
+    std::vector<String> String::split(const std::string& delimiter) const {
+        std::vector<String> result;
+        
+        if (delimiter.empty()) {
+            result.push_back(*this);
+            return result;
+        }
+        
+        size_t start = 0;
+        size_t end = find(delimiter);
+        
+        while (end != std::string::npos) {
+            result.push_back(substr(start, end - start));
+            start = end + delimiter.length();
+            end = find(delimiter, start);
+        }
+        
+        result.push_back(substr(start));
+        return result;
+    }
+
+    int String::replace(const std::string& search, const std::string& replacement) {
+        if (search.empty()) {
+            return 0;
+        }
+        
+        int count = 0;
+        size_t pos = 0;
+        
+        while ((pos = find(search, pos)) != std::string::npos) {
+            std::string::replace(pos, search.length(), replacement);
+            pos += replacement.length();
+            ++count;
+        }
+        
+        return count;
+    }
+
+    String String::mid(int start, int len) const {
+        if (len <= 0) {
+            return String();
+        }
+        
+        if (start == -1) {
+            // 右からlen文字を取り出す
+            if (static_cast<size_t>(len) >= size()) {
+                return *this;
+            }
+            return substr(size() - len);
+        }
+        
+        if (start < 0 || static_cast<size_t>(start) >= size()) {
+            return String();
+        }
+        
+        return substr(static_cast<size_t>(start), static_cast<size_t>(len));
+    }
+
+    String String::trim(int mode, int charCode) const {
+        // 既存のstrtrim関数を呼び出す
+        return hsppp::strtrim(*this, mode, charCode);
+    }
+
+    int String::indexOf(const std::string& search, int start) const {
+        return hsppp::instr(*this, start, search);
+    }
+
+    String String::getPath(int type) const {
+        return hsppp::getpath(*this, type);
+    }
+
 } // namespace hsppp

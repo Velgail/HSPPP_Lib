@@ -239,9 +239,9 @@ HSP操作リスト - 実装計画
 ○ [P3] newlab          ラベル型変数を初期化
 
 ○ [P3] alloc           バッファを確保
-○ [P3] memcpy          メモリブロックのコピー
-○ [P3] memset          メモリブロックのクリア
-○ [P3] memexpand       メモリブロックの再確保
+✓ [P3] memcpy          メモリブロックのコピー
+✓ [P3] memset          メモリブロックのクリア
+✓ [P3] memexpand       メモリブロックの再確保
 
 ✓ [P3] poke            バッファに1byte書き込み
 ✓ [P3] wpoke           バッファに2byte書き込み
@@ -285,9 +285,9 @@ HSP操作リスト - 実装計画
 ○ [P2] notesave        対象バッファ保存
 ○ [P2] noteunsel       対象バッファの復帰
 
-○ [P2] split           文字列から分割された要素を代入
-○ [P2] strrep          文字列の置換をする
-○ [P2] getstr          バッファから文字列読み出し
+✓ [P2] split           文字列から分割された要素を代入
+✓ [P2] strrep          文字列の置換をする
+✓ [P2] getstr          バッファから文字列読み出し
 
 ○ [P3] strexchange     スクリプト内の文字列を置き換える（プリプロセッサ的）
 ○ [P3] cnvstoa         通常文字列をANSI文字列に変換

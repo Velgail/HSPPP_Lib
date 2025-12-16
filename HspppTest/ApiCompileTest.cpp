@@ -758,6 +758,68 @@ namespace compile_test {
         std::string unixPath = "/home/user/file.txt";
         [[maybe_unused]] std::string pathB = hsppp::getpath(unixPath, 8);        // "file.txt"
         [[maybe_unused]] std::string pathC = hsppp::getpath(unixPath, 32);       // "/home/user/"
+
+        // strrep - 文字列の置換
+        std::string repStr = "aaa bbb aaa ccc";
+        [[maybe_unused]] int repCount1 = hsppp::strrep(repStr, "aaa", "XXX");    // 2 (置換回数)
+        // repStr は "XXX bbb XXX ccc" になっている
+        std::string repStr2 = "ABCABC";
+        [[maybe_unused]] int repCount2 = hsppp::strrep(repStr2, "ABC", "X");     // 2
+        std::string repStr3 = "Hello";
+        [[maybe_unused]] int repCount3 = hsppp::strrep(repStr3, "XYZ", "");      // 0 (見つからない)
+        std::string repStr4 = "";
+        [[maybe_unused]] int repCount4 = hsppp::strrep(repStr4, "A", "B");       // 0 (空文字列)
+
+        // getstr - バッファから文字列読み出し
+        std::string strBuf = "ABC,DEF,GHI";
+        std::string destStr;
+        [[maybe_unused]] int len1 = hsppp::getstr(destStr, strBuf, 0, ',');      // "ABC", 4
+        [[maybe_unused]] int len2 = hsppp::getstr(destStr, strBuf, 4, ',');      // "DEF", 4
+        
+        std::string multiLine = "Line1\nLine2\nLine3";
+        [[maybe_unused]] int len3 = hsppp::getstr(destStr, multiLine, 0);        // "Line1", 6
+        [[maybe_unused]] int len4 = hsppp::getstr(destStr, multiLine, 6);        // "Line2", 6
+        
+        // getstr with vector<uint8_t>
+        std::vector<uint8_t> vecBuf = {'A', 'B', 'C', ',', 'D', 'E', 'F', 0};
+        [[maybe_unused]] int vlen1 = hsppp::getstr(destStr, vecBuf, 0, ',');     // "ABC", 4
+
+        // split - 文字列を分割
+        std::vector<std::string> result1 = hsppp::split("12,34,56", ",");        // {"12", "34", "56"}
+        [[maybe_unused]] size_t splitCount = result1.size();                      // 3
+        std::vector<std::string> result2 = hsppp::split("Hello", ",");           // {"Hello"}
+        std::vector<std::string> result3 = hsppp::split("A::B::C", "::");        // {"A", "B", "C"}
+        std::vector<std::string> result4 = hsppp::split("", ",");                // {""}
+        std::vector<std::string> result5 = hsppp::split("A,B,", ",");            // {"A", "B", ""}
+
+        // hsppp::String OOP版のテスト
+        hsppp::String hspStr = "Hello,World,Test";
+        std::vector<hsppp::String> strParts = hspStr.split(",");   // {"Hello", "World", "Test"}
+        [[maybe_unused]] size_t strPartsCount = strParts.size();    // 3
+        
+        hsppp::String oopRepStr = "AAA BBB AAA";
+        [[maybe_unused]] int oopRepCount = oopRepStr.replace("AAA", "XXX");  // 2回、oopRepStr = "XXX BBB XXX"
+        
+        hsppp::String midStr = "ABCDEFGH";
+        [[maybe_unused]] hsppp::String oopMid1 = midStr.mid(2, 3);     // "CDE"
+        [[maybe_unused]] hsppp::String oopMid2 = midStr.mid(-1, 3);    // "FGH"
+        
+        hsppp::String trimStr = "  Hello  ";
+        [[maybe_unused]] hsppp::String trimmed = trimStr.trim(0, ' ');  // "Hello"
+        
+        hsppp::String searchStr = "Hello World";
+        [[maybe_unused]] int idx = searchStr.indexOf("World");         // 6
+        
+        hsppp::String pathStr = "c:\\folder\\test.bmp";
+        [[maybe_unused]] hsppp::String ext = pathStr.getPath(2);       // ".bmp"
+        [[maybe_unused]] hsppp::String fname = pathStr.getPath(8);     // "test.bmp"
+        
+        [[maybe_unused]] int strLen = hspStr.len();                    // 16
+        
+        // std::stringとの相互変換
+        std::string stdStr = "standard";
+        hsppp::String fromStd = stdStr;                                // std::stringから変換
+        std::string toStd = fromStd;                                   // std::stringへ暗黙変換
     }
 
     // ============================================================
@@ -839,7 +901,7 @@ namespace compile_test {
 
         // --- vector ---
         [[maybe_unused]] hsppp::vector<int> vec1;
-        [[maybe_unused]] hsppp::vector<unsigned char> vec2 = {1, 2, 3, 4};
+        [[maybe_unused]] hsppp::vector<uint8_t> vec2 = {1, 2, 3, 4};
 
         // --- functional ---
         [[maybe_unused]] hsppp::function<int(int, int)> fn = [](int a, int b) { return a + b; };
@@ -858,17 +920,17 @@ namespace compile_test {
         [[maybe_unused]] std::string userName = sysinfo_str(1);     // ユーザー名
         [[maybe_unused]] std::string compName = sysinfo_str(2);     // コンピュータ名
 
-        // sysinfo_int - 整数を返すシステム情報（int64対応）
-        [[maybe_unused]] long long lang = sysinfo_int(3);         // 言語（常に1=日本語）
-        [[maybe_unused]] long long cpuType = sysinfo_int(16);     // CPU種類
-        [[maybe_unused]] long long cpuCount = sysinfo_int(17);    // CPU数
-        [[maybe_unused]] long long memLoad = sysinfo_int(33);     // メモリ使用率(%)
-        [[maybe_unused]] long long totalPhys = sysinfo_int(34);   // 全物理メモリ(MB)
-        [[maybe_unused]] long long availPhys = sysinfo_int(35);   // 空き物理メモリ(MB)
-        [[maybe_unused]] long long totalSwap = sysinfo_int(36);   // スワップファイル合計(MB)
-        [[maybe_unused]] long long availSwap = sysinfo_int(37);   // スワップファイル空き(MB)
-        [[maybe_unused]] long long totalVirt = sysinfo_int(38);   // 仮想メモリ合計(MB)
-        [[maybe_unused]] long long availVirt = sysinfo_int(39);   // 仮想メモリ空き(MB)
+        // sysinfo_int - 整数を返すシステム情報（int64_t対応）
+        [[maybe_unused]] int64_t lang = sysinfo_int(3);         // 言語（常に1=日本語）
+        [[maybe_unused]] int64_t cpuType = sysinfo_int(16);     // CPU種類
+        [[maybe_unused]] int64_t cpuCount = sysinfo_int(17);    // CPU数
+        [[maybe_unused]] int64_t memLoad = sysinfo_int(33);     // メモリ使用率(%)
+        [[maybe_unused]] int64_t totalPhys = sysinfo_int(34);   // 全物理メモリ(MB)
+        [[maybe_unused]] int64_t availPhys = sysinfo_int(35);   // 空き物理メモリ(MB)
+        [[maybe_unused]] int64_t totalSwap = sysinfo_int(36);   // スワップファイル合計(MB)
+        [[maybe_unused]] int64_t availSwap = sysinfo_int(37);   // スワップファイル空き(MB)
+        [[maybe_unused]] int64_t totalVirt = sysinfo_int(38);   // 仮想メモリ合計(MB)
+        [[maybe_unused]] int64_t availVirt = sysinfo_int(39);   // 仮想メモリ空き(MB)
     }
 
     // ============================================================
@@ -927,8 +989,8 @@ namespace compile_test {
         // poke - 文字列書き込み
         poke(strBuffer, 0, std::string("AB"));
 
-        // vector<unsigned char> バッファでのテスト
-        hsppp::vector<unsigned char> vecBuffer(16, 0);
+        // vector<uint8_t> バッファでのテスト
+        hsppp::vector<uint8_t> vecBuffer(16, 0);
 
         poke(vecBuffer, 0, 0xAB);
         wpoke(vecBuffer, 2, 0xCDEF);
@@ -937,6 +999,40 @@ namespace compile_test {
         [[maybe_unused]] int vb0 = peek(vecBuffer, 0);
         [[maybe_unused]] int vw0 = wpeek(vecBuffer, 2);
         [[maybe_unused]] int vl0 = lpeek(vecBuffer, 4);
+
+        // memcpy - メモリブロックのコピー
+        std::string srcStr = "ABCDEFGH";
+        std::string destStr(8, '\0');
+        hsppp::memcpy(destStr, srcStr, 4);  // "ABCD" をコピー
+        hsppp::memcpy(destStr, srcStr, 4, 4, 0);  // destStr[4]から4バイト
+        hsppp::memcpy(destStr, srcStr, 2, 0, 2);  // srcStr[2]から2バイトを先頭へ
+
+        std::vector<uint8_t> srcVec = {1, 2, 3, 4, 5, 6, 7, 8};
+        std::vector<uint8_t> destVec(8, 0);
+        hsppp::memcpy(destVec, srcVec, 4);  // 先頭4バイト
+        hsppp::memcpy(destVec, srcVec, 4, 4, 0);  // destVec[4]へコピー
+        hsppp::memcpy(destVec, srcStr, 4);  // string -> vector
+        hsppp::memcpy(destStr, srcVec, 4);  // vector -> string
+
+        // memset - メモリブロックのクリア
+        std::string setStr(16, 'X');
+        hsppp::memset(setStr, 0);  // 全体を0クリア
+        hsppp::memset(setStr, 'A', 4);  // 先頭4バイトを'A'で埋める
+        hsppp::memset(setStr, 'B', 4, 4);  // setStr[4]から4バイトを'B'で埋める
+
+        std::vector<uint8_t> setVec(16, 0xFF);
+        hsppp::memset(setVec, 0);  // 全体を0クリア
+        hsppp::memset(setVec, 0xAB, 8);  // 先頭8バイトを0xABで埋める
+        hsppp::memset(setVec, 0xCD, 4, 8);  // setVec[8]から4バイトを0xCDで埋める
+
+        // memexpand - メモリブロックの再確保
+        std::string expStr(32, 'Z');
+        hsppp::memexpand(expStr, 128);  // 128バイトに拡張
+        hsppp::memexpand(expStr, 10);   // 64未満は64になる、すでに128なので変化なし
+
+        std::vector<uint8_t> expVec(32, 0);
+        hsppp::memexpand(expVec, 256);  // 256バイトに拡張
+        hsppp::memexpand(expVec, 64);   // すでに256なので変化なし
     }
 
 }  // namespace compile_test

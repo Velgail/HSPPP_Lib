@@ -794,7 +794,7 @@ namespace compile_test {
         
         // std::stringとの相互変換
         std::string stdStr = "standard";
-        hsppp::String fromStd = stdStr;                                // std::stringから変換
+        hsppp::string fromStd = stdStr;                                // std::stringから変換
         std::string toStd = fromStd;                                   // std::stringへ暗黙変換
     }
 
@@ -1011,6 +1011,73 @@ namespace compile_test {
         hsppp::memexpand(expVec, 64);   // すでに256なので変化なし
     }
 
+    // ============================================================
+    // ファイル操作関数のテスト
+    // ============================================================
+    void test_file_functions() {
+        // exec実行モード定数
+        [[maybe_unused]] int m1 = exec_normal;
+        [[maybe_unused]] int m2 = exec_minimized;
+        [[maybe_unused]] int m3 = exec_shellexec;
+        [[maybe_unused]] int m4 = exec_print;
+
+        // dialog タイプ定数
+        [[maybe_unused]] int d1 = dialog_info;
+        [[maybe_unused]] int d2 = dialog_warning;
+        [[maybe_unused]] int d3 = dialog_yesno;
+        [[maybe_unused]] int d4 = dialog_yesno_w;
+        [[maybe_unused]] int d5 = dialog_open;
+        [[maybe_unused]] int d6 = dialog_save;
+        [[maybe_unused]] int d7 = dialog_color;
+        [[maybe_unused]] int d8 = dialog_colorex;
+
+        // システム変数
+        [[maybe_unused]] int& st = stat();
+        [[maybe_unused]] int& sz = strsize();
+        [[maybe_unused]] std::string& rs = refstr();
+
+        // exec - ファイル実行（シグネチャのみ確認）
+        // exec("notepad", 0, "");              // 実際には実行しない
+        // exec("file.txt", exec_shellexec);    // 実際には実行しない
+
+        // exist - ファイルサイズ取得
+        [[maybe_unused]] int size1 = exist("nonexistent_file_12345.txt");  // -1が返る
+
+        // dirlist - ディレクトリ一覧取得
+        [[maybe_unused]] std::string list1 = dirlist("*.*");       // すべてのファイル
+        [[maybe_unused]] std::string list2 = dirlist("*.txt", 0);  // .txtファイル
+        [[maybe_unused]] std::string list3 = dirlist("*", 1);      // ディレクトリ除外
+        [[maybe_unused]] std::string list4 = dirlist("*", 5);      // ディレクトリのみ
+
+        // bload/bsave（シグネチャのみ確認）
+        std::string strBuf(64, '\0');
+        std::vector<uint8_t> vecBuf(64, 0);
+        
+        // bload シグネチャ
+        // bload("test.bin", strBuf);
+        // bload("test.bin", strBuf, 32);
+        // bload("test.bin", strBuf, 32, 0);
+        // bload("test.bin", vecBuf);
+        // bload("test.bin", vecBuf, 32);
+        // bload("test.bin", vecBuf, 32, 0);
+
+        // bsave シグネチャ
+        // bsave("test.bin", strBuf);
+        // bsave("test.bin", strBuf, 32);
+        // bsave("test.bin", strBuf, 32, 0);
+        // bsave("test.bin", vecBuf);
+        // bsave("test.bin", vecBuf, 32);
+        // bsave("test.bin", vecBuf, 32, 0);
+
+        // dialog（シグネチャのみ確認）
+        // dialog("メッセージ");
+        // dialog("メッセージ", 0);
+        // dialog("メッセージ", 0, "タイトル");
+        // dialog("メッセージ", dialog_yesno, "確認");
+        // dialog("txt", dialog_open, "テキストファイル");
+        // dialog("", dialog_color);
+    }
+
 }  // namespace compile_test
 
 // ============================================================
@@ -1056,6 +1123,7 @@ namespace hsppp_test {
         compile_test::test_sysinfo_functions();
         compile_test::test_dirinfo_functions();
         compile_test::test_memory_functions();
+        compile_test::test_file_functions();
         // compile_test::test_end_function_signature(); // end()は呼ばない
 
         return true;

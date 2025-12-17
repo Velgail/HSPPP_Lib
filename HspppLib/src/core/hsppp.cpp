@@ -31,6 +31,8 @@ module;
 #include <cctype>
 #include <shlobj.h>
 #include <lmcons.h>
+#include <shellapi.h>
+#include <commdlg.h>
 
 #include "Internal.h"
 
@@ -111,6 +113,7 @@ namespace {
 #include "hsppp_math.inl"
 #include "hsppp_string.inl"
 #include "hsppp_system.inl"
+#include "hsppp_file.inl"
 
 // ============================================================
 // init_system / close_system

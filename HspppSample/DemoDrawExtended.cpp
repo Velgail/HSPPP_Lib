@@ -479,6 +479,71 @@ void drawExtendedDemo(Screen& win) {
             win.mes("lpoke(buf, 4, 0xDEADBEEF) -> lpeek(buf, 4) = 0x" + strf("%08X", lpeek(buf, 4)));
         }
         break;
+
+    case ExtendedDemo::FileOps:
+        win.color(0, 0, 0).pos(20, 85);
+        win.mes("ファイル操作関数デモ: exist, dirlist, bload, bsave");
+
+        // exist デモ
+        win.font("MS Gothic", 12, 1);
+        win.color(0, 0, 128).pos(50, 120);
+        win.mes("exist - ファイルサイズ取得:");
+        win.font("MS Gothic", 12, 0);
+        win.color(0, 0, 0).pos(50, 140);
+        {
+            int size1 = exist("HspppSample.exe");
+            win.mes("exist(\"HspppSample.exe\") = " + std::to_string(size1) + " bytes");
+            win.pos(50, 158);
+            int size2 = exist("nonexistent_file_12345.txt");
+            win.mes("exist(\"nonexistent_file_12345.txt\") = " + std::to_string(size2) + " (ファイルなし=-1)");
+        }
+
+        // dirlist デモ
+        win.font("MS Gothic", 12, 1);
+        win.color(0, 128, 0).pos(50, 190);
+        win.mes("dirlist - ディレクトリ一覧取得 (*.exe):");
+        win.font("MS Gothic", 12, 0);
+        win.color(0, 0, 0).pos(50, 210);
+        {
+            std::string files = dirlist("*.exe", 1);  // ディレクトリを除く
+            int fileCount = stat();
+            win.mes("ファイル数: " + std::to_string(fileCount));
+            win.pos(50, 228);
+            // 最初の数ファイルだけ表示
+            auto fileList = split(files, "\n");
+            int dispCount = (std::min)(static_cast<int>(fileList.size()), 5);
+            for (int i = 0; i < dispCount; i++) {
+                win.pos(50, 246 + i * 18);
+                win.mes("  " + fileList[i]);
+            }
+            if (fileList.size() > 5) {
+                win.pos(50, 246 + dispCount * 18);
+                win.mes("  ... 他 " + std::to_string(fileList.size() - 5) + " ファイル");
+            }
+        }
+
+        // bload/bsave デモ説明
+        win.font("MS Gothic", 12, 1);
+        win.color(128, 0, 0).pos(50, 360);
+        win.mes("bload/bsave - バッファファイル操作:");
+        win.font("MS Gothic", 12, 0);
+        win.color(0, 0, 0).pos(50, 380);
+        win.mes("bsave(\"test.bin\", buffer, size): バッファをファイルに保存");
+        win.pos(50, 398);
+        win.mes("bload(\"test.bin\", buffer, size): ファイルをバッファに読み込み");
+
+        // exec/dialog デモ説明
+        win.font("MS Gothic", 12, 1);
+        win.color(128, 64, 0).pos(50, 430);
+        win.mes("exec/dialog - 外部プログラム実行・ダイアログ:");
+        win.font("MS Gothic", 12, 0);
+        win.color(0, 0, 0).pos(50, 450);
+        win.mes("exec(\"notepad\"): メモ帳を起動");
+        win.pos(50, 468);
+        win.mes("dialog(\"メッセージ\", 0, \"タイトル\"): メッセージボックス表示");
+        win.pos(50, 486);
+        win.mes("dialog(\"txt\", 16, \"テキスト\"): ファイル選択ダイアログ");
+        break;
         
     default:
         break;

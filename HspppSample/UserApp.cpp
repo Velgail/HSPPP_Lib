@@ -92,7 +92,7 @@ void drawHelpWindow(Screen& helpWin) {
     helpWin.mes("  9: groll (スクロール)");
     
     helpWin.color(255, 255, 255).pos(20, 240);
-    helpWin.mes("【拡張デモ - Ctrl + 数字キー】");
+    helpWin.mes("【拡張デモ - Ctrl + キー】");
     helpWin.color(200, 200, 200).pos(20, 260);
     helpWin.mes("  Ctrl+1: 数学関数    Ctrl+2: 色関数");
     helpWin.pos(20, 280);
@@ -103,6 +103,8 @@ void drawHelpWindow(Screen& helpWin) {
     helpWin.mes("  Ctrl+7: gzoom       Ctrl+8: grotate");
     helpWin.pos(20, 340);
     helpWin.mes("  Ctrl+9: 文字列操作  Ctrl+0: システム情報");
+    helpWin.pos(20, 360);
+    helpWin.mes("  Ctrl+-: ファイル操作");
     
     helpWin.color(255, 255, 255).pos(20, 370);
     helpWin.mes("【画像デモ - Shift + 数字キー】");
@@ -163,6 +165,7 @@ std::string getDemoName() {
                 case ExtendedDemo::Grotate:    return "grotate (回転コピー)";
                 case ExtendedDemo::StringFunc: return "String Functions (文字列操作)";
                 case ExtendedDemo::SystemInfo: return "System Info (sysinfo/dirinfo/peek/poke)";
+                case ExtendedDemo::FileOps:    return "File Operations (exist/dirlist/bload/bsave/exec/dialog)";
                 default: break;
             }
             break;
@@ -194,6 +197,15 @@ void processInput(Screen& win) {
     bool ctrlPressed = getkey(VK::CONTROL) != 0;
     bool shiftPressed = getkey(VK::SHIFT) != 0;
     bool altPressed = getkey(VK::MENU) != 0;
+    
+    // Ctrl + - : ファイル操作デモ
+    if (ctrlPressed && !shiftPressed && !altPressed && getkey(0xBD)) {  // 0xBD = マイナスキー
+        if (static_cast<int>(ExtendedDemo::FileOps) < static_cast<int>(ExtendedDemo::COUNT)) {
+            g_category = DemoCategory::Extended;
+            g_demoIndex = static_cast<int>(ExtendedDemo::FileOps);
+            await(200);
+        }
+    }
     
     // モード切替（数字キー）
     for (int i = 0; i <= 9; i++) {

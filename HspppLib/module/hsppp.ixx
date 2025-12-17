@@ -1537,6 +1537,125 @@ namespace hsppp {
     export [[nodiscard]] std::string dir_mydoc(const std::source_location& location = std::source_location::current());
 
     // ============================================================
+    // ファイル操作命令（HSP互換）
+    // ============================================================
+
+    // --- exec実行モードフラグ ---
+    export inline constexpr int exec_normal     = 0;    ///< ノーマル実行
+    export inline constexpr int exec_minimized  = 2;    ///< 最小化モードで実行
+    export inline constexpr int exec_shellexec  = 16;   ///< 関連付けされたアプリケーションを実行
+    export inline constexpr int exec_print      = 32;   ///< ファイルを印刷する
+
+    /// @brief Windowsのファイルを実行する
+    /// @param filename 対象となるファイル名
+    /// @param mode ファイル実行モード（exec_*の組み合わせ）
+    /// @param command コンテキストメニューの操作名（省略可）
+    /// @note 結果はstat変数に格納される
+    export void exec(const std::string& filename, OptInt mode = {}, const std::string& command = "",
+                    const std::source_location& location = std::source_location::current());
+
+    /// @brief ディレクトリ移動
+    /// @param dirname 移動先ディレクトリ名
+    /// @note 失敗した場合はエラー12が発生
+    export void chdir(const std::string& dirname, const std::source_location& location = std::source_location::current());
+
+    /// @brief ディレクトリ作成
+    /// @param dirname 作成するディレクトリ名
+    /// @note 1階層先までしか作成できない。失敗した場合はエラー12が発生
+    export void mkdir(const std::string& dirname, const std::source_location& location = std::source_location::current());
+
+    /// @brief ファイル削除
+    /// @param filename 削除するファイル名
+    /// @note 失敗した場合はエラー12が発生
+    export void deletefile(const std::string& filename, const std::source_location& location = std::source_location::current());
+
+    /// @brief ファイルのコピー
+    /// @param src コピー元ファイル名
+    /// @param dest コピー先ファイル名
+    export void bcopy(const std::string& src, const std::string& dest, const std::source_location& location = std::source_location::current());
+
+    /// @brief ファイルのサイズ取得
+    /// @param filename サイズを調べるファイルの名前
+    /// @return ファイルサイズ（ファイルが存在しない場合は-1）
+    /// @note 結果はstrsize変数にも格納される
+    export [[nodiscard]] int exist(const std::string& filename, const std::source_location& location = std::source_location::current());
+
+    /// @brief ディレクトリ一覧を取得
+    /// @param filemask 一覧のためのファイルマスク（例: "*.*", "*.txt"）
+    /// @param mode ディレクトリ取得モード
+    ///   0: すべてのファイル
+    ///   1: ディレクトリを除くすべてのファイル
+    ///   2: 隠し属性・システム属性を除くすべてのファイル
+    ///   3: ディレクトリ・隠し属性・システム属性以外のすべてのファイル
+    ///   5: ディレクトリのみ
+    ///   6: 隠し属性・システム属性ファイルのみ
+    ///   7: ディレクトリと隠し属性・システム属性ファイルのみ
+    /// @return ファイル一覧（改行区切り）
+    /// @note 結果はstat変数にファイル数が格納される
+    export [[nodiscard]] std::string dirlist(const std::string& filemask, OptInt mode = {},
+                                            const std::source_location& location = std::source_location::current());
+
+    /// @brief バッファにファイルをロード
+    /// @param filename ロードするファイル名
+    /// @param buffer 内容を読み込む先の変数
+    /// @param size ロードされるサイズ（-1で自動）
+    /// @param offset ファイルのオフセット
+    /// @return 読み込んだバイト数
+    /// @note 結果はstrsize変数にも格納される
+    export int bload(const std::string& filename, std::string& buffer, OptInt size = {}, OptInt offset = {},
+                    const std::source_location& location = std::source_location::current());
+    export int bload(const std::string& filename, std::vector<uint8_t>& buffer, OptInt size = {}, OptInt offset = {},
+                    const std::source_location& location = std::source_location::current());
+
+    /// @brief バッファをファイルにセーブ
+    /// @param filename セーブするファイル名
+    /// @param buffer セーブする内容
+    /// @param size セーブするサイズ（-1で自動）
+    /// @param offset ファイルのオフセット
+    export void bsave(const std::string& filename, const std::string& buffer, OptInt size = {}, OptInt offset = {},
+                     const std::source_location& location = std::source_location::current());
+    export void bsave(const std::string& filename, const std::vector<uint8_t>& buffer, OptInt size = {}, OptInt offset = {},
+                     const std::source_location& location = std::source_location::current());
+
+    // ============================================================
+    // ダイアログ命令（HSP互換）
+    // ============================================================
+
+    // --- dialogタイプ定数 ---
+    export inline constexpr int dialog_info     = 0;    ///< 標準メッセージボックス + [OK]
+    export inline constexpr int dialog_warning  = 1;    ///< 警告メッセージボックス + [OK]
+    export inline constexpr int dialog_yesno    = 2;    ///< 標準メッセージボックス + [はい][いいえ]
+    export inline constexpr int dialog_yesno_w  = 3;    ///< 警告メッセージボックス + [はい][いいえ]
+    export inline constexpr int dialog_open     = 16;   ///< ファイルOPEN(開く)ダイアログ
+    export inline constexpr int dialog_save     = 17;   ///< ファイルSAVE(保存)ダイアログ
+    export inline constexpr int dialog_color    = 32;   ///< カラー選択ダイアログ(固定色)
+    export inline constexpr int dialog_colorex  = 33;   ///< カラー選択ダイアログ(RGBを自由に選択)
+
+    /// @brief ダイアログを開く
+    /// @param message メッセージ文字列（ファイルダイアログ時は拡張子）
+    /// @param type ダイアログタイプ（dialog_*定数）
+    /// @param option オプション文字列（タイトルや拡張子説明）
+    /// @return stat値（ボタンID等）
+    /// @note メッセージボックス: stat=1(OK), 6(はい), 7(いいえ)
+    /// @note ファイルダイアログ: stat=1(成功), 0(キャンセル)、refstrにファイルパス
+    /// @note カラーダイアログ: stat=1(成功), 0(キャンセル)、ginfo_r/g/bに色
+    export int dialog(const std::string& message, OptInt type = {}, const std::string& option = "",
+                     const std::source_location& location = std::source_location::current());
+
+    // ============================================================
+    // システム変数（HSP互換）
+    // ============================================================
+
+    /// @brief 色々な命令のステータス値を取得/設定
+    export [[nodiscard]] int& stat();
+
+    /// @brief 読み出しバイト数を取得/設定
+    export [[nodiscard]] int& strsize();
+
+    /// @brief 色々な命令のステータス文字列を取得/設定
+    export [[nodiscard]] std::string& refstr();
+
+    // ============================================================
     // メモリ管理関数（HSP互換）
     // ============================================================
 

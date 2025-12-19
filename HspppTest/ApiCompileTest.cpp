@@ -773,16 +773,16 @@ namespace compile_test {
         // getstr - バッファから文字列読み出し
         std::string strBuf = "ABC,DEF,GHI";
         std::string destStr;
-        [[maybe_unused]] int len1 = hsppp::getstr(destStr, strBuf, 0, ',');      // "ABC", 4
-        [[maybe_unused]] int len2 = hsppp::getstr(destStr, strBuf, 4, ',');      // "DEF", 4
+        [[maybe_unused]] int64_t len1 = hsppp::getstr(destStr, strBuf, 0, ',');      // "ABC", 4
+        [[maybe_unused]] int64_t len2 = hsppp::getstr(destStr, strBuf, 4, ',');      // "DEF", 4
         
         std::string multiLine = "Line1\nLine2\nLine3";
-        [[maybe_unused]] int len3 = hsppp::getstr(destStr, multiLine, 0);        // "Line1", 6
-        [[maybe_unused]] int len4 = hsppp::getstr(destStr, multiLine, 6);        // "Line2", 6
+        [[maybe_unused]] int64_t len3 = hsppp::getstr(destStr, multiLine, 0);        // "Line1", 6
+        [[maybe_unused]] int64_t len4 = hsppp::getstr(destStr, multiLine, 6);        // "Line2", 6
         
         // getstr with vector<uint8_t>
         std::vector<uint8_t> vecBuf = {'A', 'B', 'C', ',', 'D', 'E', 'F', 0};
-        [[maybe_unused]] int vlen1 = hsppp::getstr(destStr, vecBuf, 0, ',');     // "ABC", 4
+        [[maybe_unused]] int64_t vlen1 = hsppp::getstr(destStr, vecBuf, 0, ',');     // "ABC", 4
 
         // split - 文字列を分割
         std::vector<std::string> result1 = hsppp::split("12,34,56", ",");        // {"12", "34", "56"}
@@ -1031,51 +1031,51 @@ namespace compile_test {
         [[maybe_unused]] int d7 = dialog_color;
         [[maybe_unused]] int d8 = dialog_colorex;
 
-        // システム変数
-        [[maybe_unused]] int& st = stat();
-        [[maybe_unused]] int& sz = strsize();
-        [[maybe_unused]] std::string& rs = refstr();
-
         // exec - ファイル実行（シグネチャのみ確認）
-        // exec("notepad", 0, "");              // 実際には実行しない
-        // exec("file.txt", exec_shellexec);    // 実際には実行しない
+        [[maybe_unused]] int res1 = exec("notepad", 0, "");              // 実際には実行しない
+        [[maybe_unused]] int res2 = exec("file.txt", exec_shellexec);    // 実際には実行しない
 
         // exist - ファイルサイズ取得
-        [[maybe_unused]] int size1 = exist("nonexistent_file_12345.txt");  // -1が返る
+        [[maybe_unused]] int64_t size1 = exist("nonexistent_file_12345.txt");  // -1が返る
 
         // dirlist - ディレクトリ一覧取得
-        [[maybe_unused]] std::string list1 = dirlist("*.*");       // すべてのファイル
-        [[maybe_unused]] std::string list2 = dirlist("*.txt", 0);  // .txtファイル
-        [[maybe_unused]] std::string list3 = dirlist("*", 1);      // ディレクトリ除外
-        [[maybe_unused]] std::string list4 = dirlist("*", 5);      // ディレクトリのみ
+        [[maybe_unused]] std::vector<std::string> list1 = dirlist("*.*");       // すべてのファイル
+        [[maybe_unused]] std::vector<std::string> list2 = dirlist("*.txt", 0);  // .txtファイル
+        [[maybe_unused]] std::vector<std::string> list3 = dirlist("*", 1);      // ディレクトリ除外
+        [[maybe_unused]] std::vector<std::string> list4 = dirlist("*", 5);      // ディレクトリのみ
+
+        // dialog - ダイアログ（シグネチャのみ確認）
+        [[maybe_unused]] DialogResult res3 = dialog("test", 0);
+        [[maybe_unused]] std::string res4 = dialog("txt", 16);
+        [[maybe_unused]] int res5 = dialog("yesno", dialog_yesno);
 
         // bload/bsave（シグネチャのみ確認）
         std::string strBuf(64, '\0');
         std::vector<uint8_t> vecBuf(64, 0);
         
         // bload シグネチャ
-        // bload("test.bin", strBuf);
-        // bload("test.bin", strBuf, 32);
-        // bload("test.bin", strBuf, 32, 0);
-        // bload("test.bin", vecBuf);
-        // bload("test.bin", vecBuf, 32);
-        // bload("test.bin", vecBuf, 32, 0);
+        [[maybe_unused]] int bl1 = bload("test.bin", strBuf);
+        [[maybe_unused]] int bl2 = bload("test.bin", strBuf, 32);
+        [[maybe_unused]] int bl3 = bload("test.bin", strBuf, 32, 0);
+        [[maybe_unused]] int bl4 = bload("test.bin", vecBuf);
+        [[maybe_unused]] int bl5 = bload("test.bin", vecBuf, 32);
+        [[maybe_unused]] int bl6 = bload("test.bin", vecBuf, 32, 0);
 
         // bsave シグネチャ
-        // bsave("test.bin", strBuf);
-        // bsave("test.bin", strBuf, 32);
-        // bsave("test.bin", strBuf, 32, 0);
-        // bsave("test.bin", vecBuf);
-        // bsave("test.bin", vecBuf, 32);
-        // bsave("test.bin", vecBuf, 32, 0);
+        [[maybe_unused]] int bs1 = bsave("test.bin", strBuf);
+        [[maybe_unused]] int bs2 = bsave("test.bin", strBuf, 32);
+        [[maybe_unused]] int bs3 = bsave("test.bin", strBuf, 32, 0);
+        [[maybe_unused]] int bs4 = bsave("test.bin", vecBuf);
+        [[maybe_unused]] int bs5 = bsave("test.bin", vecBuf, 32);
+        [[maybe_unused]] int bs6 = bsave("test.bin", vecBuf, 32, 0);
 
         // dialog（シグネチャのみ確認）
-        // dialog("メッセージ");
-        // dialog("メッセージ", 0);
-        // dialog("メッセージ", 0, "タイトル");
-        // dialog("メッセージ", dialog_yesno, "確認");
-        // dialog("txt", dialog_open, "テキストファイル");
-        // dialog("", dialog_color);
+        dialog("メッセージ");
+        dialog("メッセージ", 0);
+        dialog("メッセージ", 0, "タイトル");
+        dialog("メッセージ", dialog_yesno, "確認");
+        dialog("txt", dialog_open, "テキストファイル");
+        dialog("", dialog_color);
     }
 
 }  // namespace compile_test

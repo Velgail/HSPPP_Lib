@@ -8,27 +8,6 @@
 namespace hsppp {
 
     // ============================================================
-    // システム変数の実体（スレッドローカル）
-    // ============================================================
-    namespace {
-        thread_local int g_stat = 0;
-        thread_local int g_strsize = 0;
-        thread_local std::string g_refstr;
-    }
-
-    int& stat() {
-        return g_stat;
-    }
-
-    int& strsize() {
-        return g_strsize;
-    }
-
-    std::string& refstr() {
-        return g_refstr;
-    }
-
-    // ============================================================
     // ヘルパー関数
     // ============================================================
     namespace internal {
@@ -57,7 +36,7 @@ namespace hsppp {
     // mode 16: 関連付けされたアプリケーションを実行
     // mode 32: ファイルを印刷する
 
-    void exec(const std::string& filename, OptInt mode, const std::string& command,
+    int exec(const std::string& filename, OptInt mode, const std::string& command,
               const std::source_location& location) {
         int execMode = mode.value_or(0);
         std::wstring filenameW = internal::Utf8ToWide(filename);
@@ -104,10 +83,10 @@ namespace hsppp {
         }
 
         if (ShellExecuteExW(&sei)) {
-            stat() = 0;  // 成功
+            return 0;  // 成功
         }
         else {
-            stat() = static_cast<int>(GetLastError());  // エラーコード
+            return static_cast<int>(GetLastError());  // エラーコード
         }
     }
 
@@ -164,19 +143,19 @@ namespace hsppp {
     // exist - ファイルのサイズ取得（HSP互換）
     // ============================================================
 
-    int exist(const std::string& filename, const std::source_location& location) {
+    int64_t exist(const std::string& filename, const std::source_location& location) {
         std::wstring filenameW = internal::Utf8ToWide(filename);
         WIN32_FILE_ATTRIBUTE_DATA fileInfo;
         
         if (GetFileAttributesExW(filenameW.c_str(), GetFileExInfoStandard, &fileInfo)) {
-            // ファイルサイズを取得（4GB未満を想定）
-            int size = static_cast<int>(fileInfo.nFileSizeLow);
-            strsize() = size;
-            return size;
+            // ファイルサイズを取得
+            LARGE_INTEGER fileSize;
+            fileSize.LowPart = fileInfo.nFileSizeLow;
+            fileSize.HighPart = fileInfo.nFileSizeHigh;
+            return static_cast<int64_t>(fileSize.QuadPart);
         }
         else {
             // ファイルが存在しない
-            strsize() = -1;
             return -1;
         }
     }
@@ -192,7 +171,7 @@ namespace hsppp {
     // mode 6: 隠し属性・システム属性ファイルのみ
     // mode 7: ディレクトリと隠し属性・システム属性ファイルのみ
 
-    std::string dirlist(const std::string& filemask, OptInt mode, const std::source_location& location) {
+    std::vector<std::string> dirlist(const std::string& filemask, OptInt mode, const std::source_location& location) {
         int dirMode = mode.value_or(0);
         std::wstring maskW = internal::Utf8ToWide(filemask);
         
@@ -200,12 +179,10 @@ namespace hsppp {
         HANDLE hFind = FindFirstFileW(maskW.c_str(), &findData);
         
         if (hFind == INVALID_HANDLE_VALUE) {
-            stat() = 0;
-            return "";
+            return {};
         }
 
-        std::string result;
-        int fileCount = 0;
+        std::vector<std::string> result;
 
         do {
             // "." と ".." をスキップ
@@ -248,16 +225,11 @@ namespace hsppp {
             }
 
             if (include) {
-                if (!result.empty()) {
-                    result += "\n";
-                }
-                result += internal::WideToUtf8(findData.cFileName);
-                fileCount++;
+                result.push_back(internal::WideToUtf8(findData.cFileName));
             }
         } while (FindNextFileW(hFind, &findData));
 
         FindClose(hFind);
-        stat() = fileCount;
         return result;
     }
 
@@ -267,7 +239,7 @@ namespace hsppp {
 
     namespace {
         template<typename BufferType>
-        int bload_impl(const std::string& filename, BufferType& buffer, OptInt size, OptInt offset,
+        int64_t bload_impl(const std::string& filename, BufferType& buffer, OptInt64 size, OptInt64 offset,
                       const std::source_location& location) {
             std::wstring filenameW = internal::Utf8ToWide(filename);
             
@@ -285,7 +257,7 @@ namespace hsppp {
                 throw HspError(12, "ファイルサイズの取得に失敗しました", location);
             }
 
-            int fileOffset = offset.value_or(0);
+            int64_t fileOffset = offset.value_or(0);
             if (fileOffset < 0) fileOffset = 0;
 
             // オフセット位置に移動
@@ -299,40 +271,39 @@ namespace hsppp {
             }
 
             // 読み込みサイズを決定
-            int readSize = size.value_or(-1);
+            int64_t readSize = size.value_or(-1);
             if (readSize < 0) {
                 // 自動サイズ（バッファサイズまたはファイルサイズ）
-                readSize = static_cast<int>(buffer.size());
+                readSize = static_cast<int64_t>(buffer.size());
                 if (readSize == 0) {
-                    readSize = static_cast<int>(fileSize.QuadPart) - fileOffset;
-                    buffer.resize(readSize);
+                    readSize = fileSize.QuadPart - fileOffset;
+                    buffer.resize(static_cast<size_t>(readSize));
                 }
             }
             else {
                 if (static_cast<size_t>(readSize) > buffer.size()) {
-                    buffer.resize(readSize);
+                    buffer.resize(static_cast<size_t>(readSize));
                 }
             }
 
-            // 読み込み
+            // 読み込み (4GB以上の場合は分割が必要だが、一旦32bit制限で実装)
             DWORD bytesRead = 0;
-            if (!ReadFile(hFile, buffer.data(), readSize, &bytesRead, nullptr)) {
+            if (!ReadFile(hFile, buffer.data(), static_cast<DWORD>(readSize), &bytesRead, nullptr)) {
                 CloseHandle(hFile);
                 throw HspError(12, "ファイルの読み込みに失敗しました", location);
             }
 
             CloseHandle(hFile);
-            strsize() = static_cast<int>(bytesRead);
-            return static_cast<int>(bytesRead);
+            return static_cast<int64_t>(bytesRead);
         }
     }
 
-    int bload(const std::string& filename, std::string& buffer, OptInt size, OptInt offset,
+    int64_t bload(const std::string& filename, std::string& buffer, OptInt64 size, OptInt64 offset,
               const std::source_location& location) {
         return bload_impl(filename, buffer, size, offset, location);
     }
 
-    int bload(const std::string& filename, std::vector<uint8_t>& buffer, OptInt size, OptInt offset,
+    int64_t bload(const std::string& filename, std::vector<uint8_t>& buffer, OptInt64 size, OptInt64 offset,
               const std::source_location& location) {
         return bload_impl(filename, buffer, size, offset, location);
     }
@@ -343,11 +314,11 @@ namespace hsppp {
 
     namespace {
         template<typename BufferType>
-        void bsave_impl(const std::string& filename, const BufferType& buffer, OptInt size, OptInt offset,
+        int64_t bsave_impl(const std::string& filename, const BufferType& buffer, OptInt64 size, OptInt64 offset,
                        const std::source_location& location) {
             std::wstring filenameW = internal::Utf8ToWide(filename);
             
-            int fileOffset = offset.value_or(-1);
+            int64_t fileOffset = offset.value_or(-1);
             
             DWORD createMode = CREATE_ALWAYS;
             if (fileOffset >= 0) {
@@ -373,33 +344,34 @@ namespace hsppp {
             }
 
             // 書き込みサイズを決定
-            int writeSize = size.value_or(-1);
+            int64_t writeSize = size.value_or(-1);
             if (writeSize < 0) {
-                writeSize = static_cast<int>(buffer.size());
+                writeSize = static_cast<int64_t>(buffer.size());
             }
             else {
-                writeSize = (std::min)(writeSize, static_cast<int>(buffer.size()));
+                writeSize = (std::min)(writeSize, static_cast<int64_t>(buffer.size()));
             }
 
             // 書き込み
             DWORD bytesWritten = 0;
-            if (!WriteFile(hFile, buffer.data(), writeSize, &bytesWritten, nullptr)) {
+            if (!WriteFile(hFile, buffer.data(), static_cast<DWORD>(writeSize), &bytesWritten, nullptr)) {
                 CloseHandle(hFile);
                 throw HspError(12, "ファイルの書き込みに失敗しました", location);
             }
 
             CloseHandle(hFile);
+            return static_cast<int64_t>(bytesWritten);
         }
     }
 
-    void bsave(const std::string& filename, const std::string& buffer, OptInt size, OptInt offset,
+    int64_t bsave(const std::string& filename, const std::string& buffer, OptInt64 size, OptInt64 offset,
                const std::source_location& location) {
-        bsave_impl(filename, buffer, size, offset, location);
+        return bsave_impl(filename, buffer, size, offset, location);
     }
 
-    void bsave(const std::string& filename, const std::vector<uint8_t>& buffer, OptInt size, OptInt offset,
+    int64_t bsave(const std::string& filename, const std::vector<uint8_t>& buffer, OptInt64 size, OptInt64 offset,
                const std::source_location& location) {
-        bsave_impl(filename, buffer, size, offset, location);
+        return bsave_impl(filename, buffer, size, offset, location);
     }
 
     // ============================================================
@@ -410,7 +382,7 @@ namespace hsppp {
     // type 17:   ファイルSAVE(保存)ダイアログ
     // type 32-33: カラー選択ダイアログ
 
-    int dialog(const std::string& message, OptInt type, const std::string& option,
+    DialogResult dialog(const std::string& message, OptInt type, const std::string& option,
                const std::source_location& location) {
         int dialogType = type.value_or(0);
         
@@ -432,8 +404,7 @@ namespace hsppp {
 
             int result = MessageBoxW(nullptr, messageW.c_str(), 
                                     titleW.empty() ? nullptr : titleW.c_str(), mbType);
-            stat() = result;
-            return result;
+            return { result, std::to_string(result) };
         }
 
         // ファイルOPEN/SAVEダイアログ (type 16-17)
@@ -492,14 +463,11 @@ namespace hsppp {
             }
 
             if (result) {
-                refstr() = internal::WideToUtf8(filenameBuffer);
-                stat() = 1;
-                return 1;
+                std::string path = internal::WideToUtf8(filenameBuffer);
+                return { 1, path };
             }
             else {
-                refstr() = "";
-                stat() = 0;
-                return 0;
+                return { 0, "" };
             }
         }
 
@@ -533,18 +501,15 @@ namespace hsppp {
                     GetGValue(cc.rgbResult),
                     GetBValue(cc.rgbResult)
                 );
-                stat() = 1;
-                return 1;
+                return { 1, "1" };
             }
             else {
-                stat() = 0;
-                return 0;
+                return { 0, "0" };
             }
         }
 
         // 未サポートのタイプ
-        stat() = 0;
-        return 0;
+        return { 0, "0" };
     }
 
 } // namespace hsppp

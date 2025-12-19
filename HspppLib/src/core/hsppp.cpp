@@ -84,7 +84,7 @@ namespace {
         auto current = g_currentSurface.lock();
         if (!current) {
             // デフォルトウィンドウを作成: screen 0, 640, 480, 0 (normal)
-            hsppp::screen(0, 640, 480, 0, -1, -1, 0, 0, "HSPPP Window");
+            (void)hsppp::screen(0, 640, 480, 0, -1, -1, 0, 0, "HSPPP Window");
         }
     }
 

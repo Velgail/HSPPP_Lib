@@ -442,11 +442,11 @@ void drawExtendedDemo(Screen& win) {
         {
             std::string buf = "ABC,DEF,GHI";
             std::string dest;
-            int len1 = getstr(dest, buf, 0, ',');
-            win.mes("getstr(dest, \"ABC,DEF,GHI\", 0, ',') = \"" + dest + "\" (len=" + str(len1) + ")");
+            int64_t len1 = getstr(dest, buf, 0, ',');
+            win.mes("getstr(dest, \"ABC,DEF,GHI\", 0, ',') = \"" + dest + "\" (len=" + str(static_cast<int>(len1)) + ")");
             win.pos(50, 297);
-            int len2 = getstr(dest, buf, len1, ',');
-            win.mes("getstr(dest, buf, " + str(len1) + ", ',') = \"" + dest + "\" (len=" + str(len2) + ")");
+            int64_t len2 = getstr(dest, buf, len1, ',');
+            win.mes("getstr(dest, buf, " + str(static_cast<int>(len1)) + ", ',') = \"" + dest + "\" (len=" + str(static_cast<int>(len2)) + ")");
         }
         
         // strtrim デモ
@@ -624,10 +624,10 @@ void drawExtendedDemo(Screen& win) {
         win.font("MS Gothic", 12, 0);
         win.color(0, 0, 0).pos(50, 140);
         {
-            int size1 = exist("HspppSample.exe");
+            int64_t size1 = exist("HspppSample.exe");
             win.mes("exist(\"HspppSample.exe\") = " + std::to_string(size1) + " bytes");
             win.pos(50, 158);
-            int size2 = exist("nonexistent_file_12345.txt");
+            int64_t size2 = exist("nonexistent_file_12345.txt");
             win.mes("exist(\"nonexistent_file_12345.txt\") = " + std::to_string(size2) + " (ファイルなし=-1)");
         }
 
@@ -638,13 +638,12 @@ void drawExtendedDemo(Screen& win) {
         win.font("MS Gothic", 12, 0);
         win.color(0, 0, 0).pos(50, 210);
         {
-            std::string files = dirlist("*.exe", 1);  // ディレクトリを除く
-            int fileCount = stat();
+            std::vector<std::string> fileList = dirlist("*.exe", 1);  // ディレクトリを除く
+            int fileCount = static_cast<int>(fileList.size());
             win.mes("ファイル数: " + std::to_string(fileCount));
             win.pos(50, 228);
             // 最初の数ファイルだけ表示
-            auto fileList = split(files, "\n");
-            int dispCount = (std::min)(static_cast<int>(fileList.size()), 4);
+            int dispCount = (std::min)(fileCount, 4);
             for (int i = 0; i < dispCount; i++) {
                 win.pos(50, 246 + i * 18);
                 win.mes("  " + fileList[i]);
@@ -807,8 +806,7 @@ void processExtendedAction(Screen& win) {
             await(200);
         }
         if (getkey('O')) {
-            dialog("txt", 16, "テキストファイルを選択");
-            std::string selected = refstr();
+            std::string selected = dialog("txt", 16, "テキストファイルを選択");
             g_actionLog = "dialog: " + (selected.empty() ? "キャンセル" : selected);
             await(200);
         }
@@ -878,8 +876,7 @@ void processExtendedAction(Screen& win) {
             await(200);
         }
         if (getkey('Q')) {
-            int result = dialog("", dialog_colorex, "");
-            if (result == 1) {
+            if (dialog("", dialog_colorex, "")) {
                 g_actionLog = "色選択: R=" + str(ginfo_r()) + " G=" + str(ginfo_g()) + " B=" + str(ginfo_b());
             } else {
                 g_actionLog = "色選択: キャンセル";

@@ -517,6 +517,14 @@ namespace hsppp {
                 cc.Flags |= CC_FULLOPEN;  // 拡張ダイアログ（RGB自由選択）
             }
 
+            // オーナーウィンドウを設定してダイアログのモーダル処理を安定させる
+            // （オーナー未設定だとモードの扱いでアプリケーションが応答しなくなる環境がある）
+            auto current = getCurrentSurface();
+            auto pWindow = current ? std::dynamic_pointer_cast<internal::HspWindow>(current) : nullptr;
+            if (pWindow && pWindow->getHwnd()) {
+                cc.hwndOwner = pWindow->getHwnd();
+            }
+
             if (ChooseColorW(&cc)) {
                 // 選択された色をカレントサーフェスのcolorに設定
                 // これにより ginfo_r/g/b で取得可能になる

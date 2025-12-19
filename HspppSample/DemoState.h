@@ -1,4 +1,4 @@
-// HspppSample/DemoState.h
+﻿// HspppSample/DemoState.h
 // ═══════════════════════════════════════════════════════════════════
 // HSPPP デモアプリケーション - 状態と定義
 // ═══════════════════════════════════════════════════════════════════
@@ -44,6 +44,7 @@ enum class ExtendedDemo {
     StringFunc,     // Ctrl+9: 文字列操作関数
     SystemInfo,     // Ctrl+0: システム情報関数
     FileOps,        // Ctrl+-: ファイル操作関数
+    InputMouse,     // Ctrl+=: マウス入力関数
     COUNT
 };
 
@@ -51,6 +52,7 @@ enum class ImageDemo {
     Bmpsave = 0,    // Shift+1: BMP保存
     Picload,        // Shift+2: 画像ロード
     Celload,        // Shift+3: セルロード
+    Bgscr,          // Shift+4: 枠なしウィンドウ
     COUNT
 };
 
@@ -58,6 +60,8 @@ enum class InterruptDemo {
     OnClick = 0,    // Alt+1: クリック割り込み
     OnKey,          // Alt+2: キー割り込み
     OnExit,         // Alt+3: 終了割り込み
+    OnCmd,          // Alt+4: Windowsメッセージ割り込み
+    OnError,        // Alt+5: エラーハンドリング
     COUNT
 };
 
@@ -69,6 +73,8 @@ namespace VK {
     constexpr int CONTROL = 0x11;
     constexpr int SHIFT = 0x10;
     constexpr int MENU = 0x12;  // Alt key
+    constexpr int LWIN = 0x5B;  // Left Windows key
+    constexpr int RWIN = 0x5C;  // Right Windows key
     constexpr int F1 = 0x70;
     constexpr int UP = 0x26;
     constexpr int DOWN = 0x28;
@@ -83,6 +89,8 @@ namespace VK {
 // 現在のデモ状態
 extern DemoCategory g_category;
 extern int g_demoIndex;
+extern DemoCategory g_prevCategory;
+extern int g_prevDemoIndex;
 
 // ヘルプウィンドウ状態
 extern bool g_helpVisible;
@@ -100,23 +108,56 @@ extern bool g_testImageSaved;
 extern bool g_testImageLoaded;
 extern int g_celId;
 extern int g_celIndex;
+extern bool g_bgscrVisible;
 
 // バッファ用変数
 extern bool g_bufferCreated;
+extern int g_srcBufferId;
 
 // 割り込みデモ用変数
 extern int g_clickCount;
 extern int g_keyCount;
 extern int g_lastKey;
+extern int g_cmdMessageCount;
+extern int g_lastCmdMessage;
+
+// onerror デモ用変数
+extern bool g_errorHandlerEnabled;
+extern int g_lastErrorCode;
+extern std::string g_lastErrorMessage;
+
+// アクション実行結果表示用
+extern std::string g_actionLog;
 
 // ═══════════════════════════════════════════════════════════════════
-// デモ描画関数（各cppファイルで実装）
+// 修飾キー状態チェック
 // ═══════════════════════════════════════════════════════════════════
 
+/// @brief 修飾キー（Ctrl/Alt/Shift/Win）が押されているかチェック
+/// @return いずれかの修飾キーが押されていればtrue
+inline bool isModifierKeyPressed() {
+    return hsppp::getkey(VK::CONTROL) || hsppp::getkey(VK::SHIFT) || 
+           hsppp::getkey(VK::MENU) || hsppp::getkey(VK::LWIN) || hsppp::getkey(VK::RWIN);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// デモ関数（各cppファイルで実装）
+// ═══════════════════════════════════════════════════════════════════
+
+// 描画関数
 void drawBasicDemo(hsppp::Screen& win);
 void drawExtendedDemo(hsppp::Screen& win);
 void drawImageDemo(hsppp::Screen& win);
 void drawInterruptDemo(hsppp::Screen& win);
+
+// アクション処理関数（各デモ固有の入力処理）
+void processBasicAction(hsppp::Screen& win);
+void processExtendedAction(hsppp::Screen& win);
+void processImageAction(hsppp::Screen& win);
+void processInterruptAction(hsppp::Screen& win);
+
+// デモ切り替え時のリセット処理
+void onDemoChanged(hsppp::Screen& win);
 
 // ヘルパー関数
 std::string getCategoryName();

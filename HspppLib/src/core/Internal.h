@@ -309,6 +309,9 @@ namespace hsppp::internal {
     // 戻り値: true=終了をブロック, false=終了を許可
     bool triggerOnExit(int windowId, int reason);
 
+    // マウスホイールデルタを設定（WindowProcから呼び出し）
+    void setMouseWheelDelta(int delta);
+
     // 画像読み込み・保存（ImageLoader.cpp）
     ComPtr<ID2D1Bitmap1> loadImageFile(std::string_view filename, int& width, int& height);
     bool saveBitmapToFile(ID2D1Bitmap1* pBitmap, std::string_view filename);

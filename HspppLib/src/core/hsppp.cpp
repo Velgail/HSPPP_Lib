@@ -61,6 +61,9 @@ namespace {
     bool g_shouldQuit = false;
     DWORD g_lastAwaitTime = 0;
 
+    // マウスホイール状態
+    int g_mouseWheelDelta = 0;
+
     // gmode設定（HSP互換）
     int g_gmodeMode = 0;
     int g_gmodeSizeX = 32;

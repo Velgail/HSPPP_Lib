@@ -19,6 +19,9 @@
     <ClInclude Include="HspppSample.h">
       <Filter>インクルードヘッダー</Filter>
     </ClInclude>
+    <ClInclude Include="DemoState.h">
+      <Filter>インクルードヘッダー</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Image Include="HspppSample.ico" />
@@ -26,6 +29,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="UserApp.cpp" />
+    <ClCompile Include="DemoDrawBasic.cpp" />
+    <ClCompile Include="DemoDrawExtended.cpp" />
+    <ClCompile Include="DemoDrawImage.cpp" />
+    <ClCompile Include="DemoDrawInterrupt.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="HspppSample.rc" />

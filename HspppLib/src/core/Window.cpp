@@ -152,6 +152,15 @@ LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
         // WM_KEYDOWNで既に処理されているため、ここでは何もしない
         return DefWindowProc(hwnd, uMsg, wParam, lParam);
 
+    // マウスホイール
+    case WM_MOUSEWHEEL:
+    {
+        // WHEEL_DELTAは120が1ノッチに相当
+        int delta = GET_WHEEL_DELTA_WPARAM(wParam) / WHEEL_DELTA;
+        setMouseWheelDelta(delta);
+        return 0;
+    }
+
     // Windowsシャットダウン時
     case WM_QUERYENDSESSION:
         // onexit で処理される可能性がある

@@ -147,6 +147,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="pch.cpp" />
     <ClCompile Include="src\core\HspppLib.cpp" />
     <ClCompile Include="module\graphics.ixx" />
     <ClCompile Include="module\hsppp.ixx" />
@@ -159,16 +160,24 @@
     <ClCompile Include="src\utils\Random.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="framework.h" />
+    <ClInclude Include="pch.h" />
     <ClInclude Include="src\core\Internal.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="src\core\hsppp_cel.inl" />
     <None Include="src\core\hsppp_copy.inl" />
     <None Include="src\core\hsppp_drawing.inl" />
     <None Include="src\core\hsppp_factory.inl" />
+    <None Include="src\core\hsppp_file.inl" />
     <None Include="src\core\hsppp_ginfo.inl" />
+    <None Include="src\core\hsppp_image.inl" />
     <None Include="src\core\hsppp_input.inl" />
     <None Include="src\core\hsppp_interrupt.inl" />
+    <None Include="src\core\hsppp_math.inl" />
     <None Include="src\core\hsppp_screen.inl" />
+    <None Include="src\core\hsppp_string.inl" />
+    <None Include="src\core\hsppp_system.inl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

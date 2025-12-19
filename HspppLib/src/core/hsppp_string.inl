@@ -306,12 +306,12 @@ namespace hsppp {
     // strrep - 文字列の置換
     // ============================================================
     
-    int strrep(std::string& p1, const std::string& search, const std::string& replace, const std::source_location&) {
+    int64_t strrep(std::string& p1, const std::string& search, const std::string& replace, const std::source_location&) {
         if (search.empty()) {
             return 0;  // 検索文字列が空の場合は何もしない
         }
         
-        int count = 0;
+        int64_t count = 0;
         size_t pos = 0;
         
         while ((pos = p1.find(search, pos)) != std::string::npos) {

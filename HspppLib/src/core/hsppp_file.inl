@@ -67,19 +67,10 @@ namespace hsppp {
         else {
             // ノーマル実行（プログラムを直接実行）
             // ファイル名とパラメータを分離する
-            std::wstring paramsW;
-            std::wstring fileOnlyW = filenameW;
-            
-            // スペースで分割してパラメータを取得
-            size_t spacePos = filenameW.find(L' ');
-            if (spacePos != std::wstring::npos) {
-                fileOnlyW = filenameW.substr(0, spacePos);
-                paramsW = filenameW.substr(spacePos + 1);
-            }
-
+            // ShellExecuteExWは賢く解釈してくれるため、手動での分割は不要かつ危険
             sei.lpVerb = nullptr;  // デフォルト動作
-            sei.lpFile = fileOnlyW.c_str();
-            sei.lpParameters = paramsW.empty() ? nullptr : paramsW.c_str();
+            sei.lpFile = filenameW.c_str();
+            sei.lpParameters = nullptr;
         }
 
         if (ShellExecuteExW(&sei)) {

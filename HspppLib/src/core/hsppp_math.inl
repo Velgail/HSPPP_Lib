@@ -113,6 +113,10 @@ namespace hsppp {
         return std::to_string(value);
     }
 
+    std::string str(int64_t value, const std::source_location& location) {
+        return std::to_string(value);
+    }
+
     int64_t strlen(const std::string& p1) {
         return static_cast<int64_t>(p1.size());
     }

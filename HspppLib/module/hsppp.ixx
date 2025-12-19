@@ -1423,6 +1423,7 @@ namespace hsppp {
     /// @return 文字列
     export [[nodiscard]] std::string str(double value, const std::source_location& location = std::source_location::current());
     export [[nodiscard]] std::string str(int value, const std::source_location& location = std::source_location::current());
+    export [[nodiscard]] std::string str(int64_t value, const std::source_location& location = std::source_location::current());
 
     /// @brief 文字列の長さを調べる
     /// @param p1 文字列

@@ -40,16 +40,20 @@ namespace hsppp {
               const std::source_location& location) {
         int execMode = mode.value_or(0);
         std::wstring filenameW = internal::Utf8ToWide(filename);
+        // commandW は sei.lpVerb で使用するため、if ブロック外で宣言して寿命を保証
+        std::wstring commandW;
 
         SHELLEXECUTEINFOW sei = {};
         sei.cbSize = sizeof(sei);
+        // SEE_MASK_FLAG_NO_UI: エラーダイアログを抑制（HSP互換動作）
+        // 失敗時は GetLastError() の戻り値で呼び出し側が判断する
         sei.fMask = SEE_MASK_FLAG_NO_UI;
         sei.hwnd = nullptr;
         sei.nShow = (execMode & exec_minimized) ? SW_SHOWMINIMIZED : SW_SHOWNORMAL;
 
         if (!command.empty()) {
             // コマンド（操作名）が指定された場合
-            std::wstring commandW = internal::Utf8ToWide(command);
+            commandW = internal::Utf8ToWide(command);
             sei.lpVerb = commandW.c_str();
             sei.lpFile = filenameW.c_str();
             sei.lpParameters = nullptr;
@@ -85,10 +89,14 @@ namespace hsppp {
     // chdir - ディレクトリ移動（HSP互換）
     // ============================================================
 
+    // 注意: chdir() はプロセス全体のカレントディレクトリを変更します。
+    // 相対パスを使用する他のコードに影響を与える可能性があります。
     void chdir(const std::string& dirname, const std::source_location& location) {
         std::wstring dirnameW = internal::Utf8ToWide(dirname);
         if (!SetCurrentDirectoryW(dirnameW.c_str())) {
-            throw HspError(12, "ファイルが見つからないか無効な名前です", location);
+            DWORD err = GetLastError();
+            std::string msg = "ディレクトリの変更に失敗しました (Windows error: " + std::to_string(err) + ")";
+            throw HspError(12, msg, location);
         }
     }
 
@@ -114,7 +122,9 @@ namespace hsppp {
     void deletefile(const std::string& filename, const std::source_location& location) {
         std::wstring filenameW = internal::Utf8ToWide(filename);
         if (!DeleteFileW(filenameW.c_str())) {
-            throw HspError(12, "ファイルが見つからないか無効な名前です", location);
+            DWORD err = GetLastError();
+            std::string msg = "ファイルの削除に失敗しました (Windows error: " + std::to_string(err) + ")";
+            throw HspError(12, msg, location);
         }
     }
 
@@ -122,11 +132,14 @@ namespace hsppp {
     // bcopy - ファイルのコピー（HSP互換）
     // ============================================================
 
+    // 注意: bcopy() は既存ファイルを警告なしに上書きします（HSP互換動作）。
     void bcopy(const std::string& src, const std::string& dest, const std::source_location& location) {
         std::wstring srcW = internal::Utf8ToWide(src);
         std::wstring destW = internal::Utf8ToWide(dest);
         if (!CopyFileW(srcW.c_str(), destW.c_str(), FALSE)) {
-            throw HspError(12, "ファイルが見つからないか無効な名前です", location);
+            DWORD err = GetLastError();
+            std::string msg = "ファイルのコピーに失敗しました (Windows error: " + std::to_string(err) + ")";
+            throw HspError(12, msg, location);
         }
     }
 
@@ -229,6 +242,12 @@ namespace hsppp {
     // ============================================================
 
     namespace {
+        // 1回の読み込み/書き込み上限 (DWORD最大値)
+        // Windows max マクロとの衝突を避けるため括弧で囲む
+        constexpr int64_t kMaxChunkSize = static_cast<int64_t>((std::numeric_limits<DWORD>::max)());
+        // 自動バッファ確保の上限 (2GB) - メモリ不足を防止
+        constexpr int64_t kMaxAutoAllocSize = 2LL * 1024 * 1024 * 1024;
+
         template<typename BufferType>
         int64_t bload_impl(const std::string& filename, BufferType& buffer, OptInt64 size, OptInt64 offset,
                       const std::source_location& location) {
@@ -238,14 +257,18 @@ namespace hsppp {
                                        nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
             
             if (hFile == INVALID_HANDLE_VALUE) {
-                throw HspError(12, "ファイルが見つからないか無効な名前です", location);
+                DWORD err = GetLastError();
+                std::string msg = "ファイルを開けません (Windows error: " + std::to_string(err) + ")";
+                throw HspError(12, msg, location);
             }
 
             // ファイルサイズを取得
             LARGE_INTEGER fileSize;
             if (!GetFileSizeEx(hFile, &fileSize)) {
+                DWORD err = GetLastError();
                 CloseHandle(hFile);
-                throw HspError(12, "ファイルサイズの取得に失敗しました", location);
+                std::string msg = "ファイルサイズの取得に失敗しました (Windows error: " + std::to_string(err) + ")";
+                throw HspError(12, msg, location);
             }
 
             int64_t fileOffset = offset.value_or(0);
@@ -256,19 +279,35 @@ namespace hsppp {
                 LARGE_INTEGER li;
                 li.QuadPart = fileOffset;
                 if (!SetFilePointerEx(hFile, li, nullptr, FILE_BEGIN)) {
+                    DWORD err = GetLastError();
                     CloseHandle(hFile);
-                    throw HspError(12, "ファイルオフセットの設定に失敗しました", location);
+                    std::string msg = "ファイルオフセットの設定に失敗しました (Windows error: " + std::to_string(err) + ")";
+                    throw HspError(12, msg, location);
                 }
             }
+
+            // 残りファイルサイズを計算
+            int64_t fileRemaining = fileSize.QuadPart - fileOffset;
+            if (fileRemaining < 0) fileRemaining = 0;
 
             // 読み込みサイズを決定
             int64_t readSize = size.value_or(-1);
             if (readSize < 0) {
-                // 自動サイズ（バッファサイズまたはファイルサイズ）
+                // 自動サイズ（バッファサイズまたはファイル残りサイズ）
                 readSize = static_cast<int64_t>(buffer.size());
                 if (readSize == 0) {
-                    readSize = fileSize.QuadPart - fileOffset;
+                    readSize = fileRemaining;
+                    // 自動確保の上限チェック
+                    if (readSize > kMaxAutoAllocSize) {
+                        CloseHandle(hFile);
+                        throw HspError(12, "ファイルが大きすぎます (自動確保上限: 2GB)", location);
+                    }
                     buffer.resize(static_cast<size_t>(readSize));
+                } else {
+                    // バッファサイズがファイル残りを超える場合は残りサイズに制限
+                    if (readSize > fileRemaining) {
+                        readSize = fileRemaining;
+                    }
                 }
             }
             else {
@@ -277,15 +316,36 @@ namespace hsppp {
                 }
             }
 
-            // 読み込み (4GB以上の場合は分割が必要だが、一旦32bit制限で実装)
-            DWORD bytesRead = 0;
-            if (!ReadFile(hFile, buffer.data(), static_cast<DWORD>(readSize), &bytesRead, nullptr)) {
-                CloseHandle(hFile);
-                throw HspError(12, "ファイルの読み込みに失敗しました", location);
+            // 読み込み (4GBを超える場合は分割読み込み)
+            int64_t totalRead = 0;
+            uint8_t* dst = reinterpret_cast<uint8_t*>(buffer.data());
+            int64_t remaining = readSize;
+
+            while (remaining > 0) {
+                DWORD chunkSize = (remaining > kMaxChunkSize)
+                    ? static_cast<DWORD>(kMaxChunkSize)
+                    : static_cast<DWORD>(remaining);
+
+                DWORD bytesRead = 0;
+                if (!ReadFile(hFile, dst, chunkSize, &bytesRead, nullptr)) {
+                    DWORD err = GetLastError();
+                    CloseHandle(hFile);
+                    std::string msg = "ファイルの読み込みに失敗しました (Windows error: " + std::to_string(err) + ")";
+                    throw HspError(12, msg, location);
+                }
+
+                if (bytesRead == 0) {
+                    // EOF
+                    break;
+                }
+
+                totalRead += static_cast<int64_t>(bytesRead);
+                remaining -= static_cast<int64_t>(bytesRead);
+                dst += bytesRead;
             }
 
             CloseHandle(hFile);
-            return static_cast<int64_t>(bytesRead);
+            return totalRead;
         }
     }
 
@@ -321,7 +381,9 @@ namespace hsppp {
                                        nullptr, createMode, FILE_ATTRIBUTE_NORMAL, nullptr);
             
             if (hFile == INVALID_HANDLE_VALUE) {
-                throw HspError(12, "ファイルが見つからないか無効な名前です", location);
+                DWORD err = GetLastError();
+                std::string msg = "ファイルを開けません (Windows error: " + std::to_string(err) + ")";
+                throw HspError(12, msg, location);
             }
 
             // オフセット位置に移動
@@ -329,8 +391,10 @@ namespace hsppp {
                 LARGE_INTEGER li;
                 li.QuadPart = fileOffset;
                 if (!SetFilePointerEx(hFile, li, nullptr, FILE_BEGIN)) {
+                    DWORD err = GetLastError();
                     CloseHandle(hFile);
-                    throw HspError(12, "ファイルオフセットの設定に失敗しました", location);
+                    std::string msg = "ファイルオフセットの設定に失敗しました (Windows error: " + std::to_string(err) + ")";
+                    throw HspError(12, msg, location);
                 }
             }
 
@@ -343,15 +407,36 @@ namespace hsppp {
                 writeSize = (std::min)(writeSize, static_cast<int64_t>(buffer.size()));
             }
 
-            // 書き込み
-            DWORD bytesWritten = 0;
-            if (!WriteFile(hFile, buffer.data(), static_cast<DWORD>(writeSize), &bytesWritten, nullptr)) {
-                CloseHandle(hFile);
-                throw HspError(12, "ファイルの書き込みに失敗しました", location);
+            // 書き込み (4GBを超える場合は分割書き込み)
+            int64_t totalWritten = 0;
+            const uint8_t* src = reinterpret_cast<const uint8_t*>(buffer.data());
+            int64_t remaining = writeSize;
+
+            while (remaining > 0) {
+                DWORD chunkSize = (remaining > kMaxChunkSize)
+                    ? static_cast<DWORD>(kMaxChunkSize)
+                    : static_cast<DWORD>(remaining);
+
+                DWORD bytesWritten = 0;
+                if (!WriteFile(hFile, src, chunkSize, &bytesWritten, nullptr)) {
+                    DWORD err = GetLastError();
+                    CloseHandle(hFile);
+                    std::string msg = "ファイルの書き込みに失敗しました (Windows error: " + std::to_string(err) + ")";
+                    throw HspError(12, msg, location);
+                }
+
+                totalWritten += static_cast<int64_t>(bytesWritten);
+                remaining -= static_cast<int64_t>(bytesWritten);
+                src += bytesWritten;
+
+                if (bytesWritten == 0) {
+                    // 書き込みが進まない場合は中断
+                    break;
+                }
             }
 
             CloseHandle(hFile);
-            return static_cast<int64_t>(bytesWritten);
+            return totalWritten;
         }
     }
 
@@ -407,27 +492,47 @@ namespace hsppp {
             // option: 説明（例: "テキストファイル" または "テキストファイル|ログファイル"）
             std::wstring filterW;
             
+            // ローカルでパイプ区切りを解析するラムダ（split への依存を排除）
+            auto parsePipeSeparated = [](const std::string& input) {
+                std::vector<std::string> parts;
+                std::string current;
+                for (char ch : input) {
+                    if (ch == '|') {
+                        parts.push_back(current);
+                        current.clear();
+                    } else {
+                        current.push_back(ch);
+                    }
+                }
+                parts.push_back(current);
+                return parts;
+            };
+            
             if (message.empty() || message == "*") {
                 filterW = L"すべてのファイル\0*.*\0\0";
             }
             else {
-                // HSP形式のフィルタを解析（|区切り）
-                auto exts = split(message, "|", location);
-                auto descs = split(option, "|", location);
-                
-                std::wstring filterStr;
-                for (size_t i = 0; i < exts.size(); i++) {
-                    std::wstring extW = internal::Utf8ToWide(exts[i]);
-                    std::wstring descW = (i < descs.size()) ? internal::Utf8ToWide(descs[i]) : extW;
+                try {
+                    // HSP形式のフィルタを解析（|区切り）
+                    auto exts = parsePipeSeparated(message);
+                    auto descs = parsePipeSeparated(option);
                     
-                    filterStr += descW;
-                    filterStr += L'\0';
-                    filterStr += L"*.";
-                    filterStr += extW;
-                    filterStr += L'\0';
+                    for (size_t i = 0; i < exts.size(); i++) {
+                        std::wstring extW = internal::Utf8ToWide(exts[i]);
+                        std::wstring descW = (i < descs.size()) ? internal::Utf8ToWide(descs[i]) : extW;
+                        
+                        filterW += descW;
+                        filterW += L'\0';
+                        filterW += L"*.";
+                        filterW += extW;
+                        filterW += L'\0';
+                    }
+                    filterW += L'\0';
                 }
-                filterStr += L'\0';
-                filterW = std::move(filterStr);
+                catch (...) {
+                    // 予期しない例外が発生した場合は汎用フィルタにフォールバック
+                    filterW = L"すべてのファイル\0*.*\0\0";
+                }
             }
 
             OPENFILENAMEW ofn = {};

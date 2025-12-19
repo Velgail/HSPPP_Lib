@@ -214,8 +214,8 @@ void drawExtendedDemo(Screen& win) {
         win.mes("gcopy: 画面コピー");
         
         // ソースバッファがなければ作成（固定ID 100を使用）
-        if (g_srcBufferId == -9999) {
-            (void)buffer(100, 100, 100);  // 固定ID 100でバッファ作成
+        if (g_srcBufferId.is_default()) {
+            [[maybe_unused]] const auto bufferId = buffer(100, 100, 100);  // 固定ID 100でバッファ作成
             g_srcBufferId = 100;
             gsel(g_srcBufferId);
             color(255, 128, 0); boxf();
@@ -260,8 +260,8 @@ void drawExtendedDemo(Screen& win) {
         win.mes("gzoom: 変倍して画面コピー");
         
         // ソースバッファがなければ作成（gcopyと同じバッファを共有）
-        if (g_srcBufferId == -9999) {
-            (void)buffer(100, 100, 100);
+        if (g_srcBufferId.is_default()) {
+            [[maybe_unused]] const auto bufferId = buffer(100, 100, 100);
             g_srcBufferId = 100;
             gsel(g_srcBufferId);
             color(255, 0, 0); boxf();
@@ -308,8 +308,8 @@ void drawExtendedDemo(Screen& win) {
         win.mes("grotate: 矩形画像を回転してコピー (←→で角度調整)");
         
         // ソースバッファがなければ作成（gcopy/gzoomと同じバッファを共有）
-        if (g_srcBufferId == -9999) {
-            (void)buffer(100, 100, 100);
+        if (g_srcBufferId.is_default()) {
+            [[maybe_unused]] const auto bufferId = buffer(100, 100, 100);
             g_srcBufferId = 100;
             gsel(g_srcBufferId);
             color(255, 200, 0); boxf();

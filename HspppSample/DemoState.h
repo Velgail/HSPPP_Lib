@@ -7,6 +7,7 @@
 
 import hsppp;
 import <string>;
+import <optional>;
 
 // ═══════════════════════════════════════════════════════════════════
 // デモカテゴリとモード定義
@@ -112,7 +113,7 @@ extern bool g_bgscrVisible;
 
 // バッファ用変数
 extern bool g_bufferCreated;
-extern int g_srcBufferId;
+extern hsppp::OptInt g_srcBufferId;  // 未作成時は std::nullopt
 
 // 割り込みデモ用変数
 extern int g_clickCount;

@@ -490,8 +490,23 @@ namespace hsppp {
                 throw HspError(ERR_OUT_OF_RANGE, "memsetのオフセットが負の値です", location);
             }
             
-            // size=0 の場合は全体をクリア
-            size_t actualSize = (size <= 0) ? dest.size() - static_cast<size_t>(offset) : static_cast<size_t>(size);
+            // オフセットがバッファサイズを超えている場合はエラー
+            if (static_cast<size_t>(offset) > dest.size()) {
+                throw HspError(ERR_OUT_OF_RANGE, "memsetのオフセットがバッファ範囲を超えています", location);
+            }
+            
+            // size <= 0 の場合はオフセット以降全体をクリア
+            size_t actualSize;
+            if (size <= 0) {
+                actualSize = dest.size() - static_cast<size_t>(offset);
+            } else {
+                actualSize = static_cast<size_t>(size);
+            }
+            
+            // actualSize が 0 の場合は何もしない
+            if (actualSize == 0) {
+                return;
+            }
             
             if (static_cast<size_t>(offset) + actualSize > dest.size()) {
                 throw HspError(ERR_BUFFER_OVERFLOW, "memsetがバッファ範囲を超えています", location);

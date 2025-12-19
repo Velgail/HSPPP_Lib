@@ -4,6 +4,7 @@
 // グローバルモジュールフラグメント
 module;
 
+#define NOMINMAX
 #include <windows.h>
 #include <d2d1_1.h>
 #include <d2d1_3.h>

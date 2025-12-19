@@ -18,6 +18,7 @@
 #include "DemoState.h"
 import hsppp;
 import <format>;
+import <optional>;
 using namespace hsppp;
 
 // ═══════════════════════════════════════════════════════════════════
@@ -50,7 +51,7 @@ bool g_bgscrVisible = false;
 
 // バッファ用変数
 bool g_bufferCreated = false;
-int g_srcBufferId = -9999;  // 未作成の特殊値
+hsppp::OptInt g_srcBufferId = hsppp::omit;
 
 // 割り込みデモ用変数
 int g_clickCount = 0;

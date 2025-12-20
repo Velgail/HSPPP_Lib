@@ -75,6 +75,39 @@ namespace hsppp {
 
 
     // ============================================================
+    // OptInt64 - 省略可能なint64_t型
+    // ============================================================
+
+    export struct OptInt64 {
+    private:
+        std::optional<int64_t> value_;
+
+    public:
+        /// デフォルト（省略）- `{}` で使用可能
+        constexpr OptInt64() noexcept : value_(std::nullopt) {}
+        
+        /// 省略マーカーからの変換 - `omit` で使用可能
+        constexpr OptInt64(detail::OmitTag) noexcept : value_(std::nullopt) {}
+        
+        /// 値の指定
+        constexpr OptInt64(int64_t v) noexcept : value_(v) {}
+        constexpr OptInt64(int v) noexcept : value_(static_cast<int64_t>(v)) {}
+
+        [[nodiscard]] constexpr bool is_default() const noexcept { 
+            return !value_.has_value(); 
+        }
+
+        [[nodiscard]] constexpr int64_t value_or(int64_t def) const noexcept { 
+            return value_.value_or(def); 
+        }
+
+        [[nodiscard]] constexpr int64_t value() const { 
+            return value_.value(); 
+        }
+    };
+
+
+    // ============================================================
     // OptDouble - 省略可能なdouble型
     // ============================================================
 
@@ -148,6 +181,27 @@ namespace hsppp {
         int pos_y    = -1;      ///< ウィンドウ位置Y (-1=システム規定)
         int client_w = 0;       ///< クライアントサイズX (0=widthと同じ)
         int client_h = 0;       ///< クライアントサイズY (0=heightと同じ)
+        std::string_view title = "HSPPP Window";
+    };
+
+    // ============================================================
+    // DialogResult - dialog命令の戻り値
+    // ============================================================
+
+    /// @brief dialog命令の結果を保持する構造体
+    /// @details intへの暗黙の型変換（stat相当）とstd::stringへの暗黙の型変換（refstr相当）をサポート
+    export struct DialogResult {
+        int stat;           ///< ステータス値（ボタンID、成功/失敗など）
+        std::string refstr; ///< 文字列結果（ファイルパスなど）
+
+        /// @brief intへの暗黙の型変換 (stat相当)
+        operator int() const noexcept { return stat; }
+
+        /// @brief std::stringへの暗黙の型変換 (refstr相当)
+        operator std::string() const { return refstr; }
+
+        /// @brief 成功判定 (stat != 0)
+        explicit operator bool() const noexcept { return stat != 0; }
     };
 
 
@@ -950,8 +1004,8 @@ namespace hsppp {
     /// @param size フォントサイズ (デフォルト: 12)
     /// @param style フォントスタイル (1=太字, 2=イタリック, 4=下線, 8=打消し線, 16=アンチエイリアス)
     /// @param decorationWidth フォント修飾の幅 (デフォルト: 1)
-    /// @note statに結果が設定される (0=成功, -1=失敗)
-    export void font(std::string_view fontName, OptInt size = {}, OptInt style = {}, OptInt decorationWidth = {}, const std::source_location& location = std::source_location::current());
+    /// @return 結果 (0=成功, -1=失敗)
+    export int font(std::string_view fontName, OptInt size = {}, OptInt style = {}, OptInt decorationWidth = {}, const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // sysfont - システムフォント選択（HSP互換）
@@ -1369,11 +1423,12 @@ namespace hsppp {
     /// @return 文字列
     export [[nodiscard]] std::string str(double value, const std::source_location& location = std::source_location::current());
     export [[nodiscard]] std::string str(int value, const std::source_location& location = std::source_location::current());
+    export [[nodiscard]] std::string str(int64_t value, const std::source_location& location = std::source_location::current());
 
     /// @brief 文字列の長さを調べる
     /// @param p1 文字列
     /// @return 文字列の長さ（バイト数）
-    export [[nodiscard]] int strlen(const std::string& p1);
+    export [[nodiscard]] int64_t strlen(const std::string& p1);
 
     // ============================================================
     // 文字列操作関数（HSP互換）
@@ -1385,8 +1440,8 @@ namespace hsppp {
     /// @param search 検索する文字列
     /// @return 見つかった場合はインデックス、見つからなかった場合は-1
     /// @note p2がマイナス値の場合は常に-1が返される
-    export [[nodiscard]] int instr(const std::string& p1, int p2, const std::string& search);
-    export [[nodiscard]] int instr(const std::string& p1, const std::string& search);
+    export [[nodiscard]] int64_t instr(const std::string& p1, int64_t p2, const std::string& search);
+    export [[nodiscard]] int64_t instr(const std::string& p1, const std::string& search);
 
     /// @brief 文字列の一部を取り出す
     /// @param p1 取り出すもとの文字列が格納されている変数
@@ -1394,7 +1449,7 @@ namespace hsppp {
     /// @param p3 取り出す文字数
     /// @return 取り出した文字列
     /// @note p2=-1の場合は右からp3文字を取り出す
-    export [[nodiscard]] std::string strmid(const std::string& p1, int p2, int p3);
+    export [[nodiscard]] std::string strmid(const std::string& p1, int64_t p2, int64_t p3);
 
     /// @brief 指定した文字だけを取り除く
     /// @param p1 元の文字列が代入された変数
@@ -1409,7 +1464,7 @@ namespace hsppp {
     /// @param replace 置換する文字列
     /// @return 置換した回数
     /// @note HSPでは変数を直接書き換えるが、C++では戻り値で置換回数を返す
-    export int strrep(std::string& p1, const std::string& search, const std::string& replace, const std::source_location& location = std::source_location::current());
+    export int64_t strrep(std::string& p1, const std::string& search, const std::string& replace, const std::source_location& location = std::source_location::current());
 
     /// @brief バッファから文字列読み出し
     /// @param dest 内容を読み出す先の変数
@@ -1418,8 +1473,8 @@ namespace hsppp {
     /// @param delimiter 区切りキャラクタのASCIIコード（デフォルト: 0=改行まで）
     /// @param maxLen 読み出しを行う最大文字数（デフォルト: 1024）
     /// @return 読み出されたバイト数（次のインデックスまでの移動量）
-    export int getstr(std::string& dest, const std::string& src, int index, int delimiter = 0, int maxLen = 1024, const std::source_location& location = std::source_location::current());
-    export int getstr(std::string& dest, const std::vector<uint8_t>& src, int index, int delimiter = 0, int maxLen = 1024, const std::source_location& location = std::source_location::current());
+    export int64_t getstr(std::string& dest, const std::string& src, int64_t index, int delimiter = 0, int64_t maxLen = 1024, const std::source_location& location = std::source_location::current());
+    export int64_t getstr(std::string& dest, const std::vector<uint8_t>& src, int64_t index, int delimiter = 0, int64_t maxLen = 1024, const std::source_location& location = std::source_location::current());
 
     /// @brief 文字列から分割された要素を取得（HSP互換版）
     /// @param src 元の文字列が代入された変数
@@ -1537,6 +1592,110 @@ namespace hsppp {
     export [[nodiscard]] std::string dir_mydoc(const std::source_location& location = std::source_location::current());
 
     // ============================================================
+    // ファイル操作命令（HSP互換）
+    // ============================================================
+
+    // --- exec実行モードフラグ ---
+    export inline constexpr int exec_normal     = 0;    ///< ノーマル実行
+    export inline constexpr int exec_minimized  = 2;    ///< 最小化モードで実行
+    export inline constexpr int exec_shellexec  = 16;   ///< 関連付けされたアプリケーションを実行
+    export inline constexpr int exec_print      = 32;   ///< ファイルを印刷する
+
+    /// @brief Windowsのファイルを実行する
+    /// @param filename 対象となるファイル名
+    /// @param mode ファイル実行モード（exec_*の組み合わせ）
+    /// @param command コンテキストメニューの操作名（省略可）
+    /// @return 実行結果（0=成功, それ以外=エラーコード）
+    export int exec(const std::string& filename, OptInt mode = {}, const std::string& command = "",
+                    const std::source_location& location = std::source_location::current());
+
+    /// @brief ディレクトリ移動
+    /// @param dirname 移動先ディレクトリ名
+    /// @note 失敗した場合はエラー12が発生
+    export void chdir(const std::string& dirname, const std::source_location& location = std::source_location::current());
+
+    /// @brief ディレクトリ作成
+    /// @param dirname 作成するディレクトリ名
+    /// @note 1階層先までしか作成できない。失敗した場合はエラー12が発生
+    export void mkdir(const std::string& dirname, const std::source_location& location = std::source_location::current());
+
+    /// @brief ファイル削除
+    /// @param filename 削除するファイル名
+    /// @note 失敗した場合はエラー12が発生
+    export void deletefile(const std::string& filename, const std::source_location& location = std::source_location::current());
+
+    /// @brief ファイルのコピー
+    /// @param src コピー元ファイル名
+    /// @param dest コピー先ファイル名
+    export void bcopy(const std::string& src, const std::string& dest, const std::source_location& location = std::source_location::current());
+
+    /// @brief ファイルのサイズ取得
+    /// @param filename サイズを調べるファイルの名前
+    /// @return ファイルサイズ（ファイルが存在しない場合は-1）
+    export [[nodiscard]] int64_t exist(const std::string& filename, const std::source_location& location = std::source_location::current());
+
+    /// @brief ディレクトリ一覧を取得
+    /// @param filemask 一覧のためのファイルマスク（例: "*.*", "*.txt"）
+    /// @param mode ディレクトリ取得モード
+    ///   0: すべてのファイル
+    ///   1: ディレクトリを除くすべてのファイル
+    ///   2: 隠し属性・システム属性を除くすべてのファイル
+    ///   3: ディレクトリ・隠し属性・システム属性以外のすべてのファイル
+    ///   5: ディレクトリのみ
+    ///   6: 隠し属性・システム属性ファイルのみ
+    ///   7: ディレクトリと隠し属性・システム属性ファイルのみ
+    /// @return ファイル名のリスト
+    export [[nodiscard]] std::vector<std::string> dirlist(const std::string& filemask, OptInt mode = {},
+                                            const std::source_location& location = std::source_location::current());
+
+    /// @brief バッファにファイルをロード
+    /// @param filename ロードするファイル名
+    /// @param buffer 内容を読み込む先の変数
+    /// @param size ロードされるサイズ（-1で自動）
+    /// @param offset ファイルのオフセット
+    /// @return 読み込んだバイト数
+    export int64_t bload(const std::string& filename, std::string& buffer, OptInt64 size = {}, OptInt64 offset = {},
+                    const std::source_location& location = std::source_location::current());
+    export int64_t bload(const std::string& filename, std::vector<uint8_t>& buffer, OptInt64 size = {}, OptInt64 offset = {},
+                    const std::source_location& location = std::source_location::current());
+
+    /// @brief バッファをファイルにセーブ
+    /// @param filename セーブするファイル名
+    /// @param buffer セーブする内容
+    /// @param size セーブするサイズ（-1で自動）
+    /// @param offset ファイルのオフセット
+    /// @return 書き込んだバイト数
+    export int64_t bsave(const std::string& filename, const std::string& buffer, OptInt64 size = {}, OptInt64 offset = {},
+                     const std::source_location& location = std::source_location::current());
+    export int64_t bsave(const std::string& filename, const std::vector<uint8_t>& buffer, OptInt64 size = {}, OptInt64 offset = {},
+                     const std::source_location& location = std::source_location::current());
+
+    // ============================================================
+    // ダイアログ命令（HSP互換）
+    // ============================================================
+
+    // --- dialogタイプ定数 ---
+    export inline constexpr int dialog_info     = 0;    ///< 標準メッセージボックス + [OK]
+    export inline constexpr int dialog_warning  = 1;    ///< 警告メッセージボックス + [OK]
+    export inline constexpr int dialog_yesno    = 2;    ///< 標準メッセージボックス + [はい][いいえ]
+    export inline constexpr int dialog_yesno_w  = 3;    ///< 警告メッセージボックス + [はい][いいえ]
+    export inline constexpr int dialog_open     = 16;   ///< ファイルOPEN(開く)ダイアログ
+    export inline constexpr int dialog_save     = 17;   ///< ファイルSAVE(保存)ダイアログ
+    export inline constexpr int dialog_color    = 32;   ///< カラー選択ダイアログ(固定色)
+    export inline constexpr int dialog_colorex  = 33;   ///< カラー選択ダイアログ(RGBを自由に選択)
+
+    /// @brief ダイアログを開く
+    /// @param message メッセージ文字列（ファイルダイアログ時は拡張子）
+    /// @param type ダイアログタイプ（dialog_*定数）
+    /// @param option オプション文字列（タイトルや拡張子説明）
+    /// @return ダイアログの結果（int/stringに変換可能）
+    /// @note メッセージボックス: ボタンIDを返す (1=OK, 6=はい, 7=いいえ)
+    /// @note ファイルダイアログ: 選択されたファイルパスを返す（キャンセル時は空文字列）
+    /// @note カラーダイアログ: 成功時は1、キャンセル時は0を返す。選択された色はginfo_r/g/bで取得可能
+    export DialogResult dialog(const std::string& message, OptInt type = {}, const std::string& option = "",
+                     const std::source_location& location = std::source_location::current());
+
+    // ============================================================
     // メモリ管理関数（HSP互換）
     // ============================================================
 
@@ -1544,49 +1703,49 @@ namespace hsppp {
     /// @param buffer 読み出し元のバッファ
     /// @param index バッファのインデックス（バイト単位）
     /// @return 0〜255の整数値
-    export [[nodiscard]] int peek(const std::string& buffer, int index);
-    export [[nodiscard]] int peek(const std::vector<uint8_t>& buffer, int index);
+    export [[nodiscard]] int peek(const std::string& buffer, int64_t index);
+    export [[nodiscard]] int peek(const std::vector<uint8_t>& buffer, int64_t index);
 
     /// @brief バッファから2byte読み出し（リトルエンディアン）
     /// @param buffer 読み出し元のバッファ
     /// @param index バッファのインデックス（バイト単位）
     /// @return 0〜65535の整数値
-    export [[nodiscard]] int wpeek(const std::string& buffer, int index);
-    export [[nodiscard]] int wpeek(const std::vector<uint8_t>& buffer, int index);
+    export [[nodiscard]] int wpeek(const std::string& buffer, int64_t index);
+    export [[nodiscard]] int wpeek(const std::vector<uint8_t>& buffer, int64_t index);
 
     /// @brief バッファから4byte読み出し（リトルエンディアン）
     /// @param buffer 読み出し元のバッファ
     /// @param index バッファのインデックス（バイト単位）
     /// @return 32bit整数値
-    export [[nodiscard]] int lpeek(const std::string& buffer, int index);
-    export [[nodiscard]] int lpeek(const std::vector<uint8_t>& buffer, int index);
+    export [[nodiscard]] int lpeek(const std::string& buffer, int64_t index);
+    export [[nodiscard]] int lpeek(const std::vector<uint8_t>& buffer, int64_t index);
 
     /// @brief バッファに1byte書き込み
     /// @param buffer 書き込み先のバッファ
     /// @param index バッファのインデックス（バイト単位）
     /// @param value 書き込む値（0〜255）
-    export void poke(std::string& buffer, int index, int value, const std::source_location& location = std::source_location::current());
-    export void poke(std::vector<uint8_t>& buffer, int index, int value, const std::source_location& location = std::source_location::current());
+    export void poke(std::string& buffer, int64_t index, int value, const std::source_location& location = std::source_location::current());
+    export void poke(std::vector<uint8_t>& buffer, int64_t index, int value, const std::source_location& location = std::source_location::current());
 
     /// @brief バッファに文字列を書き込み
     /// @param buffer 書き込み先のバッファ
     /// @param index バッファのインデックス（バイト単位）
     /// @param value 書き込む文字列
-    export void poke(std::string& buffer, int index, const std::string& value, const std::source_location& location = std::source_location::current());
+    export void poke(std::string& buffer, int64_t index, const std::string& value, const std::source_location& location = std::source_location::current());
 
     /// @brief バッファに2byte書き込み（リトルエンディアン）
     /// @param buffer 書き込み先のバッファ
     /// @param index バッファのインデックス（バイト単位）
     /// @param value 書き込む値（0〜65535）
-    export void wpoke(std::string& buffer, int index, int value, const std::source_location& location = std::source_location::current());
-    export void wpoke(std::vector<uint8_t>& buffer, int index, int value, const std::source_location& location = std::source_location::current());
+    export void wpoke(std::string& buffer, int64_t index, int value, const std::source_location& location = std::source_location::current());
+    export void wpoke(std::vector<uint8_t>& buffer, int64_t index, int value, const std::source_location& location = std::source_location::current());
 
     /// @brief バッファに4byte書き込み（リトルエンディアン）
     /// @param buffer 書き込み先のバッファ
     /// @param index バッファのインデックス（バイト単位）
     /// @param value 書き込む値（32bit整数）
-    export void lpoke(std::string& buffer, int index, int value, const std::source_location& location = std::source_location::current());
-    export void lpoke(std::vector<uint8_t>& buffer, int index, int value, const std::source_location& location = std::source_location::current());
+    export void lpoke(std::string& buffer, int64_t index, int value, const std::source_location& location = std::source_location::current());
+    export void lpoke(std::vector<uint8_t>& buffer, int64_t index, int value, const std::source_location& location = std::source_location::current());
 
     /// @brief メモリブロックのコピー
     /// @param dest コピー先の変数
@@ -1594,25 +1753,25 @@ namespace hsppp {
     /// @param size コピーするサイズ（バイト単位）
     /// @param destOffset コピー先の変数メモリオフセット（省略時: 0）
     /// @param srcOffset コピー元の変数メモリオフセット（省略時: 0）
-    export void memcpy(std::string& dest, const std::string& src, int size, int destOffset = 0, int srcOffset = 0, const std::source_location& location = std::source_location::current());
-    export void memcpy(std::vector<uint8_t>& dest, const std::vector<uint8_t>& src, int size, int destOffset = 0, int srcOffset = 0, const std::source_location& location = std::source_location::current());
-    export void memcpy(std::vector<uint8_t>& dest, const std::string& src, int size, int destOffset = 0, int srcOffset = 0, const std::source_location& location = std::source_location::current());
-    export void memcpy(std::string& dest, const std::vector<uint8_t>& src, int size, int destOffset = 0, int srcOffset = 0, const std::source_location& location = std::source_location::current());
+    export void memcpy(std::string& dest, const std::string& src, int64_t size, int64_t destOffset = 0, int64_t srcOffset = 0, const std::source_location& location = std::source_location::current());
+    export void memcpy(std::vector<uint8_t>& dest, const std::vector<uint8_t>& src, int64_t size, int64_t destOffset = 0, int64_t srcOffset = 0, const std::source_location& location = std::source_location::current());
+    export void memcpy(std::vector<uint8_t>& dest, const std::string& src, int64_t size, int64_t destOffset = 0, int64_t srcOffset = 0, const std::source_location& location = std::source_location::current());
+    export void memcpy(std::string& dest, const std::vector<uint8_t>& src, int64_t size, int64_t destOffset = 0, int64_t srcOffset = 0, const std::source_location& location = std::source_location::current());
 
     /// @brief メモリブロックのクリア
     /// @param dest 書き込み先の変数
     /// @param value クリアする値（1バイト、デフォルト: 0）
     /// @param size クリアするサイズ（バイト単位、デフォルト: 0=全体）
     /// @param offset 書き込み先の変数メモリオフセット（省略時: 0）
-    export void memset(std::string& dest, int value = 0, int size = 0, int offset = 0, const std::source_location& location = std::source_location::current());
-    export void memset(std::vector<uint8_t>& dest, int value = 0, int size = 0, int offset = 0, const std::source_location& location = std::source_location::current());
+    export void memset(std::string& dest, int value = 0, int64_t size = 0, int64_t offset = 0, const std::source_location& location = std::source_location::current());
+    export void memset(std::vector<uint8_t>& dest, int value = 0, int64_t size = 0, int64_t offset = 0, const std::source_location& location = std::source_location::current());
 
     /// @brief メモリブロックの再確保
     /// @param dest 対象となる変数
     /// @param newSize 再確保サイズ（バイト単位、最小64）
     /// @note 再確保しても以前の内容は保持される
-    export void memexpand(std::string& dest, int newSize = 64, const std::source_location& location = std::source_location::current());
-    export void memexpand(std::vector<uint8_t>& dest, int newSize = 64, const std::source_location& location = std::source_location::current());
+    export void memexpand(std::string& dest, int64_t newSize = 64, const std::source_location& location = std::source_location::current());
+    export void memexpand(std::vector<uint8_t>& dest, int64_t newSize = 64, const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // 数学定数（HSP hspmath.as互換）

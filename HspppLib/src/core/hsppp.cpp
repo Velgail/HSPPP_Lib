@@ -14,6 +14,7 @@
 // グローバルモジュールフラグメント
 module;
 
+#define NOMINMAX
 #include <windows.h>
 #include <d2d1_1.h>
 #include <d3d11.h>
@@ -31,6 +32,8 @@ module;
 #include <cctype>
 #include <shlobj.h>
 #include <lmcons.h>
+#include <shellapi.h>
+#include <commdlg.h>
 
 #include "Internal.h"
 
@@ -59,6 +62,9 @@ namespace {
     bool g_shouldQuit = false;
     DWORD g_lastAwaitTime = 0;
 
+    // マウスホイール状態
+    int g_mouseWheelDelta = 0;
+
     // gmode設定（HSP互換）
     int g_gmodeMode = 0;
     int g_gmodeSizeX = 32;
@@ -79,7 +85,7 @@ namespace {
         auto current = g_currentSurface.lock();
         if (!current) {
             // デフォルトウィンドウを作成: screen 0, 640, 480, 0 (normal)
-            hsppp::screen(0, 640, 480, 0, -1, -1, 0, 0, "HSPPP Window");
+            (void)hsppp::screen(0, 640, 480, 0, -1, -1, 0, 0, "HSPPP Window");
         }
     }
 
@@ -111,6 +117,7 @@ namespace {
 #include "hsppp_math.inl"
 #include "hsppp_string.inl"
 #include "hsppp_system.inl"
+#include "hsppp_file.inl"
 
 // ============================================================
 // init_system / close_system

@@ -666,9 +666,9 @@ namespace compile_test {
         [[maybe_unused]] std::string s4 = hsppp::str(0.0);
 
         // strlen
-        [[maybe_unused]] int len1 = hsppp::strlen("Hello");
-        [[maybe_unused]] int len2 = hsppp::strlen("");
-        [[maybe_unused]] int len3 = hsppp::strlen(std::string("日本語"));  // マルチバイト
+        [[maybe_unused]] int64_t len1 = hsppp::strlen("Hello");
+        [[maybe_unused]] int64_t len2 = hsppp::strlen("");
+        [[maybe_unused]] int64_t len3 = hsppp::strlen(std::string("日本語"));  // マルチバイト
     }
 
     // ============================================================
@@ -703,14 +703,14 @@ namespace compile_test {
     // ============================================================
     void test_string_functions() {
         // instr - 文字列の検索
-        [[maybe_unused]] int pos1 = hsppp::instr("ABCDEF", "CD");          // 2
-        [[maybe_unused]] int pos2 = hsppp::instr("ABCDEF", 2, "CD");       // 0 (2を起点)
-        [[maybe_unused]] int pos3 = hsppp::instr("ABCDEF", "XY");          // -1
-        [[maybe_unused]] int pos4 = hsppp::instr("ABCDEF", -1, "CD");      // -1 (負のインデックス)
-        [[maybe_unused]] int pos5 = hsppp::instr("", "ABC");               // -1
-        [[maybe_unused]] int pos6 = hsppp::instr("ABCABC", 3, "ABC");      // 0 (3を起点)
-        [[maybe_unused]] int pos7 = hsppp::instr("Hello World", 0, "World"); // 6
-        [[maybe_unused]] int pos8 = hsppp::instr("ABC", "");               // 0 (空文字検索)
+        [[maybe_unused]] int64_t pos1 = hsppp::instr("ABCDEF", "CD");          // 2
+        [[maybe_unused]] int64_t pos2 = hsppp::instr("ABCDEF", 2, "CD");       // 0 (2を起点)
+        [[maybe_unused]] int64_t pos3 = hsppp::instr("ABCDEF", "XY");          // -1
+        [[maybe_unused]] int64_t pos4 = hsppp::instr("ABCDEF", -1, "CD");      // -1 (負のインデックス)
+        [[maybe_unused]] int64_t pos5 = hsppp::instr("", "ABC");               // -1
+        [[maybe_unused]] int64_t pos6 = hsppp::instr("ABCABC", 3, "ABC");      // 0 (3を起点)
+        [[maybe_unused]] int64_t pos7 = hsppp::instr("Hello World", 0, "World"); // 6
+        [[maybe_unused]] int64_t pos8 = hsppp::instr("ABC", "");               // 0 (空文字検索)
 
         // strmid - 文字列の一部を取り出す
         [[maybe_unused]] std::string mid1 = hsppp::strmid("ABCDEF", 1, 3);   // "BCD"
@@ -761,28 +761,28 @@ namespace compile_test {
 
         // strrep - 文字列の置換
         std::string repStr = "aaa bbb aaa ccc";
-        [[maybe_unused]] int repCount1 = hsppp::strrep(repStr, "aaa", "XXX");    // 2 (置換回数)
+        [[maybe_unused]] int64_t repCount1 = hsppp::strrep(repStr, "aaa", "XXX");    // 2 (置換回数)
         // repStr は "XXX bbb XXX ccc" になっている
         std::string repStr2 = "ABCABC";
-        [[maybe_unused]] int repCount2 = hsppp::strrep(repStr2, "ABC", "X");     // 2
+        [[maybe_unused]] int64_t repCount2 = hsppp::strrep(repStr2, "ABC", "X");     // 2
         std::string repStr3 = "Hello";
-        [[maybe_unused]] int repCount3 = hsppp::strrep(repStr3, "XYZ", "");      // 0 (見つからない)
+        [[maybe_unused]] int64_t repCount3 = hsppp::strrep(repStr3, "XYZ", "");      // 0 (見つからない)
         std::string repStr4 = "";
-        [[maybe_unused]] int repCount4 = hsppp::strrep(repStr4, "A", "B");       // 0 (空文字列)
+        [[maybe_unused]] int64_t repCount4 = hsppp::strrep(repStr4, "A", "B");       // 0 (空文字列)
 
         // getstr - バッファから文字列読み出し
         std::string strBuf = "ABC,DEF,GHI";
         std::string destStr;
-        [[maybe_unused]] int len1 = hsppp::getstr(destStr, strBuf, 0, ',');      // "ABC", 4
-        [[maybe_unused]] int len2 = hsppp::getstr(destStr, strBuf, 4, ',');      // "DEF", 4
+        [[maybe_unused]] int64_t len1 = hsppp::getstr(destStr, strBuf, 0, ',');      // "ABC", 4
+        [[maybe_unused]] int64_t len2 = hsppp::getstr(destStr, strBuf, 4, ',');      // "DEF", 4
         
         std::string multiLine = "Line1\nLine2\nLine3";
-        [[maybe_unused]] int len3 = hsppp::getstr(destStr, multiLine, 0);        // "Line1", 6
-        [[maybe_unused]] int len4 = hsppp::getstr(destStr, multiLine, 6);        // "Line2", 6
+        [[maybe_unused]] int64_t len3 = hsppp::getstr(destStr, multiLine, 0);        // "Line1", 6
+        [[maybe_unused]] int64_t len4 = hsppp::getstr(destStr, multiLine, 6);        // "Line2", 6
         
         // getstr with vector<uint8_t>
         std::vector<uint8_t> vecBuf = {'A', 'B', 'C', ',', 'D', 'E', 'F', 0};
-        [[maybe_unused]] int vlen1 = hsppp::getstr(destStr, vecBuf, 0, ',');     // "ABC", 4
+        [[maybe_unused]] int64_t vlen1 = hsppp::getstr(destStr, vecBuf, 0, ',');     // "ABC", 4
 
         // split - 文字列を分割
         std::vector<std::string> result1 = hsppp::split("12,34,56", ",");        // {"12", "34", "56"}
@@ -794,7 +794,7 @@ namespace compile_test {
         
         // std::stringとの相互変換
         std::string stdStr = "standard";
-        hsppp::String fromStd = stdStr;                                // std::stringから変換
+        hsppp::string fromStd = stdStr;                                // std::stringから変換
         std::string toStd = fromStd;                                   // std::stringへ暗黙変換
     }
 
@@ -1011,6 +1011,73 @@ namespace compile_test {
         hsppp::memexpand(expVec, 64);   // すでに256なので変化なし
     }
 
+    // ============================================================
+    // ファイル操作関数のテスト
+    // ============================================================
+    void test_file_functions() {
+        // exec実行モード定数
+        [[maybe_unused]] int m1 = exec_normal;
+        [[maybe_unused]] int m2 = exec_minimized;
+        [[maybe_unused]] int m3 = exec_shellexec;
+        [[maybe_unused]] int m4 = exec_print;
+
+        // dialog タイプ定数
+        [[maybe_unused]] int d1 = dialog_info;
+        [[maybe_unused]] int d2 = dialog_warning;
+        [[maybe_unused]] int d3 = dialog_yesno;
+        [[maybe_unused]] int d4 = dialog_yesno_w;
+        [[maybe_unused]] int d5 = dialog_open;
+        [[maybe_unused]] int d6 = dialog_save;
+        [[maybe_unused]] int d7 = dialog_color;
+        [[maybe_unused]] int d8 = dialog_colorex;
+
+        // exec - ファイル実行（シグネチャのみ確認）
+        [[maybe_unused]] int res1 = exec("notepad", 0, "");              // 実際には実行しない
+        [[maybe_unused]] int res2 = exec("file.txt", exec_shellexec);    // 実際には実行しない
+
+        // exist - ファイルサイズ取得
+        [[maybe_unused]] int64_t size1 = exist("nonexistent_file_12345.txt");  // -1が返る
+
+        // dirlist - ディレクトリ一覧取得
+        [[maybe_unused]] std::vector<std::string> list1 = dirlist("*.*");       // すべてのファイル
+        [[maybe_unused]] std::vector<std::string> list2 = dirlist("*.txt", 0);  // .txtファイル
+        [[maybe_unused]] std::vector<std::string> list3 = dirlist("*", 1);      // ディレクトリ除外
+        [[maybe_unused]] std::vector<std::string> list4 = dirlist("*", 5);      // ディレクトリのみ
+
+        // dialog - ダイアログ（シグネチャのみ確認）
+        [[maybe_unused]] DialogResult res3 = dialog("test", 0);
+        [[maybe_unused]] std::string res4 = dialog("txt", 16);
+        [[maybe_unused]] int res5 = dialog("yesno", dialog_yesno);
+
+        // bload/bsave（シグネチャのみ確認）
+        std::string strBuf(64, '\0');
+        std::vector<uint8_t> vecBuf(64, 0);
+        
+        // bload シグネチャ
+        [[maybe_unused]] int64_t bl1 = bload("test.bin", strBuf);
+        [[maybe_unused]] int64_t bl2 = bload("test.bin", strBuf, 32);
+        [[maybe_unused]] int64_t bl3 = bload("test.bin", strBuf, 32, 0);
+        [[maybe_unused]] int64_t bl4 = bload("test.bin", vecBuf);
+        [[maybe_unused]] int64_t bl5 = bload("test.bin", vecBuf, 32);
+        [[maybe_unused]] int64_t bl6 = bload("test.bin", vecBuf, 32, 0);
+
+        // bsave シグネチャ
+        [[maybe_unused]] int64_t bs1 = bsave("test.bin", strBuf);
+        [[maybe_unused]] int64_t bs2 = bsave("test.bin", strBuf, 32);
+        [[maybe_unused]] int64_t bs3 = bsave("test.bin", strBuf, 32, 0);
+        [[maybe_unused]] int64_t bs4 = bsave("test.bin", vecBuf);
+        [[maybe_unused]] int64_t bs5 = bsave("test.bin", vecBuf, 32);
+        [[maybe_unused]] int64_t bs6 = bsave("test.bin", vecBuf, 32, 0);
+
+        // dialog（シグネチャのみ確認）
+        dialog("メッセージ");
+        dialog("メッセージ", 0);
+        dialog("メッセージ", 0, "タイトル");
+        dialog("メッセージ", dialog_yesno, "確認");
+        dialog("txt", dialog_open, "テキストファイル");
+        dialog("", dialog_color);
+    }
+
 }  // namespace compile_test
 
 // ============================================================
@@ -1056,6 +1123,7 @@ namespace hsppp_test {
         compile_test::test_sysinfo_functions();
         compile_test::test_dirinfo_functions();
         compile_test::test_memory_functions();
+        compile_test::test_file_functions();
         // compile_test::test_end_function_signature(); // end()は呼ばない
 
         return true;

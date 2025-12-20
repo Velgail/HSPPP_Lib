@@ -213,9 +213,9 @@ namespace hsppp {
     // ============================================================
     // font - フォント設定（HSP互換）
     // ============================================================
-    void font(std::string_view fontName, OptInt size, OptInt style, OptInt decorationWidth, const std::source_location& location) {
+    int font(std::string_view fontName, OptInt size, OptInt style, OptInt decorationWidth, const std::source_location& location) {
         auto currentSurface = getCurrentSurface();
-        if (!currentSurface) return;
+        if (!currentSurface) return -1;
 
         int p1 = size.value_or(12);
         int p2 = style.value_or(0);
@@ -233,8 +233,7 @@ namespace hsppp {
         }
 
         bool success = currentSurface->font(fontName, p1, p2);
-        // エラーを握りつぶす（HSP互換）
-        (void)success;
+        return success ? 0 : -1;
     }
 
     // ============================================================

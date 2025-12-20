@@ -189,10 +189,10 @@ namespace hsppp {
     // mousew - マウスカーソルのホイール値（HSP互換）
     // ============================================================
     int mousew(const std::source_location& location) {
-        // ホイール値はウィンドウメッセージで管理する必要がある
-        // 現在の実装では未サポート（0を返す）
-        // TODO: WM_MOUSEWHEELをWindowProcでキャプチャして値を保持
-        return 0;
+        // ホイール値を返し、読み取り後にリセット（HSP互換の動作）
+        int delta = g_mouseWheelDelta;
+        g_mouseWheelDelta = 0;
+        return delta;
     }
 
     // ============================================================
@@ -230,3 +230,12 @@ namespace hsppp {
     }
 
 } // namespace hsppp
+
+// ============================================================
+// 内部ヘルパー関数（WindowProcから呼び出し）
+// ============================================================
+namespace hsppp::internal {
+    void setMouseWheelDelta(int delta) {
+        g_mouseWheelDelta += delta;
+    }
+}

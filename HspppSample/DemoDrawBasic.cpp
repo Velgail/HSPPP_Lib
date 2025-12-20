@@ -1,4 +1,4 @@
-// HspppSample/DemoDrawBasic.cpp
+﻿// HspppSample/DemoDrawBasic.cpp
 // ═══════════════════════════════════════════════════════════════════
 // HSPPP デモアプリケーション - 基本デモ描画
 // ═══════════════════════════════════════════════════════════════════
@@ -137,11 +137,28 @@ void drawBasicDemo(Screen& win) {
         
         win.font("Arial", g_fontSize, g_fontStyle);
         win.pos(50, 180);
-        win.mes("Arial Sample");
+        // print は mes の別名として使用
+        print("Arial Sample (print 関数)");
         
         win.font("MS Gothic", 12, 0);
         win.color(100, 100, 100).pos(50, 220);
         win.mes("Style: 0=Normal 1=Bold 2=Italic 3=Bold+Italic");
+        win.pos(50, 240);
+        win.mes("※ print() は mes() の別名");
+        
+        // sysfontのデモ
+        win.color(0, 128, 0).pos(50, 280);
+        win.mes("sysfont デモ:");
+        
+        win.sysfont(0);  // HSP標準フォント
+        win.color(0, 0, 0).pos(50, 300);
+        win.mes("sysfont(0): HSP標準");
+        
+        win.sysfont(17); // デフォルトGUIフォント
+        win.pos(50, 320);
+        win.mes("sysfont(17): デフォルトGUI");
+        
+        win.font("MS Gothic", 12, 0);  // 元に戻す
         break;
         
     case BasicDemo::Title:
@@ -191,6 +208,68 @@ void drawBasicDemo(Screen& win) {
         win.color(0, 255, 0).boxf(590, 0, 640, 50);
         win.color(0, 0, 255).boxf(0, 430, 50, 480);
         win.color(255, 255, 0).boxf(590, 430, 640, 480);
+        break;
+        
+    default:
+        break;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 基本デモのアクション処理
+// ═══════════════════════════════════════════════════════════════════
+
+void processBasicAction(Screen& win) {
+    // 修飾キーが押されている場合はアクション無効
+    if (isModifierKeyPressed()) return;
+    
+    switch (static_cast<BasicDemo>(g_demoIndex)) {
+    case BasicDemo::Cls:
+        if (getkey(VK::UP)) { g_clsMode = (g_clsMode + 1) % 5; await(200); }
+        if (getkey(VK::DOWN)) { g_clsMode = (g_clsMode + 4) % 5; await(200); }
+        break;
+        
+    case BasicDemo::Font:
+        if (getkey(VK::UP)) { g_fontSize++; if (g_fontSize > 32) g_fontSize = 32; await(100); }
+        if (getkey(VK::DOWN)) { g_fontSize--; if (g_fontSize < 8) g_fontSize = 8; await(100); }
+        if (getkey(VK::RIGHT)) { g_fontStyle = (g_fontStyle + 1) % 4; await(200); }
+        if (getkey(VK::LEFT)) { g_fontStyle = (g_fontStyle + 3) % 4; await(200); }
+        break;
+        
+    case BasicDemo::Title:
+        if (getkey('T')) {
+            static int titleNum = 1;
+            win.title("New Title " + str(titleNum++));
+            await(200);
+        }
+        break;
+        
+    case BasicDemo::Width:
+        if (getkey('W')) {
+            int newW = win.width() + 50;
+            int newH = win.height() + 50;
+            win.width(newW, newH);
+            await(200);
+        }
+        if (getkey('S')) {
+            int newW = win.width() - 50;
+            int newH = win.height() - 50;
+            if (newW < 200) newW = 200;
+            if (newH < 150) newH = 150;
+            win.width(newW, newH);
+            await(200);
+        }
+        break;
+        
+    case BasicDemo::Groll:
+        // Grollデモ開始時にウィンドウサイズを縮小
+        if (win.width() == 640) {
+            win.width(400, 300);
+        }
+        if (getkey(VK::LEFT)) { g_scrollX -= 10; if (g_scrollX < 0) g_scrollX = 0; win.groll(g_scrollX, g_scrollY); await(50); }
+        if (getkey(VK::RIGHT)) { g_scrollX += 10; if (g_scrollX > 240) g_scrollX = 240; win.groll(g_scrollX, g_scrollY); await(50); }
+        if (getkey(VK::UP)) { g_scrollY -= 10; if (g_scrollY < 0) g_scrollY = 0; win.groll(g_scrollX, g_scrollY); await(50); }
+        if (getkey(VK::DOWN)) { g_scrollY += 10; if (g_scrollY > 180) g_scrollY = 180; win.groll(g_scrollX, g_scrollY); await(50); }
         break;
         
     default:

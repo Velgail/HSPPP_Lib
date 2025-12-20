@@ -8,7 +8,7 @@ namespace hsppp {
     // instr - 文字列の検索
     // ============================================================
     
-    int instr(const std::string& p1, int p2, const std::string& search) {
+    int64_t instr(const std::string& p1, int64_t p2, const std::string& search) {
         // p2がマイナス値の場合は常に-1を返す（HSP仕様）
         if (p2 < 0) {
             return -1;
@@ -32,10 +32,10 @@ namespace hsppp {
         }
         
         // 結果はp2を起点(0)とするインデックス
-        return static_cast<int>(pos - p2);
+        return static_cast<int64_t>(pos - p2);
     }
 
-    int instr(const std::string& p1, const std::string& search) {
+    int64_t instr(const std::string& p1, const std::string& search) {
         return instr(p1, 0, search);
     }
 
@@ -43,7 +43,7 @@ namespace hsppp {
     // strmid - 文字列の一部を取り出す
     // ============================================================
     
-    std::string strmid(const std::string& p1, int p2, int p3) {
+    std::string strmid(const std::string& p1, int64_t p2, int64_t p3) {
         if (p3 <= 0) {
             return "";
         }
@@ -306,12 +306,12 @@ namespace hsppp {
     // strrep - 文字列の置換
     // ============================================================
     
-    int strrep(std::string& p1, const std::string& search, const std::string& replace, const std::source_location&) {
+    int64_t strrep(std::string& p1, const std::string& search, const std::string& replace, const std::source_location&) {
         if (search.empty()) {
             return 0;  // 検索文字列が空の場合は何もしない
         }
         
-        int count = 0;
+        int64_t count = 0;
         size_t pos = 0;
         
         while ((pos = p1.find(search, pos)) != std::string::npos) {
@@ -327,7 +327,7 @@ namespace hsppp {
     // getstr - バッファから文字列読み出し
     // ============================================================
     
-    int getstr(std::string& dest, const std::string& src, int index, int delimiter, int maxLen, const std::source_location&) {
+    int64_t getstr(std::string& dest, const std::string& src, int64_t index, int delimiter, int64_t maxLen, const std::source_location&) {
         dest.clear();
         
         if (index < 0 || static_cast<size_t>(index) >= src.size()) {
@@ -337,7 +337,7 @@ namespace hsppp {
         size_t startPos = static_cast<size_t>(index);
         size_t endPos = startPos;
         size_t srcSize = src.size();
-        int readCount = 0;
+        int64_t readCount = 0;
         
         // 区切り文字または改行を探す
         while (endPos < srcSize && readCount < maxLen) {
@@ -348,28 +348,28 @@ namespace hsppp {
                 if (endPos + 1 < srcSize && src[endPos + 1] == '\n') {
                     // \r\n の場合は2バイト消費
                     dest = src.substr(startPos, endPos - startPos);
-                    return static_cast<int>(endPos - startPos + 2);
+                    return static_cast<int64_t>(endPos - startPos + 2);
                 }
                 // \r のみ
                 dest = src.substr(startPos, endPos - startPos);
-                return static_cast<int>(endPos - startPos + 1);
+                return static_cast<int64_t>(endPos - startPos + 1);
             }
             
             if (c == '\n') {
                 dest = src.substr(startPos, endPos - startPos);
-                return static_cast<int>(endPos - startPos + 1);
+                return static_cast<int64_t>(endPos - startPos + 1);
             }
             
             // NULL終端（delimiter=0のデフォルト時のみ）
             if (c == 0 && delimiter == 0) {
                 dest = src.substr(startPos, endPos - startPos);
-                return static_cast<int>(endPos - startPos + 1);
+                return static_cast<int64_t>(endPos - startPos + 1);
             }
             
             // 区切り文字のチェック（delimiter > 0の場合）
             if (delimiter > 0 && c == static_cast<uint8_t>(delimiter)) {
                 dest = src.substr(startPos, endPos - startPos);
-                return static_cast<int>(endPos - startPos + 1);
+                return static_cast<int64_t>(endPos - startPos + 1);
             }
             
             ++endPos;
@@ -378,10 +378,10 @@ namespace hsppp {
         
         // 最大文字数に達した、または文字列の終端に達した
         dest = src.substr(startPos, endPos - startPos);
-        return static_cast<int>(endPos - startPos);
+        return static_cast<int64_t>(endPos - startPos);
     }
 
-    int getstr(std::string& dest, const std::vector<uint8_t>& src, int index, int delimiter, int maxLen, const std::source_location& loc) {
+    int64_t getstr(std::string& dest, const std::vector<uint8_t>& src, int64_t index, int delimiter, int64_t maxLen, const std::source_location& loc) {
         // vector<uint8_t>をstring_viewとして扱い、同じロジックを適用
         dest.clear();
         
@@ -392,7 +392,7 @@ namespace hsppp {
         size_t startPos = static_cast<size_t>(index);
         size_t endPos = startPos;
         size_t srcSize = src.size();
-        int readCount = 0;
+        int64_t readCount = 0;
         
         while (endPos < srcSize && readCount < maxLen) {
             uint8_t c = src[endPos];
@@ -400,25 +400,25 @@ namespace hsppp {
             if (c == '\r') {
                 if (endPos + 1 < srcSize && src[endPos + 1] == '\n') {
                     dest.assign(reinterpret_cast<const char*>(&src[startPos]), endPos - startPos);
-                    return static_cast<int>(endPos - startPos + 2);
+                    return static_cast<int64_t>(endPos - startPos + 2);
                 }
                 dest.assign(reinterpret_cast<const char*>(&src[startPos]), endPos - startPos);
-                return static_cast<int>(endPos - startPos + 1);
+                return static_cast<int64_t>(endPos - startPos + 1);
             }
             
             if (c == '\n') {
                 dest.assign(reinterpret_cast<const char*>(&src[startPos]), endPos - startPos);
-                return static_cast<int>(endPos - startPos + 1);
+                return static_cast<int64_t>(endPos - startPos + 1);
             }
             
             if (c == 0 && delimiter == 0) {
                 dest.assign(reinterpret_cast<const char*>(&src[startPos]), endPos - startPos);
-                return static_cast<int>(endPos - startPos + 1);
+                return static_cast<int64_t>(endPos - startPos + 1);
             }
             
             if (delimiter > 0 && c == static_cast<uint8_t>(delimiter)) {
                 dest.assign(reinterpret_cast<const char*>(&src[startPos]), endPos - startPos);
-                return static_cast<int>(endPos - startPos + 1);
+                return static_cast<int64_t>(endPos - startPos + 1);
             }
             
             ++endPos;
@@ -426,7 +426,7 @@ namespace hsppp {
         }
         
         dest.assign(reinterpret_cast<const char*>(&src[startPos]), endPos - startPos);
-        return static_cast<int>(endPos - startPos);
+        return static_cast<int64_t>(endPos - startPos);
     }
 
     // ============================================================

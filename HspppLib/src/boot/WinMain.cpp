@@ -1,4 +1,5 @@
 ﻿// HspppLib/src/boot/WinMain.cpp
+#define NOMINMAX
 #include <windows.h>
 import hsppp;
 

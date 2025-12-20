@@ -3,6 +3,7 @@
 
 #pragma once
 
+#define NOMINMAX
 #include <windows.h>
 #include <d2d1_1.h>
 #include <d3d11.h>
@@ -308,6 +309,9 @@ namespace hsppp::internal {
     // 終了割り込みをトリガー
     // 戻り値: true=終了をブロック, false=終了を許可
     bool triggerOnExit(int windowId, int reason);
+
+    // マウスホイールデルタを設定（WindowProcから呼び出し）
+    void setMouseWheelDelta(int delta);
 
     // 画像読み込み・保存（ImageLoader.cpp）
     ComPtr<ID2D1Bitmap1> loadImageFile(std::string_view filename, int& width, int& height);

@@ -119,6 +119,7 @@ namespace {
 #include "hsppp_string.inl"
 #include "hsppp_system.inl"
 #include "hsppp_file.inl"
+#include "hsppp_easing.inl"
 
 // ============================================================
 // init_system / close_system

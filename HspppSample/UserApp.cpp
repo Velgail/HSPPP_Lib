@@ -132,24 +132,26 @@ void drawHelpWindow(Screen& helpWin) {
     helpWin.mes("  Ctrl+9: 文字列操作  Ctrl+0: システム情報");
     helpWin.pos(20, 294);
     helpWin.mes("  Ctrl+-: ファイル操作 Ctrl+=: マウス入力");
+    helpWin.pos(20, 310);
+    helpWin.mes("  Ctrl+[: イージング  Ctrl+]: ソート");
     
-    helpWin.color(255, 255, 255).pos(20, 318);
+    helpWin.color(255, 255, 255).pos(20, 334);
     helpWin.mes("【画像デモ - Shift + 数字キー】");
-    helpWin.color(200, 200, 200).pos(20, 335);
+    helpWin.color(200, 200, 200).pos(20, 351);
     helpWin.mes("  Shift+1: bmpsave    Shift+2: picload");
-    helpWin.pos(20, 351);
+    helpWin.pos(20, 367);
     helpWin.mes("  Shift+3: celload    Shift+4: bgscr");
     
-    helpWin.color(255, 255, 255).pos(20, 375);
+    helpWin.color(255, 255, 255).pos(20, 391);
     helpWin.mes("【割り込みデモ - Alt + 数字キー】");
-    helpWin.color(200, 200, 200).pos(20, 392);
+    helpWin.color(200, 200, 200).pos(20, 408);
     helpWin.mes("  Alt+1: onclick      Alt+2: onkey");
-    helpWin.pos(20, 408);
-    helpWin.mes("  Alt+3: onexit       Alt+4: oncmd");
     helpWin.pos(20, 424);
+    helpWin.mes("  Alt+3: onexit       Alt+4: oncmd");
+    helpWin.pos(20, 440);
     helpWin.mes("  Alt+5: onerror");
     
-    helpWin.color(255, 200, 0).pos(20, 455);
+    helpWin.color(255, 200, 0).pos(20, 471);
     helpWin.mes("※修飾キー(Ctrl/Alt/Shift)押下中はアクション無効");
     
     helpWin.redraw(1);
@@ -162,7 +164,7 @@ void drawHelpWindow(Screen& helpWin) {
 std::string getCategoryName() {
     switch (g_category) {
         case DemoCategory::Basic:     return "基本 (1-9)";
-        case DemoCategory::Extended:  return "拡張 (Ctrl+0-9,-,=)";
+        case DemoCategory::Extended:  return "拡張 (Ctrl+0-9,-,=,[,])";
         case DemoCategory::Image:     return "画像 (Shift+1-3)";
         case DemoCategory::Interrupt: return "割り込み (Alt+1-5)";
     }
@@ -199,6 +201,8 @@ std::string getDemoName() {
                 case ExtendedDemo::SystemInfo: return "System Info (sysinfo/dirinfo/peek/poke)";
                 case ExtendedDemo::FileOps:    return "File Operations (exist/dirlist/bload/bsave/exec/dialog)";
                 case ExtendedDemo::InputMouse: return "Mouse Input (mouse/mousex/mousey/mousew)";
+                case ExtendedDemo::Easing:     return "Easing Functions (setease/getease/geteasef)";
+                case ExtendedDemo::Sorting:    return "Sort Functions (sortval/sortstr/sortnote/sortget)";
                 default: break;
             }
             break;
@@ -250,6 +254,20 @@ void processDemoSelection(Screen& win) {
     if (ctrlPressed && !shiftPressed && !altPressed && (getkey(0xBB) || getkey(0xBA))) {
         newCategory = DemoCategory::Extended;
         newIndex = static_cast<int>(ExtendedDemo::InputMouse);
+        changed = true;
+    }
+    
+    // Ctrl + [ : イージングデモ (VK_OEM_4 = 0xDB)
+    if (ctrlPressed && !shiftPressed && !altPressed && getkey(0xDB)) {
+        newCategory = DemoCategory::Extended;
+        newIndex = static_cast<int>(ExtendedDemo::Easing);
+        changed = true;
+    }
+    
+    // Ctrl + ] : ソートデモ (VK_OEM_6 = 0xDD)
+    if (ctrlPressed && !shiftPressed && !altPressed && getkey(0xDD)) {
+        newCategory = DemoCategory::Extended;
+        newIndex = static_cast<int>(ExtendedDemo::Sorting);
         changed = true;
     }
     

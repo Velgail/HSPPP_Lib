@@ -6,7 +6,33 @@
 #include "DemoState.h"
 import hsppp;
 import <format>;
+import <vector>;
+import <string>;
 using namespace hsppp;
+
+// ソートデモ用の定数と共有データ
+namespace {
+    // 初期データ（定数として一元管理）
+    const std::vector<int> SORT_INIT_INT = { 64, 34, 25, 12, 22, 11, 90, 45 };
+    const std::vector<std::string> SORT_INIT_STR = { "Banana", "Apple", "Cherry", "Date", "Elderberry" };
+    const std::string SORT_INIT_NOTE = "Zebra\nApple\nMango\nBanana\nCherry";
+
+    // 共有状態（drawとactionで共有）
+    std::vector<int> g_sortIntArr = SORT_INIT_INT;
+    std::vector<std::string> g_sortStrArr = SORT_INIT_STR;
+    std::string g_sortNoteData = SORT_INIT_NOTE;
+    bool g_sortDone = false;
+    std::vector<int> g_sortOrigIndices;
+
+    // ソートデータをリセット
+    void resetSortData() {
+        g_sortIntArr = SORT_INIT_INT;
+        g_sortStrArr = SORT_INIT_STR;
+        g_sortNoteData = SORT_INIT_NOTE;
+        g_sortDone = false;
+        g_sortOrigIndices.clear();
+    }
+}
 
 void drawExtendedDemo(Screen& win) {
     switch (static_cast<ExtendedDemo>(g_demoIndex)) {
@@ -734,6 +760,229 @@ void drawExtendedDemo(Screen& win) {
         win.pos(350, 286);
         win.mes("await(ms) = ミリ秒待機");
         break;
+    
+    case ExtendedDemo::Easing: {
+        win.color(0, 0, 0).pos(20, 85);
+        win.mes("イージング関数デモ: setease, getease, geteasef");
+        
+        // イージング曲線の一覧
+        struct EaseInfo {
+            int type;
+            const char* name;
+        };
+        static constexpr EaseInfo easeTypes[] = {
+            { ease_linear, "linear" },
+            { ease_quad_in, "quad_in" },
+            { ease_quad_out, "quad_out" },
+            { ease_quad_inout, "quad_inout" },
+            { ease_cubic_in, "cubic_in" },
+            { ease_cubic_out, "cubic_out" },
+            { ease_cubic_inout, "cubic_inout" },
+            { ease_bounce_out, "bounce_out" },
+        };
+        constexpr size_t easeTypesCount = sizeof(easeTypes) / sizeof(easeTypes[0]);
+        
+        win.font("MS Gothic", 11, 0);
+        
+        // 各イージングタイプの曲線を描画
+        int baseX = 50;
+        int baseY = 110;
+        int graphW = 120;
+        int graphH = 80;
+        int cols = 4;
+        
+        for (size_t i = 0; i < easeTypesCount; i++) {
+            int col = static_cast<int>(i) % cols;
+            int row = static_cast<int>(i) / cols;
+            int gx = baseX + col * (graphW + 30);
+            int gy = baseY + row * (graphH + 50);
+            
+            // グラフ背景
+            win.color(240, 240, 240);
+            win.boxf(gx, gy, gx + graphW, gy + graphH);
+            
+            // 枠線
+            win.color(128, 128, 128);
+            win.line(gx + graphW, gy, gx, gy);
+            win.line(gx + graphW, gy + graphH);
+            win.line(gx, gy + graphH);
+            win.line(gx, gy);
+            
+            // ラベル
+            win.color(0, 0, 0).pos(gx, gy + graphH + 5);
+            win.mes(easeTypes[i].name);
+            
+            // イージング曲線を描画
+            setease(0.0, 1.0, easeTypes[i].type);
+            win.color(255, 0, 0);
+            for (int x = 0; x <= graphW; x++) {
+                double t = static_cast<double>(x) / graphW;
+                double v = geteasef(t, 1.0);
+                int py = gy + graphH - static_cast<int>(v * graphH);
+                if (x == 0) {
+                    win.pos(gx + x, py);
+                } else {
+                    win.line(gx + x, py);
+                }
+            }
+        }
+        
+        // アニメーションデモ
+        win.font("MS Gothic", 12, 1);
+        win.color(0, 0, 128).pos(50, 330);
+        win.mes("アニメーションデモ (自動更新):");
+        
+        // ボールの位置をイージングで計算
+        static int animFrame = 0;
+        animFrame++;
+        if (animFrame > 100) animFrame = 0;
+        
+        // 異なるイージングタイプで同じ時間経過を表示
+        int animY = 355;
+        const int ballRadius = 8;
+        const int startX = 100;
+        const int endX = 500;
+        
+        // Linear
+        setease(startX, endX, ease_linear);
+        int x1 = getease(animFrame, 100);
+        win.color(255, 0, 0);
+        win.circle(x1 - ballRadius, animY - ballRadius, x1 + ballRadius, animY + ballRadius, 1);
+        win.color(0, 0, 0).pos(50, animY - 5);
+        win.font("MS Gothic", 10, 0);
+        win.mes("linear");
+        
+        // Cubic InOut
+        animY += 30;
+        setease(startX, endX, ease_cubic_inout);
+        int x2 = getease(animFrame, 100);
+        win.color(0, 128, 0);
+        win.circle(x2 - ballRadius, animY - ballRadius, x2 + ballRadius, animY + ballRadius, 1);
+        win.color(0, 0, 0).pos(50, animY - 5);
+        win.mes("cubic_inout");
+        
+        // Bounce Out
+        animY += 30;
+        setease(startX, endX, ease_bounce_out);
+        int x3 = getease(animFrame, 100);
+        win.color(0, 0, 255);
+        win.circle(x3 - ballRadius, animY - ballRadius, x3 + ballRadius, animY + ballRadius, 1);
+        win.color(0, 0, 0).pos(50, animY - 5);
+        win.mes("bounce_out");
+        
+        // logmes デモ
+        win.font("MS Gothic", 12, 1);
+        win.color(0, 128, 128).pos(50, 455);
+        win.mes("logmes - デバッグ出力 (Visual Studio Outputへ):");
+        win.font("MS Gothic", 11, 0);
+        win.color(0, 0, 0).pos(50, 475);
+        win.mes("Lキー: logmes でメッセージ出力");
+        break;
+    }
+    
+    case ExtendedDemo::Sorting: {
+        win.color(0, 0, 0).pos(20, 85);
+        win.mes("ソート関数デモ: sortval, sortstr, sortnote, sortget");
+        
+        // 定数 SORT_INIT_* と共有変数 g_sort* を使用
+        
+        win.font("MS Gothic", 12, 1);
+        
+        // 整数配列ソート
+        win.color(0, 0, 128).pos(50, 120);
+        win.mes("sortval - 整数配列ソート:");
+        win.font("MS Gothic", 11, 0);
+        win.color(0, 0, 0).pos(50, 140);
+        {
+            std::string arrStr = "元データ: [";
+            for (size_t i = 0; i < SORT_INIT_INT.size(); i++) {
+                if (i > 0) arrStr += ", ";
+                arrStr += str(SORT_INIT_INT[i]);
+            }
+            arrStr += "]";
+            win.mes(arrStr);
+        }
+        win.pos(50, 160);
+        {
+            std::string arrStr = "ソート後: [";
+            for (size_t i = 0; i < g_sortIntArr.size(); i++) {
+                if (i > 0) arrStr += ", ";
+                arrStr += str(g_sortIntArr[i]);
+            }
+            arrStr += "]";
+            win.mes(arrStr);
+        }
+        
+        // 文字列配列ソート
+        win.font("MS Gothic", 12, 1);
+        win.color(0, 128, 0).pos(50, 200);
+        win.mes("sortstr - 文字列配列ソート:");
+        win.font("MS Gothic", 11, 0);
+        win.color(0, 0, 0).pos(50, 220);
+        win.mes("元データ: [Banana, Apple, Cherry, Date, Elderberry]");
+        win.pos(50, 240);
+        {
+            std::string arrStr = "ソート後: [";
+            for (size_t i = 0; i < g_sortStrArr.size(); i++) {
+                if (i > 0) arrStr += ", ";
+                arrStr += g_sortStrArr[i];
+            }
+            arrStr += "]";
+            win.mes(arrStr);
+        }
+        
+        // メモリノートソート
+        win.font("MS Gothic", 12, 1);
+        win.color(128, 0, 0).pos(50, 280);
+        win.mes("sortnote - メモリノート形式ソート:");
+        win.font("MS Gothic", 11, 0);
+        win.color(0, 0, 0).pos(50, 300);
+        win.mes("元データ: Zebra\\nApple\\nMango\\nBanana\\nCherry");
+        win.pos(50, 320);
+        {
+            std::string displayNote = g_sortNoteData;
+            // 改行を\\nに置換して表示
+            size_t pos = 0;
+            while ((pos = displayNote.find('\n', pos)) != std::string::npos) {
+                displayNote.replace(pos, 1, "\\n");
+                pos += 2;
+            }
+            win.mes("ソート後: " + displayNote);
+        }
+        
+        // sortget デモ
+        win.font("MS Gothic", 12, 1);
+        win.color(0, 128, 128).pos(50, 360);
+        win.mes("sortget - ソート元インデックス取得:");
+        win.font("MS Gothic", 11, 0);
+        win.color(0, 0, 0).pos(50, 380);
+        if (g_sortDone && !g_sortOrigIndices.empty()) {
+            std::string idxStr = "sortget結果: [";
+            for (size_t i = 0; i < g_sortOrigIndices.size(); i++) {
+                if (i > 0) idxStr += ", ";
+                idxStr += str(g_sortOrigIndices[i]);
+            }
+            idxStr += "]";
+            win.mes(idxStr);
+            win.pos(50, 400);
+            win.mes("(現在のi番目の要素が、ソート前はどのインデックスにあったか)");
+        } else {
+            win.mes("Sキーを押すとソートを実行し、sortgetの結果を表示");
+        }
+        
+        // 操作説明
+        win.font("MS Gothic", 12, 1);
+        win.color(64, 64, 64).pos(350, 120);
+        win.mes("操作:");
+        win.font("MS Gothic", 11, 0);
+        win.color(0, 0, 0).pos(350, 140);
+        win.mes("S: 昇順ソート実行");
+        win.pos(350, 160);
+        win.mes("D: 降順ソート実行");
+        win.pos(350, 180);
+        win.mes("R: データリセット");
+        break;
+    }
         
     default:
         break;
@@ -866,7 +1115,70 @@ void processExtendedAction(Screen& win) {
             await(200);
         }
         break;
+    
+    case ExtendedDemo::Easing:
+        // logmes デモ
+        if (getkey('L')) {
+            logmes("logmes test: Hello from HSPPP!");
+            logmes(42);
+            logmes(3.14159);
+            g_actionLog = "logmes: Output窓に出力しました";
+            await(200);
+        }
+        break;
+    
+    case ExtendedDemo::Sorting: {
+        // resetSortData() と定数 SORT_INIT_* を使用
         
+        if (getkey('S')) {
+            // 昇順ソート
+            resetSortData();
+            
+            // sortvalでソート（g_sortIndicesが更新される）
+            sortval(g_sortIntArr, 0);
+            
+            // sortval の結果を保存（sortnoteで上書きされる前に）
+            g_sortOrigIndices.resize(g_sortIntArr.size());
+            for (size_t i = 0; i < g_sortIntArr.size(); i++) {
+                g_sortOrigIndices[i] = sortget(static_cast<int>(i));
+            }
+            
+            sortstr(g_sortStrArr, 0);
+            sortnote(g_sortNoteData, 0);
+            
+            g_sortDone = true;
+            g_actionLog = "sortval/sortstr/sortnote: 昇順ソート完了";
+            await(200);
+        }
+        if (getkey('D')) {
+            // 降順ソート
+            resetSortData();
+            
+            // sortvalでソート（g_sortIndicesが更新される）
+            sortval(g_sortIntArr, 1);
+            
+            // sortval の結果を保存（sortnoteで上書きされる前に）
+            g_sortOrigIndices.resize(g_sortIntArr.size());
+            for (size_t i = 0; i < g_sortIntArr.size(); i++) {
+                g_sortOrigIndices[i] = sortget(static_cast<int>(i));
+            }
+            
+            sortstr(g_sortStrArr, 1);
+            sortnote(g_sortNoteData, 1);
+            
+            g_sortDone = true;
+            g_actionLog = "sortval/sortstr/sortnote: 降順ソート完了";
+            await(200);
+        }
+        if (getkey('R')) {
+            // リセット
+            resetSortData();
+            g_actionLog = "データをリセットしました";
+            await(200);
+        }
+        break;
+    }
+    
     default:
         break;
     }

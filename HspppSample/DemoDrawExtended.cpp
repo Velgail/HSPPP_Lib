@@ -462,34 +462,7 @@ void drawExtendedDemo(Screen& win) {
             win.mes("strtrim(text, 3) = \"" + strtrim(text, 3, ' ') + "\" (全除去)");
         }
         
-        // memcpy/memset/memexpand デモ（新規追加）
-        win.font("MS Gothic", 12, 1);
-        win.color(128, 64, 0).pos(50, 330);
-        win.mes("memcpy/memset/memexpand - メモリ操作:");
-        win.font("MS Gothic", 12, 0);
-        win.color(0, 0, 0).pos(50, 347);
-        {
-            std::string src = "ABCDEFGH";
-            std::string dest(8, '.');
-            hsppp::memcpy(dest, src, 4);  // 先頭4バイトをコピー
-            win.mes("memcpy: src=\"ABCDEFGH\", dest=\"........\"");
-            win.pos(50, 362);
-            win.mes("  memcpy(dest, src, 4) -> dest=\"" + dest + "\"");
-            
-            win.pos(50, 380);
-            std::string setbuf(8, 'X');
-            hsppp::memset(setbuf, 'A', 4);
-            win.mes("memset: buf=\"XXXXXXXX\" -> memset(buf, 'A', 4)");
-            win.pos(50, 395);
-            win.mes("  結果: \"" + setbuf + "\"");
-            
-            win.pos(50, 413);
-            std::string expbuf(16, 'Z');
-            size_t oldSize = expbuf.size();
-            hsppp::memexpand(expbuf, 64);
-            win.mes("memexpand: 元size=" + str(static_cast<int>(oldSize)) + " -> memexpand(expbuf, 64) -> size=" + str(static_cast<int>(expbuf.size())));
-        }
-        
+
         // getpath デモ
         win.font("MS Gothic", 12, 1);
         win.color(0, 128, 128).pos(350, 330);
@@ -556,24 +529,7 @@ void drawExtendedDemo(Screen& win) {
             win.mes("dir_mydoc() = \"" + dir_mydoc() + "\"");
         }
         
-        // peek/poke デモ
-        win.font("MS Gothic", 12, 1);
-        win.color(128, 0, 0).pos(50, 395);
-        win.mes("peek/poke - メモリバッファ操作:");
-        win.font("MS Gothic", 12, 0);
-        win.color(0, 0, 0).pos(50, 415);
-        {
-            std::vector<uint8_t> buf(16, 0);
-            poke(buf, 0, 0x41);      // 'A'
-            wpoke(buf, 2, 0x1234);   // 2バイト値
-            lpoke(buf, 4, 0xDEADBEEF); // 4バイト値
-            
-            win.mes("poke(buf, 0, 0x41) -> peek(buf, 0) = 0x" + strf("%02X", peek(buf, 0)));
-            win.pos(50, 433);
-            win.mes("wpoke(buf, 2, 0x1234) -> wpeek(buf, 2) = 0x" + strf("%04X", wpeek(buf, 2)));
-            win.pos(50, 451);
-            win.mes("lpoke(buf, 4, 0xDEADBEEF) -> lpeek(buf, 4) = 0x" + strf("%08X", lpeek(buf, 4)));
-        }
+
         break;
 
     case ExtendedDemo::FileOps:

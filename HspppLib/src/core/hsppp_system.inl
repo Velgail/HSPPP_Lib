@@ -243,7 +243,57 @@ namespace hsppp {
     }
 
 
+    // ============================================================
+    // sysval互換（Windowsハンドル系）
+    // ============================================================
 
+    int64_t hwnd(const std::source_location&) {
+        auto surface = getCurrentSurface();
+        if (!surface) return 0;
 
+        auto window = std::dynamic_pointer_cast<internal::HspWindow>(surface);
+        if (!window) return 0;
+
+        return static_cast<int64_t>(reinterpret_cast<intptr_t>(window->getHwnd()));
+    }
+
+    int64_t hdc(const std::source_location&) {
+        // Direct2D描画（ID2D1DeviceContext）を使用しているため、
+        // HSPのsysval hdc(GDI HDC)をそのまま提供するのは難しい。
+        // 現状は未サポートとして0を返す。
+        return 0;
+    }
+
+    int64_t hinstance(const std::source_location&) {
+        return static_cast<int64_t>(reinterpret_cast<intptr_t>(internal::WindowManager::getInstance().getHInstance()));
+    }
+
+    // ============================================================
+    // sendmsg - ウィンドウメッセージ送信
+    // ============================================================
+
+    int64_t sendmsg(int64_t hwndValue, int msg, int64_t wparam, int64_t lparam, const std::source_location&) {
+        HWND hwndHandle = reinterpret_cast<HWND>(static_cast<intptr_t>(hwndValue));
+        LRESULT result = SendMessageW(
+            hwndHandle,
+            static_cast<UINT>(msg),
+            static_cast<WPARAM>(wparam),
+            static_cast<LPARAM>(lparam)
+        );
+        return static_cast<int64_t>(result);
+    }
+
+    int64_t sendmsg(int64_t hwndValue, int msg, int64_t wparam, std::string_view lparamText, const std::source_location&) {
+        // UTF-8からUTF-16に変換（wideTextのライフタイムはSendMessageW呼び出しまで保持される）
+        std::wstring wideText = internal::Utf8ToWide(lparamText);
+        HWND hwndHandle = reinterpret_cast<HWND>(static_cast<intptr_t>(hwndValue));
+        LRESULT result = SendMessageW(
+            hwndHandle,
+            static_cast<UINT>(msg),
+            static_cast<WPARAM>(wparam),
+            reinterpret_cast<LPARAM>(wideText.c_str())
+        );
+        return static_cast<int64_t>(result);
+    }
 
 } // namespace hsppp

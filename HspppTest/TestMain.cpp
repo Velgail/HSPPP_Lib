@@ -50,8 +50,6 @@ int hspMain() {
     printLine("[2] Runtime Tests (API execution)");
     int runtimePassed = hsppp_test::run_runtime_tests();
     int runtimeFailed = hsppp_test::get_failed_count();
-    
-    char buf[128];
 
     if (runtimeFailed == 0) {
         resultWin.color(0, 128, 0);

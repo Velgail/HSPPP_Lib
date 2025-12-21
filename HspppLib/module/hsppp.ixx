@@ -1138,6 +1138,35 @@ namespace hsppp {
     export int lparam(const std::source_location& location = std::source_location::current());
 
     // ============================================================
+    // sysval互換（Windowsハンドル系）
+    // ============================================================
+
+    /// @brief 現在選択されているウィンドウのハンドル（sysval hwnd）
+    export int64_t hwnd(const std::source_location& location = std::source_location::current());
+
+    /// @brief 現在のデバイスコンテキスト（sysval hdc）
+    /// @note Direct2D描画のためGDIのHDCは基本的に提供できない。現状は0を返す。
+    export int64_t hdc(const std::source_location& location = std::source_location::current());
+
+    /// @brief 現在のインスタンスハンドル（sysval hinstance）
+    export int64_t hinstance(const std::source_location& location = std::source_location::current());
+
+    // ============================================================
+    // sendmsg - ウィンドウメッセージの送信（HSP互換）
+    // ============================================================
+
+    /// @brief 指定したウィンドウにメッセージを送信
+    /// @param hwndValue 送信先ウィンドウハンドル
+    /// @param msg メッセージID
+    /// @param wparam wParam
+    /// @param lparam lParam
+    /// @return SendMessageの戻り値（LRESULT）
+    export int64_t sendmsg(int64_t hwndValue, int msg, int64_t wparam = 0, int64_t lparam = 0, const std::source_location& location = std::source_location::current());
+
+    /// @brief lParamにUTF-8文字列ポインタを渡す簡易版（内部でUTF-16へ変換しSendMessageWを呼び出す）
+    export int64_t sendmsg(int64_t hwndValue, int msg, int64_t wparam, std::string_view lparamText, const std::source_location& location = std::source_location::current());
+
+    // ============================================================
     // 文字列操作（HSP拡張）
     // ============================================================
 
@@ -1511,6 +1540,49 @@ namespace hsppp {
     /// @return 変換された文字列
     /// @note タイプ値は合計して複数指定可能
     export [[nodiscard]] std::string getpath(const std::string& p1, int p2);
+
+    // ============================================================
+    // メモリノートパッド命令セット（HSP互換）
+    // ============================================================
+
+    // noteinfo用定数（HSPのマクロ互換）
+    export inline constexpr int notemax  = 0;
+    export inline constexpr int notesize = 1;
+
+    // notefind用定数（HSPのマクロ互換）
+    export inline constexpr int notefind_match = 0;
+    export inline constexpr int notefind_first = 1;
+    export inline constexpr int notefind_instr = 2;
+
+    /// @brief 対象バッファ指定
+    export void notesel(std::string& buffer, const std::source_location& location = std::source_location::current());
+
+    /// @brief 対象バッファの復帰
+    export void noteunsel(const std::source_location& location = std::source_location::current());
+
+    /// @brief 指定行の追加・変更
+    /// @param text 追加・変更をする文字列
+    /// @param index 追加するインデックス（省略/-1で末尾）
+    /// @param overwrite 上書きモード（0=追加, 1=上書き）
+    export void noteadd(std::string_view text, OptInt index = {}, OptInt overwrite = {}, const std::source_location& location = std::source_location::current());
+
+    /// @brief 行の削除
+    export void notedel(int index, const std::source_location& location = std::source_location::current());
+
+    /// @brief 指定行を読み込み
+    export void noteget(std::string& dest, OptInt index = {}, const std::source_location& location = std::source_location::current());
+
+    /// @brief 対象バッファ読み込み
+    export void noteload(std::string_view filename, OptInt maxSize = {}, const std::source_location& location = std::source_location::current());
+
+    /// @brief 対象バッファ保存
+    export void notesave(std::string_view filename, const std::source_location& location = std::source_location::current());
+
+    /// @brief メモリノートパッド検索
+    export int notefind(std::string_view search, OptInt mode = {}, const std::source_location& location = std::source_location::current());
+
+    /// @brief メモリノートパッド情報取得
+    export int noteinfo(OptInt mode = {}, const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // 色関連関数（HSP互換）

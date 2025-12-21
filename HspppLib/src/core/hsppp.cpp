@@ -28,6 +28,7 @@ module;
 #include <stdexcept>
 #include <map>
 #include <memory>
+#include <fstream>
 #include <cstdio>
 #include <cctype>
 #include <shlobj.h>

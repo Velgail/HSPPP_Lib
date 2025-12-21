@@ -69,6 +69,49 @@ namespace compile_test {
     }
 
     // ============================================================
+    // メモリノートパッド命令セットのテスト
+    // ============================================================
+    void test_note_functions() {
+        std::string note;
+        std::string line;
+
+        notesel(note);
+        noteadd("idx0");
+        noteadd("idx2");
+        noteadd("idx1", 1);              // 追加（挿入）
+        noteadd("IDX0", 0, 1);           // 上書き
+
+        noteget(line, 0);
+        [[maybe_unused]] int nmax = noteinfo(notemax);
+        [[maybe_unused]] int nsize = noteinfo(notesize);
+        [[maybe_unused]] int found0 = notefind("IDX0");
+        [[maybe_unused]] int found1 = notefind("idx", notefind_first);
+        [[maybe_unused]] int found2 = notefind("x1", notefind_instr);
+
+        notedel(1);
+
+        // ファイルI/O（呼び出しだけコンパイル確認）
+        noteload("note_test.txt");
+        notesave("note_test_out.txt");
+
+        noteunsel();
+    }
+
+    // ============================================================
+    // sendmsg / sysval互換のテスト
+    // ============================================================
+    void test_sendmsg_and_sysval() {
+        [[maybe_unused]] int64_t h = hwnd();
+        [[maybe_unused]] int64_t dc = hdc();
+        [[maybe_unused]] int64_t inst = hinstance();
+
+        // 数値パラメータ版
+        [[maybe_unused]] int64_t r1 = sendmsg(h, 0, 0, 0);
+        // 文字列版（SendMessageWに渡す）
+        [[maybe_unused]] int64_t r2 = sendmsg(h, 0x000C, 0, "Title");
+    }
+
+    // ============================================================
     // Screen クラスのテスト（メソッドシグネチャ確認）
     // ============================================================
     void test_screen_class(Screen& scr) {
@@ -1017,6 +1060,8 @@ namespace hsppp_test {
 
         compile_test::test_types_and_constants();
         compile_test::test_param_structs();
+        compile_test::test_note_functions();
+        compile_test::test_sendmsg_and_sysval();
 
         // 実際にウィンドウを作成してテスト
         auto testScreen = screen({.width = 100, .height = 100, .mode = screen_hide});

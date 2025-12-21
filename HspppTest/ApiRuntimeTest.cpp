@@ -126,13 +126,13 @@ namespace hsppp_test {
     // ============================================================
     bool test_global_functions() {
         // 隠しウィンドウで実行
-        screen(97, 200, 150, screen_hide);
+        (void)screen(97, 200, 150, screen_hide);
         gsel(97);
 
         redraw(0);
 
         color(128, 128, 128);
-        boxf();
+        (void)boxf();
 
         color(255, 255, 255);
         pos(10, 10);
@@ -151,7 +151,7 @@ namespace hsppp_test {
     // ginfo テスト
     // ============================================================
     bool test_ginfo() {
-        screen(96, 320, 240, screen_hide);
+        (void)screen(96, 320, 240, screen_hide);
         gsel(96);
 
         // 各種情報取得（値の妥当性はGUI環境依存なので、クラッシュしないことを確認）
@@ -238,7 +238,6 @@ namespace hsppp_test {
         font("MS Gothic", 16, 1);  // 太字
         scr.pos(10, 30);
         scr.mes("Bold 16pt");
-
         font("MS Gothic", 14, 2);  // イタリック
         scr.pos(10, 55);
         scr.mes("Italic 14pt");
@@ -258,6 +257,52 @@ namespace hsppp_test {
         scr.mes("sysfont(17)");
 
         scr.redraw(1);
+        return true;
+    }
+
+    // ============================================================
+    // note系 / sendmsg / sysval テスト
+    // ============================================================
+    bool test_note_and_sendmsg() {
+        // note系（ウィンドウ不要）
+        {
+            std::string note;
+            std::string out;
+
+            notesel(note);
+            noteadd("A");
+            noteadd("C");
+            noteadd("B", 1);
+            check(noteinfo(notemax) == 3, "noteinfo(notemax) == 3");
+
+            noteget(out, 1);
+            check(out == "B", "noteget index 1 == 'B'");
+            check(notefind("A", notefind_match) == 0, "notefind match");
+            check(notefind("B", notefind_first) == 1, "notefind first");
+            check(notefind("C", notefind_instr) == 2, "notefind instr");
+
+            notedel(1);
+            check(noteinfo(notemax) == 2, "notedel reduces notemax");
+            noteunsel();
+        }
+
+        // hwnd/sendmsg（ウィンドウが必要）
+        {
+            auto scr = screen({.width = 100, .height = 80, .mode = screen_hide});
+            if (!scr.valid()) {
+                return false;
+            }
+            scr.select();
+
+            int64_t h = hwnd();
+            check(h != 0, "hwnd() != 0");
+
+            // WM_SETTEXT (0x000C)
+            (void)sendmsg(h, 0x000C, 0, "HspppTest");
+            [[maybe_unused]] int64_t inst = hinstance();
+            [[maybe_unused]] int64_t dc = hdc();
+        }
+
         return true;
     }
 
@@ -444,6 +489,7 @@ namespace hsppp_test {
         test_method_chaining();
         test_input_functions();
         test_string_functions_runtime();
+        test_note_and_sendmsg();
 
         return s_testsPassed;
     }

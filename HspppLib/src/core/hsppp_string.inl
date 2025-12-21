@@ -4,6 +4,61 @@
 
 namespace hsppp {
 
+    namespace {
+        std::string* g_noteSelected = nullptr;
+        std::vector<std::string*> g_noteSelectedStack;
+
+        std::string& requireNoteSelected(const std::source_location& location) {
+            if (!g_noteSelected) {
+                throw HspError(ERR_ILLEGAL_FUNCTION, "noteselが必要です", location);
+            }
+            return *g_noteSelected;
+        }
+
+        std::vector<std::string> parseNoteLines(std::string_view buffer) {
+            std::vector<std::string> lines;
+            if (buffer.empty()) return lines;
+
+            size_t start = 0;
+            while (start <= buffer.size()) {
+                size_t end = buffer.find('\n', start);
+                if (end == std::string_view::npos) {
+                    end = buffer.size();
+                }
+
+                size_t len = end - start;
+                if (len > 0 && buffer[start + len - 1] == '\r') {
+                    --len;
+                }
+
+                lines.emplace_back(buffer.substr(start, len));
+
+                if (end >= buffer.size()) break;
+                start = end + 1;
+            }
+
+            return lines;
+        }
+
+        std::string joinNoteLines(const std::vector<std::string>& lines) {
+            if (lines.empty()) return "";
+
+            size_t total = 0;
+            for (const auto& line : lines) {
+                total += line.size();
+            }
+            total += (lines.size() - 1);
+
+            std::string out;
+            out.reserve(total);
+            for (size_t i = 0; i < lines.size(); ++i) {
+                if (i != 0) out.push_back('\n');
+                out += lines[i];
+            }
+            return out;
+        }
+    }
+
     // ============================================================
     // instr - 文字列の検索
     // ============================================================
@@ -455,6 +510,192 @@ namespace hsppp {
         result.push_back(src.substr(start));
         
         return result;
+    }
+
+    // ============================================================
+    // メモリノートパッド命令セット（HSP互換）
+    // ============================================================
+
+    void notesel(std::string& buffer, const std::source_location&) {
+        g_noteSelectedStack.push_back(g_noteSelected);
+        g_noteSelected = &buffer;
+    }
+
+    void noteunsel(const std::source_location&) {
+        if (g_noteSelectedStack.empty()) {
+            g_noteSelected = nullptr;
+            return;
+        }
+
+        g_noteSelected = g_noteSelectedStack.back();
+        g_noteSelectedStack.pop_back();
+    }
+
+    void noteadd(std::string_view text, OptInt index, OptInt overwrite, const std::source_location& location) {
+        std::string& buffer = requireNoteSelected(location);
+        std::vector<std::string> lines = parseNoteLines(buffer);
+
+        const int idxRaw = index.is_default() ? -1 : index.value();
+        const int overwriteMode = overwrite.is_default() ? 0 : overwrite.value();
+
+        if (overwriteMode != 0 && overwriteMode != 1) {
+            throw HspError(ERR_OUT_OF_RANGE, "noteadd: 上書きモードが不正です", location);
+        }
+
+        if (overwriteMode == 0) {
+            // 追加（挿入）
+            size_t insertPos = 0;
+            if (idxRaw < 0) {
+                insertPos = lines.size();
+            } else {
+                insertPos = static_cast<size_t>(idxRaw);
+                if (insertPos > lines.size()) {
+                    // HSPは範囲外をエラーとする前提で扱う
+                    throw HspError(ERR_OUT_OF_RANGE, "noteadd: インデックスが範囲外です", location);
+                }
+            }
+
+            lines.insert(lines.begin() + static_cast<ptrdiff_t>(insertPos), std::string(text));
+        } else {
+            // 上書き
+            if (lines.empty()) {
+                lines.push_back(std::string(text));
+            } else if (idxRaw < 0) {
+                lines.back() = std::string(text);
+            } else {
+                size_t pos = static_cast<size_t>(idxRaw);
+                if (pos >= lines.size()) {
+                    throw HspError(ERR_OUT_OF_RANGE, "noteadd: インデックスが範囲外です", location);
+                }
+                lines[pos] = std::string(text);
+            }
+        }
+
+        buffer = joinNoteLines(lines);
+    }
+
+    void notedel(int indexValue, const std::source_location& location) {
+        std::string& buffer = requireNoteSelected(location);
+        std::vector<std::string> lines = parseNoteLines(buffer);
+
+        if (indexValue < 0 || static_cast<size_t>(indexValue) >= lines.size()) {
+            throw HspError(ERR_OUT_OF_RANGE, "notedel: インデックスが範囲外です", location);
+        }
+
+        lines.erase(lines.begin() + indexValue);
+        buffer = joinNoteLines(lines);
+    }
+
+    void noteget(std::string& dest, OptInt index, const std::source_location& location) {
+        const std::string& buffer = requireNoteSelected(location);
+        std::vector<std::string> lines = parseNoteLines(buffer);
+
+        const int idx = index.is_default() ? 0 : index.value();
+        if (idx < 0 || static_cast<size_t>(idx) >= lines.size()) {
+            throw HspError(ERR_OUT_OF_RANGE, "noteget: インデックスが範囲外です", location);
+        }
+        dest = lines[static_cast<size_t>(idx)];
+    }
+
+    void noteload(std::string_view filename, OptInt maxSize, const std::source_location& location) {
+        std::string& buffer = requireNoteSelected(location);
+
+        const int64_t maxBytes = maxSize.is_default() ? -1 : static_cast<int64_t>(maxSize.value());
+        if (maxBytes == 0) {
+            buffer.clear();
+            return;
+        }
+        if (maxBytes < -1) {
+            throw HspError(ERR_OUT_OF_RANGE, "noteload: 最大サイズが不正です", location);
+        }
+
+        std::ifstream ifs(std::string(filename), std::ios::binary);
+        if (!ifs) {
+            throw HspError(ERR_FILE_IO, "noteload: ファイルを開けません", location);
+        }
+
+        ifs.seekg(0, std::ios::end);
+        std::streamoff size = ifs.tellg();
+        if (size < 0) size = 0;
+        ifs.seekg(0, std::ios::beg);
+
+        size_t readSize = static_cast<size_t>(size);
+        if (maxBytes >= 0 && readSize > static_cast<size_t>(maxBytes)) {
+            readSize = static_cast<size_t>(maxBytes);
+        }
+
+        std::string data(readSize, '\0');
+        if (readSize > 0) {
+            ifs.read(data.data(), static_cast<std::streamsize>(readSize));
+            if (ifs.gcount() < static_cast<std::streamsize>(readSize)) {
+                data.resize(static_cast<size_t>(ifs.gcount()));
+            }
+        }
+
+        buffer = std::move(data);
+    }
+
+    void notesave(std::string_view filename, const std::source_location& location) {
+        const std::string& buffer = requireNoteSelected(location);
+
+        std::ofstream ofs(std::string(filename), std::ios::binary | std::ios::trunc);
+        if (!ofs) {
+            throw HspError(ERR_FILE_IO, "notesave: ファイルを開けません", location);
+        }
+
+        if (!buffer.empty()) {
+            ofs.write(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+        }
+        if (!ofs) {
+            throw HspError(ERR_FILE_IO, "notesave: 書き込みに失敗しました", location);
+        }
+    }
+
+    int notefind(std::string_view search, OptInt mode, const std::source_location& location) {
+        const std::string& buffer = requireNoteSelected(location);
+        std::vector<std::string> lines = parseNoteLines(buffer);
+
+        const int m = mode.is_default() ? 0 : mode.value();
+        if (m < 0 || m > 2) {
+            throw HspError(ERR_OUT_OF_RANGE, "notefind: 検索モードが不正です", location);
+        }
+
+        for (size_t i = 0; i < lines.size(); ++i) {
+            const std::string& line = lines[i];
+            bool matched = false;
+            switch (m) {
+                case 0: // 完全一致
+                    matched = (line == search);
+                    break;
+                case 1: // 前方一致
+                    matched = line.starts_with(search);
+                    break;
+                case 2: // 部分一致
+                    matched = (line.find(search) != std::string::npos);
+                    break;
+            }
+            if (matched) {
+                return static_cast<int>(i);
+            }
+        }
+
+        return -1;
+    }
+
+    int noteinfo(OptInt mode, const std::source_location& location) {
+        const std::string& buffer = requireNoteSelected(location);
+        const int m = mode.is_default() ? 0 : mode.value();
+
+        switch (m) {
+            case 0: {
+                std::vector<std::string> lines = parseNoteLines(buffer);
+                return static_cast<int>(lines.size());
+            }
+            case 1:
+                return static_cast<int>(buffer.size());
+            default:
+                throw HspError(ERR_OUT_OF_RANGE, "noteinfo: モードが不正です", location);
+        }
     }
 
 } // namespace hsppp

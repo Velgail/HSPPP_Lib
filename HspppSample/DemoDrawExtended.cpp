@@ -426,9 +426,9 @@ void drawExtendedDemo(Screen& win) {
         {
             std::string text = "AAA BBB AAA CCC";
             win.mes("元文字列: \"" + text + "\"");
-            int count = strrep(text, "AAA", "XXX");
+            int64_t count = strrep(text, "AAA", "XXX");
             win.pos(350, 222);
-            win.mes("strrep(text, \"AAA\", \"XXX\") = " + str(count) + "回");
+            win.mes("strrep(text, \"AAA\", \"XXX\") = " + str(static_cast<int>(count)) + "回");
             win.pos(350, 237);
             win.mes("  結果: \"" + text + "\"");
         }
@@ -478,6 +478,32 @@ void drawExtendedDemo(Screen& win) {
             win.mes("getpath(path, 8) = \"" + getpath(path, 8) + "\"");
             win.pos(350, 392);
             win.mes("getpath(path, 32) = \"" + getpath(path, 32) + "\"");
+        }
+
+        // note系 + sysval デモ
+        win.font("MS Gothic", 12, 1);
+        win.color(0, 0, 128).pos(50, 330);
+        win.mes("note* / sysval(hwnd,hinstance):");
+        win.font("MS Gothic", 12, 0);
+        win.color(0, 0, 0).pos(50, 347);
+        {
+            std::string note;
+            std::string line;
+            notesel(note);
+            noteadd("A");
+            noteadd("C");
+            noteadd("B", 1);
+            noteget(line, 1);
+            int found = notefind("B", notefind_match);
+            noteunsel();
+
+            win.mes("note = \"" + note + "\"");
+            win.pos(50, 362);
+            win.mes("noteget(idx=1) = \"" + line + "\"");
+            win.pos(50, 377);
+            win.mes("notefind(\"B\") = " + str(found));
+            win.pos(50, 392);
+            win.mes("hwnd=" + str(hwnd()) + " hinstance=" + str(hinstance()));
         }
         
         break;

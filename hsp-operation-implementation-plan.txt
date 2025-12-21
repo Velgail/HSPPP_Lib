@@ -146,10 +146,10 @@ HSP操作リスト - 実装計画
 × [P3] length3         配列の3次元要素数を返す
 × [P3] length4         配列の4次元要素数を返す
 
-○ [P3] varptr          変数データのポインタを返す
-○ [P3] varsize         変数データのバッファサイズを返す
-○ [P3] vartype         変数の型を返す
-○ [P3] varuse          変数の使用状況を返す
+× [P3] varptr          変数データのポインタを返す（&演算子や.data()を使用）
+× [P3] varsize         変数データのバッファサイズを返す（sizeof演算子や.size()を使用）
+× [P3] vartype         変数の型を返す（C++の型システム/typeidを使用）
+× [P3] varuse          変数の使用状況を返す（RAIIにより自動管理）
 
 × [--] objinfo         ウィンドウオブジェクト情報の取得（GUI部品専用）
 × [--] libptr          外部呼出しコマンドの情報アドレスを得る（DLL専用）
@@ -289,8 +289,8 @@ HSP操作リスト - 実装計画
 ✓ [P2] getstr          バッファから文字列読み出し
 
 ○ [P3] strexchange     スクリプト内の文字列を置き換える（プリプロセッサ的）
-○ [P3] cnvstoa         通常文字列をANSI文字列に変換
-○ [P3] cnvstow         通常文字列をunicodeに変換
+✓ [P3] cnvstoa         通常文字列をANSI文字列に変換
+✓ [P3] cnvstow         通常文字列をunicodeに変換
 
 
 ■ 文字列操作関数 [P2]
@@ -305,8 +305,8 @@ HSP操作リスト - 実装計画
 
 ✓ [P2] getpath         パスの一部を取得
 
-○ [P3] cnvatos         ANSI文字列を通常文字列に変換
-○ [P3] cnvwtos         unicodeを通常文字列に変換
+✓ [P3] cnvatos         ANSI文字列を通常文字列に変換
+✓ [P3] cnvwtos         unicodeを通常文字列に変換
 
 
 ================================

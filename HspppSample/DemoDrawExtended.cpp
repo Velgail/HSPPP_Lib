@@ -531,6 +531,25 @@ void drawExtendedDemo(Screen& win) {
             win.pos(50, 392);
             win.mes("hwnd=" + str(hwnd()) + " hinstance=" + str(hinstance()));
         }
+
+        // 文字列変換関数デモ（cnvstoa, cnvstow, cnvatos, cnvwtos）
+        win.font("MS Gothic", 12, 1);
+        win.color(128, 0, 128).pos(50, 420);
+        win.mes("文字列変換: cnvstow/cnvwtos/cnvstoa/cnvatos");
+        win.font("MS Gothic", 12, 0);
+        win.color(0, 0, 0).pos(50, 437);
+        {
+            std::string utf8 = reinterpret_cast<const char*>(u8"日本語ABC");
+            // UTF-8 -> UTF-16 -> UTF-8 往復変換
+            std::u16string u16 = cnvstow(utf8);
+            std::string back1 = cnvwtos(u16);
+            win.mes("cnvstow/cnvwtos往復: \"" + utf8 + "\" -> u16(" + str(static_cast<int>(u16.size())) + "文字) -> \"" + back1 + "\"");
+            win.pos(50, 452);
+            // UTF-8 -> ANSI -> UTF-8 往復変換
+            std::string ansi = cnvstoa(utf8);
+            std::string back2 = cnvatos(ansi);
+            win.mes("cnvstoa/cnvatos往復: \"" + utf8 + "\" -> ANSI(" + str(static_cast<int>(ansi.size())) + "bytes) -> \"" + back2 + "\"");
+        }
         
         break;
 

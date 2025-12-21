@@ -462,34 +462,7 @@ void drawExtendedDemo(Screen& win) {
             win.mes("strtrim(text, 3) = \"" + strtrim(text, 3, ' ') + "\" (全除去)");
         }
         
-        // memcpy/memset/memexpand デモ（新規追加）
-        win.font("MS Gothic", 12, 1);
-        win.color(128, 64, 0).pos(50, 330);
-        win.mes("memcpy/memset/memexpand - メモリ操作:");
-        win.font("MS Gothic", 12, 0);
-        win.color(0, 0, 0).pos(50, 347);
-        {
-            std::string src = "ABCDEFGH";
-            std::string dest(8, '.');
-            hsppp::memcpy(dest, src, 4);  // 先頭4バイトをコピー
-            win.mes("memcpy: src=\"ABCDEFGH\", dest=\"........\"");
-            win.pos(50, 362);
-            win.mes("  memcpy(dest, src, 4) -> dest=\"" + dest + "\"");
-            
-            win.pos(50, 380);
-            std::string setbuf(8, 'X');
-            hsppp::memset(setbuf, 'A', 4);
-            win.mes("memset: buf=\"XXXXXXXX\" -> memset(buf, 'A', 4)");
-            win.pos(50, 395);
-            win.mes("  結果: \"" + setbuf + "\"");
-            
-            win.pos(50, 413);
-            std::string expbuf(16, 'Z');
-            size_t oldSize = expbuf.size();
-            hsppp::memexpand(expbuf, 64);
-            win.mes("memexpand: 元size=" + str(static_cast<int>(oldSize)) + " -> memexpand(expbuf, 64) -> size=" + str(static_cast<int>(expbuf.size())));
-        }
-        
+
         // getpath デモ
         win.font("MS Gothic", 12, 1);
         win.color(0, 128, 128).pos(350, 330);

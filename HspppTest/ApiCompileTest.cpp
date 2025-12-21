@@ -976,39 +976,7 @@ namespace compile_test {
         [[maybe_unused]] int vw0 = wpeek(vecBuffer, 2);
         [[maybe_unused]] int vl0 = lpeek(vecBuffer, 4);
 
-        // memcpy - メモリブロックのコピー
-        std::string srcStr = "ABCDEFGH";
-        std::string destStr(8, '\0');
-        hsppp::memcpy(destStr, srcStr, 4);  // "ABCD" をコピー
-        hsppp::memcpy(destStr, srcStr, 4, 4, 0);  // destStr[4]から4バイト
-        hsppp::memcpy(destStr, srcStr, 2, 0, 2);  // srcStr[2]から2バイトを先頭へ
 
-        std::vector<uint8_t> srcVec = {1, 2, 3, 4, 5, 6, 7, 8};
-        std::vector<uint8_t> destVec(8, 0);
-        hsppp::memcpy(destVec, srcVec, 4);  // 先頭4バイト
-        hsppp::memcpy(destVec, srcVec, 4, 4, 0);  // destVec[4]へコピー
-        hsppp::memcpy(destVec, srcStr, 4);  // string -> vector
-        hsppp::memcpy(destStr, srcVec, 4);  // vector -> string
-
-        // memset - メモリブロックのクリア
-        std::string setStr(16, 'X');
-        hsppp::memset(setStr, 0);  // 全体を0クリア
-        hsppp::memset(setStr, 'A', 4);  // 先頭4バイトを'A'で埋める
-        hsppp::memset(setStr, 'B', 4, 4);  // setStr[4]から4バイトを'B'で埋める
-
-        std::vector<uint8_t> setVec(16, 0xFF);
-        hsppp::memset(setVec, 0);  // 全体を0クリア
-        hsppp::memset(setVec, 0xAB, 8);  // 先頭8バイトを0xABで埋める
-        hsppp::memset(setVec, 0xCD, 4, 8);  // setVec[8]から4バイトを0xCDで埋める
-
-        // memexpand - メモリブロックの再確保
-        std::string expStr(32, 'Z');
-        hsppp::memexpand(expStr, 128);  // 128バイトに拡張
-        hsppp::memexpand(expStr, 10);   // 64未満は64になる、すでに128なので変化なし
-
-        std::vector<uint8_t> expVec(32, 0);
-        hsppp::memexpand(expVec, 256);  // 256バイトに拡張
-        hsppp::memexpand(expVec, 64);   // すでに256なので変化なし
     }
 
     // ============================================================

@@ -1747,31 +1747,7 @@ namespace hsppp {
     export void lpoke(std::string& buffer, int64_t index, int value, const std::source_location& location = std::source_location::current());
     export void lpoke(std::vector<uint8_t>& buffer, int64_t index, int value, const std::source_location& location = std::source_location::current());
 
-    /// @brief メモリブロックのコピー
-    /// @param dest コピー先の変数
-    /// @param src コピー元の変数
-    /// @param size コピーするサイズ（バイト単位）
-    /// @param destOffset コピー先の変数メモリオフセット（省略時: 0）
-    /// @param srcOffset コピー元の変数メモリオフセット（省略時: 0）
-    export void memcpy(std::string& dest, const std::string& src, int64_t size, int64_t destOffset = 0, int64_t srcOffset = 0, const std::source_location& location = std::source_location::current());
-    export void memcpy(std::vector<uint8_t>& dest, const std::vector<uint8_t>& src, int64_t size, int64_t destOffset = 0, int64_t srcOffset = 0, const std::source_location& location = std::source_location::current());
-    export void memcpy(std::vector<uint8_t>& dest, const std::string& src, int64_t size, int64_t destOffset = 0, int64_t srcOffset = 0, const std::source_location& location = std::source_location::current());
-    export void memcpy(std::string& dest, const std::vector<uint8_t>& src, int64_t size, int64_t destOffset = 0, int64_t srcOffset = 0, const std::source_location& location = std::source_location::current());
 
-    /// @brief メモリブロックのクリア
-    /// @param dest 書き込み先の変数
-    /// @param value クリアする値（1バイト、デフォルト: 0）
-    /// @param size クリアするサイズ（バイト単位、デフォルト: 0=全体）
-    /// @param offset 書き込み先の変数メモリオフセット（省略時: 0）
-    export void memset(std::string& dest, int value = 0, int64_t size = 0, int64_t offset = 0, const std::source_location& location = std::source_location::current());
-    export void memset(std::vector<uint8_t>& dest, int value = 0, int64_t size = 0, int64_t offset = 0, const std::source_location& location = std::source_location::current());
-
-    /// @brief メモリブロックの再確保
-    /// @param dest 対象となる変数
-    /// @param newSize 再確保サイズ（バイト単位、最小64）
-    /// @note 再確保しても以前の内容は保持される
-    export void memexpand(std::string& dest, int64_t newSize = 64, const std::source_location& location = std::source_location::current());
-    export void memexpand(std::vector<uint8_t>& dest, int64_t newSize = 64, const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // 数学定数（HSP hspmath.as互換）

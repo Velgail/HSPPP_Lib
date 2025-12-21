@@ -937,6 +937,34 @@ namespace compile_test {
         std::string stdStr = "standard";
         hsppp::string fromStd = stdStr;                                // std::stringから変換
         std::string toStd = fromStd;                                   // std::stringへ暗黙変換
+
+        // ============================================================
+        // 文字列変換関数（cnvstoa, cnvstow, cnvatos, cnvwtos）
+        // ============================================================
+        // cnvstow - UTF-8 -> UTF-16
+        [[maybe_unused]] std::u16string u16_1 = hsppp::cnvstow("Hello");              // ASCII
+        [[maybe_unused]] std::u16string u16_2 = hsppp::cnvstow(reinterpret_cast<const char*>(u8"日本語テスト"));  // 日本語
+        [[maybe_unused]] std::u16string u16_3 = hsppp::cnvstow("");                   // 空文字列
+
+        // cnvwtos - UTF-16 -> UTF-8
+        [[maybe_unused]] std::string utf8_1 = hsppp::cnvwtos(u16_1);                  // ASCII
+        [[maybe_unused]] std::string utf8_2 = hsppp::cnvwtos(u16_2);                  // 日本語
+        [[maybe_unused]] std::string utf8_3 = hsppp::cnvwtos(std::u16string());       // 空文字列
+
+        // cnvstoa - UTF-8 -> ANSI (ShiftJIS)
+        [[maybe_unused]] std::string ansi_1 = hsppp::cnvstoa("Hello");               // ASCII
+        [[maybe_unused]] std::string ansi_2 = hsppp::cnvstoa(reinterpret_cast<const char*>(u8"日本語テスト"));    // 日本語
+        [[maybe_unused]] std::string ansi_3 = hsppp::cnvstoa("");                    // 空文字列
+
+        // cnvatos - ANSI (ShiftJIS) -> UTF-8
+        [[maybe_unused]] std::string utf8_4 = hsppp::cnvatos(ansi_1);                // ASCII
+        [[maybe_unused]] std::string utf8_5 = hsppp::cnvatos(ansi_2);                // 日本語
+        [[maybe_unused]] std::string utf8_6 = hsppp::cnvatos("");                    // 空文字列
+
+        // 往復変換テスト（シグネチャ確認）
+        std::string original = reinterpret_cast<const char*>(u8"テスト文字列");
+        [[maybe_unused]] std::string roundTrip1 = hsppp::cnvwtos(hsppp::cnvstow(original));  // UTF-8 -> UTF-16 -> UTF-8
+        [[maybe_unused]] std::string roundTrip2 = hsppp::cnvatos(hsppp::cnvstoa(original));  // UTF-8 -> ANSI -> UTF-8
     }
 
     // ============================================================

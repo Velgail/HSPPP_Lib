@@ -1629,6 +1629,32 @@ namespace hsppp {
     export [[nodiscard]] std::string getpath(const std::string& p1, int p2);
 
     // ============================================================
+    // 文字列変換関数（HSP hsp3utf.as互換）
+    // ============================================================
+    // HSPPPは内部的にUTF-8を使用。外部DLLやCOMとの連携時に使用。
+    // ============================================================
+
+    /// @brief 通常文字列(UTF-8)をunicode(UTF-16)に変換
+    /// @param str 変換元の文字列(UTF-8)
+    /// @return UTF-16文字列（std::u16stringで返す）
+    export [[nodiscard]] std::u16string cnvstow(const std::string& str, const std::source_location& location = std::source_location::current());
+
+    /// @brief unicode(UTF-16)を通常文字列(UTF-8)に変換
+    /// @param wstr 変換元のunicode文字列(UTF-16)
+    /// @return UTF-8文字列
+    export [[nodiscard]] std::string cnvwtos(const std::u16string& wstr, const std::source_location& location = std::source_location::current());
+
+    /// @brief 通常文字列(UTF-8)をANSI(ShiftJIS)文字列に変換
+    /// @param str 変換元の文字列(UTF-8)
+    /// @return ANSI文字列（std::stringにShiftJISバイト列を格納）
+    export [[nodiscard]] std::string cnvstoa(const std::string& str, const std::source_location& location = std::source_location::current());
+
+    /// @brief ANSI(ShiftJIS)文字列を通常文字列(UTF-8)に変換
+    /// @param astr 変換元のANSI文字列
+    /// @return UTF-8文字列
+    export [[nodiscard]] std::string cnvatos(const std::string& astr, const std::source_location& location = std::source_location::current());
+
+    // ============================================================
     // メモリノートパッド命令セット（HSP互換）
     // ============================================================
 

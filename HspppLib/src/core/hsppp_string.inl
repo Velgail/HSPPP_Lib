@@ -886,6 +886,92 @@ namespace hsppp {
     // Windows API (MultiByteToWideChar / WideCharToMultiByte) を使用
     // ============================================================
 
+    namespace {
+        // wstring -> u16string 変換ヘルパー
+        // wchar_tのサイズに応じて最適な変換を行う
+        std::u16string wstringToU16string(const std::wstring& wideStr) {
+            if (wideStr.empty()) {
+                return std::u16string();
+            }
+
+            // Case 1: wchar_t が 2バイト (Windows / UTF-16)
+            // メモリレイアウトが同じなので、ビット列をそのままコピーするだけでOK（爆速）
+            if constexpr (sizeof(wchar_t) == 2) {
+                return std::u16string(
+                    reinterpret_cast<const char16_t*>(wideStr.data()),
+                    wideStr.size()
+                );
+            }
+            // Case 2: wchar_t が 4バイト (Linux, macOS / UTF-32)
+            // UTF-32 -> UTF-16 への変換（サロゲートペア計算）が必要
+            else {
+                std::u16string u16str;
+                u16str.reserve(wideStr.size());
+
+                for (wchar_t wc : wideStr) {
+                    uint32_t codepoint = static_cast<uint32_t>(wc);
+
+                    if (codepoint <= 0xFFFF) {
+                        // 基本多言語面 (BMP)
+                        u16str.push_back(static_cast<char16_t>(codepoint));
+                    } else if (codepoint <= 0x10FFFF) {
+                        // サロゲートペアが必要な文字 (絵文字など)
+                        codepoint -= 0x10000;
+                        u16str.push_back(static_cast<char16_t>(0xD800 | (codepoint >> 10)));
+                        u16str.push_back(static_cast<char16_t>(0xDC00 | (codepoint & 0x3FF)));
+                    } else {
+                        // 無効なコードポイント (置換文字 U+FFFD を入れる)
+                        u16str.push_back(u'\uFFFD');
+                    }
+                }
+                return u16str;
+            }
+        }
+
+        // u16string -> wstring 変換ヘルパー
+        std::wstring u16stringToWstring(const std::u16string& u16str) {
+            if (u16str.empty()) {
+                return std::wstring();
+            }
+
+            // Case 1: wchar_t が 2バイト (Windows / UTF-16)
+            if constexpr (sizeof(wchar_t) == 2) {
+                return std::wstring(
+                    reinterpret_cast<const wchar_t*>(u16str.data()),
+                    u16str.size()
+                );
+            }
+            // Case 2: wchar_t が 4バイト (Linux, macOS / UTF-32)
+            // UTF-16 -> UTF-32 への変換（サロゲートペアの結合）が必要
+            else {
+                std::wstring wstr;
+                wstr.reserve(u16str.size());
+
+                for (size_t i = 0; i < u16str.size(); ++i) {
+                    char16_t c = u16str[i];
+
+                    if (c >= 0xD800 && c <= 0xDBFF && i + 1 < u16str.size()) {
+                        // ハイサロゲート
+                        char16_t high = c;
+                        char16_t low = u16str[i + 1];
+                        if (low >= 0xDC00 && low <= 0xDFFF) {
+                            // ローサロゲートと結合
+                            uint32_t codepoint = 0x10000 +
+                                ((static_cast<uint32_t>(high) - 0xD800) << 10) +
+                                (static_cast<uint32_t>(low) - 0xDC00);
+                            wstr.push_back(static_cast<wchar_t>(codepoint));
+                            ++i;  // ローサロゲートをスキップ
+                            continue;
+                        }
+                    }
+                    // BMPまたは単独のサロゲート（エラーケース）
+                    wstr.push_back(static_cast<wchar_t>(c));
+                }
+                return wstr;
+            }
+        }
+    }
+
     std::u16string cnvstow(const std::string& str, const std::source_location& location) {
         if (str.empty()) {
             return std::u16string();
@@ -903,13 +989,8 @@ namespace hsppp {
             throw HspError(ERR_TYPE_MISMATCH, "cnvstow: UTF-8からUTF-16への変換に失敗しました", location);
         }
 
-        // wchar_t (UTF-16 LE) -> char16_t (UTF-16)
-        std::u16string u16str;
-        u16str.reserve(wideStr.size());
-        for (wchar_t wc : wideStr) {
-            u16str.push_back(static_cast<char16_t>(wc));
-        }
-        return u16str;
+        // wchar_t -> char16_t (constexpr ifで最適化)
+        return wstringToU16string(wideStr);
     }
 
     std::string cnvwtos(const std::u16string& wstr, const std::source_location& location) {
@@ -917,12 +998,8 @@ namespace hsppp {
             return std::string();
         }
 
-        // char16_t (UTF-16) -> wchar_t (UTF-16 LE)
-        std::wstring wideStr;
-        wideStr.reserve(wstr.size());
-        for (char16_t c : wstr) {
-            wideStr.push_back(static_cast<wchar_t>(c));
-        }
+        // char16_t -> wchar_t (constexpr ifで最適化)
+        std::wstring wideStr = u16stringToWstring(wstr);
 
         // UTF-16 -> UTF-8
         int utf8Len = WideCharToMultiByte(CP_UTF8, 0, wideStr.c_str(), static_cast<int>(wideStr.size()), nullptr, 0, nullptr, nullptr);
@@ -945,17 +1022,11 @@ namespace hsppp {
         }
 
         // UTF-8 -> UTF-16 -> ANSI (ShiftJIS)
-        // Step 1: UTF-8 -> UTF-16
-        int wideLen = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), static_cast<int>(str.size()), nullptr, 0);
-        if (wideLen <= 0) {
-            throw HspError(ERR_TYPE_MISMATCH, "cnvstoa: UTF-8からUTF-16への変換に失敗しました", location);
-        }
+        // Step 1: UTF-8 -> UTF-16 (cnvstowを再利用)
+        std::u16string u16str = cnvstow(str, location);
 
-        std::wstring wideStr(static_cast<size_t>(wideLen), L'\0');
-        int result1 = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), static_cast<int>(str.size()), wideStr.data(), wideLen);
-        if (result1 <= 0) {
-            throw HspError(ERR_TYPE_MISMATCH, "cnvstoa: UTF-8からUTF-16への変換に失敗しました", location);
-        }
+        // Step 1.5: u16string -> wstring (constexpr ifで最適化)
+        std::wstring wideStr = u16stringToWstring(u16str);
 
         // Step 2: UTF-16 -> ANSI (CP_ACP = system default ANSI code page, typically ShiftJIS on Japanese Windows)
         int ansiLen = WideCharToMultiByte(CP_ACP, 0, wideStr.c_str(), static_cast<int>(wideStr.size()), nullptr, 0, nullptr, nullptr);
@@ -964,8 +1035,8 @@ namespace hsppp {
         }
 
         std::string ansiStr(static_cast<size_t>(ansiLen), '\0');
-        int result2 = WideCharToMultiByte(CP_ACP, 0, wideStr.c_str(), static_cast<int>(wideStr.size()), ansiStr.data(), ansiLen, nullptr, nullptr);
-        if (result2 <= 0) {
+        int result = WideCharToMultiByte(CP_ACP, 0, wideStr.c_str(), static_cast<int>(wideStr.size()), ansiStr.data(), ansiLen, nullptr, nullptr);
+        if (result <= 0) {
             throw HspError(ERR_TYPE_MISMATCH, "cnvstoa: UTF-16からANSIへの変換に失敗しました", location);
         }
 
@@ -990,19 +1061,9 @@ namespace hsppp {
             throw HspError(ERR_TYPE_MISMATCH, "cnvatos: ANSIからUTF-16への変換に失敗しました", location);
         }
 
-        // Step 2: UTF-16 -> UTF-8
-        int utf8Len = WideCharToMultiByte(CP_UTF8, 0, wideStr.c_str(), static_cast<int>(wideStr.size()), nullptr, 0, nullptr, nullptr);
-        if (utf8Len <= 0) {
-            throw HspError(ERR_TYPE_MISMATCH, "cnvatos: UTF-16からUTF-8への変換に失敗しました", location);
-        }
-
-        std::string utf8Str(static_cast<size_t>(utf8Len), '\0');
-        int result2 = WideCharToMultiByte(CP_UTF8, 0, wideStr.c_str(), static_cast<int>(wideStr.size()), utf8Str.data(), utf8Len, nullptr, nullptr);
-        if (result2 <= 0) {
-            throw HspError(ERR_TYPE_MISMATCH, "cnvatos: UTF-16からUTF-8への変換に失敗しました", location);
-        }
-
-        return utf8Str;
+        // Step 2: UTF-16 -> UTF-8 (cnvwtosを再利用)
+        std::u16string u16str = wstringToU16string(wideStr);
+        return cnvwtos(u16str, location);
     }
 
 } // namespace hsppp

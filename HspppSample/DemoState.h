@@ -46,6 +46,8 @@ enum class ExtendedDemo {
     SystemInfo,     // Ctrl+0: システム情報関数
     FileOps,        // Ctrl+-: ファイル操作関数
     InputMouse,     // Ctrl+=: マウス入力関数
+    Easing,         // Ctrl+[: イージング関数
+    Sorting,        // Ctrl+]: ソート関数
     COUNT
 };
 

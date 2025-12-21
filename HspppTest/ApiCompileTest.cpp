@@ -686,6 +686,104 @@ namespace compile_test {
     }
 
     // ============================================================
+    // イージング関数のテスト
+    // ============================================================
+    void test_easing_functions() {
+        // イージング定数の確認
+        [[maybe_unused]] int c1 = ease_linear;
+        [[maybe_unused]] int c2 = ease_quad_in;
+        [[maybe_unused]] int c3 = ease_quad_out;
+        [[maybe_unused]] int c4 = ease_quad_inout;
+        [[maybe_unused]] int c5 = ease_cubic_in;
+        [[maybe_unused]] int c6 = ease_cubic_out;
+        [[maybe_unused]] int c7 = ease_cubic_inout;
+        [[maybe_unused]] int c8 = ease_quartic_in;
+        [[maybe_unused]] int c9 = ease_quartic_out;
+        [[maybe_unused]] int c10 = ease_quartic_inout;
+        [[maybe_unused]] int c11 = ease_bounce_in;
+        [[maybe_unused]] int c12 = ease_bounce_out;
+        [[maybe_unused]] int c13 = ease_bounce_inout;
+        [[maybe_unused]] int c14 = ease_shake_in;
+        [[maybe_unused]] int c15 = ease_shake_out;
+        [[maybe_unused]] int c16 = ease_shake_inout;
+        [[maybe_unused]] int c17 = ease_loop;
+        [[maybe_unused]] int c18 = ease_cubic_inout | ease_loop;  // 組み合わせ
+
+        // setease - イージング設定
+        hsppp::setease(0.0, 100.0, ease_linear);
+        hsppp::setease(100, 200, ease_cubic_inout);
+        hsppp::setease(0, 255);  // タイプ省略
+        hsppp::setease(0.0, 1.0, ease_bounce_out | ease_loop);
+
+        // getease - 整数版
+        [[maybe_unused]] int e1 = hsppp::getease(0);
+        [[maybe_unused]] int e2 = hsppp::getease(50, 100);
+        [[maybe_unused]] int e3 = hsppp::getease(100, 100);
+        [[maybe_unused]] int e4 = hsppp::getease(0, omit);  // 最大値省略（4096）
+
+        // geteasef - 実数版
+        [[maybe_unused]] double ef1 = hsppp::geteasef(0.0);
+        [[maybe_unused]] double ef2 = hsppp::geteasef(0.5, 1.0);
+        [[maybe_unused]] double ef3 = hsppp::geteasef(1.0, 1.0);
+        [[maybe_unused]] double ef4 = hsppp::geteasef(0.5, omit);  // 最大値省略（1.0）
+        [[maybe_unused]] double ef5 = hsppp::geteasef(0.5);  // 最大値省略
+    }
+
+    // ============================================================
+    // ソート関数のテスト
+    // ============================================================
+    void test_sort_functions() {
+        // sortval - 整数配列ソート
+        std::vector<int> intArr = {5, 2, 8, 1, 9, 3};
+        hsppp::sortval(intArr);          // 昇順（デフォルト）
+        hsppp::sortval(intArr, 0);       // 昇順（明示）
+        hsppp::sortval(intArr, 1);       // 降順
+        hsppp::sortval(intArr, omit);    // 省略
+
+        // sortval - 実数配列ソート
+        std::vector<double> doubleArr = {3.14, 1.0, 2.71, 0.5};
+        hsppp::sortval(doubleArr);
+        hsppp::sortval(doubleArr, 0);
+        hsppp::sortval(doubleArr, 1);
+
+        // sortstr - 文字列配列ソート
+        std::vector<std::string> strArr = {"Banana", "Apple", "Cherry"};
+        hsppp::sortstr(strArr);
+        hsppp::sortstr(strArr, 0);
+        hsppp::sortstr(strArr, 1);
+
+        // sortnote - メモリノート文字列ソート
+        std::string note = "Banana\nApple\nCherry";
+        hsppp::sortnote(note);
+        hsppp::sortnote(note, 0);
+        hsppp::sortnote(note, 1);
+
+        // sortget - ソート元インデックス取得
+        std::vector<int> testArr = {30, 10, 20};
+        hsppp::sortval(testArr, 0);
+        [[maybe_unused]] int idx0 = hsppp::sortget(0);  // 30のソート前位置
+        [[maybe_unused]] int idx1 = hsppp::sortget(1);
+        [[maybe_unused]] int idx2 = hsppp::sortget(2);
+    }
+
+    // ============================================================
+    // デバッグ出力関数のテスト
+    // ============================================================
+    void test_debug_functions() {
+        // logmes - 文字列版
+        hsppp::logmes("Debug message");
+        hsppp::logmes("Test output with 日本語");
+        hsppp::logmes(std::string("std::string version"));
+        hsppp::logmes(std::string_view("string_view version"));
+
+        // logmes - 数値版
+        hsppp::logmes(42);
+        hsppp::logmes(-123);
+        hsppp::logmes(3.14159);
+        hsppp::logmes(0.0);
+    }
+
+    // ============================================================
     // 型変換関数のテスト
     // ============================================================
     void test_conversion_functions() {
@@ -1084,6 +1182,9 @@ namespace hsppp_test {
         compile_test::test_input_functions();
         compile_test::test_interrupt_functions();
         compile_test::test_math_functions();
+        compile_test::test_easing_functions();
+        compile_test::test_sort_functions();
+        compile_test::test_debug_functions();
         compile_test::test_conversion_functions();
         compile_test::test_color_functions();
         compile_test::test_string_functions();

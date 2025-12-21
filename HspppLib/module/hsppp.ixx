@@ -1432,6 +1432,93 @@ namespace hsppp {
     export [[nodiscard]] double limitf(double p1, OptDouble p2 = {}, OptDouble p3 = {});
 
     // ============================================================
+    // イージング関数（HSP互換）
+    // ============================================================
+
+    // イージング計算式のタイプ定数
+    export inline constexpr int ease_linear         = 0;    ///< リニア（直線補間）
+    export inline constexpr int ease_quad_in        = 1;    ///< 加速（Quadratic）
+    export inline constexpr int ease_quad_out       = 2;    ///< 減速（Quadratic）
+    export inline constexpr int ease_quad_inout     = 3;    ///< 加速→減速（Quadratic）
+    export inline constexpr int ease_cubic_in       = 4;    ///< 加速（Cubic）
+    export inline constexpr int ease_cubic_out      = 5;    ///< 減速（Cubic）
+    export inline constexpr int ease_cubic_inout    = 6;    ///< 加速→減速（Cubic）
+    export inline constexpr int ease_quartic_in     = 7;    ///< 加速（Quartic）
+    export inline constexpr int ease_quartic_out    = 8;    ///< 減速（Quartic）
+    export inline constexpr int ease_quartic_inout  = 9;    ///< 加速→減速（Quartic）
+    export inline constexpr int ease_bounce_in      = 10;   ///< バウンス効果（入）
+    export inline constexpr int ease_bounce_out     = 11;   ///< バウンス効果（出）
+    export inline constexpr int ease_bounce_inout   = 12;   ///< バウンス効果（入出）
+    export inline constexpr int ease_shake_in       = 13;   ///< シェイク効果（入）
+    export inline constexpr int ease_shake_out      = 14;   ///< シェイク効果（出）
+    export inline constexpr int ease_shake_inout    = 15;   ///< シェイク効果（入出）
+    export inline constexpr int ease_loop           = 0x100; ///< 補間のループ（他タイプと加算可能）
+
+    /// @brief イージング関数の計算式を設定
+    /// @param p1 出力される最小値（実数値）
+    /// @param p2 出力される最大値（実数値）
+    /// @param p3 計算式のタイプ値（ease_*定数、省略時は前回値維持）
+    export void setease(double p1, double p2, OptInt p3 = {}, const std::source_location& location = std::source_location::current());
+
+    /// @brief イージング値を整数で取得
+    /// @param p1 時間経過値（0〜最大値）
+    /// @param p2 最大値（省略時は4096）
+    /// @return イージング計算結果（整数）
+    export [[nodiscard]] int getease(int p1, OptInt p2 = {}, const std::source_location& location = std::source_location::current());
+
+    /// @brief イージング値を実数で取得
+    /// @param p1 時間経過値（0.0〜最大値）
+    /// @param p2 最大値（省略時は1.0）
+    /// @return イージング計算結果（実数）
+    export [[nodiscard]] double geteasef(double p1, OptDouble p2 = {}, const std::source_location& location = std::source_location::current());
+
+    // ============================================================
+    // ソート関数（HSP互換）
+    // ============================================================
+
+    /// @brief 配列変数を数値でソート
+    /// @param arr ソート対象の整数配列（参照で直接変更）
+    /// @param order 並び順（0=小さい順、1=大きい順）
+    export void sortval(std::vector<int>& arr, OptInt order = {}, const std::source_location& location = std::source_location::current());
+
+    /// @brief 配列変数を数値でソート（double版）
+    /// @param arr ソート対象の実数配列（参照で直接変更）
+    /// @param order 並び順（0=小さい順、1=大きい順）
+    export void sortval(std::vector<double>& arr, OptInt order = {}, const std::source_location& location = std::source_location::current());
+
+    /// @brief 配列変数を文字列でソート
+    /// @param arr ソート対象の文字列配列（参照で直接変更）
+    /// @param order 並び順（0=小さい順、1=大きい順）
+    export void sortstr(std::vector<std::string>& arr, OptInt order = {}, const std::source_location& location = std::source_location::current());
+
+    /// @brief メモリノート文字列をソート
+    /// @param note ソート対象のメモリノート形式文字列（参照で直接変更）
+    /// @param order 並び順（0=小さい順、1=大きい順）
+    export void sortnote(std::string& note, OptInt order = {}, const std::source_location& location = std::source_location::current());
+
+    /// @brief ソート元のインデックスを取得
+    /// @param index 取得するインデックス番号
+    /// @return ソート前のインデックス値
+    export [[nodiscard]] int sortget(int index, const std::source_location& location = std::source_location::current());
+
+    // ============================================================
+    // デバッグ命令（HSP互換）
+    // ============================================================
+
+    /// @brief デバッグメッセージ送信
+    /// @param message ログに記録するメッセージ
+    /// @note Visual Studio Output に出力
+    export void logmes(std::string_view message, const std::source_location& location = std::source_location::current());
+
+    /// @brief デバッグメッセージ送信（int版）
+    /// @param value ログに記録する数値
+    export void logmes(int value, const std::source_location& location = std::source_location::current());
+
+    /// @brief デバッグメッセージ送信（double版）
+    /// @param value ログに記録する数値
+    export void logmes(double value, const std::source_location& location = std::source_location::current());
+
+    // ============================================================
     // 型変換関数（HSP互換）
     // ============================================================
 

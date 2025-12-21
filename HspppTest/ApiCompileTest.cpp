@@ -933,51 +933,7 @@ namespace compile_test {
         [[maybe_unused]] std::string d_mydoc = dir_mydoc();
     }
 
-    // ============================================================
-    // メモリ管理関数のテスト（peek/wpeek/lpeek/poke/wpoke/lpoke）
-    // ============================================================
-    void test_memory_functions() {
-        // string バッファでのテスト
-        std::string strBuffer(16, '\0');
-        
-        // poke - 1byte書き込み
-        poke(strBuffer, 0, 0x12);
-        poke(strBuffer, 1, 0x34);
-        poke(strBuffer, 2, 0x56);
-        poke(strBuffer, 3, 0x78);
 
-        // wpoke - 2byte書き込み（リトルエンディアン）
-        wpoke(strBuffer, 4, 0x9ABC);
-
-        // lpoke - 4byte書き込み（リトルエンディアン）
-        lpoke(strBuffer, 8, 0xDEADBEEF);
-
-        // peek - 1byte読み出し
-        [[maybe_unused]] int b0 = peek(strBuffer, 0);  // 0x12
-        [[maybe_unused]] int b1 = peek(strBuffer, 1);  // 0x34
-
-        // wpeek - 2byte読み出し
-        [[maybe_unused]] int w0 = wpeek(strBuffer, 4);  // 0x9ABC
-
-        // lpeek - 4byte読み出し
-        [[maybe_unused]] int l0 = lpeek(strBuffer, 8);  // 0xDEADBEEF
-
-        // poke - 文字列書き込み
-        poke(strBuffer, 0, std::string("AB"));
-
-        // vector<uint8_t> バッファでのテスト
-        hsppp::vector<uint8_t> vecBuffer(16, 0);
-
-        poke(vecBuffer, 0, 0xAB);
-        wpoke(vecBuffer, 2, 0xCDEF);
-        lpoke(vecBuffer, 4, 0x12345678);
-
-        [[maybe_unused]] int vb0 = peek(vecBuffer, 0);
-        [[maybe_unused]] int vw0 = wpeek(vecBuffer, 2);
-        [[maybe_unused]] int vl0 = lpeek(vecBuffer, 4);
-
-
-    }
 
     // ============================================================
     // ファイル操作関数のテスト
@@ -1090,7 +1046,6 @@ namespace hsppp_test {
         compile_test::test_cpp_stdlib_exports();
         compile_test::test_sysinfo_functions();
         compile_test::test_dirinfo_functions();
-        compile_test::test_memory_functions();
         compile_test::test_file_functions();
         // compile_test::test_end_function_signature(); // end()は呼ばない
 

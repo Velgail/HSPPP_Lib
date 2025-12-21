@@ -10,13 +10,28 @@ import <vector>;
 import <string>;
 using namespace hsppp;
 
-// ソートデモ用の共有データ（drawとactionで共有）
+// ソートデモ用の定数と共有データ
 namespace {
-    std::vector<int> g_sortIntArr = { 64, 34, 25, 12, 22, 11, 90, 45 };
-    std::vector<std::string> g_sortStrArr = { "Banana", "Apple", "Cherry", "Date", "Elderberry" };
-    std::string g_sortNoteData = "Zebra\nApple\nMango\nBanana\nCherry";
+    // 初期データ（定数として一元管理）
+    const std::vector<int> SORT_INIT_INT = { 64, 34, 25, 12, 22, 11, 90, 45 };
+    const std::vector<std::string> SORT_INIT_STR = { "Banana", "Apple", "Cherry", "Date", "Elderberry" };
+    const std::string SORT_INIT_NOTE = "Zebra\nApple\nMango\nBanana\nCherry";
+
+    // 共有状態（drawとactionで共有）
+    std::vector<int> g_sortIntArr = SORT_INIT_INT;
+    std::vector<std::string> g_sortStrArr = SORT_INIT_STR;
+    std::string g_sortNoteData = SORT_INIT_NOTE;
     bool g_sortDone = false;
     std::vector<int> g_sortOrigIndices;
+
+    // ソートデータをリセット
+    void resetSortData() {
+        g_sortIntArr = SORT_INIT_INT;
+        g_sortStrArr = SORT_INIT_STR;
+        g_sortNoteData = SORT_INIT_NOTE;
+        g_sortDone = false;
+        g_sortOrigIndices.clear();
+    }
 }
 
 void drawExtendedDemo(Screen& win) {
@@ -765,6 +780,7 @@ void drawExtendedDemo(Screen& win) {
             { ease_cubic_inout, "cubic_inout" },
             { ease_bounce_out, "bounce_out" },
         };
+        constexpr size_t easeTypesCount = sizeof(easeTypes) / sizeof(easeTypes[0]);
         
         win.font("MS Gothic", 11, 0);
         
@@ -775,9 +791,9 @@ void drawExtendedDemo(Screen& win) {
         int graphH = 80;
         int cols = 4;
         
-        for (int i = 0; i < 8; i++) {
-            int col = i % cols;
-            int row = i / cols;
+        for (size_t i = 0; i < easeTypesCount; i++) {
+            int col = static_cast<int>(i) % cols;
+            int row = static_cast<int>(i) / cols;
             int gx = baseX + col * (graphW + 30);
             int gy = baseY + row * (graphH + 50);
             
@@ -868,7 +884,7 @@ void drawExtendedDemo(Screen& win) {
         win.color(0, 0, 0).pos(20, 85);
         win.mes("ソート関数デモ: sortval, sortstr, sortnote, sortget");
         
-        // 共有変数 g_sortIntArr, g_sortStrArr, g_sortNoteData, g_sortDone, g_sortOrigIndices を使用
+        // 定数 SORT_INIT_* と共有変数 g_sort* を使用
         
         win.font("MS Gothic", 12, 1);
         
@@ -879,10 +895,9 @@ void drawExtendedDemo(Screen& win) {
         win.color(0, 0, 0).pos(50, 140);
         {
             std::string arrStr = "元データ: [";
-            std::vector<int> origArr = { 64, 34, 25, 12, 22, 11, 90, 45 };
-            for (size_t i = 0; i < origArr.size(); i++) {
+            for (size_t i = 0; i < SORT_INIT_INT.size(); i++) {
                 if (i > 0) arrStr += ", ";
-                arrStr += str(origArr[i]);
+                arrStr += str(SORT_INIT_INT[i]);
             }
             arrStr += "]";
             win.mes(arrStr);
@@ -1113,13 +1128,11 @@ void processExtendedAction(Screen& win) {
         break;
     
     case ExtendedDemo::Sorting: {
-        // 共有変数を使用
+        // resetSortData() と定数 SORT_INIT_* を使用
         
         if (getkey('S')) {
             // 昇順ソート
-            g_sortIntArr = { 64, 34, 25, 12, 22, 11, 90, 45 };
-            g_sortStrArr = { "Banana", "Apple", "Cherry", "Date", "Elderberry" };
-            g_sortNoteData = "Zebra\nApple\nMango\nBanana\nCherry";
+            resetSortData();
             
             // sortvalでソート（g_sortIndicesが更新される）
             sortval(g_sortIntArr, 0);
@@ -1139,9 +1152,7 @@ void processExtendedAction(Screen& win) {
         }
         if (getkey('D')) {
             // 降順ソート
-            g_sortIntArr = { 64, 34, 25, 12, 22, 11, 90, 45 };
-            g_sortStrArr = { "Banana", "Apple", "Cherry", "Date", "Elderberry" };
-            g_sortNoteData = "Zebra\nApple\nMango\nBanana\nCherry";
+            resetSortData();
             
             // sortvalでソート（g_sortIndicesが更新される）
             sortval(g_sortIntArr, 1);
@@ -1161,11 +1172,7 @@ void processExtendedAction(Screen& win) {
         }
         if (getkey('R')) {
             // リセット
-            g_sortIntArr = { 64, 34, 25, 12, 22, 11, 90, 45 };
-            g_sortStrArr = { "Banana", "Apple", "Cherry", "Date", "Elderberry" };
-            g_sortNoteData = "Zebra\nApple\nMango\nBanana\nCherry";
-            g_sortDone = false;
-            g_sortOrigIndices.clear();
+            resetSortData();
             g_actionLog = "データをリセットしました";
             await(200);
         }

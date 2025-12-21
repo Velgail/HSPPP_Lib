@@ -8,6 +8,8 @@ namespace {
     int g_easeType = 0;  // ease_linear
 
     // ソート関数のインデックス履歴
+    // NOTE: HSP互換性のため、最後にソートされた配列のインデックスをグローバルに保持
+    // sortget()は「最後に実行されたソート」の結果を返すHSPの仕様を再現している
     std::vector<int> g_sortIndices;
 }
 
@@ -18,6 +20,28 @@ namespace hsppp {
     // ============================================================
 
     namespace {
+        // バウンスイージング用定数
+        namespace bounce {
+            constexpr double N1 = 7.5625;
+            constexpr double D1 = 2.75;
+        }
+
+        // バウンスアウトの共通実装
+        double bounceOutImpl(double t) {
+            if (t < 1.0 / bounce::D1) {
+                return bounce::N1 * t * t;
+            } else if (t < 2.0 / bounce::D1) {
+                t -= 1.5 / bounce::D1;
+                return bounce::N1 * t * t + 0.75;
+            } else if (t < 2.5 / bounce::D1) {
+                t -= 2.25 / bounce::D1;
+                return bounce::N1 * t * t + 0.9375;
+            } else {
+                t -= 2.625 / bounce::D1;
+                return bounce::N1 * t * t + 0.984375;
+            }
+        }
+
         // 正規化された時間 t (0.0〜1.0) から補間値を計算
         double calculateEase(double t, int type) {
             // ループフラグの処理
@@ -84,96 +108,37 @@ namespace hsppp {
                         return 1.0 - 8.0 * t1 * t1 * t1 * t1;
                     }
 
-                case ease_bounce_in: {
-                    // バウンスインはバウンスアウトを反転
-                    double t1 = 1.0 - t;
-                    double bounce;
-                    if (t1 < 1.0 / 2.75) {
-                        bounce = 7.5625 * t1 * t1;
-                    } else if (t1 < 2.0 / 2.75) {
-                        t1 -= 1.5 / 2.75;
-                        bounce = 7.5625 * t1 * t1 + 0.75;
-                    } else if (t1 < 2.5 / 2.75) {
-                        t1 -= 2.25 / 2.75;
-                        bounce = 7.5625 * t1 * t1 + 0.9375;
-                    } else {
-                        t1 -= 2.625 / 2.75;
-                        bounce = 7.5625 * t1 * t1 + 0.984375;
-                    }
-                    return 1.0 - bounce;
-                }
+                case ease_bounce_in:
+                    return 1.0 - bounceOutImpl(1.0 - t);
 
-                case ease_bounce_out: {
-                    if (t < 1.0 / 2.75) {
-                        return 7.5625 * t * t;
-                    } else if (t < 2.0 / 2.75) {
-                        t -= 1.5 / 2.75;
-                        return 7.5625 * t * t + 0.75;
-                    } else if (t < 2.5 / 2.75) {
-                        t -= 2.25 / 2.75;
-                        return 7.5625 * t * t + 0.9375;
-                    } else {
-                        t -= 2.625 / 2.75;
-                        return 7.5625 * t * t + 0.984375;
-                    }
-                }
+                case ease_bounce_out:
+                    return bounceOutImpl(t);
 
-                case ease_bounce_inout: {
+                case ease_bounce_inout:
                     if (t < 0.5) {
-                        // 前半はbounce_in
-                        double t1 = 1.0 - 2.0 * t;
-                        double bounce;
-                        if (t1 < 1.0 / 2.75) {
-                            bounce = 7.5625 * t1 * t1;
-                        } else if (t1 < 2.0 / 2.75) {
-                            t1 -= 1.5 / 2.75;
-                            bounce = 7.5625 * t1 * t1 + 0.75;
-                        } else if (t1 < 2.5 / 2.75) {
-                            t1 -= 2.25 / 2.75;
-                            bounce = 7.5625 * t1 * t1 + 0.9375;
-                        } else {
-                            t1 -= 2.625 / 2.75;
-                            bounce = 7.5625 * t1 * t1 + 0.984375;
-                        }
-                        return (1.0 - bounce) * 0.5;
+                        return (1.0 - bounceOutImpl(1.0 - 2.0 * t)) * 0.5;
                     } else {
-                        // 後半はbounce_out
-                        double t1 = 2.0 * t - 1.0;
-                        double bounce;
-                        if (t1 < 1.0 / 2.75) {
-                            bounce = 7.5625 * t1 * t1;
-                        } else if (t1 < 2.0 / 2.75) {
-                            t1 -= 1.5 / 2.75;
-                            bounce = 7.5625 * t1 * t1 + 0.75;
-                        } else if (t1 < 2.5 / 2.75) {
-                            t1 -= 2.25 / 2.75;
-                            bounce = 7.5625 * t1 * t1 + 0.9375;
-                        } else {
-                            t1 -= 2.625 / 2.75;
-                            bounce = 7.5625 * t1 * t1 + 0.984375;
-                        }
-                        return bounce * 0.5 + 0.5;
+                        return bounceOutImpl(2.0 * t - 1.0) * 0.5 + 0.5;
                     }
-                }
 
                 case ease_shake_in: {
                     // シェイク効果（振動しながら収束）
                     double amplitude = 1.0 - t;
-                    double frequency = 10.0;
+                    constexpr double frequency = 10.0;
                     return t + amplitude * std::sin(t * frequency * M_PI) * 0.1;
                 }
 
                 case ease_shake_out: {
                     // シェイク効果（振動しながら減衰）
                     double amplitude = t;
-                    double frequency = 10.0;
+                    constexpr double frequency = 10.0;
                     return t + (1.0 - amplitude) * std::sin(t * frequency * M_PI) * 0.1;
                 }
 
                 case ease_shake_inout: {
                     // シェイク効果（中央でピーク）
                     double amplitude = t < 0.5 ? t : (1.0 - t);
-                    double frequency = 10.0;
+                    constexpr double frequency = 10.0;
                     return t + amplitude * std::sin(t * frequency * M_PI) * 0.1;
                 }
 
@@ -222,91 +187,51 @@ namespace hsppp {
     // ソート関数の実装
     // ============================================================
 
+    namespace {
+        // ソート共通実装（インデックスソート方式で効率化）
+        template<typename T>
+        void sortImpl(std::vector<T>& arr, bool descending) {
+            size_t n = arr.size();
+            
+            // インデックス配列を作成
+            std::vector<int> indices(n);
+            for (size_t i = 0; i < n; ++i) {
+                indices[i] = static_cast<int>(i);
+            }
+            
+            // インデックスをソート
+            if (descending) {
+                std::sort(indices.begin(), indices.end(),
+                    [&arr](int a, int b) { return arr[a] > arr[b]; });
+            } else {
+                std::sort(indices.begin(), indices.end(),
+                    [&arr](int a, int b) { return arr[a] < arr[b]; });
+            }
+            
+            // ソート結果の配列を作成（moveで効率化）
+            std::vector<T> sorted;
+            sorted.reserve(n);
+            g_sortIndices.resize(n);
+            
+            for (size_t i = 0; i < n; ++i) {
+                sorted.push_back(std::move(arr[indices[i]]));
+                g_sortIndices[i] = indices[i];
+            }
+            
+            arr = std::move(sorted);
+        }
+    }
+
     void sortval(std::vector<int>& arr, OptInt order, const std::source_location& location) {
-        bool descending = order.value_or(0) == 1;
-
-        // インデックスの初期化
-        size_t n = arr.size();
-        g_sortIndices.resize(n);
-        for (size_t i = 0; i < n; ++i) {
-            g_sortIndices[i] = static_cast<int>(i);
-        }
-
-        // ペアでソート（値とインデックス）
-        std::vector<std::pair<int, int>> pairs(n);
-        for (size_t i = 0; i < n; ++i) {
-            pairs[i] = { arr[i], static_cast<int>(i) };
-        }
-
-        if (descending) {
-            std::sort(pairs.begin(), pairs.end(),
-                [](const auto& a, const auto& b) { return a.first > b.first; });
-        } else {
-            std::sort(pairs.begin(), pairs.end(),
-                [](const auto& a, const auto& b) { return a.first < b.first; });
-        }
-
-        // 結果を反映
-        for (size_t i = 0; i < n; ++i) {
-            arr[i] = pairs[i].first;
-            g_sortIndices[i] = pairs[i].second;
-        }
+        sortImpl(arr, order.value_or(0) == 1);
     }
 
     void sortval(std::vector<double>& arr, OptInt order, const std::source_location& location) {
-        bool descending = order.value_or(0) == 1;
-
-        size_t n = arr.size();
-        g_sortIndices.resize(n);
-        for (size_t i = 0; i < n; ++i) {
-            g_sortIndices[i] = static_cast<int>(i);
-        }
-
-        std::vector<std::pair<double, int>> pairs(n);
-        for (size_t i = 0; i < n; ++i) {
-            pairs[i] = { arr[i], static_cast<int>(i) };
-        }
-
-        if (descending) {
-            std::sort(pairs.begin(), pairs.end(),
-                [](const auto& a, const auto& b) { return a.first > b.first; });
-        } else {
-            std::sort(pairs.begin(), pairs.end(),
-                [](const auto& a, const auto& b) { return a.first < b.first; });
-        }
-
-        for (size_t i = 0; i < n; ++i) {
-            arr[i] = pairs[i].first;
-            g_sortIndices[i] = pairs[i].second;
-        }
+        sortImpl(arr, order.value_or(0) == 1);
     }
 
     void sortstr(std::vector<std::string>& arr, OptInt order, const std::source_location& location) {
-        bool descending = order.value_or(0) == 1;
-
-        size_t n = arr.size();
-        g_sortIndices.resize(n);
-        for (size_t i = 0; i < n; ++i) {
-            g_sortIndices[i] = static_cast<int>(i);
-        }
-
-        std::vector<std::pair<std::string, int>> pairs(n);
-        for (size_t i = 0; i < n; ++i) {
-            pairs[i] = { arr[i], static_cast<int>(i) };
-        }
-
-        if (descending) {
-            std::sort(pairs.begin(), pairs.end(),
-                [](const auto& a, const auto& b) { return a.first > b.first; });
-        } else {
-            std::sort(pairs.begin(), pairs.end(),
-                [](const auto& a, const auto& b) { return a.first < b.first; });
-        }
-
-        for (size_t i = 0; i < n; ++i) {
-            arr[i] = pairs[i].first;
-            g_sortIndices[i] = pairs[i].second;
-        }
+        sortImpl(arr, order.value_or(0) == 1);
     }
 
     void sortnote(std::string& note, OptInt order, const std::source_location& location) {
@@ -316,10 +241,23 @@ namespace hsppp {
         // sortstrを使ってソート
         sortstr(lines, order, location);
 
-        // 再度メモリノート形式に結合
+        // 再度メモリノート形式に結合（reserveで効率化）
+        if (lines.empty()) {
+            note.clear();
+            return;
+        }
+        
+        size_t totalSize = 0;
+        for (const auto& line : lines) {
+            totalSize += line.size();
+        }
+        totalSize += lines.size() - 1;  // 改行文字分
+        
         note.clear();
-        for (size_t i = 0; i < lines.size(); ++i) {
-            if (i > 0) note += "\n";
+        note.reserve(totalSize);
+        note += lines[0];
+        for (size_t i = 1; i < lines.size(); ++i) {
+            note += '\n';
             note += lines[i];
         }
     }

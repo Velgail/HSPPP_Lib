@@ -85,6 +85,7 @@ namespace hsppp {
         auto surface = getSurfaceById(m_id);
         if (surface) {
             g_currentSurface = surface;
+            g_currentScreenId = m_id;  // GUI命令用にIDを保持
         }
         return *this;
     }

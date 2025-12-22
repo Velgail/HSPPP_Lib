@@ -1171,6 +1171,94 @@ namespace compile_test {
         dialog("", dialog_color);
     }
 
+    // ============================================================
+    // GUI オブジェクト命令のテスト
+    // ============================================================
+    void test_gui_object_functions() {
+        // objmode定数
+        [[maybe_unused]] int om0 = objmode_normal;
+        [[maybe_unused]] int om1 = objmode_guifont;
+        [[maybe_unused]] int om2 = objmode_usefont;
+        [[maybe_unused]] int om3 = objmode_usecolor;
+
+        // objsize - オブジェクトサイズ設定
+        objsize(100, 30);
+        objsize(100, 30, 10);
+        objsize();  // デフォルト値に戻す
+
+        // objmode - オブジェクトモード設定
+        objmode(objmode_guifont);
+        objmode(objmode_guifont, 1);
+        objmode();  // デフォルト値
+
+        // objcolor - オブジェクトのカラー設定
+        objcolor(0, 0, 0);
+        objcolor(255, 255, 255);
+        objcolor();
+
+        // button - ボタン表示（コールバック付き）
+        [[maybe_unused]] int btnId = button("Test Button", []() { return 0; });
+        [[maybe_unused]] int btnId2 = button("Gosub Button", []() { return 1; }, true);
+
+        // input - 入力ボックス表示（文字列）
+        std::string strVar = "initial";
+        [[maybe_unused]] int inputId1 = input(strVar);
+        [[maybe_unused]] int inputId2 = input(strVar, 200);
+        [[maybe_unused]] int inputId3 = input(strVar, 200, 30);
+        [[maybe_unused]] int inputId4 = input(strVar, 200, 30, 256);
+
+        // input - 入力ボックス表示（整数）
+        int intVar = 42;
+        [[maybe_unused]] int inputId5 = input(intVar);
+        [[maybe_unused]] int inputId6 = input(intVar, 100, 25, 10);
+
+        // mesbox - メッセージボックス表示
+        std::string mesboxVar = "Line1\nLine2\nLine3";
+        [[maybe_unused]] int mesboxId1 = mesbox(mesboxVar);
+        [[maybe_unused]] int mesboxId2 = mesbox(mesboxVar, 300, 200);
+        [[maybe_unused]] int mesboxId3 = mesbox(mesboxVar, 300, 200, 1);  // 編集可能
+        [[maybe_unused]] int mesboxId4 = mesbox(mesboxVar, 300, 200, 0);  // 読取専用
+        [[maybe_unused]] int mesboxId5 = mesbox(mesboxVar, 300, 200, 5, 1000); // 横スクロール付き
+
+        // chkbox - チェックボックス表示
+        int checkState = 0;
+        [[maybe_unused]] int chkboxId = chkbox("Check me", checkState);
+
+        // combox - コンボボックス表示
+        int comboxState = 0;
+        [[maybe_unused]] int comboxId1 = combox(comboxState, 100, "Item1\nItem2\nItem3");
+        [[maybe_unused]] int comboxId2 = combox(comboxState, omit, "A\nB\nC");
+
+        // listbox - リストボックス表示
+        int listboxState = 0;
+        [[maybe_unused]] int listboxId1 = listbox(listboxState, 100, "Entry1\nEntry2\nEntry3");
+        [[maybe_unused]] int listboxId2 = listbox(listboxState, omit, "X\nY\nZ");
+
+        // objprm - オブジェクトの内容を変更
+        objprm(btnId, "New Label");
+        objprm(inputId5, 123);
+
+        // objsel - オブジェクトに入力フォーカスを設定
+        objsel(inputId1);
+        [[maybe_unused]] int focusedId = objsel(-1);  // 現在のフォーカスを取得
+
+        // objenable - オブジェクトの有効・無効を設定
+        objenable(btnId, 0);  // 無効化
+        objenable(btnId, 1);  // 有効化
+        objenable(btnId);     // デフォルト（有効）
+
+        // objskip - オブジェクトのフォーカス移動モードを設定
+        objskip(inputId1, 1);  // 移動可能
+        objskip(inputId1, 2);  // 移動不可
+        objskip(inputId1, 3);  // スキップ
+        objskip(inputId1);     // デフォルト
+
+        // clrobj - オブジェクトをクリア
+        clrobj();              // すべてクリア
+        clrobj(0);             // ID 0からクリア
+        clrobj(0, 5);          // ID 0〜5をクリア
+    }
+
 }  // namespace compile_test
 
 // ============================================================
@@ -1221,6 +1309,7 @@ namespace hsppp_test {
         compile_test::test_sysinfo_functions();
         compile_test::test_dirinfo_functions();
         compile_test::test_file_functions();
+        compile_test::test_gui_object_functions();
         // compile_test::test_end_function_signature(); // end()は呼ばない
 
         return true;

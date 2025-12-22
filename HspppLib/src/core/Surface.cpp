@@ -1423,6 +1423,32 @@ void HspWindow::setScroll(int x, int y) {
     m_scrollY = (std::max)(0, (std::min)(y, m_height - 1));
 }
 
+void HspWindow::onSize(int newWidth, int newHeight) {
+    // ウィンドウサイズ変更時の処理
+    if (newWidth < 1) newWidth = 1;
+    if (newHeight < 1) newHeight = 1;
+    
+    // HSP仕様：クライアントサイズはバッファサイズ（m_width, m_height）以下にクランプ
+    newWidth = (std::min)(newWidth, m_width);
+    newHeight = (std::min)(newHeight, m_height);
+
+    // スワップチェーンをリサイズ（描画中の場合は一旦終了）
+    bool wasDrawing = m_isDrawing;
+    if (wasDrawing) {
+        endDraw();
+    }
+
+    if (resizeSwapChain(newWidth, newHeight)) {
+        m_clientWidth = newWidth;
+        m_clientHeight = newHeight;
+    }
+
+    // 描画を再開
+    if (wasDrawing) {
+        beginDraw();
+    }
+}
+
 bool HspWindow::resizeSwapChain(int newWidth, int newHeight) {
     if (!m_pSwapChain || !m_pDeviceContext) return false;
 

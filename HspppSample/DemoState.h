@@ -17,7 +17,8 @@ enum class DemoCategory {
     Basic,      // 基本デモ (1-9)
     Extended,   // 拡張デモ (Ctrl + 1-8)
     Image,      // 画像デモ (Shift + 1-3)
-    Interrupt   // 割り込みデモ (Alt + 1-3)
+    Interrupt,  // 割り込みデモ (Alt + 1-3)
+    GUI         // GUIデモ (Win + 1-2)
 };
 
 enum class BasicDemo {
@@ -65,6 +66,12 @@ enum class InterruptDemo {
     OnExit,         // Alt+3: 終了割り込み
     OnCmd,          // Alt+4: Windowsメッセージ割り込み
     OnError,        // Alt+5: エラーハンドリング
+    COUNT
+};
+
+enum class GUIDemo {
+    Button = 0,     // Win+1: ボタン・入力系
+    ChoiceBox,      // Win+2: チェック・コンボ・リスト
     COUNT
 };
 
@@ -129,6 +136,16 @@ extern bool g_errorHandlerEnabled;
 extern int g_lastErrorCode;
 extern std::string g_lastErrorMessage;
 
+// GUIデモ用変数
+extern bool g_guiObjectsCreated;
+extern int g_buttonClickCount;
+extern std::string g_inputText;
+extern int g_inputNumber;
+extern std::string g_mesboxText;
+extern int g_checkState;
+extern int g_comboxState;
+extern int g_listboxState;
+
 // アクション実行結果表示用
 extern std::string g_actionLog;
 
@@ -152,12 +169,17 @@ void drawBasicDemo(hsppp::Screen& win);
 void drawExtendedDemo(hsppp::Screen& win);
 void drawImageDemo(hsppp::Screen& win);
 void drawInterruptDemo(hsppp::Screen& win);
+void drawGUIDemo(hsppp::Screen& win);
 
 // アクション処理関数（各デモ固有の入力処理）
 void processBasicAction(hsppp::Screen& win);
 void processExtendedAction(hsppp::Screen& win);
 void processImageAction(hsppp::Screen& win);
 void processInterruptAction(hsppp::Screen& win);
+void processGUIAction(hsppp::Screen& win);
+
+// GUIオブジェクトクリア関数
+void clearGUIObjects();
 
 // デモ切り替え時のリセット処理
 void onDemoChanged(hsppp::Screen& win);

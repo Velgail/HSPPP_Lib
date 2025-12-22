@@ -81,6 +81,15 @@ namespace {
         return nullptr;
     }
 
+    // 生のSurfaceポインタを取得（GUI命令用）
+    HspSurface* getSurface(int id) {
+        auto ptr = getSurfaceById(id);
+        return ptr.get();
+    }
+
+    // 現在のスクリーンIDを保持（GUI命令用）
+    int g_currentScreenId = 0;
+
     // 遅延初期化: カレントサーフェスがなければデフォルトウィンドウを作成
     void ensureDefaultScreen() {
         auto current = g_currentSurface.lock();
@@ -120,6 +129,7 @@ namespace {
 #include "hsppp_system.inl"
 #include "hsppp_file.inl"
 #include "hsppp_easing.inl"
+#include "hsppp_gui.inl"
 
 // ============================================================
 // init_system / close_system

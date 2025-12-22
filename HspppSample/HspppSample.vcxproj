@@ -144,6 +144,7 @@
   <ItemGroup>
     <ClCompile Include="DemoDrawBasic.cpp" />
     <ClCompile Include="DemoDrawExtended.cpp" />
+    <ClCompile Include="DemoDrawGUI.cpp" />
     <ClCompile Include="DemoDrawImage.cpp" />
     <ClCompile Include="DemoDrawInterrupt.cpp" />
     <ClCompile Include="UserApp.cpp" />

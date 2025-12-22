@@ -178,6 +178,93 @@ LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
         }
         return 0;
 
+    // ウィンドウサイズ変更
+    case WM_SIZE:
+    {
+        if (wParam != SIZE_MINIMIZED) {
+            const auto pWindow = reinterpret_cast<HspWindow*>(
+                GetWindowLongPtr(hwnd, GWLP_USERDATA));
+            if (pWindow != nullptr) {
+                int newWidth = LOWORD(lParam);
+                int newHeight = HIWORD(lParam);
+                pWindow->onSize(newWidth, newHeight);
+            }
+        }
+        return 0;
+    }
+
+    // ウィンドウの最大/最小サイズ制限（HSP仕様：バッファサイズがリミッター）
+    case WM_GETMINMAXINFO:
+    {
+        const auto pWindow = reinterpret_cast<HspWindow*>(
+            GetWindowLongPtr(hwnd, GWLP_USERDATA));
+        if (pWindow != nullptr) {
+            auto pMinMax = reinterpret_cast<MINMAXINFO*>(lParam);
+            
+            // バッファサイズ（m_width, m_height）を最大クライアントサイズとする
+            int maxClientW = pWindow->getWidth();
+            int maxClientH = pWindow->getHeight();
+            
+            // クライアントサイズからウィンドウサイズを計算
+            DWORD style = static_cast<DWORD>(GetWindowLongPtr(hwnd, GWL_STYLE));
+            DWORD exStyle = static_cast<DWORD>(GetWindowLongPtr(hwnd, GWL_EXSTYLE));
+            RECT rect = { 0, 0, maxClientW, maxClientH };
+            AdjustWindowRectEx(&rect, style, FALSE, exStyle);
+            
+            pMinMax->ptMaxTrackSize.x = rect.right - rect.left;
+            pMinMax->ptMaxTrackSize.y = rect.bottom - rect.top;
+        }
+        return 0;
+    }
+
+    // GUIコントロールからの通知（ボタンクリック、コンボボックス変更等）
+    case WM_COMMAND:
+    {
+        WORD notifyCode = HIWORD(wParam);
+        WORD controlId = LOWORD(wParam);
+        HWND hwndControl = reinterpret_cast<HWND>(lParam);
+        
+        // ObjectManagerからオブジェクトを検索してコールバックを実行
+        auto& objMgr = ObjectManager::getInstance();
+        int objectId = objMgr.findObjectByHwnd(hwndControl);
+        if (objectId >= 0) {
+            ObjectInfo* pInfo = objMgr.getObject(objectId);
+            if (pInfo) {
+                // ボタンクリック
+                if (pInfo->type == ObjectType::Button && notifyCode == BN_CLICKED) {
+                    if (pInfo->callback) {
+                        pInfo->callback();
+                    }
+                }
+                // チェックボックス状態変更
+                else if (pInfo->type == ObjectType::Chkbox && notifyCode == BN_CLICKED) {
+                    int* pVar = pInfo->getStateVar();
+                    if (pVar) {
+                        LRESULT state = SendMessageW(hwndControl, BM_GETCHECK, 0, 0);
+                        *pVar = (state == BST_CHECKED) ? 1 : 0;
+                    }
+                }
+                // コンボボックス選択変更
+                else if (pInfo->type == ObjectType::Combox && notifyCode == CBN_SELCHANGE) {
+                    int* pVar = pInfo->getStateVar();
+                    if (pVar) {
+                        LRESULT sel = SendMessageW(hwndControl, CB_GETCURSEL, 0, 0);
+                        *pVar = static_cast<int>(sel);
+                    }
+                }
+                // リストボックス選択変更
+                else if (pInfo->type == ObjectType::Listbox && notifyCode == LBN_SELCHANGE) {
+                    int* pVar = pInfo->getStateVar();
+                    if (pVar) {
+                        LRESULT sel = SendMessageW(hwndControl, LB_GETCURSEL, 0, 0);
+                        *pVar = static_cast<int>(sel);
+                    }
+                }
+            }
+        }
+        return 0;
+    }
+
     default:
         return DefWindowProc(hwnd, uMsg, wParam, lParam);
     }

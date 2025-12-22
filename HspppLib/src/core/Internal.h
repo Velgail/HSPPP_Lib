@@ -15,6 +15,7 @@
 #include <string_view>
 #include <memory>
 #include <map>
+#include <functional>
 
 // COMスマートポインタのエイリアス
 template<typename T>
@@ -45,6 +46,154 @@ struct CelData {
     std::string filename;              // ファイル名（再利用チェック用）
     
     CelData() : width(0), height(0), divX(0), divY(0), centerX(0), centerY(0) {}
+};
+
+// ============================================================
+// GUIオブジェクト管理構造体（buttonシリーズ用）
+// ============================================================
+
+/// @brief オブジェクトの種類
+enum class ObjectType {
+    None = 0,
+    Button,         // ボタン
+    Input,          // 入力ボックス (単行)
+    Mesbox,         // メッセージボックス (複数行)
+    Chkbox,         // チェックボックス
+    Combox,         // コンボボックス
+    Listbox,        // リストボックス
+};
+
+/// @brief オブジェクト情報構造体
+/// @warning pStrVar, pIntVar, pStateVar は変数のアドレスを保持するため、
+///          元の変数がスコープを抜けるとダングリングポインタになります。
+///          安全に使用するには ownedStrVar/ownedIntVar/ownedStateVar を使用してください。
+struct ObjectInfo {
+    ObjectType type;              // オブジェクトの種類
+    HWND hwnd;                    // Win32コントロールのハンドル
+    int windowId;                 // 所属するウィンドウID
+    int x, y;                     // 配置位置
+    int width, height;            // サイズ
+    
+    // button用
+    std::function<int()> callback;  // コールバック関数
+    bool isGosub;                 // gosub/goto 切り替え
+    
+    // input/mesbox用: 生ポインタ版（後方互換、ユーザー責任でライフタイム管理）
+    std::string* pStrVar;         // 文字列変数へのポインタ（グローバル/static変数のみ使用可）
+    int* pIntVar;                 // 整数変数へのポインタ（グローバル/static変数のみ使用可）
+    int maxLength;                // 最大文字数
+    
+    // input/mesbox用: 安全版（shared_ptrでライフタイム管理）
+    std::shared_ptr<std::string> ownedStrVar;
+    std::shared_ptr<int> ownedIntVar;
+    
+    // chkbox/combox/listbox用: 生ポインタ版
+    int* pStateVar;               // 状態変数へのポインタ（グローバル/static変数のみ使用可）
+    
+    // chkbox/combox/listbox用: 安全版
+    std::shared_ptr<int> ownedStateVar;
+    
+    // 有効/無効、フォーカススキップ
+    bool enabled;
+    int focusSkipMode;            // 1=移動可能, 2=移動不可, 3=スキップ, +4=全選択
+    
+    ObjectInfo() 
+        : type(ObjectType::None)
+        , hwnd(nullptr)
+        , windowId(-1)
+        , x(0), y(0)
+        , width(64), height(24)
+        , isGosub(false)
+        , pStrVar(nullptr)
+        , pIntVar(nullptr)
+        , maxLength(0)
+        , pStateVar(nullptr)
+        , enabled(true)
+        , focusSkipMode(1)
+    {}
+    
+    /// @brief 文字列変数へのポインタを取得（安全版優先）
+    std::string* getStrVar() const {
+        return ownedStrVar ? ownedStrVar.get() : pStrVar;
+    }
+    
+    /// @brief 整数変数へのポインタを取得（安全版優先）
+    int* getIntVar() const {
+        return ownedIntVar ? ownedIntVar.get() : pIntVar;
+    }
+    
+    /// @brief 状態変数へのポインタを取得（安全版優先）
+    int* getStateVar() const {
+        return ownedStateVar ? ownedStateVar.get() : pStateVar;
+    }
+};
+
+/// @brief オブジェクトマネージャー（シングルトン）
+class ObjectManager {
+private:
+    std::map<int, ObjectInfo> m_objects;  // オブジェクトID -> ObjectInfo
+    std::map<HWND, int> m_hwndMap;        // HWND -> オブジェクトIDの逆引きマップ
+    int m_nextId;
+    
+    // 現在のオブジェクトサイズ設定 (objsize)
+    int m_objSizeX;
+    int m_objSizeY;
+    int m_objSpaceY;    // Y方向の行間
+    
+    // objmode設定
+    int m_fontMode;     // 0=HSP標準, 1=GUIフォント, 2=font命令のフォント, 4=color使用
+    bool m_tabEnabled;  // TABキーでのフォーカス移動
+    
+    // objcolor設定
+    int m_objColorR, m_objColorG, m_objColorB;
+    
+    ObjectManager();
+    ~ObjectManager();
+    
+    ObjectManager(const ObjectManager&) = delete;
+    ObjectManager& operator=(const ObjectManager&) = delete;
+
+public:
+    static ObjectManager& getInstance();
+    
+    /// @brief オブジェクトを登録
+    /// @return 割り当てられたオブジェクトID
+    int registerObject(const ObjectInfo& info);
+    
+    /// @brief オブジェクトを取得
+    ObjectInfo* getObject(int objectId);
+    
+    /// @brief オブジェクトを削除
+    void removeObject(int objectId);
+    
+    /// @brief 指定範囲のオブジェクトを削除
+    void removeObjects(int startId, int endId);
+    
+    /// @brief 指定ウィンドウのオブジェクトをすべて削除
+    void removeObjectsByWindow(int windowId);
+    
+    /// @brief HWNDからオブジェクトIDを検索
+    int findObjectByHwnd(HWND hwnd);
+    
+    /// @brief オブジェクトサイズを設定
+    void setObjSize(int x, int y, int spaceY);
+    
+    /// @brief オブジェクトサイズを取得
+    void getObjSize(int& x, int& y, int& spaceY) const;
+    
+    /// @brief objmode設定
+    void setObjMode(int fontMode, int tabEnabled);
+    void getObjMode(int& fontMode, bool& tabEnabled) const;
+    
+    /// @brief objcolor設定
+    void setObjColor(int r, int g, int b);
+    void getObjColor(int& r, int& g, int& b) const;
+    
+    /// @brief 設定をリセット（screen/cls時に呼ばれる）
+    void resetSettings();
+    
+    /// @brief 次のオブジェクトIDを取得（内部用）
+    int getNextId() const { return m_nextId; }
 };
 
 // Direct2D 1.1 デバイスマネージャー（シングルトン）
@@ -245,6 +394,9 @@ public:
 
     // 現在のクライアントサイズを取得（width関数用）
     void getCurrentClientSize(int& outWidth, int& outHeight) const;
+    
+    // WM_SIZE処理（ウィンドウリサイズ時の処理）
+    void onSize(int newWidth, int newHeight);
     
 private:
     // スワップチェーンをリサイズ（内部用）

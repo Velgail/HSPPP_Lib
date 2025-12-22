@@ -1881,6 +1881,172 @@ namespace hsppp {
                      const std::source_location& location = std::source_location::current());
 
     // ============================================================
+    // GUIオブジェクト制御命令（HSP互換）
+    // ============================================================
+
+    // --- objmode定数 ---
+    export inline constexpr int objmode_normal    = 0;    ///< HSP標準フォントを使用
+    export inline constexpr int objmode_guifont   = 1;    ///< デフォルトGUIフォントを使用
+    export inline constexpr int objmode_usefont   = 2;    ///< font命令で選択されているフォントを使用
+    export inline constexpr int objmode_usecolor  = 4;    ///< color命令/objcolor命令の色を使用
+
+    /// @brief オブジェクトサイズ設定
+    /// @param sizeX オブジェクトのX方向のサイズ（ドット単位、デフォルト: 64）
+    /// @param sizeY オブジェクトのY方向のサイズ（ドット単位、デフォルト: 24）
+    /// @param spaceY Y方向の最低確保行サイズ（デフォルト: 0）
+    export void objsize(OptInt sizeX = {}, OptInt sizeY = {}, OptInt spaceY = {},
+                       const std::source_location& location = std::source_location::current());
+
+    /// @brief オブジェクトモード設定
+    /// @param mode フォント設定モード (objmode_* 定数)
+    /// @param tabMove TABキーフォーカス移動 (0=無効, 1=有効、省略時は変更なし)
+    export void objmode(OptInt mode = {}, OptInt tabMove = {},
+                       const std::source_location& location = std::source_location::current());
+
+    /// @brief オブジェクトのカラー設定
+    /// @param r 赤輝度 (0〜255)
+    /// @param g 緑輝度 (0〜255)
+    /// @param b 青輝度 (0〜255)
+    export void objcolor(OptInt r = {}, OptInt g = {}, OptInt b = {},
+                        const std::source_location& location = std::source_location::current());
+
+    /// @brief ボタン表示
+    /// @param name ボタンの名前
+    /// @param callback 押した時に呼ばれるコールバック関数
+    /// @param isGosub gosub形式かどうか (true=gosub, false=goto)
+    /// @return オブジェクトID (stat相当)
+    export int button(std::string_view name, std::function<int()> callback, bool isGosub = false,
+                     const std::source_location& location = std::source_location::current());
+
+    /// @brief 入力ボックス表示
+    /// @param var 入力のための文字列変数（参照）
+    /// @param sizeX メッセージボックスのXサイズ（省略時はobjsizeに従う）
+    /// @param sizeY メッセージボックスのYサイズ（省略時はobjsizeに従う）
+    /// @param maxLen 入力できる最大文字数（省略時は変数サイズに従う）
+    /// @return オブジェクトID (stat相当)
+    export int input(std::string& var, OptInt sizeX = {}, OptInt sizeY = {}, OptInt maxLen = {},
+                    const std::source_location& location = std::source_location::current());
+
+    /// @brief 入力ボックス表示（整数変数版）
+    /// @param var 入力のための整数変数（参照）
+    /// @param sizeX メッセージボックスのXサイズ（省略時はobjsizeに従う）
+    /// @param sizeY メッセージボックスのYサイズ（省略時はobjsizeに従う）
+    /// @param maxLen 入力できる最大文字数（省略時は32）
+    /// @return オブジェクトID (stat相当)
+    export int input(int& var, OptInt sizeX = {}, OptInt sizeY = {}, OptInt maxLen = {},
+                    const std::source_location& location = std::source_location::current());
+
+    /// @brief メッセージボックス表示
+    /// @param var 表示メッセージが代入された文字列型変数
+    /// @param sizeX メッセージボックスのXサイズ（省略時はobjsizeに従う）
+    /// @param sizeY メッセージボックスのYサイズ（省略時はobjsizeに従う）
+    /// @param style スタイル (0=読取専用, 1=編集可能, +4=横スクロールバー, +8=自動ラップ無効)
+    /// @param maxLen 入力できる最大文字数（省略時は変数サイズ、0で最大）
+    /// @return オブジェクトID (stat相当)
+    export int mesbox(std::string& var, OptInt sizeX = {}, OptInt sizeY = {}, OptInt style = {}, OptInt maxLen = {},
+                     const std::source_location& location = std::source_location::current());
+
+    /// @brief チェックボックス表示
+    /// @param label チェックボックスの内容表示文字列
+    /// @param var チェックボックスの状態を保持する変数（0=OFF, 1=ON）
+    /// @return オブジェクトID (stat相当)
+    export int chkbox(std::string_view label, int& var,
+                     const std::source_location& location = std::source_location::current());
+
+    /// @brief コンボボックス表示
+    /// @param var コンボボックスの状態を保持する変数（選択インデックス）
+    /// @param expandY 拡張Yサイズ（リスト表示用、100〜150程度推奨）
+    /// @param items コンボボックスの内容（\n区切りの文字列）
+    /// @return オブジェクトID (stat相当)
+    export int combox(int& var, OptInt expandY, std::string_view items,
+                     const std::source_location& location = std::source_location::current());
+
+    /// @brief リストボックス表示
+    /// @param var リストボックスの状態を保持する変数（選択インデックス）
+    /// @param expandY 拡張Yサイズ
+    /// @param items リストボックスの内容（\n区切りの文字列）
+    /// @return オブジェクトID (stat相当)
+    export int listbox(int& var, OptInt expandY, std::string_view items,
+                      const std::source_location& location = std::source_location::current());
+
+    // ============================================================
+    // 安全なAPI: shared_ptr版（ライフタイムが自動管理される）
+    // ============================================================
+
+    /// @brief 入力ボックス表示（安全版：shared_ptrで変数のライフタイムを管理）
+    /// @param var 入力のための文字列変数（shared_ptr）
+    /// @return オブジェクトID (stat相当)
+    export int input(std::shared_ptr<std::string> var, OptInt sizeX = {}, OptInt sizeY = {}, OptInt maxLen = {},
+                    const std::source_location& location = std::source_location::current());
+
+    /// @brief 入力ボックス表示（安全版：shared_ptrで変数のライフタイムを管理）
+    /// @param var 入力のための整数変数（shared_ptr）
+    /// @return オブジェクトID (stat相当)
+    export int input(std::shared_ptr<int> var, OptInt sizeX = {}, OptInt sizeY = {}, OptInt maxLen = {},
+                    const std::source_location& location = std::source_location::current());
+
+    /// @brief メッセージボックス表示（安全版：shared_ptrで変数のライフタイムを管理）
+    /// @param var 表示メッセージが代入された文字列型変数（shared_ptr）
+    /// @return オブジェクトID (stat相当)
+    export int mesbox(std::shared_ptr<std::string> var, OptInt sizeX = {}, OptInt sizeY = {}, OptInt style = {}, OptInt maxLen = {},
+                     const std::source_location& location = std::source_location::current());
+
+    /// @brief チェックボックス表示（安全版：shared_ptrで変数のライフタイムを管理）
+    /// @param label チェックボックスの内容表示文字列
+    /// @param var チェックボックスの状態を保持する変数（shared_ptr）
+    /// @return オブジェクトID (stat相当)
+    export int chkbox(std::string_view label, std::shared_ptr<int> var,
+                     const std::source_location& location = std::source_location::current());
+
+    /// @brief コンボボックス表示（安全版：shared_ptrで変数のライフタイムを管理）
+    /// @param var コンボボックスの状態を保持する変数（shared_ptr）
+    /// @return オブジェクトID (stat相当)
+    export int combox(std::shared_ptr<int> var, OptInt expandY, std::string_view items,
+                     const std::source_location& location = std::source_location::current());
+
+    /// @brief リストボックス表示（安全版：shared_ptrで変数のライフタイムを管理）
+    /// @param var リストボックスの状態を保持する変数（shared_ptr）
+    /// @return オブジェクトID (stat相当)
+    export int listbox(std::shared_ptr<int> var, OptInt expandY, std::string_view items,
+                      const std::source_location& location = std::source_location::current());
+
+    /// @brief オブジェクトをクリア
+    /// @param startId 消去するオブジェクトID(開始)（省略時は0）
+    /// @param endId 消去するオブジェクトID(終了)（省略/-1で最終IDまで）
+    export void clrobj(OptInt startId = {}, OptInt endId = {},
+                      const std::source_location& location = std::source_location::current());
+
+    /// @brief オブジェクトの内容を変更
+    /// @param objectId オブジェクトID
+    /// @param value 変更するパラメータの内容（文字列）
+    export void objprm(int objectId, std::string_view value,
+                      const std::source_location& location = std::source_location::current());
+
+    /// @brief オブジェクトの内容を変更（整数版）
+    /// @param objectId オブジェクトID
+    /// @param value 変更するパラメータの内容（数値）
+    export void objprm(int objectId, int value,
+                      const std::source_location& location = std::source_location::current());
+
+    /// @brief オブジェクトに入力フォーカスを設定
+    /// @param objectId オブジェクトID（-1で現在のフォーカスIDを取得）
+    /// @return フォーカスが当たっているオブジェクトID（objectId=-1時）
+    export int objsel(OptInt objectId = {},
+                     const std::source_location& location = std::source_location::current());
+
+    /// @brief オブジェクトの有効・無効を設定
+    /// @param objectId オブジェクトID
+    /// @param enable 0=無効, それ以外=有効
+    export void objenable(int objectId, OptInt enable = {},
+                         const std::source_location& location = std::source_location::current());
+
+    /// @brief オブジェクトのフォーカス移動モードを設定
+    /// @param objectId オブジェクトID
+    /// @param mode フォーカス移動モード (1=移動可能, 2=移動不可, 3=スキップ, +4=全選択)
+    export void objskip(int objectId, OptInt mode = {},
+                       const std::source_location& location = std::source_location::current());
+
+    // ============================================================
     // メモリ管理関数（HSP互換）
 
 

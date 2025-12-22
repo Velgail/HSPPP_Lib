@@ -23,6 +23,7 @@ namespace hsppp {
 
         // カレントサーフェスとして設定
         g_currentSurface = surface;
+        g_currentScreenId = p1;  // GUI命令用にIDを保持
 
         // HspWindowの場合はウィンドウ操作
         auto pWindow = std::dynamic_pointer_cast<HspWindow>(surface);

@@ -155,6 +155,7 @@
     <ClCompile Include="src\boot\WinMain.cpp" />
     <ClCompile Include="src\core\hsppp.cpp" />
     <ClCompile Include="src\core\ImageLoader.cpp" />
+    <ClCompile Include="src\core\ObjectManager.cpp" />
     <ClCompile Include="src\core\Surface.cpp" />
     <ClCompile Include="src\core\Window.cpp" />
     <ClCompile Include="src\utils\Random.cpp" />
@@ -168,9 +169,11 @@
     <None Include="src\core\hsppp_cel.inl" />
     <None Include="src\core\hsppp_copy.inl" />
     <None Include="src\core\hsppp_drawing.inl" />
+    <None Include="src\core\hsppp_easing.inl" />
     <None Include="src\core\hsppp_factory.inl" />
     <None Include="src\core\hsppp_file.inl" />
     <None Include="src\core\hsppp_ginfo.inl" />
+    <None Include="src\core\hsppp_gui.inl" />
     <None Include="src\core\hsppp_image.inl" />
     <None Include="src\core\hsppp_input.inl" />
     <None Include="src\core\hsppp_interrupt.inl" />

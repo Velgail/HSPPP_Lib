@@ -83,6 +83,12 @@ void onDemoChanged(Screen& win) {
             g_scrollY = 0;
         }
     }
+    
+    // 前のデモがGUIだった場合、オブジェクトをクリア
+    if (g_prevCategory == DemoCategory::GUI) {
+        clrobj();
+        g_guiObjectsCreated = false;
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -151,7 +157,12 @@ void drawHelpWindow(Screen& helpWin) {
     helpWin.pos(20, 440);
     helpWin.mes("  Alt+5: onerror");
     
-    helpWin.color(255, 200, 0).pos(20, 471);
+    helpWin.color(255, 255, 255).pos(20, 464);
+    helpWin.mes("【GUIデモ - Ctrl+Shift + 数字キー】");
+    helpWin.color(200, 200, 200).pos(20, 481);
+    helpWin.mes("  Ctrl+Shift+1: button/input  Ctrl+Shift+2: chkbox/combox");
+    
+    helpWin.color(255, 200, 0).pos(20, 505);
     helpWin.mes("※修飾キー(Ctrl/Alt/Shift)押下中はアクション無効");
     
     helpWin.redraw(1);
@@ -167,6 +178,7 @@ std::string getCategoryName() {
         case DemoCategory::Extended:  return "拡張 (Ctrl+0-9,-,=,[,])";
         case DemoCategory::Image:     return "画像 (Shift+1-3)";
         case DemoCategory::Interrupt: return "割り込み (Alt+1-5)";
+        case DemoCategory::GUI:       return "GUI (Ctrl+Shift+1-2)";
     }
     return "Unknown";
 }
@@ -225,6 +237,13 @@ std::string getDemoName() {
                 default: break;
             }
             break;
+        case DemoCategory::GUI:
+            switch (static_cast<GUIDemo>(g_demoIndex)) {
+                case GUIDemo::Button:    return "button/input/mesbox (ボタン・入力)";
+                case GUIDemo::ChoiceBox: return "chkbox/combox/listbox (選択系)";
+                default: break;
+            }
+            break;
     }
     return "Unknown";
 }
@@ -237,10 +256,24 @@ void processDemoSelection(Screen& win) {
     bool ctrlPressed = getkey(VK::CONTROL) != 0;
     bool shiftPressed = getkey(VK::SHIFT) != 0;
     bool altPressed = getkey(VK::MENU) != 0;
+    bool winPressed = getkey(VK::LWIN) != 0 || getkey(VK::RWIN) != 0;
     
     DemoCategory newCategory = g_category;
     int newIndex = g_demoIndex;
     bool changed = false;
+    
+    // Ctrl+Shift + 数字: GUIデモ
+    if (ctrlPressed && shiftPressed && !altPressed) {
+        for (int i = 1; i <= 2; i++) {
+            if (getkey('0' + i)) {
+                if (i <= static_cast<int>(GUIDemo::COUNT)) {
+                    newCategory = DemoCategory::GUI;
+                    newIndex = i - 1;
+                    changed = true;
+                }
+            }
+        }
+    }
     
     // Ctrl + - : ファイル操作デモ
     if (ctrlPressed && !shiftPressed && !altPressed && getkey(0xBD)) {
@@ -274,7 +307,7 @@ void processDemoSelection(Screen& win) {
     // モード切替（数字キー）
     for (int i = 0; i <= 9; i++) {
         if (getkey('0' + i)) {
-            if (ctrlPressed && !shiftPressed && !altPressed) {
+            if (ctrlPressed && !shiftPressed && !altPressed && !winPressed) {
                 // Ctrl + 数字: 拡張デモ (0-9)
                 int index = (i == 0) ? 9 : (i - 1);
                 if (index < static_cast<int>(ExtendedDemo::COUNT)) {
@@ -283,7 +316,7 @@ void processDemoSelection(Screen& win) {
                     changed = true;
                 }
             } else if (i >= 1) {
-                if (shiftPressed && !ctrlPressed && !altPressed) {
+                if (shiftPressed && !ctrlPressed && !altPressed && !winPressed) {
                     // Shift + 数字: 画像デモ
                     if (i <= static_cast<int>(ImageDemo::COUNT)) {
                         newCategory = DemoCategory::Image;
@@ -311,6 +344,11 @@ void processDemoSelection(Screen& win) {
     
     // デモが変更された場合
     if (changed && (newCategory != g_category || newIndex != g_demoIndex)) {
+        // GUIカテゴリから離れる場合はオブジェクトをクリア
+        if (g_category == DemoCategory::GUI && newCategory != DemoCategory::GUI) {
+            clearGUIObjects();
+        }
+        
         g_prevCategory = g_category;
         g_prevDemoIndex = g_demoIndex;
         g_category = newCategory;
@@ -366,6 +404,22 @@ int hspMain() {
         
         // メインウィンドウの描画
         win.select();
+        
+        // GUIデモは自身で描画を管理するため、ここでは何もしない
+        if (g_category == DemoCategory::GUI) {
+            drawGUIDemo(win);
+            
+            // デモ選択処理（画面遷移）
+            processDemoSelection(win);
+            processGUIAction(win);
+            
+            // ESCで終了
+            if (stick() & 128) break;
+            
+            await(16);
+            continue;
+        }
+        
         win.redraw(0);
         
         // 背景クリア
@@ -402,12 +456,15 @@ int hspMain() {
         case DemoCategory::Interrupt:
             drawInterruptDemo(win);
             break;
+        case DemoCategory::GUI:
+            drawGUIDemo(win);
+            break;
         }
         
         // フッター（ヘルプ表示案内）
         win.font("MS Gothic", 10, 0);
-        win.color(128, 128, 128).pos(20, 455);
-        win.mes("F1: ヘルプ  |  ESC: 終了  |  1-9: 基本  |  Ctrl+0-9/-/=: 拡張  |  Shift+1-4: 画像  |  Alt+1-5: 割り込み");
+        win.color(128, 128, 128).pos(10, 455);
+        win.mes("F1:ヘルプ ESC:終了 | 1-9:基本 Ctrl+0-9:拡張 Shift+1-4:画像 Alt+1-5:割り込み Ctrl+Shift+1-2:GUI");
         
         win.redraw(1);
         
@@ -427,6 +484,9 @@ int hspMain() {
             break;
         case DemoCategory::Interrupt:
             processInterruptAction(win);
+            break;
+        case DemoCategory::GUI:
+            processGUIAction(win);
             break;
         }
         

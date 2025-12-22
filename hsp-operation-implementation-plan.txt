@@ -315,21 +315,21 @@ HSP操作リスト - 実装計画
 
 ■ オブジェクト制御命令 [P3]
 ----------------------------------------
-○ [P3] button          ボタン表示
-○ [P3] input           入力ボックス表示
-○ [P3] mesbox          メッセージボックス表示
-○ [P3] chkbox          チェックボックス表示
-○ [P3] combox          コンボボックス表示
-○ [P3] listbox         リストボックス表示
+✓ [P3] button          ボタン表示
+✓ [P3] input           入力ボックス表示
+✓ [P3] mesbox          メッセージボックス表示
+✓ [P3] chkbox          チェックボックス表示
+✓ [P3] combox          コンボボックス表示
+✓ [P3] listbox         リストボックス表示
 
-○ [P3] objmode         オブジェクトモード設定
-○ [P3] objsize         オブジェクトサイズ設定
-○ [P3] objcolor        オブジェクトのカラー設定
-○ [P3] objprm          オブジェクトの内容を変更
-○ [P3] objsel          オブジェクトに入力フォーカスを設定
-○ [P3] objenable       オブジェクトの有効・無効を設定
-○ [P3] objskip         オブジェクトのフォーカス移動モードを設定
-○ [P3] clrobj          オブジェクトをクリア
+✓ [P3] objmode         オブジェクトモード設定
+✓ [P3] objsize         オブジェクトサイズ設定
+✓ [P3] objcolor        オブジェクトのカラー設定
+✓ [P3] objprm          オブジェクトの内容を変更
+✓ [P3] objsel          オブジェクトに入力フォーカスを設定
+✓ [P3] objenable       オブジェクトの有効・無効を設定
+✓ [P3] objskip         オブジェクトのフォーカス移動モードを設定
+✓ [P3] clrobj          オブジェクトをクリア
 
 × [--] objimage        カスタムボタンの設定（ビットマップボタン用）
 × [--] layerobj        レイヤーオブジェクトを追加（HSP3Dish専用）
@@ -473,17 +473,24 @@ HSP操作リスト - 実装計画
 1. ✓ 画面制御の未実装関数を完成
    - cls, font, title, width等
 
-2. ○ 割り込みハンドラの実装
+2. ✓ 割り込みハンドラの実装
    - onclick, oncmd, onerror等の実体
 
-3. ○ 基本的な数学関数・文字列関数
+3. ✓ 基本的な数学関数・文字列関数
    - abs, sin, cos, strlen, instr等
 
-4. ○ ファイルI/O基盤
+4. ✓ ファイルI/O基盤
    - bload, bsave, exist等
 
-5. ○ 配列・メモリ管理
-   - dim, sdim, ddim等
+5. × 配列・メモリ管理（C++標準を使用のため不要）
+   - dim, sdim, ddim等 → std::vector/std::stringを使用
 
-6. ○ GUI部品（後回し）
-   - button, input等
+6. ✓ GUI部品
+   - button, input, mesbox, chkbox, combox, listbox等
+   - objsize, objmode, objcolor, objprm, objsel, objenable, objskip, clrobj
+
+7. ○ マルチメディア機能（次の優先）
+   - mmload, mmplay, mmstop, mmvol, mmpan, mmstat
+
+8. ○ システム統合
+   - err, hspstat, hspver変数の追加

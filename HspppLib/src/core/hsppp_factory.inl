@@ -41,7 +41,8 @@ namespace hsppp {
         }
 
         // ウィンドウスタイルの決定
-        DWORD dwStyle = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
+        // WS_CLIPCHILDREN: 子ウィンドウ（GUIコントロール）の領域を親の描画から除外
+        DWORD dwStyle = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_CLIPCHILDREN;
         DWORD dwExStyle = 0;
 
         // サイズ固定でない場合は、サイズ変更可能なスタイルを追加
@@ -251,7 +252,8 @@ namespace hsppp {
         }
 
         // ウィンドウスタイル: 枠なし（WS_POPUP）
-        DWORD dwStyle = WS_POPUP;
+        // WS_CLIPCHILDREN: 子ウィンドウ（GUIコントロール）の領域を親の描画から除外
+        DWORD dwStyle = WS_POPUP | WS_CLIPCHILDREN;
         DWORD dwExStyle = 0;
 
         // 非表示ウィンドウ（mode & 2）

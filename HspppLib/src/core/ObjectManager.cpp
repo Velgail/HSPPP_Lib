@@ -30,6 +30,7 @@ ObjectManager::~ObjectManager() {
         }
     }
     m_objects.clear();
+    m_hwndMap.clear();
 }
 
 ObjectManager& ObjectManager::getInstance() {
@@ -40,6 +41,10 @@ ObjectManager& ObjectManager::getInstance() {
 int ObjectManager::registerObject(const ObjectInfo& info) {
     int newId = m_nextId++;
     m_objects[newId] = info;
+    // 逆引きマップに登録
+    if (info.hwnd) {
+        m_hwndMap[info.hwnd] = newId;
+    }
     return newId;
 }
 
@@ -54,6 +59,10 @@ ObjectInfo* ObjectManager::getObject(int objectId) {
 void ObjectManager::removeObject(int objectId) {
     auto it = m_objects.find(objectId);
     if (it != m_objects.end()) {
+        // 逆引きマップから削除
+        if (it->second.hwnd) {
+            m_hwndMap.erase(it->second.hwnd);
+        }
         if (it->second.hwnd && IsWindow(it->second.hwnd)) {
             DestroyWindow(it->second.hwnd);
         }
@@ -62,19 +71,23 @@ void ObjectManager::removeObject(int objectId) {
 }
 
 void ObjectManager::removeObjects(int startId, int endId) {
+    // 効率的なイテレータベースの実装
+    auto it = m_objects.lower_bound(startId);
+    
     // endId が -1 の場合は最後まで
-    if (endId < 0) {
-        endId = m_nextId - 1;
+    if (endId < 0 && !m_objects.empty()) {
+        endId = m_objects.rbegin()->first;
     }
     
-    for (int id = startId; id <= endId; ++id) {
-        auto it = m_objects.find(id);
-        if (it != m_objects.end()) {
-            if (it->second.hwnd && IsWindow(it->second.hwnd)) {
-                DestroyWindow(it->second.hwnd);
-            }
-            m_objects.erase(it);
+    while (it != m_objects.end() && it->first <= endId) {
+        // 逆引きマップから削除
+        if (it->second.hwnd) {
+            m_hwndMap.erase(it->second.hwnd);
         }
+        if (it->second.hwnd && IsWindow(it->second.hwnd)) {
+            DestroyWindow(it->second.hwnd);
+        }
+        it = m_objects.erase(it);
     }
 }
 
@@ -82,6 +95,10 @@ void ObjectManager::removeObjectsByWindow(int windowId) {
     auto it = m_objects.begin();
     while (it != m_objects.end()) {
         if (it->second.windowId == windowId) {
+            // 逆引きマップから削除
+            if (it->second.hwnd) {
+                m_hwndMap.erase(it->second.hwnd);
+            }
             if (it->second.hwnd && IsWindow(it->second.hwnd)) {
                 DestroyWindow(it->second.hwnd);
             }
@@ -93,10 +110,10 @@ void ObjectManager::removeObjectsByWindow(int windowId) {
 }
 
 int ObjectManager::findObjectByHwnd(HWND hwnd) {
-    for (const auto& [id, info] : m_objects) {
-        if (info.hwnd == hwnd) {
-            return id;
-        }
+    // O(log N)の逆引きマップを使用
+    auto it = m_hwndMap.find(hwnd);
+    if (it != m_hwndMap.end()) {
+        return it->second;
     }
     return -1;
 }

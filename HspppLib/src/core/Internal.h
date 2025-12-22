@@ -64,6 +64,9 @@ enum class ObjectType {
 };
 
 /// @brief オブジェクト情報構造体
+/// @warning pStrVar, pIntVar, pStateVar は変数のアドレスを保持するため、
+///          元の変数がスコープを抜けるとダングリングポインタになります。
+///          安全に使用するには ownedStrVar/ownedIntVar/ownedStateVar を使用してください。
 struct ObjectInfo {
     ObjectType type;              // オブジェクトの種類
     HWND hwnd;                    // Win32コントロールのハンドル
@@ -75,13 +78,20 @@ struct ObjectInfo {
     std::function<int()> callback;  // コールバック関数
     bool isGosub;                 // gosub/goto 切り替え
     
-    // input/mesbox用
-    std::string* pStrVar;         // 文字列変数へのポインタ
-    int* pIntVar;                 // 整数変数へのポインタ
+    // input/mesbox用: 生ポインタ版（後方互換、ユーザー責任でライフタイム管理）
+    std::string* pStrVar;         // 文字列変数へのポインタ（グローバル/static変数のみ使用可）
+    int* pIntVar;                 // 整数変数へのポインタ（グローバル/static変数のみ使用可）
     int maxLength;                // 最大文字数
     
-    // chkbox/combox/listbox用
-    int* pStateVar;               // 状態変数へのポインタ
+    // input/mesbox用: 安全版（shared_ptrでライフタイム管理）
+    std::shared_ptr<std::string> ownedStrVar;
+    std::shared_ptr<int> ownedIntVar;
+    
+    // chkbox/combox/listbox用: 生ポインタ版
+    int* pStateVar;               // 状態変数へのポインタ（グローバル/static変数のみ使用可）
+    
+    // chkbox/combox/listbox用: 安全版
+    std::shared_ptr<int> ownedStateVar;
     
     // 有効/無効、フォーカススキップ
     bool enabled;
@@ -101,12 +111,28 @@ struct ObjectInfo {
         , enabled(true)
         , focusSkipMode(1)
     {}
+    
+    /// @brief 文字列変数へのポインタを取得（安全版優先）
+    std::string* getStrVar() const {
+        return ownedStrVar ? ownedStrVar.get() : pStrVar;
+    }
+    
+    /// @brief 整数変数へのポインタを取得（安全版優先）
+    int* getIntVar() const {
+        return ownedIntVar ? ownedIntVar.get() : pIntVar;
+    }
+    
+    /// @brief 状態変数へのポインタを取得（安全版優先）
+    int* getStateVar() const {
+        return ownedStateVar ? ownedStateVar.get() : pStateVar;
+    }
 };
 
 /// @brief オブジェクトマネージャー（シングルトン）
 class ObjectManager {
 private:
     std::map<int, ObjectInfo> m_objects;  // オブジェクトID -> ObjectInfo
+    std::map<HWND, int> m_hwndMap;        // HWND -> オブジェクトIDの逆引きマップ
     int m_nextId;
     
     // 現在のオブジェクトサイズ設定 (objsize)

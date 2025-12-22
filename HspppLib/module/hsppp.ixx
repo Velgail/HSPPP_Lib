@@ -1969,6 +1969,47 @@ namespace hsppp {
     export int listbox(int& var, OptInt expandY, std::string_view items,
                       const std::source_location& location = std::source_location::current());
 
+    // ============================================================
+    // 安全なAPI: shared_ptr版（ライフタイムが自動管理される）
+    // ============================================================
+
+    /// @brief 入力ボックス表示（安全版：shared_ptrで変数のライフタイムを管理）
+    /// @param var 入力のための文字列変数（shared_ptr）
+    /// @return オブジェクトID (stat相当)
+    export int input(std::shared_ptr<std::string> var, OptInt sizeX = {}, OptInt sizeY = {}, OptInt maxLen = {},
+                    const std::source_location& location = std::source_location::current());
+
+    /// @brief 入力ボックス表示（安全版：shared_ptrで変数のライフタイムを管理）
+    /// @param var 入力のための整数変数（shared_ptr）
+    /// @return オブジェクトID (stat相当)
+    export int input(std::shared_ptr<int> var, OptInt sizeX = {}, OptInt sizeY = {}, OptInt maxLen = {},
+                    const std::source_location& location = std::source_location::current());
+
+    /// @brief メッセージボックス表示（安全版：shared_ptrで変数のライフタイムを管理）
+    /// @param var 表示メッセージが代入された文字列型変数（shared_ptr）
+    /// @return オブジェクトID (stat相当)
+    export int mesbox(std::shared_ptr<std::string> var, OptInt sizeX = {}, OptInt sizeY = {}, OptInt style = {}, OptInt maxLen = {},
+                     const std::source_location& location = std::source_location::current());
+
+    /// @brief チェックボックス表示（安全版：shared_ptrで変数のライフタイムを管理）
+    /// @param label チェックボックスの内容表示文字列
+    /// @param var チェックボックスの状態を保持する変数（shared_ptr）
+    /// @return オブジェクトID (stat相当)
+    export int chkbox(std::string_view label, std::shared_ptr<int> var,
+                     const std::source_location& location = std::source_location::current());
+
+    /// @brief コンボボックス表示（安全版：shared_ptrで変数のライフタイムを管理）
+    /// @param var コンボボックスの状態を保持する変数（shared_ptr）
+    /// @return オブジェクトID (stat相当)
+    export int combox(std::shared_ptr<int> var, OptInt expandY, std::string_view items,
+                     const std::source_location& location = std::source_location::current());
+
+    /// @brief リストボックス表示（安全版：shared_ptrで変数のライフタイムを管理）
+    /// @param var リストボックスの状態を保持する変数（shared_ptr）
+    /// @return オブジェクトID (stat相当)
+    export int listbox(std::shared_ptr<int> var, OptInt expandY, std::string_view items,
+                      const std::source_location& location = std::source_location::current());
+
     /// @brief オブジェクトをクリア
     /// @param startId 消去するオブジェクトID(開始)（省略時は0）
     /// @param endId 消去するオブジェクトID(終了)（省略/-1で最終IDまで）

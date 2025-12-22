@@ -238,23 +238,26 @@ LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
                 }
                 // チェックボックス状態変更
                 else if (pInfo->type == ObjectType::Chkbox && notifyCode == BN_CLICKED) {
-                    if (pInfo->pStateVar) {
+                    int* pVar = pInfo->getStateVar();
+                    if (pVar) {
                         LRESULT state = SendMessageW(hwndControl, BM_GETCHECK, 0, 0);
-                        *(pInfo->pStateVar) = (state == BST_CHECKED) ? 1 : 0;
+                        *pVar = (state == BST_CHECKED) ? 1 : 0;
                     }
                 }
                 // コンボボックス選択変更
                 else if (pInfo->type == ObjectType::Combox && notifyCode == CBN_SELCHANGE) {
-                    if (pInfo->pStateVar) {
+                    int* pVar = pInfo->getStateVar();
+                    if (pVar) {
                         LRESULT sel = SendMessageW(hwndControl, CB_GETCURSEL, 0, 0);
-                        *(pInfo->pStateVar) = static_cast<int>(sel);
+                        *pVar = static_cast<int>(sel);
                     }
                 }
                 // リストボックス選択変更
                 else if (pInfo->type == ObjectType::Listbox && notifyCode == LBN_SELCHANGE) {
-                    if (pInfo->pStateVar) {
+                    int* pVar = pInfo->getStateVar();
+                    if (pVar) {
                         LRESULT sel = SendMessageW(hwndControl, LB_GETCURSEL, 0, 0);
-                        *(pInfo->pStateVar) = static_cast<int>(sel);
+                        *pVar = static_cast<int>(sel);
                     }
                 }
             }

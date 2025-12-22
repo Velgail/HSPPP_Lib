@@ -7,6 +7,11 @@
 
 namespace hsppp {
 
+// HWND取得用外部関数（hsppp.cppで定義）
+namespace internal {
+    void* getWindowHwndById(int id);
+}
+
 // ============================================================
 // 静的バッファID管理
 // ============================================================
@@ -28,6 +33,7 @@ public:
     int m_mode = 0;       // 再生モード
     bool m_loop = false;
     bool m_loaded = false;
+    void* m_targetWindow = nullptr;  // 動画再生用ターゲットウィンドウ
 
     Impl() : m_bufferId(allocateBufferId()) {}
     
@@ -59,7 +65,9 @@ bool Media::load(std::string_view filename) {
     m_impl->m_filename = std::string(filename);
     
     int loadMode = m_impl->m_loop ? 1 : m_impl->m_mode;
-    bool result = internal::MediaManager::getInstance().mmload(filename, m_impl->m_bufferId, loadMode);
+    bool result = internal::MediaManager::getInstance().mmload(
+        filename, m_impl->m_bufferId, loadMode,
+        static_cast<HWND>(m_impl->m_targetWindow));
     
     m_impl->m_loaded = result;
     
@@ -117,6 +125,8 @@ Media& Media::loop(bool l) {
     m_impl->m_loop = l;
     if (l) {
         m_impl->m_mode = 1;
+    } else if (m_impl->m_mode == 1) {
+        m_impl->m_mode = 0;  // ループ解除時はモードもリセット
     }
     return *this;
 }
@@ -124,6 +134,11 @@ Media& Media::loop(bool l) {
 Media& Media::mode(int m) {
     m_impl->m_mode = m;
     m_impl->m_loop = (m == 1);
+    return *this;
+}
+
+Media& Media::target(int screenId) {
+    m_impl->m_targetWindow = internal::getWindowHwndById(screenId);
     return *this;
 }
 

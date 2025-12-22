@@ -24,6 +24,7 @@ bool g_mediaIsPlaying = false;
 int g_lastLoadResult = -999;  // mmloadの結果
 int g_lastPlayResult = -999;  // mmplayの結果
 int g_mediaType = 0;          // 0=WAV, 1=MP3, 2=MP4
+bool g_videoMode = false;     // 動画再生モード中か
 
 // メディアファイルパス
 const char* g_mediaFiles[] = {
@@ -39,6 +40,18 @@ const char* g_mediaTypeNames[] = { "WAV", "MP3", "MP4" };
 
 void drawMediaDemo(Screen& win) {
     MediaDemo demo = static_cast<MediaDemo>(g_demoIndex);
+
+    // 動画再生モード中でも描画は継続（EVRは子HWNDに描画して共存）
+    if (g_videoMode && g_mediaLoaded) {
+        int stat = mmstat(0, 16);
+        if (stat == 0) {
+            // 再生終了 → 元に戻る
+            mmstop(0); // EVR子HWNDを隠してUIへ復帰
+            g_videoMode = false;
+            g_mediaIsPlaying = false;
+            g_actionLog = "動画再生終了";
+        }
+    }
 
     switch (demo) {
         case MediaDemo::AudioPlayback: {
@@ -120,6 +133,23 @@ void processMediaAction(Screen& win) {
     // 修飾キーが押されている場合はスキップ
     if (isModifierKeyPressed()) return;
 
+    // 動画再生モード中の操作
+    if (g_videoMode) {
+        static bool prevS = false, prevEsc = false;
+        bool currS = getkey('S') != 0;
+        bool currEsc = getkey(VK::ESCAPE) != 0;
+        
+        if ((currS && !prevS) || (currEsc && !prevEsc)) {
+            mmstop(0);
+            g_mediaIsPlaying = false;
+            g_videoMode = false;
+            g_actionLog = "動画停止";
+        }
+        prevS = currS;
+        prevEsc = currEsc;
+        return;
+    }
+
     MediaDemo demo = static_cast<MediaDemo>(g_demoIndex);
 
     switch (demo) {
@@ -156,6 +186,9 @@ void processMediaAction(Screen& win) {
             static bool prevL = false;
             bool currL = getkey('L') != 0;
             if (currL && !prevL) {
+                // 動画の場合は現在のウィンドウを明示的に選択
+                gsel(win.id());
+                
                 std::string filePath = g_mediaFiles[g_mediaType];
                 g_lastLoadResult = mmload(filePath, 0, 0);
                 if (g_lastLoadResult == 0) {
@@ -175,7 +208,13 @@ void processMediaAction(Screen& win) {
                 if (g_mediaLoaded) {
                     g_lastPlayResult = mmplay(0);
                     g_actionLog = (g_lastPlayResult == 0) ? "Playing" : std::format("Play failed ({})", g_lastPlayResult);
-                    if (g_lastPlayResult == 0) g_mediaIsPlaying = true;
+                    if (g_lastPlayResult == 0) {
+                        g_mediaIsPlaying = true;
+                        // 動画の場合はvideoModeに入る
+                        if (g_mediaType == 2) {
+                            g_videoMode = true;
+                        }
+                    }
                 } else {
                     g_actionLog = "Load first (L)";
                 }

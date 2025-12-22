@@ -12,7 +12,7 @@ namespace internal {
 
 // MediaManager への外部関数宣言（MediaManager.cpp で定義）
 // 戻り値: 0=成功, 非0=失敗
-int  MediaManager_mmload(std::string_view filename, int bufferId, int mode);
+int  MediaManager_mmload(std::string_view filename, int bufferId, int mode, void* targetWindow);
 int  MediaManager_mmplay(int bufferId);
 void MediaManager_mmstop(int bufferId);
 void MediaManager_mmvol(int bufferId, int vol);
@@ -20,6 +20,9 @@ void MediaManager_mmpan(int bufferId, int pan);
 int  MediaManager_mmstat(int bufferId, int mode);
 void MediaManager_initialize();
 void MediaManager_shutdown();
+
+// HWND取得用関数（このファイル内で定義）
+void* getWindowHwndById(int id);
 
 } // namespace internal
 
@@ -31,7 +34,10 @@ int mmload(std::string_view filename, OptInt bufferId, OptInt mode,
     int id = bufferId.value_or(0);
     int modeVal = mode.value_or(0);
 
-    return internal::MediaManager_mmload(filename, id, modeVal);
+    // 動画再生用に現在のウィンドウのHWNDを取得
+    void* hwnd = internal::getWindowHwndById(g_currentScreenId);
+
+    return internal::MediaManager_mmload(filename, id, modeVal, hwnd);
 }
 
 // ============================================================

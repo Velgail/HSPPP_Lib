@@ -91,6 +91,7 @@ namespace VK {
     constexpr int MENU = 0x12;  // Alt key
     constexpr int LWIN = 0x5B;  // Left Windows key
     constexpr int RWIN = 0x5C;  // Right Windows key
+    constexpr int ESCAPE = 0x1B;
     constexpr int F1 = 0x70;
     constexpr int UP = 0x26;
     constexpr int DOWN = 0x28;
@@ -160,6 +161,7 @@ extern bool g_mediaIsPlaying;
 extern int g_lastLoadResult;   // mmloadの戻り値
 extern int g_lastPlayResult;   // mmplayの戻り値
 extern int g_mediaType;        // 0=WAV, 1=MP3, 2=MP4
+extern bool g_videoMode;       // 動画再生モード中か（描画スキップ用）
 
 // アクション実行結果表示用
 extern std::string g_actionLog;

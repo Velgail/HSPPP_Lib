@@ -32,6 +32,39 @@
 namespace hsppp {
 namespace internal {
 
+static HWND createVideoChildWindow(HWND parent, bool fullscreen, int x, int y) {
+    if (!parent) return nullptr;
+
+    RECT rc{};
+    GetClientRect(parent, &rc);
+    int w = rc.right - rc.left;
+    int h = rc.bottom - rc.top;
+
+    int childX = fullscreen ? 0 : x;
+    int childY = fullscreen ? 0 : y;
+    int childW = w;
+    int childH = h;
+
+    HWND hwnd = CreateWindowExW(
+        0,
+        L"STATIC",
+        L"",
+        WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
+        childX,
+        childY,
+        childW,
+        childH,
+        parent,
+        nullptr,
+        GetModuleHandleW(nullptr),
+        nullptr
+    );
+    if (!hwnd) return nullptr;
+
+    ShowWindow(hwnd, SW_HIDE);
+    return hwnd;
+}
+
 // ============================================================
 // MediaFoundationCallback 実装
 // ============================================================
@@ -52,9 +85,16 @@ HRESULT MediaFoundationCallback::Invoke(IMFAsyncResult* pResult) {
             hasEnded = false;
             break;
         case MESessionStopped:
+            isPlaying = false;
+            break;
         case MESessionEnded:
             isPlaying = false;
             hasEnded = true;
+            break;
+        case MESessionClosed:
+            isPlaying = false;
+            hasEnded = true;
+            hasClosed = true;
             break;
         case MEError:
             isPlaying = false;
@@ -64,8 +104,9 @@ HRESULT MediaFoundationCallback::Invoke(IMFAsyncResult* pResult) {
     }
 
     // 次のイベントを待つ
-    if (isPlaying) {
-        hr = session_->BeginGetEvent(this, nullptr);
+    // Stop/Ended/Close を確実に拾うため、MESessionClosed 以外は常に継続する
+    if (meType != MESessionClosed) {
+        session_->BeginGetEvent(this, nullptr);
     }
     return S_OK;
 }
@@ -82,17 +123,29 @@ MediaSlot::~MediaSlot() {
     }
     
     // Media Foundation セッション解放
+    if (mfCallback) {
+        mfCallback->isPlaying = false;
+        mfCallback->hasEnded = true;
+    }
+
     if (mediaSession) {
+        mediaSession->Stop();
         mediaSession->Close();
+        mediaSession->Shutdown();
         mediaSession.Reset();
     }
-    
-    if (mfCallback) {
-        mfCallback->Release();
-        mfCallback = nullptr;
+
+    if (mediaSource) {
+        mediaSource->Shutdown();
+        mediaSource.Reset();
+    }
+
+    if (videoWindow) {
+        DestroyWindow(videoWindow);
+        videoWindow = nullptr;
     }
     
-    mediaSource.Reset();
+    mfCallback.Reset();
 }
 
 MediaSlot::MediaSlot(MediaSlot&& other) noexcept
@@ -103,7 +156,9 @@ MediaSlot::MediaSlot(MediaSlot&& other) noexcept
     , volume(other.volume)
     , pan(other.pan)
     , isVideoFullscreen(other.isVideoFullscreen)
+    , parentWindow(other.parentWindow)
     , targetWindow(other.targetWindow)
+    , videoWindow(other.videoWindow)
     , videoX(other.videoX)
     , videoY(other.videoY)
     , audioBuffer(std::move(other.audioBuffer))
@@ -111,10 +166,12 @@ MediaSlot::MediaSlot(MediaSlot&& other) noexcept
     , voiceCallback(std::move(other.voiceCallback))
     , mediaSession(std::move(other.mediaSession))
     , mediaSource(std::move(other.mediaSource))
-    , mfCallback(other.mfCallback)
+    , mfCallback(std::move(other.mfCallback))
 {
     other.sourceVoice = nullptr;
-    other.mfCallback = nullptr;
+    other.parentWindow = nullptr;
+    other.targetWindow = nullptr;
+    other.videoWindow = nullptr;
 }
 
 MediaSlot& MediaSlot::operator=(MediaSlot&& other) noexcept {
@@ -127,8 +184,11 @@ MediaSlot& MediaSlot::operator=(MediaSlot&& other) noexcept {
         if (mediaSession) {
             mediaSession->Close();
         }
-        if (mfCallback) {
-            mfCallback->Release();
+        mfCallback.Reset();
+
+        if (videoWindow) {
+            DestroyWindow(videoWindow);
+            videoWindow = nullptr;
         }
         
         // 移動
@@ -139,7 +199,9 @@ MediaSlot& MediaSlot::operator=(MediaSlot&& other) noexcept {
         volume = other.volume;
         pan = other.pan;
         isVideoFullscreen = other.isVideoFullscreen;
+        parentWindow = other.parentWindow;
         targetWindow = other.targetWindow;
+        videoWindow = other.videoWindow;
         videoX = other.videoX;
         videoY = other.videoY;
         audioBuffer = std::move(other.audioBuffer);
@@ -147,10 +209,12 @@ MediaSlot& MediaSlot::operator=(MediaSlot&& other) noexcept {
         voiceCallback = std::move(other.voiceCallback);
         mediaSession = std::move(other.mediaSession);
         mediaSource = std::move(other.mediaSource);
-        mfCallback = other.mfCallback;
+        mfCallback = std::move(other.mfCallback);
         
         other.sourceVoice = nullptr;
-        other.mfCallback = nullptr;
+        other.parentWindow = nullptr;
+        other.targetWindow = nullptr;
+        other.videoWindow = nullptr;
     }
     return *this;
 }
@@ -281,7 +345,7 @@ MediaType MediaManager::detectMediaType(std::string_view filename) {
 // ============================================================
 // mmload - メディアファイル読み込み
 // ============================================================
-bool MediaManager::mmload(std::string_view filename, int bufferId, int mode) {
+bool MediaManager::mmload(std::string_view filename, int bufferId, int mode, HWND targetWindow) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (!initialized_) {
         initialize();
@@ -302,6 +366,17 @@ bool MediaManager::mmload(std::string_view filename, int bufferId, int mode) {
     slot->playMode = static_cast<PlayMode>(mode & 0x03);
     slot->isVideoFullscreen = (mode & 16) != 0;
     slot->type = detectMediaType(filename);
+
+    // 動画描画先: 親(D2D)とは分離して子HWND(EVR)へ描画させる
+    if (slot->type == MediaType::Video && targetWindow) {
+        slot->parentWindow = targetWindow;
+        slot->videoWindow = createVideoChildWindow(slot->parentWindow, slot->isVideoFullscreen, slot->videoX, slot->videoY);
+        slot->targetWindow = slot->videoWindow ? slot->videoWindow : slot->parentWindow;
+    } else {
+        slot->parentWindow = nullptr;
+        slot->videoWindow = nullptr;
+        slot->targetWindow = nullptr;
+    }
 
     // ファイルサイズチェック（2MB以下のWAVはオンメモリ）
     bool loadToMemory = false;
@@ -454,17 +529,59 @@ bool MediaManager::loadMediaFoundation(std::string_view filename, MediaSlot& slo
     }
 
     // コールバック設定
-    slot.mfCallback = new MediaFoundationCallback();
+    slot.mfCallback.Attach(new MediaFoundationCallback());
     slot.mfCallback->SetSession(slot.mediaSession.Get());
 
+    slot.mfCallback->isPlaying = false;
+    slot.mfCallback->hasEnded = false;
+    slot.mfCallback->hasClosed = false;
+
+    // Close を含むイベントを確実に受け取るため、ここでイベントループ開始
+    slot.mediaSession->BeginGetEvent(slot.mfCallback.Get(), nullptr);
+
     return true;
+}
+
+void MediaManager::releaseMediaFoundation(MediaSlot& slot) {
+    if (!slot.mediaSession && !slot.mediaSource && !slot.mfCallback) return;
+
+    if (slot.mfCallback) {
+        slot.mfCallback->isPlaying = false;
+        slot.mfCallback->hasEnded = true;
+        slot.mfCallback->hasClosed = false;
+    }
+
+    if (slot.mediaSession) {
+        // 可能なら Stop → Close → Closed待ち → Shutdown
+        slot.mediaSession->Stop();
+        slot.mediaSession->Close();
+
+        if (slot.mfCallback) {
+            for (int i = 0; i < 50; ++i) { // ~500ms
+                if (slot.mfCallback->hasClosed.load()) break;
+                Sleep(10);
+            }
+        } else {
+            Sleep(10);
+        }
+
+        slot.mediaSession->Shutdown();
+        slot.mediaSession.Reset();
+    }
+
+    if (slot.mediaSource) {
+        slot.mediaSource->Shutdown();
+        slot.mediaSource.Reset();
+    }
+
+    slot.mfCallback.Reset();
 }
 
 // ============================================================
 // mmplay - メディア再生
 // ============================================================
 bool MediaManager::mmplay(int bufferId) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::unique_lock<std::mutex> lock(mutex_);
 
     auto it = slots_.find(bufferId);
     if (it == slots_.end()) return false;
@@ -485,8 +602,21 @@ bool MediaManager::mmplay(int bufferId) {
         // XAudio2 で再生
         success = playXAudio2(slot);
     }
-    else if (slot.mediaSession) {
+    else if (slot.type == MediaType::MP3 || slot.type == MediaType::Video || slot.type == MediaType::Stream) {
         // Media Foundation で再生
+        // Stop/自然終了後でも再ロード不要にするため、必要なら内部的にセッションを作り直す
+        const bool needsRecreate =
+            !slot.mediaSession ||
+            !slot.mediaSource ||
+            (slot.mfCallback && slot.mfCallback->hasEnded.load());
+
+        if (needsRecreate) {
+            releaseMediaFoundation(slot);
+            if (!loadMediaFoundation(slot.filename, slot)) {
+                return false;
+            }
+        }
+
         success = playMediaFoundation(slot);
     }
 
@@ -494,13 +624,24 @@ bool MediaManager::mmplay(int bufferId) {
         slot.state = MediaState::Playing;
         
         // Wait モード: 再生終了まで待機
+        // コールバックのatomic<bool>を直接参照することで競合を回避
         if (slot.playMode == PlayMode::Wait) {
-            // ロックを解除して待機
-            mutex_.unlock();
-            while (isPlaying(bufferId)) {
-                Sleep(10);
+            // コールバックへの参照を取得（ロック内で）
+            std::atomic<bool>* playingFlag = nullptr;
+            if (slot.voiceCallback) {
+                playingFlag = &slot.voiceCallback->isPlaying;
+            } else if (slot.mfCallback) {
+                playingFlag = &slot.mfCallback->isPlaying;
             }
-            mutex_.lock();
+            
+            // ロックを解除して待機（atomic変数は外部からも安全にアクセス可能）
+            if (playingFlag) {
+                lock.unlock();
+                while (playingFlag->load()) {
+                    Sleep(10);
+                }
+                lock.lock();
+            }
         }
     }
 
@@ -592,11 +733,6 @@ void MediaManager::updateXAudio2Pan(MediaSlot& slot) {
     UINT32 srcCh = voiceDetails.InputChannels;
     UINT32 dstCh = masterDetails.InputChannels;
 
-    // デバッグ出力
-    char dbg[256];
-    sprintf_s(dbg, "[XA2 Pan] pan=%.2f, srcCh=%u, dstCh=%u\n", slot.pan, srcCh, dstCh);
-    OutputDebugStringA(dbg);
-
     // ステレオ出力を想定
     if (dstCh >= 2) {
         // pan: -1.0 (左) 〜 0 (中央) 〜 +1.0 (右)
@@ -605,9 +741,6 @@ void MediaManager::updateXAudio2Pan(MediaSlot& slot) {
         float leftGain = (slot.pan <= 0.0f) ? 1.0f : (1.0f - slot.pan);
         float rightGain = (slot.pan >= 0.0f) ? 1.0f : (1.0f + slot.pan);
 
-        sprintf_s(dbg, "[XA2 Pan] leftGain=%.2f, rightGain=%.2f\n", leftGain, rightGain);
-        OutputDebugStringA(dbg);
-
         // 出力マトリクス
         // XAudio2: pLevelMatrix[SourceChannels * DestChannel + SourceChannel]
         // つまり destination-major order
@@ -615,13 +748,8 @@ void MediaManager::updateXAudio2Pan(MediaSlot& slot) {
         
         if (srcCh == 1) {
             // モノラル入力 → ステレオ出力
-            // matrix[srcCh * dstIdx + srcIdx]
             matrix[1 * 0 + 0] = leftGain;   // src0 → dst0 (L)
             matrix[1 * 1 + 0] = rightGain;  // src0 → dst1 (R)
-            
-            sprintf_s(dbg, "[XA2 Pan] Mono: matrix[0]=%.2f (->L), matrix[1]=%.2f (->R)\n", 
-                matrix[0], matrix[1]);
-            OutputDebugStringA(dbg);
         }
         else if (srcCh >= 2) {
             // ステレオ入力 → ステレオ出力
@@ -634,14 +762,12 @@ void MediaManager::updateXAudio2Pan(MediaSlot& slot) {
             matrix[2 * 1 + 1] = rightGain;          // srcR → dstR
         }
 
-        HRESULT hr = slot.sourceVoice->SetOutputMatrix(
+        slot.sourceVoice->SetOutputMatrix(
             masterVoice_,
             srcCh,
             dstCh,
             matrix.data()
         );
-        sprintf_s(dbg, "[XA2 Pan] SetOutputMatrix hr=0x%08X\n", hr);
-        OutputDebugStringA(dbg);
     }
 }
 
@@ -652,6 +778,27 @@ bool MediaManager::playMediaFoundation(MediaSlot& slot) {
     if (!slot.mediaSession || !slot.mediaSource) return false;
 
     HRESULT hr;
+
+    // Videoの場合は子HWNDを表示・サイズ同期してから再生
+    if (slot.type == MediaType::Video && slot.parentWindow && slot.targetWindow) {
+        RECT rc{};
+        GetClientRect(slot.parentWindow, &rc);
+        int w = rc.right - rc.left;
+        int h = rc.bottom - rc.top;
+
+        int x = slot.isVideoFullscreen ? 0 : slot.videoX;
+        int y = slot.isVideoFullscreen ? 0 : slot.videoY;
+        SetWindowPos(slot.targetWindow, HWND_TOP, x, y, w, h, SWP_NOACTIVATE);
+        ShowWindow(slot.targetWindow, SW_SHOW);
+    }
+
+#ifdef _DEBUG
+    // デバッグ: targetWindow確認
+    char dbg[256];
+    sprintf_s(dbg, "[MF Play] parent=%p target=%p type=%d\n",
+        (void*)slot.parentWindow, (void*)slot.targetWindow, static_cast<int>(slot.type));
+    OutputDebugStringA(dbg);
+#endif
 
     // トポロジ作成
     ComPtr<IMFTopology> topology;
@@ -701,12 +848,26 @@ bool MediaManager::playMediaFoundation(MediaSlot& slot) {
         if (majorType == MFMediaType_Audio) {
             // オーディオ出力
             hr = MFCreateAudioRendererActivate(&activate);
+#ifdef _DEBUG
+            OutputDebugStringA("[MF Play] Audio renderer created\n");
+#endif
         }
         else if (majorType == MFMediaType_Video && slot.targetWindow) {
             // ビデオ出力（EVR）
             hr = MFCreateVideoRendererActivate(slot.targetWindow, &activate);
+#ifdef _DEBUG
+            char dbg2[256];
+            sprintf_s(dbg2, "[MF Play] Video renderer created, hr=0x%08X\n", hr);
+            OutputDebugStringA(dbg2);
+#endif
         }
         else {
+#ifdef _DEBUG
+            char dbg3[256];
+            sprintf_s(dbg3, "[MF Play] Skipped stream: majorType video=%d, targetWindow=%p\n",
+                (majorType == MFMediaType_Video) ? 1 : 0, (void*)slot.targetWindow);
+            OutputDebugStringA(dbg3);
+#endif
             continue;  // サポートしないストリームタイプ
         }
 
@@ -721,33 +882,55 @@ bool MediaManager::playMediaFoundation(MediaSlot& slot) {
     hr = slot.mediaSession->SetTopology(0, topology.Get());
     if (FAILED(hr)) return false;
 
-    // イベント取得開始
+    // イベントループは loadMediaFoundation で開始済み
     if (slot.mfCallback) {
         slot.mfCallback->isPlaying = false;
         slot.mfCallback->hasEnded = false;
-        hr = slot.mediaSession->BeginGetEvent(slot.mfCallback, nullptr);
+        slot.mfCallback->hasClosed = false;
     }
 
     // 再生開始
+    // VT_EMPTY だと「現在位置」から開始され、自然終了後は末尾のままになるため
+    // HSP互換として常に先頭(0)から開始する
     PROPVARIANT var;
     PropVariantInit(&var);
-    hr = slot.mediaSession->Start(nullptr, &var);
+    hr = InitPropVariantFromInt64(0, &var);
+    if (SUCCEEDED(hr)) {
+        hr = slot.mediaSession->Start(nullptr, &var);
+    }
     PropVariantClear(&var);
 
     if (SUCCEEDED(hr) && slot.mfCallback) {
         slot.mfCallback->isPlaying = true;
     }
 
+    // セッション再生成後も音量/パン設定が効くように再適用
+    if (SUCCEEDED(hr)) {
+        updateMediaFoundationVolume(slot);
+    }
+
     return SUCCEEDED(hr);
 }
 
 void MediaManager::stopMediaFoundation(MediaSlot& slot) {
-    if (slot.mediaSession) {
-        slot.mediaSession->Stop();
-        if (slot.mfCallback) {
-            slot.mfCallback->isPlaying = false;
+    // 停止後も再生を安定させるため、セッションを確実に破棄して次回再生成する
+    releaseMediaFoundation(slot);
+
+    // Video: 再生停止時は子HWNDを隠す（親のD2D描画と共存）
+    if (slot.videoWindow) {
+        ShowWindow(slot.videoWindow, SW_HIDE);
+
+        // 子HWNDが消えた領域の親再描画を促進
+        const HWND redrawTarget = slot.parentWindow ? slot.parentWindow : slot.targetWindow;
+        if (redrawTarget && IsWindow(redrawTarget)) {
+            RedrawWindow(
+                redrawTarget,
+                nullptr,
+                nullptr,
+                RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
         }
     }
+
     slot.state = MediaState::Loaded;
 }
 
@@ -854,10 +1037,12 @@ void MediaManager::mmpan(int bufferId, int pan) {
     MediaSlot& slot = *it->second;
     slot.pan = hspPanToFloat(pan);
 
+#ifdef _DEBUG
     char dbg[256];
     sprintf_s(dbg, "[mmpan] bufferId=%d, pan=%d -> %.2f, hasVoice=%d, hasSession=%d\n",
         bufferId, pan, slot.pan, slot.sourceVoice != nullptr, slot.mediaSession != nullptr);
     OutputDebugStringA(dbg);
+#endif
 
     if (slot.sourceVoice) {
         updateXAudio2Pan(slot);
@@ -887,8 +1072,25 @@ int MediaManager::mmstat(int bufferId, int mode) {
             return static_cast<int>(slot.pan * 1000.0f);
         case 3:   // 再生レート（未実装）
             return 0;
-        case 16:  // 再生中フラグ
-            return isPlaying(bufferId) ? 1 : 0;
+        case 16: { // 再生中フラグ
+            const bool playing = isPlaying(bufferId);
+
+            // Video: 自然終了時はEVRの子HWNDが残ってUIを覆うため、自動的に隠す
+            if (!playing && slot.type == MediaType::Video && slot.videoWindow) {
+                if (IsWindow(slot.videoWindow) && IsWindowVisible(slot.videoWindow)) {
+                    ShowWindow(slot.videoWindow, SW_HIDE);
+                    if (slot.parentWindow && IsWindow(slot.parentWindow)) {
+                        RedrawWindow(
+                            slot.parentWindow,
+                            nullptr,
+                            nullptr,
+                            RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+                    }
+                }
+            }
+
+            return playing ? 1 : 0;
+        }
         default:
             return 0;
     }
@@ -959,8 +1161,8 @@ std::string MediaManager::resolveFilePath(std::string_view filename) {
 // 外部関数（hsppp_media.inl から呼び出される）
 // 戻り値: 0=成功, 非0=失敗
 // ============================================================
-int MediaManager_mmload(std::string_view filename, int bufferId, int mode) {
-    return MediaManager::getInstance().mmload(filename, bufferId, mode) ? 0 : 1;
+int MediaManager_mmload(std::string_view filename, int bufferId, int mode, void* targetWindow) {
+    return MediaManager::getInstance().mmload(filename, bufferId, mode, static_cast<HWND>(targetWindow)) ? 0 : 1;
 }
 
 int MediaManager_mmplay(int bufferId) {

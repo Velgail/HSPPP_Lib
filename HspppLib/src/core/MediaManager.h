@@ -125,6 +125,7 @@ public:
     
     std::atomic<bool> isPlaying{false};
     std::atomic<bool> hasEnded{false};
+    std::atomic<bool> hasClosed{false};
     
 private:
     std::atomic<ULONG> refCount_;
@@ -143,7 +144,9 @@ struct MediaSlot {
     float volume = 1.0f;         // 0.0〜1.0（内部はリニア）
     float pan = 0.0f;            // -1.0（左）〜1.0（右）
     bool isVideoFullscreen = false;  // AVI動画をウィンドウ全体で再生
-    HWND targetWindow = nullptr;     // 動画再生先ウィンドウ
+    HWND parentWindow = nullptr;     // 動画表示対象の親ウィンドウ（ScreenのHWND）
+    HWND targetWindow = nullptr;     // 動画レンダラーの描画先ウィンドウ（内部で使用）
+    HWND videoWindow = nullptr;      // 動画表示用の子ウィンドウ（EVRはここに描画）
     int videoX = 0, videoY = 0;      // 動画再生位置
 
     // XAudio2用（SE/WAV）
@@ -154,7 +157,7 @@ struct MediaSlot {
     // Media Foundation用（BGM/動画）
     ComPtr<IMFMediaSession> mediaSession;
     ComPtr<IMFMediaSource> mediaSource;
-    MediaFoundationCallback* mfCallback = nullptr;
+    ComPtr<MediaFoundationCallback> mfCallback;
 
     MediaSlot() = default;
     ~MediaSlot();
@@ -180,7 +183,7 @@ public:
     void shutdown();
 
     // メディア操作（HSP互換API）
-    bool mmload(std::string_view filename, int bufferId, int mode);
+    bool mmload(std::string_view filename, int bufferId, int mode, HWND targetWindow = nullptr);
     bool mmplay(int bufferId);
     void mmstop(int bufferId = -1);  // -1 = 全停止
     void mmvol(int bufferId, int vol);   // -1000〜0 (HSP互換)
@@ -203,7 +206,6 @@ private:
     bool initializeXAudio2();
     void shutdownXAudio2();
     bool loadWavFile(std::string_view filename, AudioBuffer& buffer);
-    bool loadMp3FileToBuffer(std::string_view filename, AudioBuffer& buffer);
     bool playXAudio2(MediaSlot& slot);
     void stopXAudio2(MediaSlot& slot);
     void updateXAudio2Volume(MediaSlot& slot);
@@ -215,6 +217,7 @@ private:
     bool loadMediaFoundation(std::string_view filename, MediaSlot& slot);
     bool playMediaFoundation(MediaSlot& slot);
     void stopMediaFoundation(MediaSlot& slot);
+    void releaseMediaFoundation(MediaSlot& slot);
     void updateMediaFoundationVolume(MediaSlot& slot);
     void updateMediaFoundationPan(MediaSlot& slot);
 

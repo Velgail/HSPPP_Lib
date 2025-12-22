@@ -1212,6 +1212,10 @@ namespace hsppp {
         /// @brief 再生モード設定 (0=通常, 1=ループ, 2=終了まで待機)
         Media& mode(int m);
 
+        /// @brief 動画再生先Screenを指定
+        /// @param screenId 描画先のScreen ID（screen/bgscr で作成したウィンドウ）
+        Media& target(int screenId);
+
         /// @brief 現在の音量取得
         [[nodiscard]] int get_vol() const;
         

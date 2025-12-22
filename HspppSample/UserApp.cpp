@@ -492,7 +492,9 @@ int hspMain() {
         win.redraw(1);
         
         // デモ選択処理（画面遷移）
-        processDemoSelection(win);
+        if (!g_videoMode) {
+            processDemoSelection(win);
+        }
         
         // 各デモのアクション処理
         switch (g_category) {
@@ -516,8 +518,16 @@ int hspMain() {
             break;
         }
         
-        // ESCで終了
-        if (stick() & 128) break;
+        // ESC: 動画再生中は停止、それ以外は終了
+        if (stick() & 128) {
+            if (g_videoMode) {
+                mmstop(0);
+                g_mediaIsPlaying = false;
+                g_videoMode = false;
+            } else {
+                break;
+            }
+        }
         
         await(16);
     }

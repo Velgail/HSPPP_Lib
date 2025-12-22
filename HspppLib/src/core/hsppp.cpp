@@ -180,4 +180,17 @@ namespace hsppp::internal {
         CoUninitialize();
     }
 
+    // ============================================================
+    // Screen ID から HWND を取得（Media系から使用）
+    // ============================================================
+    void* getWindowHwndById(int id) {
+        auto surface = getSurfaceById(id);
+        if (!surface) return nullptr;
+        
+        auto* window = dynamic_cast<HspWindow*>(surface.get());
+        if (!window) return nullptr;
+        
+        return static_cast<void*>(window->getHwnd());
+    }
+
 } // namespace hsppp::internal

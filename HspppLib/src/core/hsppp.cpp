@@ -130,11 +130,16 @@ namespace {
 #include "hsppp_file.inl"
 #include "hsppp_easing.inl"
 #include "hsppp_gui.inl"
+#include "hsppp_media.inl"
 
 // ============================================================
 // init_system / close_system
 // ============================================================
 namespace hsppp::internal {
+
+    // MediaManager への外部関数宣言（MediaManager.cpp で定義）
+    void MediaManager_initialize();
+    void MediaManager_shutdown();
 
     void init_system(const std::source_location& location) {
         // COM初期化
@@ -153,9 +158,15 @@ namespace hsppp::internal {
             MessageBoxW(nullptr, L"Failed to initialize Direct2D 1.1 device", L"Error", MB_OK | MB_ICONERROR);
             return;
         }
+
+        // マルチメディアマネージャーの初期化
+        MediaManager_initialize();
     }
 
     void close_system(const std::source_location& location) {
+        // マルチメディアマネージャーの終了
+        MediaManager_shutdown();
+
         // すべてのサーフェスを解放
         g_surfaces.clear();
         g_currentSurface.reset();

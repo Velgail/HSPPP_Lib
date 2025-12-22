@@ -18,7 +18,8 @@ enum class DemoCategory {
     Extended,   // 拡張デモ (Ctrl + 1-8)
     Image,      // 画像デモ (Shift + 1-3)
     Interrupt,  // 割り込みデモ (Alt + 1-3)
-    GUI         // GUIデモ (Win + 1-2)
+    GUI,        // GUIデモ (Win + 1-2)
+    Media       // マルチメディアデモ (Alt+Shift + 1)
 };
 
 enum class BasicDemo {
@@ -72,6 +73,11 @@ enum class InterruptDemo {
 enum class GUIDemo {
     Button = 0,     // Win+1: ボタン・入力系
     ChoiceBox,      // Win+2: チェック・コンボ・リスト
+    COUNT
+};
+
+enum class MediaDemo {
+    AudioPlayback = 0,  // Alt+Shift+1: 音声再生デモ
     COUNT
 };
 
@@ -146,6 +152,15 @@ extern int g_checkState;
 extern int g_comboxState;
 extern int g_listboxState;
 
+// マルチメディアデモ用変数
+extern bool g_mediaLoaded;
+extern int g_mediaVolume;
+extern int g_mediaPan;
+extern bool g_mediaIsPlaying;
+extern int g_lastLoadResult;   // mmloadの戻り値
+extern int g_lastPlayResult;   // mmplayの戻り値
+extern int g_mediaType;        // 0=WAV, 1=MP3, 2=MP4
+
 // アクション実行結果表示用
 extern std::string g_actionLog;
 
@@ -170,6 +185,7 @@ void drawExtendedDemo(hsppp::Screen& win);
 void drawImageDemo(hsppp::Screen& win);
 void drawInterruptDemo(hsppp::Screen& win);
 void drawGUIDemo(hsppp::Screen& win);
+void drawMediaDemo(hsppp::Screen& win);
 
 // アクション処理関数（各デモ固有の入力処理）
 void processBasicAction(hsppp::Screen& win);
@@ -177,6 +193,7 @@ void processExtendedAction(hsppp::Screen& win);
 void processImageAction(hsppp::Screen& win);
 void processInterruptAction(hsppp::Screen& win);
 void processGUIAction(hsppp::Screen& win);
+void processMediaAction(hsppp::Screen& win);
 
 // GUIオブジェクトクリア関数
 void clearGUIObjects();

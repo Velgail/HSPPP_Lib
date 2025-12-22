@@ -155,6 +155,8 @@
     <ClCompile Include="src\boot\WinMain.cpp" />
     <ClCompile Include="src\core\hsppp.cpp" />
     <ClCompile Include="src\core\ImageLoader.cpp" />
+    <ClCompile Include="src\core\Media.cpp" />
+    <ClCompile Include="src\core\MediaManager.cpp" />
     <ClCompile Include="src\core\ObjectManager.cpp" />
     <ClCompile Include="src\core\Surface.cpp" />
     <ClCompile Include="src\core\Window.cpp" />
@@ -164,6 +166,8 @@
     <ClInclude Include="framework.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="src\core\Internal.h" />
+    <ClInclude Include="src\core\Media.h" />
+    <ClInclude Include="src\core\MediaManager.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="src\core\hsppp_cel.inl" />
@@ -178,6 +182,7 @@
     <None Include="src\core\hsppp_input.inl" />
     <None Include="src\core\hsppp_interrupt.inl" />
     <None Include="src\core\hsppp_math.inl" />
+    <None Include="src\core\hsppp_media.inl" />
     <None Include="src\core\hsppp_screen.inl" />
     <None Include="src\core\hsppp_string.inl" />
     <None Include="src\core\hsppp_system.inl" />

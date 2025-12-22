@@ -1114,6 +1114,137 @@ namespace hsppp {
     export void stop(const std::source_location& location = std::source_location::current());
 
     // ============================================================
+    // マルチメディア制御命令（HSP互換）
+    // ============================================================
+    //
+    // 実装方針:
+    //   - SE（WAV/短尺音声）: XAudio2（低遅延、多重再生）
+    //   - BGM/動画（MP3, MP4, 長尺）: Media Foundation（ストリーミング）
+    //   - ファイル種類・サイズに応じて内部で自動振り分け
+    //
+    // MCIは非推奨のため、mci命令は提供しない。
+    // ============================================================
+
+    /// @brief メディアファイル読み込み
+    /// @param filename ファイル名
+    /// @param bufferId 割り当てるメディアバッファID (0〜)
+    /// @param mode 再生モード (0=通常, 1=ループ, 2=終了まで待機, +16=動画をウィンドウ全体で再生)
+    /// @return 成功時0、失敗時非0
+    /// @note WAV(2MB以下)はメモリにロード、それ以外はストリーミング準備
+    export int mmload(std::string_view filename, OptInt bufferId = {}, OptInt mode = {},
+                      const std::source_location& location = std::source_location::current());
+
+    /// @brief メディア再生
+    /// @param bufferId 再生するメディアバッファID
+    /// @return 成功時0、失敗時非0
+    export int mmplay(OptInt bufferId = {},
+                      const std::source_location& location = std::source_location::current());
+
+    /// @brief メディア再生の停止
+    /// @param bufferId メディアバッファID (-1または省略で全停止)
+    export void mmstop(OptInt bufferId = {},
+                      const std::source_location& location = std::source_location::current());
+
+    /// @brief 音量の設定
+    /// @param bufferId メディアバッファID
+    /// @param vol ボリューム値 (-1000=無音 〜 0=最大)
+    /// @note リニアな聴感変化 (dmmvolとは異なる)
+    export void mmvol(int bufferId, int vol,
+                     const std::source_location& location = std::source_location::current());
+
+    /// @brief パンニングの設定
+    /// @param bufferId メディアバッファID
+    /// @param pan パンニング値 (-1000=左 〜 0=中央 〜 1000=右)
+    /// @note WAVファイルでのみ有効
+    export void mmpan(int bufferId, int pan,
+                     const std::source_location& location = std::source_location::current());
+
+    /// @brief メディアの状態取得
+    /// @param bufferId メディアバッファID
+    /// @param mode 取得モード (0=フラグ, 1=ボリューム, 2=パン, 16=再生中フラグ)
+    /// @return 指定した状態値
+    export int mmstat(int bufferId, OptInt mode = {},
+                     const std::source_location& location = std::source_location::current());
+
+    // ============================================================
+    // Media クラス（OOP版メディア管理）
+    // ============================================================
+    // 使用例:
+    //   Media bgm("resources/music.mp3");
+    //   bgm.vol(-500).pan(0).loop(true);
+    //   bgm.play();
+    //   bgm.stop();
+
+    export class Media {
+    public:
+        Media();
+        explicit Media(std::string_view filename);
+        ~Media();
+
+        Media(const Media&) = delete;
+        Media& operator=(const Media&) = delete;
+        Media(Media&& other) noexcept;
+        Media& operator=(Media&& other) noexcept;
+
+        /// @brief メディアファイルをロード
+        bool load(std::string_view filename);
+        
+        /// @brief メディアをアンロード
+        void unload();
+
+        /// @brief 再生開始
+        bool play();
+        
+        /// @brief 停止
+        void stop();
+
+        /// @brief 音量設定（メソッドチェーン対応）
+        /// @param v -1000（無音）〜 0（最大）
+        Media& vol(int v);
+        
+        /// @brief パン設定（メソッドチェーン対応）
+        /// @param p -1000（左）〜 0（中央）〜 1000（右）
+        Media& pan(int p);
+        
+        /// @brief ループ設定
+        Media& loop(bool l);
+        
+        /// @brief 再生モード設定 (0=通常, 1=ループ, 2=終了まで待機)
+        Media& mode(int m);
+
+        /// @brief 現在の音量取得
+        [[nodiscard]] int get_vol() const;
+        
+        /// @brief 現在のパン取得
+        [[nodiscard]] int get_pan() const;
+        
+        /// @brief ループ設定取得
+        [[nodiscard]] bool get_loop() const;
+        
+        /// @brief 再生モード取得
+        [[nodiscard]] int get_mode() const;
+        
+        /// @brief 状態取得（mmstat相当）
+        [[nodiscard]] int stat() const;
+        
+        /// @brief 再生中か
+        [[nodiscard]] bool playing() const;
+        
+        /// @brief ロード済みか
+        [[nodiscard]] bool loaded() const;
+        
+        /// @brief ファイル名取得
+        [[nodiscard]] const std::string& filename() const;
+        
+        /// @brief 内部バッファID取得（mm系との互換用）
+        [[nodiscard]] int id() const;
+
+    private:
+        class Impl;
+        std::unique_ptr<Impl> m_impl;
+    };
+
+    // ============================================================
     // 割り込み情報構造体
     // ============================================================
 

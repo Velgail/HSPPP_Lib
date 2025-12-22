@@ -341,12 +341,12 @@ HSP操作リスト - 実装計画
 
 ■ マルチメディア制御命令 [P3]
 ----------------------------------------
-○ [P3] mmload          メディアファイル読み込み
-○ [P3] mmplay          メディア再生
-○ [P3] mmstop          メディア再生の停止
-○ [P3] mmvol           音量の設定
-○ [P3] mmpan           パンニングの設定
-○ [P3] mmstat          メディアの状態取得
+✓ [P3] mmload          メディアファイル読み込み
+✓ [P3] mmplay          メディア再生
+✓ [P3] mmstop          メディア再生の停止
+✓ [P3] mmvol           音量の設定
+✓ [P3] mmpan           パンニングの設定
+✓ [P3] mmstat          メディアの状態取得
 
 × [--] mci             MCIにコマンドを送る（低レベルAPI）
 
@@ -489,8 +489,9 @@ HSP操作リスト - 実装計画
    - button, input, mesbox, chkbox, combox, listbox等
    - objsize, objmode, objcolor, objprm, objsel, objenable, objskip, clrobj
 
-7. ○ マルチメディア機能（次の優先）
+7. ✓ マルチメディア機能
    - mmload, mmplay, mmstop, mmvol, mmpan, mmstat
-
-8. ○ システム統合
-   - err, hspstat, hspver変数の追加
+   - XAudio2 + Media Foundation ハイブリッド実装
+   - WAVファイル: XAudio2で低レイテンシ再生
+   - MP3/その他: Media Foundationで再生
+   - 16スロット対応、HSP互換値範囲（Volume: -1000～0, Pan: -1000～1000）

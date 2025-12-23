@@ -66,12 +66,6 @@ namespace {
     // マウスホイール状態
     int g_mouseWheelDelta = 0;
 
-    // gmode設定（HSP互換）
-    int g_gmodeMode = 0;
-    int g_gmodeSizeX = 32;
-    int g_gmodeSizeY = 32;
-    int g_gmodeBlendRate = 0;
-
     // IDからSurfaceを取得するヘルパー
     std::shared_ptr<HspSurface> getSurfaceById(int id) {
         auto it = g_surfaces.find(id);

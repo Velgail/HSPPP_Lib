@@ -268,6 +268,12 @@ protected:
     // 描画モード (0: バッチモード, 1: 即時反映)
     int m_redrawMode;
 
+    // gmode設定（サーフェスごと）
+    int m_gmodeMode;        // コピーモード (0～6)
+    int m_gmodeSizeX;       // コピーサイズX
+    int m_gmodeSizeY;       // コピーサイズY
+    int m_gmodeBlendRate;   // ブレンド率 (0～256)
+
 public:
     HspSurface(int width, int height);
     virtual ~HspSurface() = default;
@@ -323,6 +329,18 @@ public:
     // 描画モード制御
     void setRedrawMode(int mode) { m_redrawMode = mode; }
     int getRedrawMode() const { return m_redrawMode; }
+
+    // gmode設定
+    void setGmode(int mode, int sizeX, int sizeY, int blendRate) {
+        m_gmodeMode = mode;
+        m_gmodeSizeX = sizeX;
+        m_gmodeSizeY = sizeY;
+        m_gmodeBlendRate = blendRate;
+    }
+    int getGmodeMode() const { return m_gmodeMode; }
+    int getGmodeSizeX() const { return m_gmodeSizeX; }
+    int getGmodeSizeY() const { return m_gmodeSizeY; }
+    int getGmodeBlendRate() const { return m_gmodeBlendRate; }
 
     // ゲッター
     int getWidth() const { return m_width; }

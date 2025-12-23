@@ -336,4 +336,403 @@ namespace hsppp {
         return *this;
     }
 
+    // ============================================================
+    // 画面コピー・変形描画（OOP版）
+    // ============================================================
+
+    Screen& Screen::gmode(int mode, int sizeX, int sizeY, int blendRate) {
+        auto surface = getSurfaceById(m_id);
+        if (surface) {
+            surface->setGmode(mode, sizeX, sizeY, blendRate);
+        }
+        return *this;
+    }
+
+    Screen& Screen::gcopy(int srcId, int srcX, int srcY, OptInt sizeX, OptInt sizeY) {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        // このサーフェスのgmode設定を取得
+        int gmodeMode = surface->getGmodeMode();
+        int gmodeSizeX = surface->getGmodeSizeX();
+        int gmodeSizeY = surface->getGmodeSizeY();
+        int gmodeBlendRate = surface->getGmodeBlendRate();
+
+        int copyW = sizeX.value_or(gmodeSizeX);
+        int copyH = sizeY.value_or(gmodeSizeY);
+
+        // コピー元サーフェスを取得
+        auto srcSurface = getSurfaceById(srcId);
+        if (!srcSurface) return *this;
+
+        auto srcBitmap = srcSurface->getTargetBitmap();
+        if (!srcBitmap) return *this;
+
+        auto destContext = surface->getDeviceContext();
+        if (!destContext) return *this;
+
+        // カレントポジションを取得
+        int destX = surface->getCurrentX();
+        int destY = surface->getCurrentY();
+
+        // 描画モードに応じて処理
+        bool autoManage = (surface->getRedrawMode() == 1 && !surface->isDrawing());
+        if (autoManage) {
+            surface->beginDraw();
+        }
+        if (!surface->isDrawing()) return *this;
+
+        // コピー元の領域
+        D2D1_RECT_F srcRect = D2D1::RectF(
+            static_cast<FLOAT>(srcX),
+            static_cast<FLOAT>(srcY),
+            static_cast<FLOAT>(srcX + copyW),
+            static_cast<FLOAT>(srcY + copyH)
+        );
+
+        // コピー先の領域
+        D2D1_RECT_F destRect = D2D1::RectF(
+            static_cast<FLOAT>(destX),
+            static_cast<FLOAT>(destY),
+            static_cast<FLOAT>(destX + copyW),
+            static_cast<FLOAT>(destY + copyH)
+        );
+
+        // コピーモードに応じた処理
+        FLOAT opacity = 1.0f;
+        D2D1_PRIMITIVE_BLEND primitiveBlend = D2D1_PRIMITIVE_BLEND_SOURCE_OVER;
+
+        if (gmodeMode >= 3 && gmodeMode <= 6) {
+            opacity = gmodeBlendRate / 256.0f;
+        }
+
+        if (gmodeMode == 5) {
+            primitiveBlend = D2D1_PRIMITIVE_BLEND_ADD;
+        } else if (gmodeMode == 6) {
+            primitiveBlend = D2D1_PRIMITIVE_BLEND_MIN;
+        }
+
+        destContext->SetPrimitiveBlend(primitiveBlend);
+
+        destContext->DrawBitmap(
+            srcBitmap,
+            destRect,
+            opacity,
+            D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR,
+            srcRect
+        );
+
+        if (primitiveBlend != D2D1_PRIMITIVE_BLEND_SOURCE_OVER) {
+            destContext->SetPrimitiveBlend(D2D1_PRIMITIVE_BLEND_SOURCE_OVER);
+        }
+
+        if (autoManage) {
+            surface->endDrawAndPresent();
+        }
+
+        return *this;
+    }
+
+    Screen& Screen::gzoom(int destW, int destH, int srcId, int srcX, int srcY, OptInt srcW, OptInt srcH, int mode) {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        // このサーフェスのgmode設定を取得
+        int gmodeMode = surface->getGmodeMode();
+        int gmodeSizeX = surface->getGmodeSizeX();
+        int gmodeSizeY = surface->getGmodeSizeY();
+        int gmodeBlendRate = surface->getGmodeBlendRate();
+
+        int copyW = srcW.value_or(gmodeSizeX);
+        int copyH = srcH.value_or(gmodeSizeY);
+
+        // コピー元サーフェスを取得
+        auto srcSurface = getSurfaceById(srcId);
+        if (!srcSurface) return *this;
+
+        auto srcBitmap = srcSurface->getTargetBitmap();
+        if (!srcBitmap) return *this;
+
+        auto destContext = surface->getDeviceContext();
+        if (!destContext) return *this;
+
+        // カレントポジションを取得
+        int destX = surface->getCurrentX();
+        int destY = surface->getCurrentY();
+
+        // 描画モードに応じて処理
+        bool autoManage = (surface->getRedrawMode() == 1 && !surface->isDrawing());
+        if (autoManage) {
+            surface->beginDraw();
+        }
+        if (!surface->isDrawing()) return *this;
+
+        // コピー元の領域
+        D2D1_RECT_F srcRect = D2D1::RectF(
+            static_cast<FLOAT>(srcX),
+            static_cast<FLOAT>(srcY),
+            static_cast<FLOAT>(srcX + copyW),
+            static_cast<FLOAT>(srcY + copyH)
+        );
+
+        // コピー先の領域（変倍）
+        D2D1_RECT_F destRect = D2D1::RectF(
+            static_cast<FLOAT>(destX),
+            static_cast<FLOAT>(destY),
+            static_cast<FLOAT>(destX + destW),
+            static_cast<FLOAT>(destY + destH)
+        );
+
+        // コピーモードに応じた処理
+        FLOAT opacity = 1.0f;
+        D2D1_PRIMITIVE_BLEND primitiveBlend = D2D1_PRIMITIVE_BLEND_SOURCE_OVER;
+
+        if (gmodeMode >= 3 && gmodeMode <= 6) {
+            opacity = gmodeBlendRate / 256.0f;
+        }
+
+        if (gmodeMode == 5) {
+            primitiveBlend = D2D1_PRIMITIVE_BLEND_ADD;
+        } else if (gmodeMode == 6) {
+            primitiveBlend = D2D1_PRIMITIVE_BLEND_MIN;
+        }
+
+        D2D1_BITMAP_INTERPOLATION_MODE interpMode =
+            (mode == 1) ? D2D1_BITMAP_INTERPOLATION_MODE_LINEAR
+                        : D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR;
+
+        destContext->SetPrimitiveBlend(primitiveBlend);
+
+        destContext->DrawBitmap(
+            srcBitmap,
+            destRect,
+            opacity,
+            interpMode,
+            srcRect
+        );
+
+        if (primitiveBlend != D2D1_PRIMITIVE_BLEND_SOURCE_OVER) {
+            destContext->SetPrimitiveBlend(D2D1_PRIMITIVE_BLEND_SOURCE_OVER);
+        }
+
+        if (autoManage) {
+            surface->endDrawAndPresent();
+        }
+
+        return *this;
+    }
+
+    Screen& Screen::grotate(int srcId, int srcX, int srcY, double angle, OptInt dstW, OptInt dstH) {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        // このサーフェスのgmode設定を取得
+        int gmodeSizeX = surface->getGmodeSizeX();
+        int gmodeSizeY = surface->getGmodeSizeY();
+
+        int destW = dstW.value_or(gmodeSizeX);
+        int destH = dstH.value_or(gmodeSizeY);
+
+        // コピー元サーフェスを取得
+        auto srcSurface = getSurfaceById(srcId);
+        if (!srcSurface) return *this;
+
+        auto* pSrcBitmap = srcSurface->getTargetBitmap();
+        if (!pSrcBitmap) return *this;
+
+        surface->grotate(pSrcBitmap, srcX, srcY, gmodeSizeX, gmodeSizeY, angle, destW, destH);
+
+        return *this;
+    }
+
+    Screen& Screen::gsquare(int srcId, const Quad& dst) {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        int dstX[4] = { dst.v[0].x, dst.v[1].x, dst.v[2].x, dst.v[3].x };
+        int dstY[4] = { dst.v[0].y, dst.v[1].y, dst.v[2].y, dst.v[3].y };
+
+        surface->gsquare(dstX, dstY, nullptr, nullptr, nullptr);
+
+        return *this;
+    }
+
+    Screen& Screen::gsquare(int srcId, const Quad& dst, const QuadUV& src) {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        int dstX[4] = { dst.v[0].x, dst.v[1].x, dst.v[2].x, dst.v[3].x };
+        int dstY[4] = { dst.v[0].y, dst.v[1].y, dst.v[2].y, dst.v[3].y };
+        int srcX[4] = { src.v[0].x, src.v[1].x, src.v[2].x, src.v[3].x };
+        int srcY[4] = { src.v[0].y, src.v[1].y, src.v[2].y, src.v[3].y };
+
+        if (srcId >= 0) {
+            auto srcSurface = getSurfaceById(srcId);
+            if (srcSurface) {
+                auto* pSrcBitmap = srcSurface->getTargetBitmap();
+                surface->gsquare(dstX, dstY, pSrcBitmap, srcX, srcY);
+            }
+        } else {
+            surface->gsquare(dstX, dstY, nullptr, nullptr, nullptr);
+        }
+
+        return *this;
+    }
+
+    Screen& Screen::gsquare(int srcId, const Quad& dst, const QuadColors& colors) {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        int dstX[4] = { dst.v[0].x, dst.v[1].x, dst.v[2].x, dst.v[3].x };
+        int dstY[4] = { dst.v[0].y, dst.v[1].y, dst.v[2].y, dst.v[3].y };
+        int cols[4] = { colors.colors[0], colors.colors[1], colors.colors[2], colors.colors[3] };
+
+        surface->gsquareGrad(dstX, dstY, cols);
+
+        return *this;
+    }
+
+    // ============================================================
+    // ウィンドウ表示制御（OOP版）
+    // ============================================================
+
+    Screen& Screen::show() {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        auto pWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
+        if (pWindow && pWindow->getHwnd()) {
+            ShowWindow(pWindow->getHwnd(), SW_SHOW);
+            SetForegroundWindow(pWindow->getHwnd());
+        }
+        return *this;
+    }
+
+    Screen& Screen::hide() {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        auto pWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
+        if (pWindow && pWindow->getHwnd()) {
+            ShowWindow(pWindow->getHwnd(), SW_HIDE);
+        }
+        return *this;
+    }
+
+    Screen& Screen::activate() {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        auto pWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
+        if (pWindow && pWindow->getHwnd()) {
+            HWND hwnd = pWindow->getHwnd();
+            ShowWindow(hwnd, SW_SHOW);
+            SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+            SetForegroundWindow(hwnd);
+        }
+        return *this;
+    }
+
+    // ============================================================
+    // Cel描画（OOP版・Screen側主体）
+    // ============================================================
+
+    Screen& Screen::celput(const Cel& cel, int cellIndex, OptInt x, OptInt y) {
+        auto surface = getSurfaceById(m_id);
+        if (!surface || !cel.valid()) return *this;
+
+        // カレントを一時的に切り替えてcelput呼び出し
+        auto savedSurface = g_currentSurface.lock();
+        auto savedId = g_currentScreenId;
+
+        g_currentSurface = surface;
+        g_currentScreenId = m_id;
+
+        hsppp::celput(cel.id(), cellIndex, x, y);
+
+        g_currentSurface = savedSurface;
+        g_currentScreenId = savedId;
+
+        return *this;
+    }
+
+    // ============================================================
+    // GUIオブジェクト生成（OOP版・ウィンドウ指定）
+    // ============================================================
+
+    int Screen::button(std::string_view name, std::function<int()> callback, bool isGosub) {
+        // カレントを一時的に切り替えてbutton呼び出し
+        auto savedSurface = g_currentSurface.lock();
+        auto savedId = g_currentScreenId;
+
+        auto surface = getSurfaceById(m_id);
+        if (surface) {
+            g_currentSurface = surface;
+            g_currentScreenId = m_id;
+        }
+
+        int result = hsppp::button(name, callback, isGosub);
+
+        g_currentSurface = savedSurface;
+        g_currentScreenId = savedId;
+
+        return result;
+    }
+
+    int Screen::input(std::shared_ptr<std::string> var, int maxLength, int mode) {
+        // カレントを一時的に切り替えてinput呼び出し
+        auto savedSurface = g_currentSurface.lock();
+        auto savedId = g_currentScreenId;
+
+        auto surface = getSurfaceById(m_id);
+        if (surface) {
+            g_currentSurface = surface;
+            g_currentScreenId = m_id;
+        }
+
+        int result = hsppp::input(var, maxLength, mode);
+
+        g_currentSurface = savedSurface;
+        g_currentScreenId = savedId;
+
+        return result;
+    }
+
+    int Screen::mesbox(std::shared_ptr<std::string> var, int maxLength, int mode) {
+        // カレントを一時的に切り替えてmesbox呼び出し
+        auto savedSurface = g_currentSurface.lock();
+        auto savedId = g_currentScreenId;
+
+        auto surface = getSurfaceById(m_id);
+        if (surface) {
+            g_currentSurface = surface;
+            g_currentScreenId = m_id;
+        }
+
+        int result = hsppp::mesbox(var, maxLength, mode);
+
+        g_currentSurface = savedSurface;
+        g_currentScreenId = savedId;
+
+        return result;
+    }
+
+    // ============================================================
+    // マウス制御（OOP版）
+    // ============================================================
+
+    Screen& Screen::mouse(int x, int y) {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        auto pWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
+        if (pWindow && pWindow->getHwnd()) {
+            // クライアント座標をスクリーン座標に変換
+            POINT pt = { x, y };
+            ClientToScreen(pWindow->getHwnd(), &pt);
+            SetCursorPos(pt.x, pt.y);
+        }
+        return *this;
+    }
+
 } // namespace hsppp

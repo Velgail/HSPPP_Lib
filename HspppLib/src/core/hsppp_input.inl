@@ -105,17 +105,33 @@ namespace hsppp {
 
     // ============================================================
     // mouse - マウスカーソル座標設定（HSP互換）
+    // HSPの仕様: クライアント座標（ウィンドウ内の座標）で指定
     // ============================================================
     void mouse(OptInt x, OptInt y, OptInt mode, const std::source_location& location) {
+        using namespace internal;
+
         int p1 = x.value_or(0);
         int p2 = y.value_or(0);
         int p3 = mode.value_or(0);
 
-        // 現在の座標を取得（省略時用）
+        // カレントウィンドウを取得
+        auto currentSurface = getCurrentSurface();
+        auto pWindow = currentSurface ? std::dynamic_pointer_cast<HspWindow>(currentSurface) : nullptr;
+
+        // 現在のクライアント座標を取得（省略時用）
         POINT pt;
         GetCursorPos(&pt);
+        if (pWindow && pWindow->getHwnd()) {
+            ScreenToClient(pWindow->getHwnd(), &pt);
+        }
         if (x.is_default()) p1 = pt.x;
         if (y.is_default()) p2 = pt.y;
+
+        // クライアント座標をスクリーン座標に変換
+        POINT screenPt = { p1, p2 };
+        if (pWindow && pWindow->getHwnd()) {
+            ClientToScreen(pWindow->getHwnd(), &screenPt);
+        }
 
         switch (p3) {
         case 0:
@@ -124,22 +140,22 @@ namespace hsppp {
             if (p1 < 0 || p2 < 0) {
                 ShowCursor(FALSE);
             } else {
-                SetCursorPos(p1, p2);
+                SetCursorPos(screenPt.x, screenPt.y);
                 ShowCursor(TRUE);
             }
             break;
         case -1:
             // 移動して非表示
-            SetCursorPos(p1, p2);
+            SetCursorPos(screenPt.x, screenPt.y);
             ShowCursor(FALSE);
             break;
         case 1:
             // 移動のみ（表示状態は維持）
-            SetCursorPos(p1, p2);
+            SetCursorPos(screenPt.x, screenPt.y);
             break;
         case 2:
             // 移動して表示
-            SetCursorPos(p1, p2);
+            SetCursorPos(screenPt.x, screenPt.y);
             ShowCursor(TRUE);
             break;
         }

@@ -54,6 +54,7 @@ namespace hsppp {
 
     // ============================================================
     // gmode - 画面コピーモード設定（HSP互換）
+    // カレントサーフェスのgmode設定を変更する
     // ============================================================
     void gmode(OptInt mode, OptInt size_x, OptInt size_y, OptInt blend_rate, const std::source_location& location) {
         int m = mode.value_or(0);
@@ -72,24 +73,38 @@ namespace hsppp {
             throw HspError(ERR_OUT_OF_RANGE, "gmodeのブレンド率は0～256の範囲で指定してください", location);
         }
 
-        g_gmodeMode = m;
-        g_gmodeSizeX = sx;
-        g_gmodeSizeY = sy;
-        g_gmodeBlendRate = br;
+        // カレントサーフェスのgmode設定を変更
+        auto currentSurface = getCurrentSurface();
+        if (currentSurface) {
+            currentSurface->setGmode(m, sx, sy, br);
+        }
     }
 
     // ============================================================
     // gcopy - 画面コピー（HSP互換）
     // Direct2D 1.1: 共有ビットマップを使用して異なるサーフェス間でコピー
+    // コピー先サーフェスのgmode設定を使用
     // ============================================================
     void gcopy(OptInt src_id, OptInt src_x, OptInt src_y, OptInt size_x, OptInt size_y, const std::source_location& location) {
         using namespace internal;
 
+        // カレントサーフェス（コピー先）を取得
+        auto destSurface = getCurrentSurface();
+        if (!destSurface) {
+            throw HspError(ERR_INVALID_HANDLE, "gcopyのカレントサーフェスが無効です", location);
+        }
+
+        // サーフェスのgmode設定を取得
+        int gmodeMode = destSurface->getGmodeMode();
+        int gmodeSizeX = destSurface->getGmodeSizeX();
+        int gmodeSizeY = destSurface->getGmodeSizeY();
+        int gmodeBlendRate = destSurface->getGmodeBlendRate();
+
         int p1 = src_id.value_or(0);
         int p2 = src_x.value_or(0);
         int p3 = src_y.value_or(0);
-        int p4 = size_x.value_or(g_gmodeSizeX);
-        int p5 = size_y.value_or(g_gmodeSizeY);
+        int p4 = size_x.value_or(gmodeSizeX);
+        int p5 = size_y.value_or(gmodeSizeY);
 
         try {
             // コピー元サーフェスを取得
@@ -98,12 +113,6 @@ namespace hsppp {
                 throw HspError(ERR_INVALID_HANDLE, "gcopyのコピー元サーフェスが見つかりません", location);
             }
             auto srcSurface = srcIt->second;
-
-            // カレントサーフェス（コピー先）を取得
-            auto destSurface = getCurrentSurface();
-            if (!destSurface) {
-                throw HspError(ERR_INVALID_HANDLE, "gcopyのカレントサーフェスが無効です", location);
-            }
 
             // コピー元のビットマップを取得（Direct2D 1.1の共有ビットマップ）
             auto srcBitmap = srcSurface->getTargetBitmap();
@@ -144,19 +153,19 @@ namespace hsppp {
                 static_cast<FLOAT>(destY + p5)
             );
 
-            // コピーモードに応じた処理
+            // コピーモードに応じた処理（サーフェスのgmode設定を使用）
             FLOAT opacity = 1.0f;
             D2D1_PRIMITIVE_BLEND primitiveBlend = D2D1_PRIMITIVE_BLEND_SOURCE_OVER;
 
-            if (g_gmodeMode >= 3 && g_gmodeMode <= 6) {
+            if (gmodeMode >= 3 && gmodeMode <= 6) {
                 // 半透明・加算・減算モードの場合はブレンド率を適用
-                opacity = g_gmodeBlendRate / 256.0f;
+                opacity = gmodeBlendRate / 256.0f;
             }
 
-            if (g_gmodeMode == 5) {
+            if (gmodeMode == 5) {
                 // 加算ブレンド
                 primitiveBlend = D2D1_PRIMITIVE_BLEND_ADD;
-            } else if (g_gmodeMode == 6) {
+            } else if (gmodeMode == 6) {
                 // 減算ブレンド（Direct2Dに直接対応がないためMINで近似）
                 primitiveBlend = D2D1_PRIMITIVE_BLEND_MIN;
             }
@@ -190,28 +199,35 @@ namespace hsppp {
     // ============================================================
     // gzoom - 変倍して画面コピー（HSP互換）
     // Direct2D 1.1: 共有ビットマップを使用して異なるサーフェス間でコピー
+    // コピー先サーフェスのgmode設定を使用
     // ============================================================
     void gzoom(OptInt dest_w, OptInt dest_h, OptInt src_id, OptInt src_x, OptInt src_y,
                OptInt src_w, OptInt src_h, OptInt mode, const std::source_location& location) {
         using namespace internal;
 
-        int p1 = dest_w.value_or(g_gmodeSizeX);
-        int p2 = dest_h.value_or(g_gmodeSizeY);
+        // カレントサーフェス（コピー先）を取得
+        auto destSurface = getCurrentSurface();
+        if (!destSurface) return;
+
+        // サーフェスのgmode設定を取得
+        int gmodeMode = destSurface->getGmodeMode();
+        int gmodeSizeX = destSurface->getGmodeSizeX();
+        int gmodeSizeY = destSurface->getGmodeSizeY();
+        int gmodeBlendRate = destSurface->getGmodeBlendRate();
+
+        int p1 = dest_w.value_or(gmodeSizeX);
+        int p2 = dest_h.value_or(gmodeSizeY);
         int p3 = src_id.value_or(0);
         int p4 = src_x.value_or(0);
         int p5 = src_y.value_or(0);
-        int p6 = src_w.value_or(g_gmodeSizeX);
-        int p7 = src_h.value_or(g_gmodeSizeY);
+        int p6 = src_w.value_or(gmodeSizeX);
+        int p7 = src_h.value_or(gmodeSizeY);
         int p8 = mode.value_or(0);
 
         // コピー元サーフェスを取得
         auto srcIt = g_surfaces.find(p3);
         if (srcIt == g_surfaces.end()) return;
         auto srcSurface = srcIt->second;
-
-        // カレントサーフェス（コピー先）を取得
-        auto destSurface = getCurrentSurface();
-        if (!destSurface) return;
 
         // コピー元のビットマップを取得（Direct2D 1.1の共有ビットマップ）
         auto srcBitmap = srcSurface->getTargetBitmap();
@@ -248,18 +264,18 @@ namespace hsppp {
             static_cast<FLOAT>(destY + p2)
         );
 
-        // コピーモードに応じた処理（gcopyと同様にgmodeを尊重）
+        // コピーモードに応じた処理（サーフェスのgmode設定を使用）
         FLOAT opacity = 1.0f;
         D2D1_PRIMITIVE_BLEND primitiveBlend = D2D1_PRIMITIVE_BLEND_SOURCE_OVER;
 
-        if (g_gmodeMode >= 3 && g_gmodeMode <= 6) {
-            opacity = g_gmodeBlendRate / 256.0f;
+        if (gmodeMode >= 3 && gmodeMode <= 6) {
+            opacity = gmodeBlendRate / 256.0f;
         }
 
-        if (g_gmodeMode == 5) {
+        if (gmodeMode == 5) {
             // 加算ブレンド
             primitiveBlend = D2D1_PRIMITIVE_BLEND_ADD;
-        } else if (g_gmodeMode == 6) {
+        } else if (gmodeMode == 6) {
             // 減算ブレンド（Direct2Dに直接対応がないためMINで近似）
             primitiveBlend = D2D1_PRIMITIVE_BLEND_MIN;
         }

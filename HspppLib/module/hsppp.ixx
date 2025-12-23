@@ -757,6 +757,13 @@ namespace hsppp {
         /// @return オブジェクトID
         int mesbox(std::shared_ptr<std::string> var, int maxLength = 4096, int mode = 0);
 
+        /// @brief オブジェクトのサイズと間隔を設定（OOP版）
+        /// @param sizeX オブジェクトの横幅
+        /// @param sizeY オブジェクトの高さ
+        /// @param spaceY 次のオブジェクトとの縦間隔（デフォルト0）
+        /// @return *this（メソッドチェーン用）
+        Screen& objsize(int sizeX, int sizeY = 24, int spaceY = 0);
+
         /// @brief マウスカーソルの座標を設定（OOP版）
         /// @param x X座標（クライアント座標）
         /// @param y Y座標（クライアント座標）

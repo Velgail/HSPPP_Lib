@@ -274,6 +274,11 @@ protected:
     int m_gmodeSizeY;       // コピーサイズY
     int m_gmodeBlendRate;   // ブレンド率 (0～256)
 
+    // objsize設定（サーフェスごと）
+    int m_objSizeX;         // オブジェクト幅
+    int m_objSizeY;         // オブジェクト高さ
+    int m_objSpaceY;        // オブジェクト間隔
+
 public:
     HspSurface(int width, int height);
     virtual ~HspSurface() = default;
@@ -341,6 +346,21 @@ public:
     int getGmodeSizeX() const { return m_gmodeSizeX; }
     int getGmodeSizeY() const { return m_gmodeSizeY; }
     int getGmodeBlendRate() const { return m_gmodeBlendRate; }
+
+    // objsize設定
+    void setObjSize(int sizeX, int sizeY, int spaceY) {
+        m_objSizeX = sizeX;
+        m_objSizeY = sizeY;
+        m_objSpaceY = spaceY;
+    }
+    void getObjSize(int& sizeX, int& sizeY, int& spaceY) const {
+        sizeX = m_objSizeX;
+        sizeY = m_objSizeY;
+        spaceY = m_objSpaceY;
+    }
+    int getObjSizeX() const { return m_objSizeX; }
+    int getObjSizeY() const { return m_objSizeY; }
+    int getObjSpaceY() const { return m_objSpaceY; }
 
     // ゲッター
     int getWidth() const { return m_width; }

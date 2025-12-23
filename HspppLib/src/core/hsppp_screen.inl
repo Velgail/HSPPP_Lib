@@ -659,7 +659,8 @@ namespace hsppp {
         }
 
         int input_impl(std::shared_ptr<HspSurface> surface, int windowId,
-                      std::shared_ptr<std::string> var, int maxLength, int mode) {
+                      std::shared_ptr<std::string> var, int maxChars,
+                      int sizeX, int sizeY, int objSpaceY) {
             auto& objMgr = ObjectManager::getInstance();
 
             auto pHspWindow = std::dynamic_pointer_cast<HspWindow>(surface);
@@ -667,12 +668,8 @@ namespace hsppp {
                 return -1;
             }
 
-            int objW, objH, objSpace;
-            objMgr.getObjSize(objW, objH, objSpace);
-
-            int w = (maxLength > 0) ? maxLength : objW;
-            int h = objH;
-            int maxChars = 256;
+            int w = sizeX;
+            int h = sizeY;
 
             int posX = surface->getCurrentX();
             int posY = surface->getCurrentY();
@@ -717,14 +714,15 @@ namespace hsppp {
 
             int objectId = objMgr.registerObject(info);
 
-            int nextY = posY + std::max(h, objSpace);
+            int nextY = posY + std::max(h, objSpaceY);
             surface->pos(posX, nextY);
 
             return objectId;
         }
 
         int mesbox_impl(std::shared_ptr<HspSurface> surface, int windowId,
-                       std::shared_ptr<std::string> var, int maxLength, int mode) {
+                       std::shared_ptr<std::string> var, int maxChars, int styleVal,
+                       int sizeX, int sizeY, int objSpaceY) {
             auto& objMgr = ObjectManager::getInstance();
 
             auto pHspWindow = std::dynamic_pointer_cast<HspWindow>(surface);
@@ -732,13 +730,8 @@ namespace hsppp {
                 return -1;
             }
 
-            int objW, objH, objSpace;
-            objMgr.getObjSize(objW, objH, objSpace);
-
-            int w = (maxLength > 0) ? maxLength : objW;
-            int h = objH * 3;
-            int styleVal = mode;
-            int maxChars = 32767;
+            int w = sizeX;
+            int h = sizeY;
 
             int posX = surface->getCurrentX();
             int posY = surface->getCurrentY();
@@ -807,7 +800,7 @@ namespace hsppp {
 
             int objectId = objMgr.registerObject(info);
 
-            int nextY = posY + std::max(h, objSpace);
+            int nextY = posY + std::max(h, objSpaceY);
             surface->pos(posX, nextY);
 
             return objectId;
@@ -828,13 +821,33 @@ namespace hsppp {
     int Screen::input(std::shared_ptr<std::string> var, int maxLength, int mode) {
         auto surface = getSurfaceById(m_id);
         if (!surface) return -1;
-        return internal::input_impl(surface, m_id, var, maxLength, mode);
+        
+        // Surface が所有する objsize を使用
+        int objW = surface->getObjSizeX();
+        int objH = surface->getObjSizeY();
+        int objSpace = surface->getObjSpaceY();
+        
+        return internal::input_impl(surface, m_id, var, maxLength, objW, objH, objSpace);
     }
 
     int Screen::mesbox(std::shared_ptr<std::string> var, int maxLength, int mode) {
         auto surface = getSurfaceById(m_id);
         if (!surface) return -1;
-        return internal::mesbox_impl(surface, m_id, var, maxLength, mode);
+        
+        // Surface が所有する objsize を使用
+        int objW = surface->getObjSizeX();
+        int objH = surface->getObjSizeY();
+        int objSpace = surface->getObjSpaceY();
+        
+        return internal::mesbox_impl(surface, m_id, var, maxLength, mode, objW, objH * 3, objSpace);
+    }
+
+    Screen& Screen::objsize(int sizeX, int sizeY, int spaceY) {
+        auto surface = getSurfaceById(m_id);
+        if (surface) {
+            surface->setObjSize(sizeX, sizeY, spaceY);
+        }
+        return *this;
     }
 
     // ============================================================

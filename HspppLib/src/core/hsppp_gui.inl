@@ -10,6 +10,17 @@ using namespace internal;
 // objsize - オブジェクトサイズ設定
 // ============================================================
 void objsize(OptInt sizeX, OptInt sizeY, OptInt spaceY, const std::source_location& location) {
+    // 現在の Surface に設定（OOP設計：Surfaceがデータを所有）
+    auto surface = getCurrentSurface();
+    if (surface) {
+        surface->setObjSize(
+            sizeX.value_or(64),
+            sizeY.value_or(24),
+            spaceY.value_or(0)
+        );
+    }
+    
+    // ObjectManager にも設定（後方互換性のため）
     auto& objMgr = internal::ObjectManager::getInstance();
     objMgr.setObjSize(
         sizeX.value_or(64),
@@ -66,8 +77,17 @@ int input(std::string& var, OptInt sizeX, OptInt sizeY, OptInt maxLen, const std
         throw HspError(ERR_INVALID_HANDLE, "Invalid window ID", location);
     }
 
+    // Surface から objsize を取得
+    int objW = surface->getObjSizeX();
+    int objH = surface->getObjSizeY();
+    int objSpace = surface->getObjSpaceY();
+
+    int w = sizeX.value_or(objW);
+    int h = sizeY.value_or(objH);
+    int maxChars = maxLen.value_or(256);
+
     auto varPtr = std::make_shared<std::string>(var);
-    int result = internal::input_impl(surface, g_currentScreenId, varPtr, maxLen.value_or(256), 0);
+    int result = internal::input_impl(surface, g_currentScreenId, varPtr, maxChars, w, h, objSpace);
     var = *varPtr;
     return result;
 }
@@ -83,8 +103,17 @@ int input(int& var, OptInt sizeX, OptInt sizeY, OptInt maxLen, const std::source
         throw HspError(ERR_INVALID_HANDLE, "Invalid window ID", location);
     }
 
+    // Surface から objsize を取得
+    int objW = surface->getObjSizeX();
+    int objH = surface->getObjSizeY();
+    int objSpace = surface->getObjSpaceY();
+
+    int w = sizeX.value_or(objW);
+    int h = sizeY.value_or(objH);
+    int maxChars = maxLen.value_or(32);
+
     auto varPtr = std::make_shared<std::string>(std::to_string(var));
-    int result = internal::input_impl(surface, g_currentScreenId, varPtr, maxLen.value_or(32), 0);
+    int result = internal::input_impl(surface, g_currentScreenId, varPtr, maxChars, w, h, objSpace);
     try {
         var = std::stoi(*varPtr);
     } catch (...) {
@@ -104,8 +133,18 @@ int mesbox(std::string& var, OptInt sizeX, OptInt sizeY, OptInt style, OptInt ma
         throw HspError(ERR_INVALID_HANDLE, "Invalid window ID", location);
     }
 
+    // Surface から objsize を取得
+    int objW = surface->getObjSizeX();
+    int objH = surface->getObjSizeY();
+    int objSpace = surface->getObjSpaceY();
+
+    int w = sizeX.value_or(objW);
+    int h = sizeY.value_or(objH * 3);  // mesbox はデフォルトで高さ 3 倍
+    int styleVal = style.value_or(1);
+    int maxChars = maxLen.value_or(32767);
+
     auto varPtr = std::make_shared<std::string>(var);
-    int result = internal::mesbox_impl(surface, g_currentScreenId, varPtr, maxLen.value_or(32767), style.value_or(1));
+    int result = internal::mesbox_impl(surface, g_currentScreenId, varPtr, maxChars, styleVal, w, h, objSpace);
     var = *varPtr;
     return result;
 }
@@ -117,21 +156,23 @@ int chkbox(std::string_view label, int& var, const std::source_location& locatio
     auto& objMgr = internal::ObjectManager::getInstance();
     
     int windowId = g_currentScreenId;
-    auto* pWindow = getSurface(windowId);
-    if (!pWindow) {
+    auto surface = getCurrentSurface();
+    if (!surface) {
         throw HspError(ERR_INVALID_HANDLE, "Invalid window ID", location);
     }
     
-    auto* pHspWindow = dynamic_cast<internal::HspWindow*>(pWindow);
+    auto pHspWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
     if (!pHspWindow) {
         throw HspError(ERR_UNSUPPORTED, "Cannot create chkbox on buffer", location);
     }
     
-    int objW, objH, objSpace;
-    objMgr.getObjSize(objW, objH, objSpace);
+    // Surface から objsize を取得
+    int objW = surface->getObjSizeX();
+    int objH = surface->getObjSizeY();
+    int objSpace = surface->getObjSpaceY();
     
-    int posX = pWindow->getCurrentX();
-    int posY = pWindow->getCurrentY();
+    int posX = surface->getCurrentX();
+    int posY = surface->getCurrentY();
     
     HWND hwndParent = pHspWindow->getHwnd();
     std::wstring wlabel = internal::Utf8ToWide(label);
@@ -176,7 +217,7 @@ int chkbox(std::string_view label, int& var, const std::source_location& locatio
     int objectId = objMgr.registerObject(info);
     
     int nextY = posY + std::max(objH, objSpace);
-    pWindow->pos(posX, nextY);
+    surface->pos(posX, nextY);
     
     return objectId;
 }
@@ -188,22 +229,24 @@ int combox(int& var, OptInt expandY, std::string_view items, const std::source_l
     auto& objMgr = internal::ObjectManager::getInstance();
     
     int windowId = g_currentScreenId;
-    auto* pWindow = getSurface(windowId);
-    if (!pWindow) {
+    auto surface = getCurrentSurface();
+    if (!surface) {
         throw HspError(ERR_INVALID_HANDLE, "Invalid window ID", location);
     }
     
-    auto* pHspWindow = dynamic_cast<internal::HspWindow*>(pWindow);
+    auto pHspWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
     if (!pHspWindow) {
         throw HspError(ERR_UNSUPPORTED, "Cannot create combox on buffer", location);
     }
     
-    int objW, objH, objSpace;
-    objMgr.getObjSize(objW, objH, objSpace);
+    // Surface から objsize を取得
+    int objW = surface->getObjSizeX();
+    int objH = surface->getObjSizeY();
+    int objSpace = surface->getObjSpaceY();
     int expandYVal = expandY.value_or(100);
     
-    int posX = pWindow->getCurrentX();
-    int posY = pWindow->getCurrentY();
+    int posX = surface->getCurrentX();
+    int posY = surface->getCurrentY();
     
     HWND hwndParent = pHspWindow->getHwnd();
     
@@ -264,7 +307,7 @@ int combox(int& var, OptInt expandY, std::string_view items, const std::source_l
     int objectId = objMgr.registerObject(info);
     
     int nextY = posY + std::max(objH, objSpace);
-    pWindow->pos(posX, nextY);
+    surface->pos(posX, nextY);
     
     return objectId;
 }
@@ -276,22 +319,24 @@ int listbox(int& var, OptInt expandY, std::string_view items, const std::source_
     auto& objMgr = internal::ObjectManager::getInstance();
     
     int windowId = g_currentScreenId;
-    auto* pWindow = getSurface(windowId);
-    if (!pWindow) {
+    auto surface = getCurrentSurface();
+    if (!surface) {
         throw HspError(ERR_INVALID_HANDLE, "Invalid window ID", location);
     }
     
-    auto* pHspWindow = dynamic_cast<internal::HspWindow*>(pWindow);
+    auto pHspWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
     if (!pHspWindow) {
         throw HspError(ERR_UNSUPPORTED, "Cannot create listbox on buffer", location);
     }
     
-    int objW, objH, objSpace;
-    objMgr.getObjSize(objW, objH, objSpace);
+    // Surface から objsize を取得
+    int objW = surface->getObjSizeX();
+    int objH = surface->getObjSizeY();
+    int objSpace = surface->getObjSpaceY();
     int height = expandY.value_or(100);
     
-    int posX = pWindow->getCurrentX();
-    int posY = pWindow->getCurrentY();
+    int posX = surface->getCurrentX();
+    int posY = surface->getCurrentY();
     
     HWND hwndParent = pHspWindow->getHwnd();
     
@@ -351,7 +396,7 @@ int listbox(int& var, OptInt expandY, std::string_view items, const std::source_
     int objectId = objMgr.registerObject(info);
     
     int nextY = posY + std::max(height, objSpace);
-    pWindow->pos(posX, nextY);
+    surface->pos(posX, nextY);
     
     return objectId;
 }
@@ -371,7 +416,16 @@ int input(std::shared_ptr<std::string> var, OptInt sizeX, OptInt sizeY, OptInt m
         throw HspError(ERR_INVALID_HANDLE, "Invalid window ID", location);
     }
 
-    return internal::input_impl(surface, g_currentScreenId, var, maxLen.value_or(256), 0);
+    // Surface から objsize を取得
+    int objW = surface->getObjSizeX();
+    int objH = surface->getObjSizeY();
+    int objSpace = surface->getObjSpaceY();
+
+    int w = sizeX.value_or(objW);
+    int h = sizeY.value_or(objH);
+    int maxChars = maxLen.value_or(256);
+
+    return internal::input_impl(surface, g_currentScreenId, var, maxChars, w, h, objSpace);
 }
 
 // input (shared_ptr<int>版)
@@ -383,8 +437,17 @@ int input(std::shared_ptr<int> var, OptInt sizeX, OptInt sizeY, OptInt maxLen, c
         throw HspError(ERR_INVALID_HANDLE, "Invalid window ID", location);
     }
 
+    // Surface から objsize を取得
+    int objW = surface->getObjSizeX();
+    int objH = surface->getObjSizeY();
+    int objSpace = surface->getObjSpaceY();
+
+    int w = sizeX.value_or(objW);
+    int h = sizeY.value_or(objH);
+    int maxChars = maxLen.value_or(32);
+
     auto strVar = std::make_shared<std::string>(std::to_string(*var));
-    int result = internal::input_impl(surface, g_currentScreenId, strVar, maxLen.value_or(32), 0);
+    int result = internal::input_impl(surface, g_currentScreenId, strVar, maxChars, w, h, objSpace);
     try {
         *var = std::stoi(*strVar);
     } catch (...) {
@@ -402,7 +465,17 @@ int mesbox(std::shared_ptr<std::string> var, OptInt sizeX, OptInt sizeY, OptInt 
         throw HspError(ERR_INVALID_HANDLE, "Invalid window ID", location);
     }
 
-    return internal::mesbox_impl(surface, g_currentScreenId, var, maxLen.value_or(32767), style.value_or(1));
+    // Surface から objsize を取得
+    int objW = surface->getObjSizeX();
+    int objH = surface->getObjSizeY();
+    int objSpace = surface->getObjSpaceY();
+
+    int w = sizeX.value_or(objW);
+    int h = sizeY.value_or(objH * 3);
+    int styleVal = style.value_or(1);
+    int maxChars = maxLen.value_or(32767);
+
+    return internal::mesbox_impl(surface, g_currentScreenId, var, maxChars, styleVal, w, h, objSpace);
 }
 
 // chkbox (shared_ptr<int>版)
@@ -410,21 +483,23 @@ int chkbox(std::string_view label, std::shared_ptr<int> var, const std::source_l
     auto& objMgr = internal::ObjectManager::getInstance();
     
     int windowId = g_currentScreenId;
-    auto* pWindow = getSurface(windowId);
-    if (!pWindow) {
+    auto surface = getCurrentSurface();
+    if (!surface) {
         throw HspError(ERR_INVALID_HANDLE, "Invalid window ID", location);
     }
     
-    auto* pHspWindow = dynamic_cast<internal::HspWindow*>(pWindow);
+    auto pHspWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
     if (!pHspWindow) {
         throw HspError(ERR_UNSUPPORTED, "Cannot create chkbox on buffer", location);
     }
     
-    int objW, objH, objSpace;
-    objMgr.getObjSize(objW, objH, objSpace);
+    // Surface から objsize を取得
+    int objW = surface->getObjSizeX();
+    int objH = surface->getObjSizeY();
+    int objSpace = surface->getObjSpaceY();
     
-    int posX = pWindow->getCurrentX();
-    int posY = pWindow->getCurrentY();
+    int posX = surface->getCurrentX();
+    int posY = surface->getCurrentY();
     
     HWND hwndParent = pHspWindow->getHwnd();
     std::wstring wlabel = internal::Utf8ToWide(label);
@@ -466,7 +541,7 @@ int chkbox(std::string_view label, std::shared_ptr<int> var, const std::source_l
     int objectId = objMgr.registerObject(info);
     
     int nextY = posY + std::max(objH, objSpace);
-    pWindow->pos(posX, nextY);
+    surface->pos(posX, nextY);
     
     return objectId;
 }
@@ -476,22 +551,24 @@ int combox(std::shared_ptr<int> var, OptInt expandY, std::string_view items, con
     auto& objMgr = internal::ObjectManager::getInstance();
     
     int windowId = g_currentScreenId;
-    auto* pWindow = getSurface(windowId);
-    if (!pWindow) {
+    auto surface = getCurrentSurface();
+    if (!surface) {
         throw HspError(ERR_INVALID_HANDLE, "Invalid window ID", location);
     }
     
-    auto* pHspWindow = dynamic_cast<internal::HspWindow*>(pWindow);
+    auto pHspWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
     if (!pHspWindow) {
         throw HspError(ERR_UNSUPPORTED, "Cannot create combox on buffer", location);
     }
     
-    int objW, objH, objSpace;
-    objMgr.getObjSize(objW, objH, objSpace);
+    // Surface から objsize を取得
+    int objW = surface->getObjSizeX();
+    int objH = surface->getObjSizeY();
+    int objSpace = surface->getObjSpaceY();
     int expandYVal = expandY.value_or(100);
     
-    int posX = pWindow->getCurrentX();
-    int posY = pWindow->getCurrentY();
+    int posX = surface->getCurrentX();
+    int posY = surface->getCurrentY();
     
     HWND hwndParent = pHspWindow->getHwnd();
     
@@ -549,7 +626,7 @@ int combox(std::shared_ptr<int> var, OptInt expandY, std::string_view items, con
     int objectId = objMgr.registerObject(info);
     
     int nextY = posY + std::max(objH, objSpace);
-    pWindow->pos(posX, nextY);
+    surface->pos(posX, nextY);
     
     return objectId;
 }
@@ -559,22 +636,24 @@ int listbox(std::shared_ptr<int> var, OptInt expandY, std::string_view items, co
     auto& objMgr = internal::ObjectManager::getInstance();
     
     int windowId = g_currentScreenId;
-    auto* pWindow = getSurface(windowId);
-    if (!pWindow) {
+    auto surface = getCurrentSurface();
+    if (!surface) {
         throw HspError(ERR_INVALID_HANDLE, "Invalid window ID", location);
     }
     
-    auto* pHspWindow = dynamic_cast<internal::HspWindow*>(pWindow);
+    auto pHspWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
     if (!pHspWindow) {
         throw HspError(ERR_UNSUPPORTED, "Cannot create listbox on buffer", location);
     }
     
-    int objW, objH, objSpace;
-    objMgr.getObjSize(objW, objH, objSpace);
+    // Surface から objsize を取得
+    int objW = surface->getObjSizeX();
+    int objH = surface->getObjSizeY();
+    int objSpace = surface->getObjSpaceY();
     int height = expandY.value_or(100);
     
-    int posX = pWindow->getCurrentX();
-    int posY = pWindow->getCurrentY();
+    int posX = surface->getCurrentX();
+    int posY = surface->getCurrentY();
     
     HWND hwndParent = pHspWindow->getHwnd();
     
@@ -632,7 +711,7 @@ int listbox(std::shared_ptr<int> var, OptInt expandY, std::string_view items, co
     int objectId = objMgr.registerObject(info);
     
     int nextY = posY + std::max(height, objSpace);
-    pWindow->pos(posX, nextY);
+    surface->pos(posX, nextY);
     
     return objectId;
 }

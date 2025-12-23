@@ -42,8 +42,8 @@ public:
     // 設定（メソッドチェーン対応）
     Media& vol(int v);       // -1000（無音）〜 0（最大）
     Media& pan(int p);       // -1000（左）〜 0（中央）〜 1000（右）
-    Media& loop(bool l);     // ループ設定
-    Media& mode(int m);      // 再生モード (0=通常, 1=ループ, 2=終了まで待機)
+    Media& loop(bool l);     // ループ設定（次にload()が呼ばれる際に適用されます）
+    Media& mode(int m);      // 再生モード (0=通常, 1=ループ, 2=終了まで待機)（次にload()が呼ばれる際に適用されます）
     Media& target(int screenId);  // 動画再生先Screenを指定
 
     // 取得

@@ -116,6 +116,10 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <PostBuildEvent>
+      <Command>xcopy /Y /E /I "$(ProjectDir)resources" "$(OutDir)resources"</Command>
+      <Message>Copying resources folder to output directory...</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -133,6 +137,10 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <PostBuildEvent>
+      <Command>xcopy /Y /E /I "$(ProjectDir)resources" "$(OutDir)resources"</Command>
+      <Message>Copying resources folder to output directory...</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="DemoState.h" />
@@ -147,6 +155,7 @@
     <ClCompile Include="DemoDrawGUI.cpp" />
     <ClCompile Include="DemoDrawImage.cpp" />
     <ClCompile Include="DemoDrawInterrupt.cpp" />
+    <ClCompile Include="DemoDrawMedia.cpp" />
     <ClCompile Include="UserApp.cpp" />
   </ItemGroup>
   <ItemGroup>

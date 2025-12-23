@@ -1259,6 +1259,46 @@ namespace compile_test {
         clrobj(0, 5);          // ID 0〜5をクリア
     }
 
+    // ============================================================
+    // マルチメディア関数のテスト
+    // ============================================================
+    void test_multimedia_functions() {
+        // mmload - メディアファイル読み込み (0=成功)
+        [[maybe_unused]] int r1 = mmload("test.wav");
+        [[maybe_unused]] int r2 = mmload("test.wav", 0);
+        [[maybe_unused]] int r3 = mmload("test.wav", 0, 0);  // 通常
+        [[maybe_unused]] int r4 = mmload("test.wav", 1, 1);  // ループ
+        [[maybe_unused]] int r5 = mmload("test.wav", 2, 2);  // 待機
+        [[maybe_unused]] int r6 = mmload("test.avi", 0, 16); // 動画全画面
+
+        // mmplay - メディア再生 (0=成功)
+        [[maybe_unused]] int p1 = mmplay();
+        [[maybe_unused]] int p2 = mmplay(0);
+        [[maybe_unused]] int p3 = mmplay(1);
+
+        // mmstop - メディア停止
+        mmstop();       // 全停止
+        mmstop(-1);     // 全停止
+        mmstop(0);      // ID 0 のみ停止
+
+        // mmvol - 音量設定
+        mmvol(0, 0);     // 最大音量
+        mmvol(0, -500);  // 半分
+        mmvol(0, -1000); // 無音
+
+        // mmpan - パンニング設定
+        mmpan(0, 0);     // 中央
+        mmpan(0, -1000); // 左
+        mmpan(0, 1000);  // 右
+
+        // mmstat - 状態取得
+        [[maybe_unused]] int s1 = mmstat(0);      // デフォルト: フラグ値
+        [[maybe_unused]] int s2 = mmstat(0, 0);   // フラグ値
+        [[maybe_unused]] int s3 = mmstat(0, 1);   // ボリューム
+        [[maybe_unused]] int s4 = mmstat(0, 2);   // パンニング
+        [[maybe_unused]] int s5 = mmstat(0, 16);  // 再生中フラグ
+    }
+
 }  // namespace compile_test
 
 // ============================================================
@@ -1310,6 +1350,7 @@ namespace hsppp_test {
         compile_test::test_dirinfo_functions();
         compile_test::test_file_functions();
         compile_test::test_gui_object_functions();
+        compile_test::test_multimedia_functions();
         // compile_test::test_end_function_signature(); // end()は呼ばない
 
         return true;

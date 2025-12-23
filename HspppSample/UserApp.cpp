@@ -179,6 +179,7 @@ std::string getCategoryName() {
         case DemoCategory::Image:     return "画像 (Shift+1-3)";
         case DemoCategory::Interrupt: return "割り込み (Alt+1-5)";
         case DemoCategory::GUI:       return "GUI (Ctrl+Shift+1-2)";
+        case DemoCategory::Media:     return "マルチメディア (Ctrl+Alt+1)";
     }
     return "Unknown";
 }
@@ -244,6 +245,12 @@ std::string getDemoName() {
                 default: break;
             }
             break;
+        case DemoCategory::Media:
+            switch (static_cast<MediaDemo>(g_demoIndex)) {
+                case MediaDemo::AudioPlayback: return "mmload/mmplay/mmstop (音声再生)";
+                default: break;
+            }
+            break;
     }
     return "Unknown";
 }
@@ -302,6 +309,19 @@ void processDemoSelection(Screen& win) {
         newCategory = DemoCategory::Extended;
         newIndex = static_cast<int>(ExtendedDemo::Sorting);
         changed = true;
+    }
+    
+    // Ctrl+Alt + 数字: マルチメディアデモ
+    if (altPressed && ctrlPressed && !shiftPressed) {
+        for (int i = 1; i <= 1; i++) {
+            if (getkey('0' + i)) {
+                if (i <= static_cast<int>(MediaDemo::COUNT)) {
+                    newCategory = DemoCategory::Media;
+                    newIndex = i - 1;
+                    changed = true;
+                }
+            }
+        }
     }
     
     // モード切替（数字キー）
@@ -459,17 +479,22 @@ int hspMain() {
         case DemoCategory::GUI:
             drawGUIDemo(win);
             break;
+        case DemoCategory::Media:
+            drawMediaDemo(win);
+            break;
         }
         
         // フッター（ヘルプ表示案内）
         win.font("MS Gothic", 10, 0);
         win.color(128, 128, 128).pos(10, 455);
-        win.mes("F1:ヘルプ ESC:終了 | 1-9:基本 Ctrl+0-9:拡張 Shift+1-4:画像 Alt+1-5:割り込み Ctrl+Shift+1-2:GUI");
+        win.mes("F1:ヘルプ ESC:終了 | 1-9:基本 Ctrl+0-9:拡張 Shift+1-4:画像 Alt+1-5:割り込み Ctrl+Shift+1-2:GUI Ctrl+Alt+1:メディア");
         
         win.redraw(1);
         
         // デモ選択処理（画面遷移）
-        processDemoSelection(win);
+        if (!g_videoMode) {
+            processDemoSelection(win);
+        }
         
         // 各デモのアクション処理
         switch (g_category) {
@@ -488,10 +513,21 @@ int hspMain() {
         case DemoCategory::GUI:
             processGUIAction(win);
             break;
+        case DemoCategory::Media:
+            processMediaAction(win);
+            break;
         }
         
-        // ESCで終了
-        if (stick() & 128) break;
+        // ESC: 動画再生中は停止、それ以外は終了
+        if (stick() & 128) {
+            if (g_videoMode) {
+                mmstop(0);
+                g_mediaIsPlaying = false;
+                g_videoMode = false;
+            } else {
+                break;
+            }
+        }
         
         await(16);
     }

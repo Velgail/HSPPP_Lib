@@ -58,6 +58,31 @@ std::wstring Utf8ToWide(std::string_view utf8str) {
     return wideStr;
 }
 
+// UTF-16文字列をUTF-8に変換
+std::string WideToUtf8(const std::wstring& wideStr) {
+    if (wideStr.empty()) {
+        return "";
+    }
+
+    int utf8Size = WideCharToMultiByte(
+        CP_UTF8, 0,
+        wideStr.c_str(), static_cast<int>(wideStr.size()),
+        nullptr, 0, nullptr, nullptr
+    );
+    if (utf8Size == 0) {
+        return "";
+    }
+
+    std::string utf8Str(utf8Size, 0);
+    WideCharToMultiByte(
+        CP_UTF8, 0,
+        wideStr.c_str(), static_cast<int>(wideStr.size()),
+        &utf8Str[0], utf8Size, nullptr, nullptr
+    );
+
+    return utf8Str;
+}
+
 // ========== D2DDeviceManager 実装 ==========
 
 D2DDeviceManager::D2DDeviceManager()

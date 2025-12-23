@@ -27,6 +27,9 @@ namespace internal {
 // UTF-8文字列をUTF-16(wchar_t)に変換（安全な string_view を使用）
 std::wstring Utf8ToWide(std::string_view utf8str);
 
+// UTF-16文字列をUTF-8に変換
+std::string WideToUtf8(const std::wstring& wideStr);
+
 // 前方宣言
 class HspSurface;
 class HspWindow;

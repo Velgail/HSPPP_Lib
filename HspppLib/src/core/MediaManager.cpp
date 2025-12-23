@@ -1067,7 +1067,7 @@ int MediaManager::mmstat(int bufferId, int mode) {
         case 0:   // 設定フラグ値
             return static_cast<int>(slot.playMode);
         case 1:   // ボリューム値
-            return static_cast<int>(slot.volume * -1000.0f + 0.0f);  // 近似逆変換
+            return static_cast<int>((slot.volume * 1000.0f) - 1000.0f);  // 逆変換
         case 2:   // パンニング値
             return static_cast<int>(slot.pan * 1000.0f);
         case 3:   // 再生レート（未実装）

@@ -404,9 +404,12 @@ namespace hsppp {
         bool m_valid;
 
     public:
-        /// @brief 内部用コンストラクタ
+        /// @brief 内部用コンストラクタ（ID + valid指定）
         Cel(int id, bool valid) noexcept
             : m_id(id), m_valid(valid) {}
+
+        /// @brief IDからのコンストラクタ（グローバルマップから有効性を判定）
+        explicit Cel(int id) noexcept;
 
         /// @brief デフォルトコンストラクタ（無効なハンドル）
         Cel() noexcept : m_id(-1), m_valid(false) {}
@@ -452,9 +455,12 @@ namespace hsppp {
         bool m_valid;
 
     public:
-        /// @brief 内部用コンストラクタ
+        /// @brief 内部用コンストラクタ（ID + valid指定）
         Screen(int id, bool valid) noexcept
             : m_id(id), m_valid(valid) {}
+
+        /// @brief IDからのコンストラクタ（グローバルマップから有効性を判定）
+        explicit Screen(int id) noexcept;
 
         /// @brief デフォルトコンストラクタ（無効なハンドル）
         Screen() noexcept : m_id(-1), m_valid(false) {}

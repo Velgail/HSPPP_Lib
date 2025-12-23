@@ -108,49 +108,15 @@ void celdiv(int p1, int p2, int p3, const std::source_location& location) {
 // celput - 画像素材を描画
 // ============================================================
 void celput(int p1, int p2, OptInt p3, OptInt p4, const std::source_location& location) {
-    auto it = internal::g_celDataMap.find(p1);
-    if (it == internal::g_celDataMap.end()) {
-        throw HspError(ERR_FILE_IO, "celput: cel ID not found", location);
-    }
-    
-    auto pSurface = getCurrentSurface();
-    if (!pSurface) {
-        throw HspError(ERR_FILE_IO, "celput: no active surface", location);
-    }
-    
-    const internal::CelData& cel = it->second;
-    
-    // セル番号からソース矩形を計算
-    int cellIndex = p2;
-    if (cellIndex < 0 || cellIndex >= cel.divX * cel.divY) {
-        throw HspError(ERR_OUT_OF_RANGE, "celput: cell index out of range", location);
-    }
-    
-    int cellWidth = cel.width / cel.divX;
-    int cellHeight = cel.height / cel.divY;
-    
-    int srcX = (cellIndex % cel.divX) * cellWidth;
-    int srcY = (cellIndex / cel.divX) * cellHeight;
-    
-    D2D1_RECT_F srcRect = D2D1::RectF(
-        static_cast<float>(srcX),
-        static_cast<float>(srcY),
-        static_cast<float>(srcX + cellWidth),
-        static_cast<float>(srcY + cellHeight)
-    );
-    
-    // 描画位置（省略時は現在のpos）
-    int destX = p3.value_or(pSurface->getCurrentX());
-    int destY = p4.value_or(pSurface->getCurrentY());
-    
-    D2D1_RECT_F destRect = D2D1::RectF(
-        static_cast<float>(destX),
-        static_cast<float>(destY),
-        static_cast<float>(destX + cellWidth),
-        static_cast<float>(destY + cellHeight)
-    );
-    
-    pSurface->celput(cel.pBitmap.Get(), srcRect, destRect);
+    ensureDefaultScreen();
+
+    auto surface = getCurrentSurface();
+    if (!surface) return;
+
+    // CelIDが有効か確認
+    if (internal::g_celDataMap.find(p1) == internal::g_celDataMap.end()) return;
+
+    internal::celput_impl(surface, p1, p2, p3, p4);
 }
 
 } // namespace hsppp

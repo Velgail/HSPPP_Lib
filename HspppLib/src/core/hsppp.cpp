@@ -66,12 +66,6 @@ namespace {
     // マウスホイール状態
     int g_mouseWheelDelta = 0;
 
-    // gmode設定（HSP互換）
-    int g_gmodeMode = 0;
-    int g_gmodeSizeX = 32;
-    int g_gmodeSizeY = 32;
-    int g_gmodeBlendRate = 0;
-
     // IDからSurfaceを取得するヘルパー
     std::shared_ptr<HspSurface> getSurfaceById(int id) {
         auto it = g_surfaces.find(id);
@@ -116,11 +110,13 @@ namespace {
 // ============================================================
 // 注意: hsppp_interrupt.inl は割り込み処理を定義するため最初に含める
 #include "hsppp_interrupt.inl"
+// 注意: hsppp_copy.inl はgcopy_impl/gzoom_impl等のヘルパーを定義するため、
+//       hsppp_screen.inlより前に含める必要がある
+#include "hsppp_copy.inl"
 #include "hsppp_screen.inl"
 #include "hsppp_factory.inl"
 #include "hsppp_drawing.inl"
 #include "hsppp_ginfo.inl"
-#include "hsppp_copy.inl"
 #include "hsppp_input.inl"
 #include "hsppp_image.inl"
 #include "hsppp_cel.inl"

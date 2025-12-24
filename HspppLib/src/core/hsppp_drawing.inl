@@ -276,6 +276,7 @@ namespace hsppp {
 
     // ============================================================
     // grect - 回転する矩形で塗りつぶす（HSP互換）
+    // カレントサーフェスのgmode設定を使用
     // ============================================================
     void grect(OptInt cx, OptInt cy, OptDouble angle, OptInt w, OptInt h, const std::source_location& location) {
         auto currentSurface = getCurrentSurface();
@@ -284,25 +285,30 @@ namespace hsppp {
         int pcx = cx.value_or(0);
         int pcy = cy.value_or(0);
         double pangle = angle.value_or(0.0);
-        int pw = w.value_or(g_gmodeSizeX);
-        int ph = h.value_or(g_gmodeSizeY);
+        int pw = w.value_or(currentSurface->getGmodeSizeX());
+        int ph = h.value_or(currentSurface->getGmodeSizeY());
 
         currentSurface->grect(pcx, pcy, pangle, pw, ph);
     }
 
     // ============================================================
     // grotate - 矩形画像を回転してコピー（HSP互換）
+    // カレントサーフェスのgmode設定を使用
     // ============================================================
     void grotate(OptInt srcId, OptInt srcX, OptInt srcY, OptDouble angle, OptInt dstW, OptInt dstH, const std::source_location& location) {
         auto currentSurface = getCurrentSurface();
         if (!currentSurface) return;
 
+        // サーフェスのgmode設定を取得
+        int gmodeSizeX = currentSurface->getGmodeSizeX();
+        int gmodeSizeY = currentSurface->getGmodeSizeY();
+
         int psrcId = srcId.value_or(0);
         int psrcX = srcX.value_or(0);
         int psrcY = srcY.value_or(0);
         double pangle = angle.value_or(0.0);
-        int pdstW = dstW.value_or(g_gmodeSizeX);
-        int pdstH = dstH.value_or(g_gmodeSizeY);
+        int pdstW = dstW.value_or(gmodeSizeX);
+        int pdstH = dstH.value_or(gmodeSizeY);
 
         // ソースサーフェスを取得
         auto srcSurface = getSurfaceById(psrcId);
@@ -312,7 +318,7 @@ namespace hsppp {
         if (!pSrcBitmap) return;
 
         // ソースサイズはgmodeで設定されたサイズ
-        currentSurface->grotate(pSrcBitmap, psrcX, psrcY, g_gmodeSizeX, g_gmodeSizeY, pangle, pdstW, pdstH);
+        currentSurface->grotate(pSrcBitmap, psrcX, psrcY, gmodeSizeX, gmodeSizeY, pangle, pdstW, pdstH);
     }
 
     // ============================================================

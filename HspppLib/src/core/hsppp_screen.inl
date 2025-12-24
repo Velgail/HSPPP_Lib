@@ -5,6 +5,13 @@
 namespace hsppp {
 
     // ============================================================
+    // Screen クラスのコンストラクタ実装
+    // ============================================================
+
+    Screen::Screen(int id) noexcept
+        : m_id(id), m_valid(getSurfaceById(id) != nullptr) {}
+
+    // ============================================================
     // Screen クラスのメンバ関数実装
     // IDからグローバルマップを経由してSurfaceを取得する
     // ============================================================
@@ -332,6 +339,531 @@ namespace hsppp {
         auto surface = getSurfaceById(m_id);
         if (surface) {
             surface->bmpsave(filename);
+        }
+        return *this;
+    }
+
+    // ============================================================
+    // 画面コピー・変形描画（OOP版）
+    // ============================================================
+
+    Screen& Screen::gmode(int mode, int sizeX, int sizeY, int blendRate) {
+        auto surface = getSurfaceById(m_id);
+        if (surface) {
+            surface->setGmode(mode, sizeX, sizeY, blendRate);
+        }
+        return *this;
+    }
+
+    Screen& Screen::gcopy(int srcId, int srcX, int srcY, OptInt sizeX, OptInt sizeY) {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        // このサーフェスのgmode設定を取得
+        int gmodeSizeX = surface->getGmodeSizeX();
+        int gmodeSizeY = surface->getGmodeSizeY();
+
+        int copyW = sizeX.value_or(gmodeSizeX);
+        int copyH = sizeY.value_or(gmodeSizeY);
+
+        // コピー元サーフェスを取得
+        auto srcSurface = getSurfaceById(srcId);
+        if (!srcSurface) return *this;
+
+        try {
+            // 共通実装ヘルパーを呼ぶ
+            hsppp::internal::gcopy_impl(surface, srcSurface, srcX, srcY, copyW, copyH, std::source_location::current());
+        }
+        catch (const std::exception& e) {
+            // エラーをサイレントに抑える（OOP版はエラーハンドリングを呼び出し側に任せる）
+        }
+
+        return *this;
+    }
+
+    Screen& Screen::gzoom(int destW, int destH, int srcId, int srcX, int srcY, OptInt srcW, OptInt srcH, int mode) {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        // このサーフェスのgmode設定を取得
+        int gmodeSizeX = surface->getGmodeSizeX();
+        int gmodeSizeY = surface->getGmodeSizeY();
+
+        int copyW = srcW.value_or(gmodeSizeX);
+        int copyH = srcH.value_or(gmodeSizeY);
+
+        // コピー元サーフェスを取得
+        auto srcSurface = getSurfaceById(srcId);
+        if (!srcSurface) return *this;
+
+        try {
+            // 共通実装ヘルパーを呼ぶ
+            hsppp::internal::gzoom_impl(surface, destW, destH, srcSurface, srcX, srcY, copyW, copyH, mode, std::source_location::current());
+        }
+        catch (const std::exception& e) {
+            // エラーをサイレントに抑える（OOP版はエラーハンドリングを呼び出し側に任せる）
+        }
+
+        return *this;
+    }
+
+    Screen& Screen::grotate(int srcId, int srcX, int srcY, double angle, OptInt dstW, OptInt dstH) {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        // このサーフェスのgmode設定を取得
+        int gmodeSizeX = surface->getGmodeSizeX();
+        int gmodeSizeY = surface->getGmodeSizeY();
+
+        int destW = dstW.value_or(gmodeSizeX);
+        int destH = dstH.value_or(gmodeSizeY);
+
+        // コピー元サーフェスを取得
+        auto srcSurface = getSurfaceById(srcId);
+        if (!srcSurface) return *this;
+
+        auto* pSrcBitmap = srcSurface->getTargetBitmap();
+        if (!pSrcBitmap) return *this;
+
+        surface->grotate(pSrcBitmap, srcX, srcY, gmodeSizeX, gmodeSizeY, angle, destW, destH);
+
+        return *this;
+    }
+
+    Screen& Screen::gsquare(int srcId, const Quad& dst) {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        int dstX[4] = { dst.v[0].x, dst.v[1].x, dst.v[2].x, dst.v[3].x };
+        int dstY[4] = { dst.v[0].y, dst.v[1].y, dst.v[2].y, dst.v[3].y };
+
+        surface->gsquare(dstX, dstY, nullptr, nullptr, nullptr);
+
+        return *this;
+    }
+
+    Screen& Screen::gsquare(int srcId, const Quad& dst, const QuadUV& src) {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        int dstX[4] = { dst.v[0].x, dst.v[1].x, dst.v[2].x, dst.v[3].x };
+        int dstY[4] = { dst.v[0].y, dst.v[1].y, dst.v[2].y, dst.v[3].y };
+        int srcX[4] = { src.v[0].x, src.v[1].x, src.v[2].x, src.v[3].x };
+        int srcY[4] = { src.v[0].y, src.v[1].y, src.v[2].y, src.v[3].y };
+
+        if (srcId >= 0) {
+            auto srcSurface = getSurfaceById(srcId);
+            if (srcSurface) {
+                auto* pSrcBitmap = srcSurface->getTargetBitmap();
+                surface->gsquare(dstX, dstY, pSrcBitmap, srcX, srcY);
+            }
+        } else {
+            surface->gsquare(dstX, dstY, nullptr, nullptr, nullptr);
+        }
+
+        return *this;
+    }
+
+    Screen& Screen::gsquare(int srcId, const Quad& dst, const QuadColors& colors) {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        int dstX[4] = { dst.v[0].x, dst.v[1].x, dst.v[2].x, dst.v[3].x };
+        int dstY[4] = { dst.v[0].y, dst.v[1].y, dst.v[2].y, dst.v[3].y };
+        int cols[4] = { colors.colors[0], colors.colors[1], colors.colors[2], colors.colors[3] };
+
+        surface->gsquareGrad(dstX, dstY, cols);
+
+        return *this;
+    }
+
+    // ============================================================
+    // ウィンドウ表示制御（OOP版）
+    // ============================================================
+
+    Screen& Screen::show() {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        auto pWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
+        if (pWindow && pWindow->getHwnd()) {
+            ShowWindow(pWindow->getHwnd(), SW_SHOW);
+            SetForegroundWindow(pWindow->getHwnd());
+        }
+        return *this;
+    }
+
+    Screen& Screen::hide() {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        auto pWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
+        if (pWindow && pWindow->getHwnd()) {
+            ShowWindow(pWindow->getHwnd(), SW_HIDE);
+        }
+        return *this;
+    }
+
+    Screen& Screen::activate() {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        auto pWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
+        if (pWindow && pWindow->getHwnd()) {
+            HWND hwnd = pWindow->getHwnd();
+            ShowWindow(hwnd, SW_SHOW);
+            SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+            SetForegroundWindow(hwnd);
+        }
+        return *this;
+    }
+
+    // ============================================================
+    // Cel描画 - 内部ヘルパー関数
+    // ============================================================
+
+    namespace internal {
+        
+        void celput_impl(std::shared_ptr<HspSurface> surface, int celId, int cellIndex, OptInt x, OptInt y) {
+            // グローバルマップからCelDataを取得
+            auto it = g_celDataMap.find(celId);
+            if (it == g_celDataMap.end()) return;
+
+            const auto& celData = it->second;
+            
+            // セル番号の範囲チェック
+            int cellCount = celData.divX * celData.divY;
+            if (cellIndex < 0 || cellIndex >= cellCount) {
+                return;  // 無効なセル番号は無視
+            }
+
+            // セルのサイズを計算
+            int cellWidth = celData.width / celData.divX;
+            int cellHeight = celData.height / celData.divY;
+
+            // セルのソース座標を計算
+            int srcX = (cellIndex % celData.divX) * cellWidth;
+            int srcY = (cellIndex / celData.divX) * cellHeight;
+
+            D2D1_RECT_F srcRect = D2D1::RectF(
+                static_cast<float>(srcX),
+                static_cast<float>(srcY),
+                static_cast<float>(srcX + cellWidth),
+                static_cast<float>(srcY + cellHeight)
+            );
+
+            // 描画位置（省略時は現在のpos）
+            int destX = x.value_or(surface->getCurrentX());
+            int destY = y.value_or(surface->getCurrentY());
+
+            D2D1_RECT_F destRect = D2D1::RectF(
+                static_cast<float>(destX),
+                static_cast<float>(destY),
+                static_cast<float>(destX + cellWidth),
+                static_cast<float>(destY + cellHeight)
+            );
+
+            // サーフェスのcelput実装を呼ぶ
+            surface->celput(celData.pBitmap.Get(), srcRect, destRect);
+        }
+
+    } // namespace internal
+
+    // ============================================================
+    // Cel描画（OOP版・ヘルパーを呼ぶだけ）
+    // ============================================================
+
+    Screen& Screen::celput(const Cel& cel, int cellIndex, OptInt x, OptInt y) {
+        if (!cel.valid()) return *this;
+
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        internal::celput_impl(surface, cel.id(), cellIndex, x, y);
+        return *this;
+    }
+
+    // ============================================================
+    // GUIオブジェクト生成 - 内部ヘルパー関数
+    // グローバル版とOOP版の両方から呼ばれる共通実装
+    // ============================================================
+
+    namespace internal {
+        
+        int button_impl(std::shared_ptr<HspSurface> surface, int windowId,
+                       std::string_view name, std::function<int()> callback, bool isGosub) {
+            auto& objMgr = ObjectManager::getInstance();
+
+            auto pHspWindow = std::dynamic_pointer_cast<HspWindow>(surface);
+            if (!pHspWindow) {
+                return -1;  // バッファには作成不可
+            }
+
+            // オブジェクトサイズを取得
+            int objW, objH, objSpace;
+            objMgr.getObjSize(objW, objH, objSpace);
+
+            // 現在のカレントポジションを取得
+            int posX = surface->getCurrentX();
+            int posY = surface->getCurrentY();
+
+            // Win32ボタンを作成
+            HWND hwndParent = pHspWindow->getHwnd();
+            std::wstring wname = Utf8ToWide(name);
+
+            HWND hwndButton = CreateWindowExW(
+                WS_EX_NOPARENTNOTIFY,
+                L"BUTTON",
+                wname.c_str(),
+                WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_CLIPSIBLINGS | BS_PUSHBUTTON,
+                posX, posY, objW, objH,
+                hwndParent,
+                (HMENU)(INT_PTR)(objMgr.getNextId()),
+                GetModuleHandle(nullptr),
+                nullptr
+            );
+
+            if (hwndButton) {
+                SetWindowPos(hwndButton, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            }
+
+            if (!hwndButton) {
+                return -1;
+            }
+
+            // フォント設定
+            HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+            SendMessageW(hwndButton, WM_SETFONT, (WPARAM)hFont, TRUE);
+
+            // ObjectInfoを登録
+            ObjectInfo info;
+            info.type = ObjectType::Button;
+            info.hwnd = hwndButton;
+            info.windowId = windowId;
+            info.x = posX;
+            info.y = posY;
+            info.width = objW;
+            info.height = objH;
+            info.callback = std::move(callback);
+            info.isGosub = isGosub;
+            info.enabled = true;
+            info.focusSkipMode = 1;
+
+            int objectId = objMgr.registerObject(info);
+
+            // カレントポジションを次の行に移動
+            int nextY = posY + std::max(objH, objSpace);
+            surface->pos(posX, nextY);
+
+            return objectId;
+        }
+
+        int input_impl(std::shared_ptr<HspSurface> surface, int windowId,
+                      std::shared_ptr<std::string> var, int maxChars,
+                      int sizeX, int sizeY, int objSpaceY) {
+            auto& objMgr = ObjectManager::getInstance();
+
+            auto pHspWindow = std::dynamic_pointer_cast<HspWindow>(surface);
+            if (!pHspWindow) {
+                return -1;
+            }
+
+            int w = sizeX;
+            int h = sizeY;
+
+            int posX = surface->getCurrentX();
+            int posY = surface->getCurrentY();
+
+            HWND hwndParent = pHspWindow->getHwnd();
+            std::wstring wtext = Utf8ToWide(*var);
+
+            HWND hwndEdit = CreateWindowExW(
+                WS_EX_CLIENTEDGE | WS_EX_NOPARENTNOTIFY,
+                L"EDIT",
+                wtext.c_str(),
+                WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_CLIPSIBLINGS | ES_AUTOHSCROLL,
+                posX, posY, w, h,
+                hwndParent,
+                (HMENU)(INT_PTR)(objMgr.getNextId()),
+                GetModuleHandle(nullptr),
+                nullptr
+            );
+
+            if (!hwndEdit) {
+                return -1;
+            }
+
+            SetWindowPos(hwndEdit, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            SendMessageW(hwndEdit, EM_SETLIMITTEXT, (WPARAM)maxChars, 0);
+
+            HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+            SendMessageW(hwndEdit, WM_SETFONT, (WPARAM)hFont, TRUE);
+
+            ObjectInfo info;
+            info.type = ObjectType::Input;
+            info.hwnd = hwndEdit;
+            info.windowId = windowId;
+            info.x = posX;
+            info.y = posY;
+            info.width = w;
+            info.height = h;
+            info.ownedStrVar = var;
+            info.maxLength = maxChars;
+            info.enabled = true;
+            info.focusSkipMode = 1;
+
+            int objectId = objMgr.registerObject(info);
+
+            int nextY = posY + std::max(h, objSpaceY);
+            surface->pos(posX, nextY);
+
+            return objectId;
+        }
+
+        int mesbox_impl(std::shared_ptr<HspSurface> surface, int windowId,
+                       std::shared_ptr<std::string> var, int maxChars, int styleVal,
+                       int sizeX, int sizeY, int objSpaceY) {
+            auto& objMgr = ObjectManager::getInstance();
+
+            auto pHspWindow = std::dynamic_pointer_cast<HspWindow>(surface);
+            if (!pHspWindow) {
+                return -1;
+            }
+
+            int w = sizeX;
+            int h = sizeY;
+
+            int posX = surface->getCurrentX();
+            int posY = surface->getCurrentY();
+
+            DWORD dwStyle = WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_VSCROLL | WS_CLIPSIBLINGS | ES_MULTILINE;
+
+            if ((styleVal & 1) == 0) {
+                dwStyle |= ES_READONLY;
+            }
+            if (styleVal & 4) {
+                dwStyle |= WS_HSCROLL;
+            }
+            if ((styleVal & 8) == 0) {
+                dwStyle |= ES_AUTOVSCROLL;
+            }
+
+            HWND hwndParent = pHspWindow->getHwnd();
+
+            // 改行文字を\nから\r\nに変換
+            std::string convertedText = *var;
+            size_t pos = 0;
+            while ((pos = convertedText.find('\n', pos)) != std::string::npos) {
+                if (pos == 0 || convertedText[pos - 1] != '\r') {
+                    convertedText.insert(pos, "\r");
+                    pos += 2;
+                } else {
+                    pos += 1;
+                }
+            }
+            std::wstring wtext = Utf8ToWide(convertedText);
+
+            HWND hwndEdit = CreateWindowExW(
+                WS_EX_CLIENTEDGE | WS_EX_NOPARENTNOTIFY,
+                L"EDIT",
+                wtext.c_str(),
+                dwStyle,
+                posX, posY, w, h,
+                hwndParent,
+                (HMENU)(INT_PTR)(objMgr.getNextId()),
+                GetModuleHandle(nullptr),
+                nullptr
+            );
+
+            if (!hwndEdit) {
+                return -1;
+            }
+
+            SetWindowPos(hwndEdit, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            SendMessageW(hwndEdit, EM_SETLIMITTEXT, (WPARAM)maxChars, 0);
+
+            HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+            SendMessageW(hwndEdit, WM_SETFONT, (WPARAM)hFont, TRUE);
+
+            ObjectInfo info;
+            info.type = ObjectType::Mesbox;
+            info.hwnd = hwndEdit;
+            info.windowId = windowId;
+            info.x = posX;
+            info.y = posY;
+            info.width = w;
+            info.height = h;
+            info.ownedStrVar = var;
+            info.maxLength = maxChars;
+            info.enabled = true;
+            info.focusSkipMode = 1;
+
+            int objectId = objMgr.registerObject(info);
+
+            int nextY = posY + std::max(h, objSpaceY);
+            surface->pos(posX, nextY);
+
+            return objectId;
+        }
+
+    } // namespace internal
+
+    // ============================================================
+    // GUIオブジェクト生成（OOP版・ヘルパーを呼ぶだけ）
+    // ============================================================
+
+    int Screen::button(std::string_view name, std::function<int()> callback, bool isGosub) {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return -1;
+        return internal::button_impl(surface, m_id, name, std::move(callback), isGosub);
+    }
+
+    int Screen::input(std::shared_ptr<std::string> var, int maxLength, int mode) {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return -1;
+        
+        // Surface が所有する objsize を使用
+        int objW = surface->getObjSizeX();
+        int objH = surface->getObjSizeY();
+        int objSpace = surface->getObjSpaceY();
+        
+        return internal::input_impl(surface, m_id, var, maxLength, objW, objH, objSpace);
+    }
+
+    int Screen::mesbox(std::shared_ptr<std::string> var, int maxLength, int mode) {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return -1;
+        
+        // Surface が所有する objsize を使用
+        int objW = surface->getObjSizeX();
+        int objH = surface->getObjSizeY();
+        int objSpace = surface->getObjSpaceY();
+        
+        return internal::mesbox_impl(surface, m_id, var, maxLength, mode, objW, objH * 3, objSpace);
+    }
+
+    Screen& Screen::objsize(int sizeX, int sizeY, int spaceY) {
+        auto surface = getSurfaceById(m_id);
+        if (surface) {
+            surface->setObjSize(sizeX, sizeY, spaceY);
+        }
+        return *this;
+    }
+
+    // ============================================================
+    // マウス制御（OOP版）
+    // ============================================================
+
+    Screen& Screen::mouse(int x, int y) {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return *this;
+
+        auto pWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
+        if (pWindow && pWindow->getHwnd()) {
+            // クライアント座標をスクリーン座標に変換
+            POINT pt = { x, y };
+            ClientToScreen(pWindow->getHwnd(), &pt);
+            SetCursorPos(pt.x, pt.y);
         }
         return *this;
     }

@@ -231,6 +231,13 @@ HspSurface::HspSurface(int width, int height)
     , m_height(height)
     , m_isDrawing(false)
     , m_redrawMode(1)  // デフォルト: 即時反映
+    , m_gmodeMode(0)        // デフォルト: 通常コピー
+    , m_gmodeSizeX(32)      // デフォルトコピーサイズ
+    , m_gmodeSizeY(32)
+    , m_gmodeBlendRate(0)   // ブレンドなし
+    , m_objSizeX(64)        // デフォルトオブジェクトサイズ
+    , m_objSizeY(24)
+    , m_objSpaceY(0)        // デフォルト間隔
 {
 }
 

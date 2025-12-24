@@ -47,7 +47,7 @@ static void initButtonInputDemo(Screen& win) {
     win.mes("");
     win.mes("ボタンをクリックするとカウントアップします");
     
-    win.pos(20, 100);
+    win.pos(20, 80);
     objsize(120, 30);
     
     // ボタン1: カウントアップ
@@ -66,26 +66,26 @@ static void initButtonInputDemo(Screen& win) {
         return 0;
     });
     
-    win.pos(20, 180);
+    win.pos(20, 140);
     win.color(0, 0, 0).mes("文字列入力:");
-    win.pos(20, 200);
+    win.pos(20, 160);
     objsize(200, 25);
     g_inputStrId = input(g_inputText, 200, 25, 256);
     
-    win.pos(20, 240);
+    win.pos(20, 200);
     win.color(0, 0, 0).mes("数値入力:");
-    win.pos(20, 260);
-    objsize(100, 25);
-    g_inputIntId = input(g_inputNumber, 100, 25, 10);
+    win.pos(20, 220);
+    objsize(150, 25);
+    g_inputIntId = input(g_inputNumber, 150, 25, 10);
     
-    win.pos(20, 300);
+    win.pos(20, 260);
     win.color(0, 0, 0).mes("複数行テキスト (mesbox):");
-    win.pos(20, 320);
-    objsize(300, 100);
-    g_mesboxId = mesbox(g_mesboxText, 300, 100, 1, 1000);
+    win.pos(20, 280);
+    objsize(260, 60);
+    g_mesboxId = mesbox(g_mesboxText, 260, 60, 1, 1000);
     
     // フッター説明
-    win.pos(10, 440);
+    win.pos(10, 455);
     win.color(128, 128, 128);
     win.mes("F1:ヘルプ ESC:終了 | 1-9:基本 Ctrl+0-9:拡張 Shift+1-4:画像 Alt+1-5:割り込み Ctrl+Shift+1-2:GUI");
     
@@ -121,8 +121,8 @@ static void initChoiceBoxDemo(Screen& win) {
     win.pos(20, 210);
     win.color(0, 0, 0).mes("リストボックス:");
     win.pos(20, 230);
-    objsize(180, 100);
-    g_listboxId = listbox(g_listboxState, 100, "Item 1\nItem 2\nItem 3\nItem 4\nItem 5");
+    objsize(180, 80);
+    g_listboxId = listbox(g_listboxState, 80, "Item 1\nItem 2\nItem 3\nItem 4\nItem 5");
     
     // 状態表示のラベル
     win.pos(250, 60);
@@ -130,7 +130,7 @@ static void initChoiceBoxDemo(Screen& win) {
     win.mes("現在の状態:");
     
     // フッター説明
-    win.pos(10, 440);
+    win.pos(10, 455);
     win.color(128, 128, 128);
     win.mes("F1:ヘルプ ESC:終了 | 1-9:基本 Ctrl+0-9:拡張 Shift+1-4:画像 Alt+1-5:割り込み Ctrl+Shift+1-2:GUI");
     
@@ -148,17 +148,17 @@ static void updateButtonInputDemo(Screen& win) {
     win.redraw(0);  // 描画開始
     
     win.color(255, 255, 255);
-    win.boxf(250, 180, 500, 300);  // 右側の表示エリアをクリア
-    win.boxf(350, 95, 500, 130);   // カウント表示エリアをクリア
+    win.boxf(250, 160, 500, 270);  // 右側の表示エリアをクリア
+    win.boxf(350, 75, 500, 110);   // カウント表示エリアをクリア
     
-    win.pos(250, 200);
+    win.pos(250, 180);
     win.color(0, 100, 0);
     win.mes("Current: " + g_inputText);
     
-    win.pos(250, 260);
+    win.pos(250, 220);
     win.mes("Current: " + std::to_string(g_inputNumber));
     
-    win.pos(350, 100);
+    win.pos(350, 80);
     win.mes("Count: " + std::to_string(g_buttonClickCount));
     
     win.redraw(1);  // 描画終了
@@ -169,16 +169,16 @@ static void updateChoiceBoxDemo(Screen& win) {
     win.redraw(0);
     
     win.color(255, 255, 255);
-    win.boxf(250, 75, 450, 300);  // 状態表示エリアをクリア
+    win.boxf(250, 75, 450, 270);  // 状態表示エリアをクリア
     
     win.pos(250, 80);
     win.color(0, 100, 0);
     win.mes("Check: " + std::string(g_checkState ? "ON" : "OFF"));
     
-    win.pos(250, 150);
+    win.pos(250, 130);
     win.mes("Combo: " + std::to_string(g_comboxState));
     
-    win.pos(250, 250);
+    win.pos(250, 200);
     win.mes("List: " + std::to_string(g_listboxState));
     
     win.redraw(1);

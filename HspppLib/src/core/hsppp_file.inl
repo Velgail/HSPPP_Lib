@@ -462,6 +462,14 @@ namespace hsppp {
                const std::source_location& location) {
         int dialogType = type.value_or(0);
         
+        // カレントウィンドウのHWNDを取得（オーナーウィンドウとして使用）
+        HWND ownerHwnd = nullptr;
+        auto current = getCurrentSurface();
+        auto pWindow = current ? std::dynamic_pointer_cast<internal::HspWindow>(current) : nullptr;
+        if (pWindow && pWindow->getHwnd()) {
+            ownerHwnd = pWindow->getHwnd();
+        }
+        
         // メッセージボックス (type 0-3)
         if (dialogType >= 0 && dialogType <= 3) {
             std::wstring messageW = internal::Utf8ToWide(message);
@@ -478,7 +486,7 @@ namespace hsppp {
                 mbType = MB_YESNO | MB_ICONWARNING;
             }
 
-            int result = MessageBoxW(nullptr, messageW.c_str(), 
+            int result = MessageBoxW(ownerHwnd, messageW.c_str(), 
                                     titleW.empty() ? nullptr : titleW.c_str(), mbType);
             return { result, std::to_string(result) };
         }
@@ -537,7 +545,7 @@ namespace hsppp {
 
             OPENFILENAMEW ofn = {};
             ofn.lStructSize = sizeof(ofn);
-            ofn.hwndOwner = nullptr;
+            ofn.hwndOwner = ownerHwnd;  // オーナーウィンドウを設定
             ofn.lpstrFilter = filterW.c_str();
             ofn.lpstrFile = filenameBuffer;
             ofn.nMaxFile = MAX_PATH;
@@ -573,20 +581,12 @@ namespace hsppp {
             
             CHOOSECOLORW cc = {};
             cc.lStructSize = sizeof(cc);
-            cc.hwndOwner = nullptr;
+            cc.hwndOwner = ownerHwnd;  // オーナーウィンドウを設定
             cc.lpCustColors = customColors;
             cc.Flags = CC_RGBINIT;
             
             if (dialogType == dialog_colorex) {
                 cc.Flags |= CC_FULLOPEN;  // 拡張ダイアログ（RGB自由選択）
-            }
-
-            // オーナーウィンドウを設定してダイアログのモーダル処理を安定させる
-            // （オーナー未設定だとモードの扱いでアプリケーションが応答しなくなる環境がある）
-            auto current = getCurrentSurface();
-            auto pWindow = current ? std::dynamic_pointer_cast<internal::HspWindow>(current) : nullptr;
-            if (pWindow && pWindow->getHwnd()) {
-                cc.hwndOwner = pWindow->getHwnd();
             }
 
             if (ChooseColorW(&cc)) {

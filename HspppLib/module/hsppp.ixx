@@ -404,9 +404,12 @@ namespace hsppp {
         bool m_valid;
 
     public:
-        /// @brief 内部用コンストラクタ
+        /// @brief 内部用コンストラクタ（ID + valid指定）
         Cel(int id, bool valid) noexcept
             : m_id(id), m_valid(valid) {}
+
+        /// @brief IDからのコンストラクタ（グローバルマップから有効性を判定）
+        explicit Cel(int id) noexcept;
 
         /// @brief デフォルトコンストラクタ（無効なハンドル）
         Cel() noexcept : m_id(-1), m_valid(false) {}
@@ -452,9 +455,12 @@ namespace hsppp {
         bool m_valid;
 
     public:
-        /// @brief 内部用コンストラクタ
+        /// @brief 内部用コンストラクタ（ID + valid指定）
         Screen(int id, bool valid) noexcept
             : m_id(id), m_valid(valid) {}
+
+        /// @brief IDからのコンストラクタ（グローバルマップから有効性を判定）
+        explicit Screen(int id) noexcept;
 
         /// @brief デフォルトコンストラクタ（無効なハンドル）
         Screen() noexcept : m_id(-1), m_valid(false) {}
@@ -634,6 +640,135 @@ namespace hsppp {
         /// @brief キー割り込みを設定
         /// @param handler コールバック関数/ラムダ (nullptr で解除)
         Screen& onkey(InterruptHandler handler);
+
+        // ============================================================
+        // 画面コピー・変形描画（OOP版）
+        // ============================================================
+
+        /// @brief 画面コピーモードを設定（OOP版）
+        /// @param mode 画面コピーモード (0～6)
+        /// @param sizeX コピーする大きさX (デフォルト: 32)
+        /// @param sizeY コピーする大きさY (デフォルト: 32)
+        /// @param blendRate 半透明合成時のブレンド率 (0～256)
+        /// @return *this（メソッドチェーン用）
+        Screen& gmode(int mode, int sizeX = 32, int sizeY = 32, int blendRate = 256);
+
+        /// @brief 画面コピー（OOP版）
+        /// @param srcId コピー元のウィンドウID
+        /// @param srcX コピー元の左上X座標
+        /// @param srcY コピー元の左上Y座標
+        /// @param sizeX コピーする大きさX (省略時=gmodeで設定したサイズ)
+        /// @param sizeY コピーする大きさY (省略時=gmodeで設定したサイズ)
+        /// @return *this（メソッドチェーン用）
+        Screen& gcopy(int srcId, int srcX, int srcY, OptInt sizeX = {}, OptInt sizeY = {});
+
+        /// @brief 変倍して画面コピー（OOP版）
+        /// @param destW 画面にコピーする時の大きさX
+        /// @param destH 画面にコピーする時の大きさY
+        /// @param srcId コピー元のウィンドウID
+        /// @param srcX コピー元の左上X座標
+        /// @param srcY コピー元の左上Y座標
+        /// @param srcW コピーする大きさX (省略時=gmodeサイズ)
+        /// @param srcH コピーする大きさY (省略時=gmodeサイズ)
+        /// @param mode ズームのモード (0=高速, 1=高品質ハーフトーン)
+        /// @return *this（メソッドチェーン用）
+        Screen& gzoom(int destW, int destH, int srcId, int srcX, int srcY, OptInt srcW = {}, OptInt srcH = {}, int mode = 0);
+
+        /// @brief 矩形画像を回転してコピー（OOP版）
+        /// @param srcId コピー元のウィンドウID
+        /// @param srcX コピー元の左上X座標
+        /// @param srcY コピー元の左上Y座標
+        /// @param angle 回転角度（ラジアン）
+        /// @param dstW コピー先のXサイズ (省略時=gmodeで設定したサイズ)
+        /// @param dstH コピー先のYサイズ (省略時=gmodeで設定したサイズ)
+        /// @return *this（メソッドチェーン用）
+        Screen& grotate(int srcId, int srcX, int srcY, double angle, OptInt dstW = {}, OptInt dstH = {});
+
+        /// @brief 任意の四角形を単色塗りつぶし（OOP版）
+        /// @param srcId ウィンドウID (マイナス値=-1～-256で単色塗りつぶし)
+        /// @param dst コピー先座標（4頂点）
+        /// @return *this（メソッドチェーン用）
+        Screen& gsquare(int srcId, const Quad& dst);
+
+        /// @brief 任意の四角形へ画像をコピー（OOP版）
+        /// @param srcId コピー元のウィンドウID (0以上)
+        /// @param dst コピー先座標（4頂点）
+        /// @param src コピー元座標（4頂点）
+        /// @return *this（メソッドチェーン用）
+        Screen& gsquare(int srcId, const Quad& dst, const QuadUV& src);
+
+        /// @brief 任意の四角形をグラデーション塗りつぶし（OOP版）
+        /// @param srcId gsquare_grad (-257) を指定
+        /// @param dst コピー先座標（4頂点）
+        /// @param colors 頂点の色（4色）
+        /// @return *this（メソッドチェーン用）
+        Screen& gsquare(int srcId, const Quad& dst, const QuadColors& colors);
+
+        // ============================================================
+        // ウィンドウ表示制御（OOP版）
+        // ============================================================
+
+        /// @brief ウィンドウを表示（gsel id, 1 相当）
+        /// @return *this（メソッドチェーン用）
+        Screen& show();
+
+        /// @brief ウィンドウを非表示（gsel id, -1 相当）
+        /// @return *this（メソッドチェーン用）
+        Screen& hide();
+
+        /// @brief ウィンドウを最前面でアクティブ化（gsel id, 2 相当）
+        /// @return *this（メソッドチェーン用）
+        Screen& activate();
+
+        // ============================================================
+        // Cel描画（OOP版・Screen側主体）
+        // ============================================================
+
+        /// @brief 画像素材を描画（Screen側主体版）
+        /// @param cel Celハンドル
+        /// @param cellIndex 表示するセル番号
+        /// @param x X座標（省略時は現在のpos）
+        /// @param y Y座標（省略時は現在のpos）
+        /// @return *this（メソッドチェーン用）
+        Screen& celput(const Cel& cel, int cellIndex, OptInt x = {}, OptInt y = {});
+
+        // ============================================================
+        // GUIオブジェクト生成（OOP版・ウィンドウ指定）
+        // ============================================================
+
+        /// @brief ボタンを生成（OOP版）
+        /// @param name ボタンのラベル
+        /// @param callback クリック時のコールバック
+        /// @param isGosub true=gosub風, false=goto風
+        /// @return オブジェクトID
+        int button(std::string_view name, std::function<int()> callback, bool isGosub = true);
+
+        /// @brief 入力ボックスを生成（OOP版・shared_ptr版）
+        /// @param var 文字列変数（shared_ptr）
+        /// @param maxLength 最大文字数
+        /// @param mode 入力モード (0=文字列, 2=数値)
+        /// @return オブジェクトID
+        int input(std::shared_ptr<std::string> var, int maxLength = 1024, int mode = 0);
+
+        /// @brief 複数行入力ボックスを生成（OOP版・shared_ptr版）
+        /// @param var 文字列変数（shared_ptr）
+        /// @param maxLength 最大文字数
+        /// @param mode 入力モード
+        /// @return オブジェクトID
+        int mesbox(std::shared_ptr<std::string> var, int maxLength = 4096, int mode = 0);
+
+        /// @brief オブジェクトのサイズと間隔を設定（OOP版）
+        /// @param sizeX オブジェクトの横幅
+        /// @param sizeY オブジェクトの高さ
+        /// @param spaceY 次のオブジェクトとの縦間隔（デフォルト0）
+        /// @return *this（メソッドチェーン用）
+        Screen& objsize(int sizeX, int sizeY = 24, int spaceY = 0);
+
+        /// @brief マウスカーソルの座標を設定（OOP版）
+        /// @param x X座標（クライアント座標）
+        /// @param y Y座標（クライアント座標）
+        /// @return *this（メソッドチェーン用）
+        Screen& mouse(int x, int y);
     };
 
 

@@ -10,6 +10,17 @@ using namespace internal;
 // objsize - オブジェクトサイズ設定
 // ============================================================
 void objsize(OptInt sizeX, OptInt sizeY, OptInt spaceY, const std::source_location& location) {
+    // 現在の Surface に設定（OOP設計：Surfaceがデータを所有）
+    auto surface = getCurrentSurface();
+    if (surface) {
+        surface->setObjSize(
+            sizeX.value_or(64),
+            sizeY.value_or(24),
+            spaceY.value_or(0)
+        );
+    }
+    
+    // ObjectManager にも設定（後方互換性のため）
     auto& objMgr = internal::ObjectManager::getInstance();
     objMgr.setObjSize(
         sizeX.value_or(64),
@@ -45,358 +56,97 @@ void objcolor(OptInt r, OptInt g, OptInt b, const std::source_location& location
 // button - ボタン表示
 // ============================================================
 int button(std::string_view name, std::function<int()> callback, bool isGosub, const std::source_location& location) {
-    auto& objMgr = internal::ObjectManager::getInstance();
-    
-    // 現在のウィンドウを取得
-    int windowId = g_currentScreenId;
-    auto* pWindow = getSurface(windowId);
-    if (!pWindow) {
+    ensureDefaultScreen();
+
+    auto surface = getCurrentSurface();
+    if (!surface) {
         throw HspError(ERR_INVALID_HANDLE, "Invalid window ID", location);
     }
-    
-    // HspWindowにキャスト
-    auto* pHspWindow = dynamic_cast<internal::HspWindow*>(pWindow);
-    if (!pHspWindow) {
-        throw HspError(ERR_UNSUPPORTED, "Cannot create button on buffer", location);
-    }
-    
-    // オブジェクトサイズを取得
-    int objW, objH, objSpace;
-    objMgr.getObjSize(objW, objH, objSpace);
-    
-    // 現在のカレントポジションを取得
-    int posX = pWindow->getCurrentX();
-    int posY = pWindow->getCurrentY();
-    
-    // Win32ボタンを作成
-    HWND hwndParent = pHspWindow->getHwnd();
-    std::wstring wname = internal::Utf8ToWide(name);
-    
-    HWND hwndButton = CreateWindowExW(
-        WS_EX_NOPARENTNOTIFY,  // WS_EX拡張スタイル
-        L"BUTTON",
-        wname.c_str(),
-        WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_CLIPSIBLINGS | BS_PUSHBUTTON,
-        posX, posY, objW, objH,
-        hwndParent,
-        (HMENU)(INT_PTR)(objMgr.getNextId()),  // IDをHMENUとして埋め込み
-        GetModuleHandle(nullptr),
-        nullptr
-    );
-    
-    // Z-orderを最前面に設定（Direct2D描画との競合対策）
-    if (hwndButton) {
-        SetWindowPos(hwndButton, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-    }
-    
-    if (!hwndButton) {
-        throw HspError(ERR_SYSTEM_ERROR, "Failed to create button", location);
-    }
-    
-    // フォント設定（objmodeに従う）
-    int fontMode;
-    bool tabEnabled;
-    objMgr.getObjMode(fontMode, tabEnabled);
-    
-    // デフォルトGUIフォントを設定
-    HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-    SendMessageW(hwndButton, WM_SETFONT, (WPARAM)hFont, TRUE);
-    
-    // ObjectInfoを登録
-    internal::ObjectInfo info;
-    info.type = internal::ObjectType::Button;
-    info.hwnd = hwndButton;
-    info.windowId = windowId;
-    info.x = posX;
-    info.y = posY;
-    info.width = objW;
-    info.height = objH;
-    info.callback = std::move(callback);
-    info.isGosub = isGosub;
-    info.enabled = true;
-    info.focusSkipMode = 1;
-    
-    int objectId = objMgr.registerObject(info);
-    
-    // カレントポジションを次の行に移動
-    int nextY = posY + std::max(objH, objSpace);
-    pWindow->pos(posX, nextY);
-    
-    return objectId;
+
+    return internal::button_impl(surface, g_currentScreenId, name, std::move(callback), isGosub);
 }
 
 // ============================================================
 // input - 入力ボックス表示（文字列版）
 // ============================================================
 int input(std::string& var, OptInt sizeX, OptInt sizeY, OptInt maxLen, const std::source_location& location) {
-    auto& objMgr = internal::ObjectManager::getInstance();
-    
-    // 現在のウィンドウを取得
-    int windowId = g_currentScreenId;
-    auto* pWindow = getSurface(windowId);
-    if (!pWindow) {
+    ensureDefaultScreen();
+
+    auto surface = getCurrentSurface();
+    if (!surface) {
         throw HspError(ERR_INVALID_HANDLE, "Invalid window ID", location);
     }
-    
-    auto* pHspWindow = dynamic_cast<internal::HspWindow*>(pWindow);
-    if (!pHspWindow) {
-        throw HspError(ERR_UNSUPPORTED, "Cannot create input on buffer", location);
-    }
-    
-    // オブジェクトサイズを取得
-    int objW, objH, objSpace;
-    objMgr.getObjSize(objW, objH, objSpace);
-    
-    // サイズの上書き
+
+    // Surface から objsize を取得
+    int objW = surface->getObjSizeX();
+    int objH = surface->getObjSizeY();
+    int objSpace = surface->getObjSpaceY();
+
     int w = sizeX.value_or(objW);
     int h = sizeY.value_or(objH);
-    
-    // 最大文字数
-    int maxChars = maxLen.value_or(static_cast<int>(var.capacity()));
-    if (maxChars <= 0) {
-        maxChars = 32767;  // Windowsのデフォルト最大
-    }
-    
-    // 現在のカレントポジションを取得
-    int posX = pWindow->getCurrentX();
-    int posY = pWindow->getCurrentY();
-    
-    // Win32 EDITを作成
-    HWND hwndParent = pHspWindow->getHwnd();
-    std::wstring wtext = internal::Utf8ToWide(var);
-    
-    HWND hwndEdit = CreateWindowExW(
-        WS_EX_CLIENTEDGE | WS_EX_NOPARENTNOTIFY,
-        L"EDIT",
-        wtext.c_str(),
-        WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_CLIPSIBLINGS | ES_AUTOHSCROLL,
-        posX, posY, w, h,
-        hwndParent,
-        (HMENU)(INT_PTR)(objMgr.getNextId()),
-        GetModuleHandle(nullptr),
-        nullptr
-    );
-    
-    if (!hwndEdit) {
-        throw HspError(ERR_SYSTEM_ERROR, "Failed to create input box", location);
-    }
-    
-    // Z-orderを最前面に設定
-    SetWindowPos(hwndEdit, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-    
-    // 最大文字数設定
-    SendMessageW(hwndEdit, EM_SETLIMITTEXT, (WPARAM)maxChars, 0);
-    
-    // デフォルトGUIフォントを設定
-    HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-    SendMessageW(hwndEdit, WM_SETFONT, (WPARAM)hFont, TRUE);
-    
-    // ObjectInfoを登録
-    internal::ObjectInfo info;
-    info.type = internal::ObjectType::Input;
-    info.hwnd = hwndEdit;
-    info.windowId = windowId;
-    info.x = posX;
-    info.y = posY;
-    info.width = w;
-    info.height = h;
-    info.pStrVar = &var;
-    info.maxLength = maxChars;
-    info.enabled = true;
-    info.focusSkipMode = 1;
-    
-    int objectId = objMgr.registerObject(info);
-    
-    // カレントポジションを次の行に移動
-    int nextY = posY + std::max(h, objSpace);
-    pWindow->pos(posX, nextY);
-    
-    return objectId;
+    int maxChars = maxLen.value_or(256);
+
+    auto varPtr = std::make_shared<std::string>(var);
+    int result = internal::input_impl(surface, g_currentScreenId, varPtr, maxChars, w, h, objSpace);
+    var = *varPtr;
+    return result;
 }
 
 // ============================================================
 // input - 入力ボックス表示（整数版）
 // ============================================================
 int input(int& var, OptInt sizeX, OptInt sizeY, OptInt maxLen, const std::source_location& location) {
-    auto& objMgr = internal::ObjectManager::getInstance();
-    
-    // 現在のウィンドウを取得
-    int windowId = g_currentScreenId;
-    auto* pWindow = getSurface(windowId);
-    if (!pWindow) {
+    ensureDefaultScreen();
+
+    auto surface = getCurrentSurface();
+    if (!surface) {
         throw HspError(ERR_INVALID_HANDLE, "Invalid window ID", location);
     }
-    
-    auto* pHspWindow = dynamic_cast<internal::HspWindow*>(pWindow);
-    if (!pHspWindow) {
-        throw HspError(ERR_UNSUPPORTED, "Cannot create input on buffer", location);
-    }
-    
-    // オブジェクトサイズを取得
-    int objW, objH, objSpace;
-    objMgr.getObjSize(objW, objH, objSpace);
-    
+
+    // Surface から objsize を取得
+    int objW = surface->getObjSizeX();
+    int objH = surface->getObjSizeY();
+    int objSpace = surface->getObjSpaceY();
+
     int w = sizeX.value_or(objW);
     int h = sizeY.value_or(objH);
     int maxChars = maxLen.value_or(32);
-    
-    int posX = pWindow->getCurrentX();
-    int posY = pWindow->getCurrentY();
-    
-    HWND hwndParent = pHspWindow->getHwnd();
-    std::wstring wtext = std::to_wstring(var);
-    
-    HWND hwndEdit = CreateWindowExW(
-        WS_EX_CLIENTEDGE | WS_EX_NOPARENTNOTIFY,
-        L"EDIT",
-        wtext.c_str(),
-        WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_CLIPSIBLINGS | ES_AUTOHSCROLL | ES_NUMBER,
-        posX, posY, w, h,
-        hwndParent,
-        (HMENU)(INT_PTR)(objMgr.getNextId()),
-        GetModuleHandle(nullptr),
-        nullptr
-    );
-    
-    if (!hwndEdit) {
-        throw HspError(ERR_SYSTEM_ERROR, "Failed to create input box", location);
+
+    auto varPtr = std::make_shared<std::string>(std::to_string(var));
+    int result = internal::input_impl(surface, g_currentScreenId, varPtr, maxChars, w, h, objSpace);
+    try {
+        var = std::stoi(*varPtr);
+    } catch (...) {
+        var = 0;
     }
-    
-    // Z-orderを最前面に設定
-    SetWindowPos(hwndEdit, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-    
-    SendMessageW(hwndEdit, EM_SETLIMITTEXT, (WPARAM)maxChars, 0);
-    
-    HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-    SendMessageW(hwndEdit, WM_SETFONT, (WPARAM)hFont, TRUE);
-    
-    internal::ObjectInfo info;
-    info.type = internal::ObjectType::Input;
-    info.hwnd = hwndEdit;
-    info.windowId = windowId;
-    info.x = posX;
-    info.y = posY;
-    info.width = w;
-    info.height = h;
-    info.pIntVar = &var;
-    info.maxLength = maxChars;
-    info.enabled = true;
-    info.focusSkipMode = 1;
-    
-    int objectId = objMgr.registerObject(info);
-    
-    int nextY = posY + std::max(h, objSpace);
-    pWindow->pos(posX, nextY);
-    
-    return objectId;
+    return result;
 }
 
 // ============================================================
 // mesbox - メッセージボックス表示
 // ============================================================
 int mesbox(std::string& var, OptInt sizeX, OptInt sizeY, OptInt style, OptInt maxLen, const std::source_location& location) {
-    auto& objMgr = internal::ObjectManager::getInstance();
-    
-    int windowId = g_currentScreenId;
-    auto* pWindow = getSurface(windowId);
-    if (!pWindow) {
+    ensureDefaultScreen();
+
+    auto surface = getCurrentSurface();
+    if (!surface) {
         throw HspError(ERR_INVALID_HANDLE, "Invalid window ID", location);
     }
-    
-    auto* pHspWindow = dynamic_cast<internal::HspWindow*>(pWindow);
-    if (!pHspWindow) {
-        throw HspError(ERR_UNSUPPORTED, "Cannot create mesbox on buffer", location);
-    }
-    
-    int objW, objH, objSpace;
-    objMgr.getObjSize(objW, objH, objSpace);
-    
+
+    // Surface から objsize を取得
+    int objW = surface->getObjSizeX();
+    int objH = surface->getObjSizeY();
+    int objSpace = surface->getObjSpaceY();
+
     int w = sizeX.value_or(objW);
-    int h = sizeY.value_or(objH);
-    int styleVal = style.value_or(1);  // デフォルト: 編集可能
-    int maxChars = maxLen.value_or(-1);
-    
-    if (maxChars < 0) {
-        maxChars = static_cast<int>(var.capacity());
-    }
-    if (maxChars == 0) {
-        maxChars = 32767;
-    }
-    
-    int posX = pWindow->getCurrentX();
-    int posY = pWindow->getCurrentY();
-    
-    DWORD dwStyle = WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_VSCROLL | WS_CLIPSIBLINGS | ES_MULTILINE;
-    
-    // スタイル解析
-    if ((styleVal & 1) == 0) {
-        dwStyle |= ES_READONLY;
-    }
-    if (styleVal & 4) {
-        dwStyle |= WS_HSCROLL;
-    }
-    if ((styleVal & 8) == 0) {
-        dwStyle |= ES_AUTOVSCROLL;
-    }
-    
-    HWND hwndParent = pHspWindow->getHwnd();
-    
-    // 改行文字を\nから\r\nに変換（Windows標準）
-    std::string convertedText = var;
-    size_t pos = 0;
-    while ((pos = convertedText.find('\n', pos)) != std::string::npos) {
-        if (pos == 0 || convertedText[pos - 1] != '\r') {
-            convertedText.insert(pos, "\r");
-            pos += 2;  // \r\nの次へ
-        } else {
-            pos += 1;  // 既に\r\nなら次へ
-        }
-    }
-    std::wstring wtext = internal::Utf8ToWide(convertedText);
-    
-    HWND hwndEdit = CreateWindowExW(
-        WS_EX_CLIENTEDGE | WS_EX_NOPARENTNOTIFY,
-        L"EDIT",
-        wtext.c_str(),
-        dwStyle,
-        posX, posY, w, h,
-        hwndParent,
-        (HMENU)(INT_PTR)(objMgr.getNextId()),
-        GetModuleHandle(nullptr),
-        nullptr
-    );
-    
-    if (!hwndEdit) {
-        throw HspError(ERR_SYSTEM_ERROR, "Failed to create mesbox", location);
-    }
-    
-    // Z-orderを最前面に設定
-    SetWindowPos(hwndEdit, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-    
-    SendMessageW(hwndEdit, EM_SETLIMITTEXT, (WPARAM)maxChars, 0);
-    
-    HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-    SendMessageW(hwndEdit, WM_SETFONT, (WPARAM)hFont, TRUE);
-    
-    internal::ObjectInfo info;
-    info.type = internal::ObjectType::Mesbox;
-    info.hwnd = hwndEdit;
-    info.windowId = windowId;
-    info.x = posX;
-    info.y = posY;
-    info.width = w;
-    info.height = h;
-    info.pStrVar = &var;
-    info.maxLength = maxChars;
-    info.enabled = true;
-    info.focusSkipMode = 1;
-    
-    int objectId = objMgr.registerObject(info);
-    
-    int nextY = posY + std::max(h, objSpace);
-    pWindow->pos(posX, nextY);
-    
-    return objectId;
+    int h = sizeY.value_or(objH * 3);  // mesbox はデフォルトで高さ 3 倍
+    int styleVal = style.value_or(1);
+    int maxChars = maxLen.value_or(32767);
+
+    auto varPtr = std::make_shared<std::string>(var);
+    int result = internal::mesbox_impl(surface, g_currentScreenId, varPtr, maxChars, styleVal, w, h, objSpace);
+    var = *varPtr;
+    return result;
 }
 
 // ============================================================
@@ -406,21 +156,23 @@ int chkbox(std::string_view label, int& var, const std::source_location& locatio
     auto& objMgr = internal::ObjectManager::getInstance();
     
     int windowId = g_currentScreenId;
-    auto* pWindow = getSurface(windowId);
-    if (!pWindow) {
+    auto surface = getCurrentSurface();
+    if (!surface) {
         throw HspError(ERR_INVALID_HANDLE, "Invalid window ID", location);
     }
     
-    auto* pHspWindow = dynamic_cast<internal::HspWindow*>(pWindow);
+    auto pHspWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
     if (!pHspWindow) {
         throw HspError(ERR_UNSUPPORTED, "Cannot create chkbox on buffer", location);
     }
     
-    int objW, objH, objSpace;
-    objMgr.getObjSize(objW, objH, objSpace);
+    // Surface から objsize を取得
+    int objW = surface->getObjSizeX();
+    int objH = surface->getObjSizeY();
+    int objSpace = surface->getObjSpaceY();
     
-    int posX = pWindow->getCurrentX();
-    int posY = pWindow->getCurrentY();
+    int posX = surface->getCurrentX();
+    int posY = surface->getCurrentY();
     
     HWND hwndParent = pHspWindow->getHwnd();
     std::wstring wlabel = internal::Utf8ToWide(label);
@@ -465,7 +217,7 @@ int chkbox(std::string_view label, int& var, const std::source_location& locatio
     int objectId = objMgr.registerObject(info);
     
     int nextY = posY + std::max(objH, objSpace);
-    pWindow->pos(posX, nextY);
+    surface->pos(posX, nextY);
     
     return objectId;
 }
@@ -477,22 +229,24 @@ int combox(int& var, OptInt expandY, std::string_view items, const std::source_l
     auto& objMgr = internal::ObjectManager::getInstance();
     
     int windowId = g_currentScreenId;
-    auto* pWindow = getSurface(windowId);
-    if (!pWindow) {
+    auto surface = getCurrentSurface();
+    if (!surface) {
         throw HspError(ERR_INVALID_HANDLE, "Invalid window ID", location);
     }
     
-    auto* pHspWindow = dynamic_cast<internal::HspWindow*>(pWindow);
+    auto pHspWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
     if (!pHspWindow) {
         throw HspError(ERR_UNSUPPORTED, "Cannot create combox on buffer", location);
     }
     
-    int objW, objH, objSpace;
-    objMgr.getObjSize(objW, objH, objSpace);
+    // Surface から objsize を取得
+    int objW = surface->getObjSizeX();
+    int objH = surface->getObjSizeY();
+    int objSpace = surface->getObjSpaceY();
     int expandYVal = expandY.value_or(100);
     
-    int posX = pWindow->getCurrentX();
-    int posY = pWindow->getCurrentY();
+    int posX = surface->getCurrentX();
+    int posY = surface->getCurrentY();
     
     HWND hwndParent = pHspWindow->getHwnd();
     
@@ -553,7 +307,7 @@ int combox(int& var, OptInt expandY, std::string_view items, const std::source_l
     int objectId = objMgr.registerObject(info);
     
     int nextY = posY + std::max(objH, objSpace);
-    pWindow->pos(posX, nextY);
+    surface->pos(posX, nextY);
     
     return objectId;
 }
@@ -565,22 +319,24 @@ int listbox(int& var, OptInt expandY, std::string_view items, const std::source_
     auto& objMgr = internal::ObjectManager::getInstance();
     
     int windowId = g_currentScreenId;
-    auto* pWindow = getSurface(windowId);
-    if (!pWindow) {
+    auto surface = getCurrentSurface();
+    if (!surface) {
         throw HspError(ERR_INVALID_HANDLE, "Invalid window ID", location);
     }
     
-    auto* pHspWindow = dynamic_cast<internal::HspWindow*>(pWindow);
+    auto pHspWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
     if (!pHspWindow) {
         throw HspError(ERR_UNSUPPORTED, "Cannot create listbox on buffer", location);
     }
     
-    int objW, objH, objSpace;
-    objMgr.getObjSize(objW, objH, objSpace);
+    // Surface から objsize を取得
+    int objW = surface->getObjSizeX();
+    int objH = surface->getObjSizeY();
+    int objSpace = surface->getObjSpaceY();
     int height = expandY.value_or(100);
     
-    int posX = pWindow->getCurrentX();
-    int posY = pWindow->getCurrentY();
+    int posX = surface->getCurrentX();
+    int posY = surface->getCurrentY();
     
     HWND hwndParent = pHspWindow->getHwnd();
     
@@ -640,7 +396,7 @@ int listbox(int& var, OptInt expandY, std::string_view items, const std::source_
     int objectId = objMgr.registerObject(info);
     
     int nextY = posY + std::max(height, objSpace);
-    pWindow->pos(posX, nextY);
+    surface->pos(posX, nextY);
     
     return objectId;
 }
@@ -653,240 +409,73 @@ int listbox(int& var, OptInt expandY, std::string_view items, const std::source_
 
 // input (shared_ptr<std::string>版)
 int input(std::shared_ptr<std::string> var, OptInt sizeX, OptInt sizeY, OptInt maxLen, const std::source_location& location) {
-    auto& objMgr = internal::ObjectManager::getInstance();
-    
-    int windowId = g_currentScreenId;
-    auto* pWindow = getSurface(windowId);
-    if (!pWindow) {
+    ensureDefaultScreen();
+
+    auto surface = getCurrentSurface();
+    if (!surface) {
         throw HspError(ERR_INVALID_HANDLE, "Invalid window ID", location);
     }
-    
-    auto* pHspWindow = dynamic_cast<internal::HspWindow*>(pWindow);
-    if (!pHspWindow) {
-        throw HspError(ERR_UNSUPPORTED, "Cannot create input on buffer", location);
-    }
-    
-    int objW, objH, objSpace;
-    objMgr.getObjSize(objW, objH, objSpace);
-    
+
+    // Surface から objsize を取得
+    int objW = surface->getObjSizeX();
+    int objH = surface->getObjSizeY();
+    int objSpace = surface->getObjSpaceY();
+
     int w = sizeX.value_or(objW);
     int h = sizeY.value_or(objH);
-    int maxChars = maxLen.value_or(32767);
-    
-    int posX = pWindow->getCurrentX();
-    int posY = pWindow->getCurrentY();
-    
-    HWND hwndParent = pHspWindow->getHwnd();
-    std::wstring wtext = internal::Utf8ToWide(*var);
-    
-    HWND hwndEdit = CreateWindowExW(
-        WS_EX_CLIENTEDGE | WS_EX_NOPARENTNOTIFY,
-        L"EDIT",
-        wtext.c_str(),
-        WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_CLIPSIBLINGS | ES_AUTOHSCROLL,
-        posX, posY, w, h,
-        hwndParent,
-        (HMENU)(INT_PTR)(objMgr.getNextId()),
-        GetModuleHandle(nullptr),
-        nullptr
-    );
-    
-    if (!hwndEdit) {
-        throw HspError(ERR_SYSTEM_ERROR, "Failed to create input box", location);
-    }
-    
-    SetWindowPos(hwndEdit, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-    SendMessageW(hwndEdit, EM_SETLIMITTEXT, (WPARAM)maxChars, 0);
-    
-    HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-    SendMessageW(hwndEdit, WM_SETFONT, (WPARAM)hFont, TRUE);
-    
-    internal::ObjectInfo info;
-    info.type = internal::ObjectType::Input;
-    info.hwnd = hwndEdit;
-    info.windowId = windowId;
-    info.x = posX;
-    info.y = posY;
-    info.width = w;
-    info.height = h;
-    info.ownedStrVar = var;  // shared_ptrで保持
-    info.maxLength = maxChars;
-    info.enabled = true;
-    info.focusSkipMode = 1;
-    
-    int objectId = objMgr.registerObject(info);
-    
-    int nextY = posY + std::max(h, objSpace);
-    pWindow->pos(posX, nextY);
-    
-    return objectId;
+    int maxChars = maxLen.value_or(256);
+
+    return internal::input_impl(surface, g_currentScreenId, var, maxChars, w, h, objSpace);
 }
 
 // input (shared_ptr<int>版)
 int input(std::shared_ptr<int> var, OptInt sizeX, OptInt sizeY, OptInt maxLen, const std::source_location& location) {
-    auto& objMgr = internal::ObjectManager::getInstance();
-    
-    int windowId = g_currentScreenId;
-    auto* pWindow = getSurface(windowId);
-    if (!pWindow) {
+    ensureDefaultScreen();
+
+    auto surface = getCurrentSurface();
+    if (!surface) {
         throw HspError(ERR_INVALID_HANDLE, "Invalid window ID", location);
     }
-    
-    auto* pHspWindow = dynamic_cast<internal::HspWindow*>(pWindow);
-    if (!pHspWindow) {
-        throw HspError(ERR_UNSUPPORTED, "Cannot create input on buffer", location);
-    }
-    
-    int objW, objH, objSpace;
-    objMgr.getObjSize(objW, objH, objSpace);
-    
+
+    // Surface から objsize を取得
+    int objW = surface->getObjSizeX();
+    int objH = surface->getObjSizeY();
+    int objSpace = surface->getObjSpaceY();
+
     int w = sizeX.value_or(objW);
     int h = sizeY.value_or(objH);
     int maxChars = maxLen.value_or(32);
-    
-    int posX = pWindow->getCurrentX();
-    int posY = pWindow->getCurrentY();
-    
-    HWND hwndParent = pHspWindow->getHwnd();
-    std::wstring wtext = std::to_wstring(*var);
-    
-    HWND hwndEdit = CreateWindowExW(
-        WS_EX_CLIENTEDGE | WS_EX_NOPARENTNOTIFY,
-        L"EDIT",
-        wtext.c_str(),
-        WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_CLIPSIBLINGS | ES_AUTOHSCROLL | ES_NUMBER,
-        posX, posY, w, h,
-        hwndParent,
-        (HMENU)(INT_PTR)(objMgr.getNextId()),
-        GetModuleHandle(nullptr),
-        nullptr
-    );
-    
-    if (!hwndEdit) {
-        throw HspError(ERR_SYSTEM_ERROR, "Failed to create input box", location);
+
+    auto strVar = std::make_shared<std::string>(std::to_string(*var));
+    int result = internal::input_impl(surface, g_currentScreenId, strVar, maxChars, w, h, objSpace);
+    try {
+        *var = std::stoi(*strVar);
+    } catch (...) {
+        *var = 0;
     }
-    
-    SetWindowPos(hwndEdit, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-    SendMessageW(hwndEdit, EM_SETLIMITTEXT, (WPARAM)maxChars, 0);
-    
-    HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-    SendMessageW(hwndEdit, WM_SETFONT, (WPARAM)hFont, TRUE);
-    
-    internal::ObjectInfo info;
-    info.type = internal::ObjectType::Input;
-    info.hwnd = hwndEdit;
-    info.windowId = windowId;
-    info.x = posX;
-    info.y = posY;
-    info.width = w;
-    info.height = h;
-    info.ownedIntVar = var;  // shared_ptrで保持
-    info.maxLength = maxChars;
-    info.enabled = true;
-    info.focusSkipMode = 1;
-    
-    int objectId = objMgr.registerObject(info);
-    
-    int nextY = posY + std::max(h, objSpace);
-    pWindow->pos(posX, nextY);
-    
-    return objectId;
+    return result;
 }
 
 // mesbox (shared_ptr<std::string>版)
 int mesbox(std::shared_ptr<std::string> var, OptInt sizeX, OptInt sizeY, OptInt style, OptInt maxLen, const std::source_location& location) {
-    auto& objMgr = internal::ObjectManager::getInstance();
-    
-    int windowId = g_currentScreenId;
-    auto* pWindow = getSurface(windowId);
-    if (!pWindow) {
+    ensureDefaultScreen();
+
+    auto surface = getCurrentSurface();
+    if (!surface) {
         throw HspError(ERR_INVALID_HANDLE, "Invalid window ID", location);
     }
-    
-    auto* pHspWindow = dynamic_cast<internal::HspWindow*>(pWindow);
-    if (!pHspWindow) {
-        throw HspError(ERR_UNSUPPORTED, "Cannot create mesbox on buffer", location);
-    }
-    
-    int objW, objH, objSpace;
-    objMgr.getObjSize(objW, objH, objSpace);
-    
+
+    // Surface から objsize を取得
+    int objW = surface->getObjSizeX();
+    int objH = surface->getObjSizeY();
+    int objSpace = surface->getObjSpaceY();
+
     int w = sizeX.value_or(objW);
-    int h = sizeY.value_or(objH);
+    int h = sizeY.value_or(objH * 3);
     int styleVal = style.value_or(1);
     int maxChars = maxLen.value_or(32767);
-    
-    int posX = pWindow->getCurrentX();
-    int posY = pWindow->getCurrentY();
-    
-    DWORD dwStyle = WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_VSCROLL | WS_CLIPSIBLINGS | ES_MULTILINE;
-    
-    if ((styleVal & 1) == 0) {
-        dwStyle |= ES_READONLY;
-    }
-    if (styleVal & 4) {
-        dwStyle |= WS_HSCROLL;
-    }
-    if ((styleVal & 8) == 0) {
-        dwStyle |= ES_AUTOVSCROLL;
-    }
-    
-    HWND hwndParent = pHspWindow->getHwnd();
-    
-    // 改行文字を\nから\r\nに変換
-    std::string convertedText = *var;
-    size_t pos = 0;
-    while ((pos = convertedText.find('\n', pos)) != std::string::npos) {
-        if (pos == 0 || convertedText[pos - 1] != '\r') {
-            convertedText.insert(pos, "\r");
-            pos += 2;
-        } else {
-            pos += 1;
-        }
-    }
-    std::wstring wtext = internal::Utf8ToWide(convertedText);
-    
-    HWND hwndEdit = CreateWindowExW(
-        WS_EX_CLIENTEDGE | WS_EX_NOPARENTNOTIFY,
-        L"EDIT",
-        wtext.c_str(),
-        dwStyle,
-        posX, posY, w, h,
-        hwndParent,
-        (HMENU)(INT_PTR)(objMgr.getNextId()),
-        GetModuleHandle(nullptr),
-        nullptr
-    );
-    
-    if (!hwndEdit) {
-        throw HspError(ERR_SYSTEM_ERROR, "Failed to create mesbox", location);
-    }
-    
-    SetWindowPos(hwndEdit, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-    SendMessageW(hwndEdit, EM_SETLIMITTEXT, (WPARAM)maxChars, 0);
-    
-    HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-    SendMessageW(hwndEdit, WM_SETFONT, (WPARAM)hFont, TRUE);
-    
-    internal::ObjectInfo info;
-    info.type = internal::ObjectType::Mesbox;
-    info.hwnd = hwndEdit;
-    info.windowId = windowId;
-    info.x = posX;
-    info.y = posY;
-    info.width = w;
-    info.height = h;
-    info.ownedStrVar = var;  // shared_ptrで保持
-    info.maxLength = maxChars;
-    info.enabled = true;
-    info.focusSkipMode = 1;
-    
-    int objectId = objMgr.registerObject(info);
-    
-    int nextY = posY + std::max(h, objSpace);
-    pWindow->pos(posX, nextY);
-    
-    return objectId;
+
+    return internal::mesbox_impl(surface, g_currentScreenId, var, maxChars, styleVal, w, h, objSpace);
 }
 
 // chkbox (shared_ptr<int>版)
@@ -894,21 +483,23 @@ int chkbox(std::string_view label, std::shared_ptr<int> var, const std::source_l
     auto& objMgr = internal::ObjectManager::getInstance();
     
     int windowId = g_currentScreenId;
-    auto* pWindow = getSurface(windowId);
-    if (!pWindow) {
+    auto surface = getCurrentSurface();
+    if (!surface) {
         throw HspError(ERR_INVALID_HANDLE, "Invalid window ID", location);
     }
     
-    auto* pHspWindow = dynamic_cast<internal::HspWindow*>(pWindow);
+    auto pHspWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
     if (!pHspWindow) {
         throw HspError(ERR_UNSUPPORTED, "Cannot create chkbox on buffer", location);
     }
     
-    int objW, objH, objSpace;
-    objMgr.getObjSize(objW, objH, objSpace);
+    // Surface から objsize を取得
+    int objW = surface->getObjSizeX();
+    int objH = surface->getObjSizeY();
+    int objSpace = surface->getObjSpaceY();
     
-    int posX = pWindow->getCurrentX();
-    int posY = pWindow->getCurrentY();
+    int posX = surface->getCurrentX();
+    int posY = surface->getCurrentY();
     
     HWND hwndParent = pHspWindow->getHwnd();
     std::wstring wlabel = internal::Utf8ToWide(label);
@@ -950,7 +541,7 @@ int chkbox(std::string_view label, std::shared_ptr<int> var, const std::source_l
     int objectId = objMgr.registerObject(info);
     
     int nextY = posY + std::max(objH, objSpace);
-    pWindow->pos(posX, nextY);
+    surface->pos(posX, nextY);
     
     return objectId;
 }
@@ -960,22 +551,24 @@ int combox(std::shared_ptr<int> var, OptInt expandY, std::string_view items, con
     auto& objMgr = internal::ObjectManager::getInstance();
     
     int windowId = g_currentScreenId;
-    auto* pWindow = getSurface(windowId);
-    if (!pWindow) {
+    auto surface = getCurrentSurface();
+    if (!surface) {
         throw HspError(ERR_INVALID_HANDLE, "Invalid window ID", location);
     }
     
-    auto* pHspWindow = dynamic_cast<internal::HspWindow*>(pWindow);
+    auto pHspWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
     if (!pHspWindow) {
         throw HspError(ERR_UNSUPPORTED, "Cannot create combox on buffer", location);
     }
     
-    int objW, objH, objSpace;
-    objMgr.getObjSize(objW, objH, objSpace);
+    // Surface から objsize を取得
+    int objW = surface->getObjSizeX();
+    int objH = surface->getObjSizeY();
+    int objSpace = surface->getObjSpaceY();
     int expandYVal = expandY.value_or(100);
     
-    int posX = pWindow->getCurrentX();
-    int posY = pWindow->getCurrentY();
+    int posX = surface->getCurrentX();
+    int posY = surface->getCurrentY();
     
     HWND hwndParent = pHspWindow->getHwnd();
     
@@ -1033,7 +626,7 @@ int combox(std::shared_ptr<int> var, OptInt expandY, std::string_view items, con
     int objectId = objMgr.registerObject(info);
     
     int nextY = posY + std::max(objH, objSpace);
-    pWindow->pos(posX, nextY);
+    surface->pos(posX, nextY);
     
     return objectId;
 }
@@ -1043,22 +636,24 @@ int listbox(std::shared_ptr<int> var, OptInt expandY, std::string_view items, co
     auto& objMgr = internal::ObjectManager::getInstance();
     
     int windowId = g_currentScreenId;
-    auto* pWindow = getSurface(windowId);
-    if (!pWindow) {
+    auto surface = getCurrentSurface();
+    if (!surface) {
         throw HspError(ERR_INVALID_HANDLE, "Invalid window ID", location);
     }
     
-    auto* pHspWindow = dynamic_cast<internal::HspWindow*>(pWindow);
+    auto pHspWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
     if (!pHspWindow) {
         throw HspError(ERR_UNSUPPORTED, "Cannot create listbox on buffer", location);
     }
     
-    int objW, objH, objSpace;
-    objMgr.getObjSize(objW, objH, objSpace);
+    // Surface から objsize を取得
+    int objW = surface->getObjSizeX();
+    int objH = surface->getObjSizeY();
+    int objSpace = surface->getObjSpaceY();
     int height = expandY.value_or(100);
     
-    int posX = pWindow->getCurrentX();
-    int posY = pWindow->getCurrentY();
+    int posX = surface->getCurrentX();
+    int posY = surface->getCurrentY();
     
     HWND hwndParent = pHspWindow->getHwnd();
     
@@ -1116,7 +711,7 @@ int listbox(std::shared_ptr<int> var, OptInt expandY, std::string_view items, co
     int objectId = objMgr.registerObject(info);
     
     int nextY = posY + std::max(height, objSpace);
-    pWindow->pos(posX, nextY);
+    surface->pos(posX, nextY);
     
     return objectId;
 }

@@ -868,4 +868,359 @@ namespace hsppp {
         return *this;
     }
 
+    // ============================================================
+    // 追加GUIオブジェクト生成（OOP版）
+    // ============================================================
+
+    int Screen::chkbox(std::string_view label, std::shared_ptr<int> var) {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return -1;
+
+        auto& objMgr = internal::ObjectManager::getInstance();
+
+        auto pHspWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
+        if (!pHspWindow) return -1;
+
+        // Surface から objsize を取得
+        int objW = surface->getObjSizeX();
+        int objH = surface->getObjSizeY();
+        int objSpace = surface->getObjSpaceY();
+
+        int posX = surface->getCurrentX();
+        int posY = surface->getCurrentY();
+
+        HWND hwndParent = pHspWindow->getHwnd();
+        std::wstring wlabel = internal::Utf8ToWide(label);
+
+        HWND hwndCheck = CreateWindowExW(
+            WS_EX_NOPARENTNOTIFY,
+            L"BUTTON",
+            wlabel.c_str(),
+            WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_CLIPSIBLINGS | BS_AUTOCHECKBOX,
+            posX, posY, objW, objH,
+            hwndParent,
+            (HMENU)(INT_PTR)(objMgr.getNextId()),
+            GetModuleHandle(nullptr),
+            nullptr
+        );
+
+        if (!hwndCheck) return -1;
+
+        SetWindowPos(hwndCheck, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        SendMessageW(hwndCheck, BM_SETCHECK, *var ? BST_CHECKED : BST_UNCHECKED, 0);
+
+        HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+        SendMessageW(hwndCheck, WM_SETFONT, (WPARAM)hFont, TRUE);
+
+        internal::ObjectInfo info;
+        info.type = internal::ObjectType::Chkbox;
+        info.hwnd = hwndCheck;
+        info.windowId = m_id;
+        info.x = posX;
+        info.y = posY;
+        info.width = objW;
+        info.height = objH;
+        info.ownedStateVar = var;
+        info.enabled = true;
+        info.focusSkipMode = 1;
+
+        int objectId = objMgr.registerObject(info);
+
+        int nextY = posY + std::max(objH, objSpace);
+        surface->pos(posX, nextY);
+
+        return objectId;
+    }
+
+    int Screen::combox(std::shared_ptr<int> var, int expandY, std::string_view items) {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return -1;
+
+        auto& objMgr = internal::ObjectManager::getInstance();
+
+        auto pHspWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
+        if (!pHspWindow) return -1;
+
+        // Surface から objsize を取得
+        int objW = surface->getObjSizeX();
+        int objH = surface->getObjSizeY();
+        int objSpace = surface->getObjSpaceY();
+
+        int posX = surface->getCurrentX();
+        int posY = surface->getCurrentY();
+
+        HWND hwndParent = pHspWindow->getHwnd();
+
+        HWND hwndCombo = CreateWindowExW(
+            WS_EX_NOPARENTNOTIFY,
+            L"COMBOBOX",
+            L"",
+            WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_CLIPSIBLINGS | CBS_DROPDOWNLIST | WS_VSCROLL,
+            posX, posY, objW, objH + expandY,
+            hwndParent,
+            (HMENU)(INT_PTR)(objMgr.getNextId()),
+            GetModuleHandle(nullptr),
+            nullptr
+        );
+
+        if (!hwndCombo) return -1;
+
+        SetWindowPos(hwndCombo, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+
+        // アイテムを追加（\n区切り）
+        std::string itemStr(items);
+        size_t pos = 0;
+        while (pos < itemStr.size()) {
+            size_t nextPos = itemStr.find('\n', pos);
+            if (nextPos == std::string::npos) {
+                nextPos = itemStr.size();
+            }
+            std::string item = itemStr.substr(pos, nextPos - pos);
+            std::wstring witem = internal::Utf8ToWide(item);
+            SendMessageW(hwndCombo, CB_ADDSTRING, 0, (LPARAM)witem.c_str());
+            pos = nextPos + 1;
+        }
+
+        if (*var >= 0) {
+            SendMessageW(hwndCombo, CB_SETCURSEL, *var, 0);
+        }
+
+        HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+        SendMessageW(hwndCombo, WM_SETFONT, (WPARAM)hFont, TRUE);
+
+        internal::ObjectInfo info;
+        info.type = internal::ObjectType::Combox;
+        info.hwnd = hwndCombo;
+        info.windowId = m_id;
+        info.x = posX;
+        info.y = posY;
+        info.width = objW;
+        info.height = objH;
+        info.ownedStateVar = var;
+        info.enabled = true;
+        info.focusSkipMode = 1;
+
+        int objectId = objMgr.registerObject(info);
+
+        int nextY = posY + std::max(objH, objSpace);
+        surface->pos(posX, nextY);
+
+        return objectId;
+    }
+
+    int Screen::listbox(std::shared_ptr<int> var, int expandY, std::string_view items) {
+        auto surface = getSurfaceById(m_id);
+        if (!surface) return -1;
+
+        auto& objMgr = internal::ObjectManager::getInstance();
+
+        auto pHspWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
+        if (!pHspWindow) return -1;
+
+        // Surface から objsize を取得
+        int objW = surface->getObjSizeX();
+        int objSpace = surface->getObjSpaceY();
+
+        int posX = surface->getCurrentX();
+        int posY = surface->getCurrentY();
+
+        HWND hwndParent = pHspWindow->getHwnd();
+
+        HWND hwndList = CreateWindowExW(
+            WS_EX_CLIENTEDGE | WS_EX_NOPARENTNOTIFY,
+            L"LISTBOX",
+            L"",
+            WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_CLIPSIBLINGS | WS_VSCROLL | LBS_NOTIFY,
+            posX, posY, objW, expandY,
+            hwndParent,
+            (HMENU)(INT_PTR)(objMgr.getNextId()),
+            GetModuleHandle(nullptr),
+            nullptr
+        );
+
+        if (!hwndList) return -1;
+
+        SetWindowPos(hwndList, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+
+        // アイテムを追加
+        std::string itemStr(items);
+        size_t pos = 0;
+        while (pos < itemStr.size()) {
+            size_t nextPos = itemStr.find('\n', pos);
+            if (nextPos == std::string::npos) {
+                nextPos = itemStr.size();
+            }
+            std::string item = itemStr.substr(pos, nextPos - pos);
+            std::wstring witem = internal::Utf8ToWide(item);
+            SendMessageW(hwndList, LB_ADDSTRING, 0, (LPARAM)witem.c_str());
+            pos = nextPos + 1;
+        }
+
+        if (*var >= 0) {
+            SendMessageW(hwndList, LB_SETCURSEL, *var, 0);
+        }
+
+        HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+        SendMessageW(hwndList, WM_SETFONT, (WPARAM)hFont, TRUE);
+
+        internal::ObjectInfo info;
+        info.type = internal::ObjectType::Listbox;
+        info.hwnd = hwndList;
+        info.windowId = m_id;
+        info.x = posX;
+        info.y = posY;
+        info.width = objW;
+        info.height = expandY;
+        info.ownedStateVar = var;
+        info.enabled = true;
+        info.focusSkipMode = 1;
+
+        int objectId = objMgr.registerObject(info);
+
+        int nextY = posY + std::max(expandY, objSpace);
+        surface->pos(posX, nextY);
+
+        return objectId;
+    }
+
+    // ============================================================
+    // GUIオブジェクト設定（OOP版）
+    // ============================================================
+
+    Screen& Screen::objmode(int mode, int tabMove) {
+        auto& objMgr = internal::ObjectManager::getInstance();
+        objMgr.setObjMode(mode, tabMove);
+        return *this;
+    }
+
+    Screen& Screen::objcolor(int r, int g, int b) {
+        auto& objMgr = internal::ObjectManager::getInstance();
+        objMgr.setObjColor(r, g, b);
+        return *this;
+    }
+
+    // ============================================================
+    // GUIオブジェクト操作（OOP版）
+    // ============================================================
+
+    Screen& Screen::objprm(int objectId, std::string_view value) {
+        auto& objMgr = internal::ObjectManager::getInstance();
+        auto* pInfo = objMgr.getObject(objectId);
+
+        if (!pInfo || !pInfo->hwnd) return *this;
+
+        std::wstring wvalue = internal::Utf8ToWide(value);
+
+        switch (pInfo->type) {
+            case internal::ObjectType::Button:
+            case internal::ObjectType::Input:
+            case internal::ObjectType::Mesbox:
+                SetWindowTextW(pInfo->hwnd, wvalue.c_str());
+                if (pInfo->pStrVar) {
+                    *pInfo->pStrVar = std::string(value);
+                }
+                break;
+
+            case internal::ObjectType::Combox:
+            case internal::ObjectType::Listbox: {
+                UINT clearMsg = (pInfo->type == internal::ObjectType::Combox) ? CB_RESETCONTENT : LB_RESETCONTENT;
+                UINT addMsg = (pInfo->type == internal::ObjectType::Combox) ? CB_ADDSTRING : LB_ADDSTRING;
+
+                SendMessageW(pInfo->hwnd, clearMsg, 0, 0);
+
+                std::string itemStr(value);
+                size_t pos = 0;
+                while (pos < itemStr.size()) {
+                    size_t nextPos = itemStr.find('\n', pos);
+                    if (nextPos == std::string::npos) {
+                        nextPos = itemStr.size();
+                    }
+                    std::string item = itemStr.substr(pos, nextPos - pos);
+                    std::wstring witem = internal::Utf8ToWide(item);
+                    SendMessageW(pInfo->hwnd, addMsg, 0, (LPARAM)witem.c_str());
+                    pos = nextPos + 1;
+                }
+                break;
+            }
+
+            default:
+                break;
+        }
+
+        return *this;
+    }
+
+    Screen& Screen::objprm(int objectId, int value) {
+        auto& objMgr = internal::ObjectManager::getInstance();
+        auto* pInfo = objMgr.getObject(objectId);
+
+        if (!pInfo || !pInfo->hwnd) return *this;
+
+        switch (pInfo->type) {
+            case internal::ObjectType::Input:
+                if (pInfo->pIntVar) {
+                    *pInfo->pIntVar = value;
+                    SetWindowTextW(pInfo->hwnd, std::to_wstring(value).c_str());
+                } else if (pInfo->pStrVar) {
+                    *pInfo->pStrVar = std::to_string(value);
+                    SetWindowTextW(pInfo->hwnd, std::to_wstring(value).c_str());
+                }
+                break;
+
+            case internal::ObjectType::Chkbox:
+                SendMessageW(pInfo->hwnd, BM_SETCHECK, value ? BST_CHECKED : BST_UNCHECKED, 0);
+                if (pInfo->pStateVar) {
+                    *pInfo->pStateVar = value ? 1 : 0;
+                }
+                break;
+
+            case internal::ObjectType::Combox:
+                SendMessageW(pInfo->hwnd, CB_SETCURSEL, value, 0);
+                if (pInfo->pStateVar) {
+                    *pInfo->pStateVar = value;
+                }
+                break;
+
+            case internal::ObjectType::Listbox:
+                SendMessageW(pInfo->hwnd, LB_SETCURSEL, value, 0);
+                if (pInfo->pStateVar) {
+                    *pInfo->pStateVar = value;
+                }
+                break;
+
+            default:
+                {
+                    std::wstring wstr = std::to_wstring(value);
+                    SetWindowTextW(pInfo->hwnd, wstr.c_str());
+                }
+                break;
+        }
+
+        return *this;
+    }
+
+    Screen& Screen::objenable(int objectId, int enable) {
+        auto& objMgr = internal::ObjectManager::getInstance();
+        auto* pInfo = objMgr.getObject(objectId);
+
+        if (!pInfo || !pInfo->hwnd) return *this;
+
+        bool isEnabled = enable != 0;
+        pInfo->enabled = isEnabled;
+        EnableWindow(pInfo->hwnd, isEnabled ? TRUE : FALSE);
+
+        return *this;
+    }
+
+    Screen& Screen::objsel(int objectId) {
+        auto& objMgr = internal::ObjectManager::getInstance();
+        auto* pInfo = objMgr.getObject(objectId);
+
+        if (pInfo && pInfo->hwnd) {
+            SetFocus(pInfo->hwnd);
+        }
+
+        return *this;
+    }
+
 } // namespace hsppp

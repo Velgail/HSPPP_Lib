@@ -907,7 +907,7 @@ namespace hsppp {
         if (!hwndCheck) return -1;
 
         SetWindowPos(hwndCheck, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-        SendMessageW(hwndCheck, BM_SETCHECK, *var ? BST_CHECKED : BST_UNCHECKED, 0);
+        SendMessageW(hwndCheck, BM_SETCHECK, (var && *var) ? BST_CHECKED : BST_UNCHECKED, 0);
 
         HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
         SendMessageW(hwndCheck, WM_SETFONT, (WPARAM)hFont, TRUE);
@@ -968,20 +968,19 @@ namespace hsppp {
         SetWindowPos(hwndCombo, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 
         // アイテムを追加（\n区切り）
-        std::string itemStr(items);
-        size_t pos = 0;
-        while (pos < itemStr.size()) {
-            size_t nextPos = itemStr.find('\n', pos);
-            if (nextPos == std::string::npos) {
-                nextPos = itemStr.size();
+        size_t start = 0;
+        while (start < items.length()) {
+            size_t end = items.find('\n', start);
+            if (end == std::string_view::npos) {
+                end = items.length();
             }
-            std::string item = itemStr.substr(pos, nextPos - pos);
+            std::string_view item = items.substr(start, end - start);
             std::wstring witem = internal::Utf8ToWide(item);
             SendMessageW(hwndCombo, CB_ADDSTRING, 0, (LPARAM)witem.c_str());
-            pos = nextPos + 1;
+            start = end + 1;
         }
 
-        if (*var >= 0) {
+        if (var && *var >= 0) {
             SendMessageW(hwndCombo, CB_SETCURSEL, *var, 0);
         }
 
@@ -1043,20 +1042,19 @@ namespace hsppp {
         SetWindowPos(hwndList, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 
         // アイテムを追加
-        std::string itemStr(items);
-        size_t pos = 0;
-        while (pos < itemStr.size()) {
-            size_t nextPos = itemStr.find('\n', pos);
-            if (nextPos == std::string::npos) {
-                nextPos = itemStr.size();
+        size_t start = 0;
+        while (start < items.length()) {
+            size_t end = items.find('\n', start);
+            if (end == std::string_view::npos) {
+                end = items.length();
             }
-            std::string item = itemStr.substr(pos, nextPos - pos);
+            std::string_view item = items.substr(start, end - start);
             std::wstring witem = internal::Utf8ToWide(item);
             SendMessageW(hwndList, LB_ADDSTRING, 0, (LPARAM)witem.c_str());
-            pos = nextPos + 1;
+            start = end + 1;
         }
 
-        if (*var >= 0) {
+        if (var && *var >= 0) {
             SendMessageW(hwndList, LB_SETCURSEL, *var, 0);
         }
 
@@ -1128,17 +1126,16 @@ namespace hsppp {
 
                 SendMessageW(pInfo->hwnd, clearMsg, 0, 0);
 
-                std::string itemStr(value);
-                size_t pos = 0;
-                while (pos < itemStr.size()) {
-                    size_t nextPos = itemStr.find('\n', pos);
-                    if (nextPos == std::string::npos) {
-                        nextPos = itemStr.size();
+                size_t start = 0;
+                while (start < value.length()) {
+                    size_t end = value.find('\n', start);
+                    if (end == std::string_view::npos) {
+                        end = value.length();
                     }
-                    std::string item = itemStr.substr(pos, nextPos - pos);
+                    std::string_view item = value.substr(start, end - start);
                     std::wstring witem = internal::Utf8ToWide(item);
                     SendMessageW(pInfo->hwnd, addMsg, 0, (LPARAM)witem.c_str());
-                    pos = nextPos + 1;
+                    start = end + 1;
                 }
                 break;
             }

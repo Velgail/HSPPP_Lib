@@ -2100,8 +2100,8 @@ namespace hsppp {
 
         /// @brief ファイルへ保存（notesave相当）
         /// @param filename ファイル名
-        /// @return *this（メソッドチェーン用）
-        NotePad& save(std::string_view filename) const;
+        /// @return 保存に成功した場合true
+        [[nodiscard]] bool save(std::string_view filename) const;
 
         // ============================================================
         // 変換・アクセス
@@ -2114,8 +2114,8 @@ namespace hsppp {
         /// @brief 改行区切りの文字列として出力（toString互換）
         [[nodiscard]] const std::string& toString() const noexcept { return m_buffer; }
 
-        /// @brief 暗黙の文字列変換
-        operator const std::string&() const noexcept { return m_buffer; }
+        /// @brief 明示的な文字列変換（意図しないコピーを防ぐためexplicit）
+        explicit operator const std::string&() const noexcept { return m_buffer; }
     };
 
     // ============================================================

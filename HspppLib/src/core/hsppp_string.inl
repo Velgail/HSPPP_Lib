@@ -407,7 +407,7 @@ namespace hsppp {
         return *this;
     }
 
-    NotePad& NotePad::save(std::string_view filename) const {
+    [[nodiscard]] bool NotePad::save(std::string_view filename) const {
         std::wstring wideFilename = internal::Utf8ToWide(filename);
 
         HANDLE hFile = CreateFileW(
@@ -421,14 +421,14 @@ namespace hsppp {
         );
 
         if (hFile == INVALID_HANDLE_VALUE) {
-            return const_cast<NotePad&>(*this);
+            return false;
         }
 
         DWORD bytesWritten = 0;
-        WriteFile(hFile, m_buffer.data(), static_cast<DWORD>(m_buffer.size()), &bytesWritten, nullptr);
+        BOOL success = WriteFile(hFile, m_buffer.data(), static_cast<DWORD>(m_buffer.size()), &bytesWritten, nullptr);
         CloseHandle(hFile);
 
-        return const_cast<NotePad&>(*this);
+        return success && (bytesWritten == m_buffer.size());
     }
 
     // ============================================================

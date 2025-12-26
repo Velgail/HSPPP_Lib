@@ -23,12 +23,8 @@ ObjectManager::ObjectManager()
 }
 
 ObjectManager::~ObjectManager() {
-    // すべてのオブジェクトのHWNDを破棄
-    for (auto& [id, info] : m_objects) {
-        if (info.hwnd && IsWindow(info.hwnd)) {
-            DestroyWindow(info.hwnd);
-        }
-    }
+    // UniqueHwnd が RAII で自動的に DestroyWindow を呼び出すため、
+    // 明示的な破棄は不要。マップをクリアするだけで OK。
     m_objects.clear();
     m_hwndMap.clear();
 }
@@ -38,12 +34,13 @@ ObjectManager& ObjectManager::getInstance() {
     return instance;
 }
 
-int ObjectManager::registerObject(const ObjectInfo& info) {
+int ObjectManager::registerObject(ObjectInfo info) {
     int newId = m_nextId++;
-    m_objects[newId] = info;
-    // 逆引きマップに登録
-    if (info.hwnd) {
-        m_hwndMap[info.hwnd] = newId;
+    // 逆引きマップに登録（ムーブ前に HWND を取得）
+    HWND hwnd = info.hwnd.get();
+    m_objects[newId] = std::move(info);
+    if (hwnd) {
+        m_hwndMap[hwnd] = newId;
     }
     return newId;
 }
@@ -60,12 +57,11 @@ void ObjectManager::removeObject(int objectId) {
     auto it = m_objects.find(objectId);
     if (it != m_objects.end()) {
         // 逆引きマップから削除
-        if (it->second.hwnd) {
-            m_hwndMap.erase(it->second.hwnd);
+        HWND hwnd = it->second.hwnd.get();
+        if (hwnd) {
+            m_hwndMap.erase(hwnd);
         }
-        if (it->second.hwnd && IsWindow(it->second.hwnd)) {
-            DestroyWindow(it->second.hwnd);
-        }
+        // UniqueHwnd が RAII で DestroyWindow を呼び出す
         m_objects.erase(it);
     }
 }
@@ -81,12 +77,11 @@ void ObjectManager::removeObjects(int startId, int endId) {
     
     while (it != m_objects.end() && it->first <= endId) {
         // 逆引きマップから削除
-        if (it->second.hwnd) {
-            m_hwndMap.erase(it->second.hwnd);
+        HWND hwnd = it->second.hwnd.get();
+        if (hwnd) {
+            m_hwndMap.erase(hwnd);
         }
-        if (it->second.hwnd && IsWindow(it->second.hwnd)) {
-            DestroyWindow(it->second.hwnd);
-        }
+        // UniqueHwnd が RAII で DestroyWindow を呼び出す
         it = m_objects.erase(it);
     }
 }
@@ -96,12 +91,11 @@ void ObjectManager::removeObjectsByWindow(int windowId) {
     while (it != m_objects.end()) {
         if (it->second.windowId == windowId) {
             // 逆引きマップから削除
-            if (it->second.hwnd) {
-                m_hwndMap.erase(it->second.hwnd);
+            HWND hwnd = it->second.hwnd.get();
+            if (hwnd) {
+                m_hwndMap.erase(hwnd);
             }
-            if (it->second.hwnd && IsWindow(it->second.hwnd)) {
-                DestroyWindow(it->second.hwnd);
-            }
+            // UniqueHwnd が RAII で DestroyWindow を呼び出す
             it = m_objects.erase(it);
         } else {
             ++it;

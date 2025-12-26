@@ -52,6 +52,69 @@ struct CelData {
 };
 
 // ============================================================
+// RAII ラッパー: UniqueHwnd（HWND の自動破棄）
+// ============================================================
+
+/// @brief HWND を RAII で管理するラッパークラス
+/// @details スコープを抜けるか例外が飛んだ際に自動的に DestroyWindow を呼び出す
+class UniqueHwnd {
+private:
+    HWND m_hwnd = nullptr;
+
+public:
+    UniqueHwnd() noexcept = default;
+    explicit UniqueHwnd(HWND hwnd) noexcept : m_hwnd(hwnd) {}
+    
+    ~UniqueHwnd() {
+        reset();
+    }
+    
+    // コピー禁止
+    UniqueHwnd(const UniqueHwnd&) = delete;
+    UniqueHwnd& operator=(const UniqueHwnd&) = delete;
+    
+    // ムーブ許可
+    UniqueHwnd(UniqueHwnd&& other) noexcept : m_hwnd(other.m_hwnd) {
+        other.m_hwnd = nullptr;
+    }
+    
+    UniqueHwnd& operator=(UniqueHwnd&& other) noexcept {
+        if (this != &other) {
+            reset();
+            m_hwnd = other.m_hwnd;
+            other.m_hwnd = nullptr;
+        }
+        return *this;
+    }
+    
+    /// @brief 保持している HWND を破棄し、新しい HWND を設定
+    void reset(HWND hwnd = nullptr) noexcept {
+        if (m_hwnd && m_hwnd != hwnd && IsWindow(m_hwnd)) {
+            DestroyWindow(m_hwnd);
+        }
+        m_hwnd = hwnd;
+    }
+    
+    /// @brief 所有権を放棄して HWND を返す
+    [[nodiscard]] HWND release() noexcept {
+        HWND hwnd = m_hwnd;
+        m_hwnd = nullptr;
+        return hwnd;
+    }
+    
+    /// @brief 保持している HWND を取得
+    [[nodiscard]] HWND get() const noexcept { return m_hwnd; }
+    
+    /// @brief HWND が有効かどうか
+    [[nodiscard]] explicit operator bool() const noexcept { 
+        return m_hwnd != nullptr && IsWindow(m_hwnd); 
+    }
+    
+    /// @brief 暗黙変換（Win32 API との互換性のため）
+    operator HWND() const noexcept { return m_hwnd; }
+};
+
+// ============================================================
 // GUIオブジェクト管理構造体（buttonシリーズ用）
 // ============================================================
 
@@ -72,7 +135,7 @@ enum class ObjectType {
 ///          安全に使用するには ownedStrVar/ownedIntVar/ownedStateVar を使用してください。
 struct ObjectInfo {
     ObjectType type;              // オブジェクトの種類
-    HWND hwnd;                    // Win32コントロールのハンドル
+    UniqueHwnd hwnd;              // Win32コントロールのハンドル（RAII管理）
     int windowId;                 // 所属するウィンドウID
     int x, y;                     // 配置位置
     int width, height;            // サイズ
@@ -102,7 +165,7 @@ struct ObjectInfo {
     
     ObjectInfo() 
         : type(ObjectType::None)
-        , hwnd(nullptr)
+        , hwnd()
         , windowId(-1)
         , x(0), y(0)
         , width(64), height(24)
@@ -159,9 +222,9 @@ private:
 public:
     static ObjectManager& getInstance();
     
-    /// @brief オブジェクトを登録
+    /// @brief オブジェクトを登録（ムーブで受け取る）
     /// @return 割り当てられたオブジェクトID
-    int registerObject(const ObjectInfo& info);
+    int registerObject(ObjectInfo info);
     
     /// @brief オブジェクトを取得
     ObjectInfo* getObject(int objectId);

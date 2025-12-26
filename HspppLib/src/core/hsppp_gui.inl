@@ -204,7 +204,7 @@ int chkbox(std::string_view label, int& var, const std::source_location& locatio
     
     internal::ObjectInfo info;
     info.type = internal::ObjectType::Chkbox;
-    info.hwnd = hwndCheck;
+    info.hwnd.reset(hwndCheck);
     info.windowId = windowId;
     info.x = posX;
     info.y = posY;
@@ -214,7 +214,7 @@ int chkbox(std::string_view label, int& var, const std::source_location& locatio
     info.enabled = true;
     info.focusSkipMode = 1;
     
-    int objectId = objMgr.registerObject(info);
+    int objectId = objMgr.registerObject(std::move(info));
     
     int nextY = posY + std::max(objH, objSpace);
     surface->pos(posX, nextY);
@@ -294,7 +294,7 @@ int combox(int& var, OptInt expandY, std::string_view items, const std::source_l
     
     internal::ObjectInfo info;
     info.type = internal::ObjectType::Combox;
-    info.hwnd = hwndCombo;
+    info.hwnd.reset(hwndCombo);
     info.windowId = windowId;
     info.x = posX;
     info.y = posY;
@@ -304,7 +304,7 @@ int combox(int& var, OptInt expandY, std::string_view items, const std::source_l
     info.enabled = true;
     info.focusSkipMode = 1;
     
-    int objectId = objMgr.registerObject(info);
+    int objectId = objMgr.registerObject(std::move(info));
     
     int nextY = posY + std::max(objH, objSpace);
     surface->pos(posX, nextY);
@@ -383,7 +383,7 @@ int listbox(int& var, OptInt expandY, std::string_view items, const std::source_
     
     internal::ObjectInfo info;
     info.type = internal::ObjectType::Listbox;
-    info.hwnd = hwndList;
+    info.hwnd.reset(hwndList);
     info.windowId = windowId;
     info.x = posX;
     info.y = posY;
@@ -393,7 +393,7 @@ int listbox(int& var, OptInt expandY, std::string_view items, const std::source_
     info.enabled = true;
     info.focusSkipMode = 1;
     
-    int objectId = objMgr.registerObject(info);
+    int objectId = objMgr.registerObject(std::move(info));
     
     int nextY = posY + std::max(height, objSpace);
     surface->pos(posX, nextY);
@@ -528,7 +528,7 @@ int chkbox(std::string_view label, std::shared_ptr<int> var, const std::source_l
     
     internal::ObjectInfo info;
     info.type = internal::ObjectType::Chkbox;
-    info.hwnd = hwndCheck;
+    info.hwnd.reset(hwndCheck);
     info.windowId = windowId;
     info.x = posX;
     info.y = posY;
@@ -538,7 +538,7 @@ int chkbox(std::string_view label, std::shared_ptr<int> var, const std::source_l
     info.enabled = true;
     info.focusSkipMode = 1;
     
-    int objectId = objMgr.registerObject(info);
+    int objectId = objMgr.registerObject(std::move(info));
     
     int nextY = posY + std::max(objH, objSpace);
     surface->pos(posX, nextY);
@@ -613,7 +613,7 @@ int combox(std::shared_ptr<int> var, OptInt expandY, std::string_view items, con
     
     internal::ObjectInfo info;
     info.type = internal::ObjectType::Combox;
-    info.hwnd = hwndCombo;
+    info.hwnd.reset(hwndCombo);
     info.windowId = windowId;
     info.x = posX;
     info.y = posY;
@@ -623,7 +623,7 @@ int combox(std::shared_ptr<int> var, OptInt expandY, std::string_view items, con
     info.enabled = true;
     info.focusSkipMode = 1;
     
-    int objectId = objMgr.registerObject(info);
+    int objectId = objMgr.registerObject(std::move(info));
     
     int nextY = posY + std::max(objH, objSpace);
     surface->pos(posX, nextY);
@@ -698,7 +698,7 @@ int listbox(std::shared_ptr<int> var, OptInt expandY, std::string_view items, co
     
     internal::ObjectInfo info;
     info.type = internal::ObjectType::Listbox;
-    info.hwnd = hwndList;
+    info.hwnd.reset(hwndList);
     info.windowId = windowId;
     info.x = posX;
     info.y = posY;
@@ -708,7 +708,7 @@ int listbox(std::shared_ptr<int> var, OptInt expandY, std::string_view items, co
     info.enabled = true;
     info.focusSkipMode = 1;
     
-    int objectId = objMgr.registerObject(info);
+    int objectId = objMgr.registerObject(std::move(info));
     
     int nextY = posY + std::max(height, objSpace);
     surface->pos(posX, nextY);

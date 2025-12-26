@@ -70,7 +70,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
     }
     catch (...) {
         // 不明な例外
-        MessageBoxA(nullptr, "Unknown error occurred", "Fatal Error", MB_OK | MB_ICONERROR);
+        MessageBoxW(nullptr, L"Unknown error occurred", L"Fatal Error", MB_OK | MB_ICONERROR);
         hsppp::internal::close_system();
         return 1;
     }

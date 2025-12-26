@@ -769,6 +769,74 @@ namespace hsppp {
         /// @param y Y座標（クライアント座標）
         /// @return *this（メソッドチェーン用）
         Screen& mouse(int x, int y);
+
+        // ============================================================
+        // 追加GUIオブジェクト生成（OOP版）
+        // ============================================================
+
+        /// @brief チェックボックスを生成（OOP版・shared_ptr版）
+        /// @param label チェックボックスの内容表示文字列
+        /// @param var チェックボックスの状態を保持する変数（shared_ptr）
+        /// @return オブジェクトID
+        int chkbox(std::string_view label, std::shared_ptr<int> var);
+
+        /// @brief コンボボックスを生成（OOP版・shared_ptr版）
+        /// @param var コンボボックスの状態を保持する変数（shared_ptr）
+        /// @param expandY 拡張Yサイズ（リスト表示用）
+        /// @param items コンボボックスの内容（\n区切りの文字列）
+        /// @return オブジェクトID
+        int combox(std::shared_ptr<int> var, int expandY, std::string_view items);
+
+        /// @brief リストボックスを生成（OOP版・shared_ptr版）
+        /// @param var リストボックスの状態を保持する変数（shared_ptr）
+        /// @param expandY 拡張Yサイズ
+        /// @param items リストボックスの内容（\n区切りの文字列）
+        /// @return オブジェクトID
+        int listbox(std::shared_ptr<int> var, int expandY, std::string_view items);
+
+        // ============================================================
+        // GUIオブジェクト設定（OOP版）
+        // ============================================================
+
+        /// @brief オブジェクトモード設定（OOP版）
+        /// @param mode フォント設定モード (objmode_* 定数)
+        /// @param tabMove TABキーフォーカス移動 (0=無効, 1=有効、省略時は変更なし)
+        /// @return *this（メソッドチェーン用）
+        Screen& objmode(int mode, int tabMove = -1);
+
+        /// @brief オブジェクトのカラー設定（OOP版）
+        /// @param r 赤輝度 (0〜255)
+        /// @param g 緑輝度 (0〜255)
+        /// @param b 青輝度 (0〜255)
+        /// @return *this（メソッドチェーン用）
+        Screen& objcolor(int r, int g, int b);
+
+        // ============================================================
+        // GUIオブジェクト操作（OOP版）
+        // ============================================================
+
+        /// @brief オブジェクトの内容を変更（OOP版・文字列）
+        /// @param objectId オブジェクトID
+        /// @param value 変更するパラメータの内容（文字列）
+        /// @return *this（メソッドチェーン用）
+        Screen& objprm(int objectId, std::string_view value);
+
+        /// @brief オブジェクトの内容を変更（OOP版・整数）
+        /// @param objectId オブジェクトID
+        /// @param value 変更するパラメータの内容（数値）
+        /// @return *this（メソッドチェーン用）
+        Screen& objprm(int objectId, int value);
+
+        /// @brief オブジェクトの有効・無効を設定（OOP版）
+        /// @param objectId オブジェクトID
+        /// @param enable 0=無効, それ以外=有効（デフォルト1）
+        /// @return *this（メソッドチェーン用）
+        Screen& objenable(int objectId, int enable = 1);
+
+        /// @brief オブジェクトに入力フォーカスを設定（OOP版）
+        /// @param objectId オブジェクトID
+        /// @return *this（メソッドチェーン用）
+        Screen& objsel(int objectId);
     };
 
 
@@ -1923,6 +1991,132 @@ namespace hsppp {
     /// @param astr 変換元のANSI文字列
     /// @return UTF-8文字列
     export [[nodiscard]] std::string cnvatos(const std::string& astr, const std::source_location& location = std::source_location::current());
+
+    // ============================================================
+    // NotePad クラス - OOP版メモリノートパッド
+    // ============================================================
+    // HSPのnote系命令のOOP版ラッパー。
+    // グローバル状態に依存せず、インスタンス単位でバッファを管理。
+    //
+    // 重要: HSPのnote系命令と同じ挙動を再現。
+    //       noteadd "test\ntest" は2行として追加される。
+    //       内部的には std::string で改行区切りテキスト全体を保持。
+    //
+    // 使用例:
+    //   hsppp::NotePad note;
+    //   note.load("test.txt");
+    //   note.add("New Line");
+    //   note.save("test_updated.txt");
+    //
+    //   for (size_t i = 0; i < note.count(); ++i) {
+    //       std::cout << note.get(i) << std::endl;
+    //   }
+    // ============================================================
+
+    /// @brief OOP版メモリノートパッド
+    /// @details 改行区切りのテキストを行単位で操作するクラス。
+    ///          内部的には std::string で改行区切りテキスト全体を保持。
+    ///          HSPのnote系命令と同じ挙動を再現。
+    export class NotePad {
+    private:
+        std::string m_buffer;
+
+    public:
+        /// @brief デフォルトコンストラクタ（空のノートパッド）
+        NotePad() = default;
+
+        /// @brief 文字列からの構築
+        /// @param text 改行区切りのテキスト
+        explicit NotePad(std::string_view text);
+
+        /// @brief std::stringからのムーブ構築
+        explicit NotePad(std::string&& text) noexcept;
+
+        // コピー・ムーブはデフォルト
+        NotePad(const NotePad&) = default;
+        NotePad& operator=(const NotePad&) = default;
+        NotePad(NotePad&&) noexcept = default;
+        NotePad& operator=(NotePad&&) noexcept = default;
+
+        // ============================================================
+        // 行の取得・設定
+        // ============================================================
+
+        /// @brief 行数を取得（notemax相当）
+        /// @note 改行文字の数+1を返す（HSP互換）
+        [[nodiscard]] size_t count() const noexcept;
+
+        /// @brief 空かどうか
+        [[nodiscard]] bool empty() const noexcept { return m_buffer.empty(); }
+
+        /// @brief 総バイト数を取得（notesize相当）
+        [[nodiscard]] size_t size() const noexcept { return m_buffer.size(); }
+
+        /// @brief 指定行の内容を取得（noteget相当）
+        /// @param index 行インデックス（0始まり）
+        /// @return 指定行の文字列（範囲外の場合は空文字列）
+        [[nodiscard]] std::string get(size_t index) const;
+
+        // ============================================================
+        // 行の追加・削除・変更
+        // ============================================================
+
+        /// @brief 行を追加（noteadd相当）
+        /// @param text 追加する文字列（改行を含む場合は複数行として追加）
+        /// @param index 挿入位置（省略または-1で末尾）
+        /// @param overwrite 上書きモード（0=挿入, 1=上書き）
+        /// @return *this（メソッドチェーン用）
+        NotePad& add(std::string_view text, int index = -1, int overwrite = 0);
+
+        /// @brief 行を削除（notedel相当）
+        /// @param index 削除する行のインデックス
+        /// @return *this（メソッドチェーン用）
+        NotePad& del(size_t index);
+
+        /// @brief 全行をクリア
+        /// @return *this（メソッドチェーン用）
+        NotePad& clear() noexcept { m_buffer.clear(); return *this; }
+
+        // ============================================================
+        // 検索
+        // ============================================================
+
+        /// @brief 文字列を検索（notefind相当）
+        /// @param search 検索文字列
+        /// @param mode 検索モード (0=完全一致, 1=先頭一致, 2=部分一致)
+        /// @param startIndex 検索開始インデックス
+        /// @return 見つかった行のインデックス（見つからない場合は-1）
+        [[nodiscard]] int find(std::string_view search, int mode = 0, size_t startIndex = 0) const;
+
+        // ============================================================
+        // ファイル入出力
+        // ============================================================
+
+        /// @brief ファイルから読み込み（noteload相当）
+        /// @param filename ファイル名
+        /// @param maxSize 最大サイズ（省略時は制限なし）
+        /// @return *this（メソッドチェーン用）
+        NotePad& load(std::string_view filename, size_t maxSize = 0);
+
+        /// @brief ファイルへ保存（notesave相当）
+        /// @param filename ファイル名
+        /// @return 保存に成功した場合true
+        [[nodiscard]] bool save(std::string_view filename) const;
+
+        // ============================================================
+        // 変換・アクセス
+        // ============================================================
+
+        /// @brief 内部バッファへの参照を取得
+        [[nodiscard]] std::string& buffer() noexcept { return m_buffer; }
+        [[nodiscard]] const std::string& buffer() const noexcept { return m_buffer; }
+
+        /// @brief 改行区切りの文字列として出力（toString互換）
+        [[nodiscard]] const std::string& toString() const noexcept { return m_buffer; }
+
+        /// @brief 明示的な文字列変換（意図しないコピーを防ぐためexplicit）
+        explicit operator const std::string&() const noexcept { return m_buffer; }
+    };
 
     // ============================================================
     // メモリノートパッド命令セット（HSP互換）

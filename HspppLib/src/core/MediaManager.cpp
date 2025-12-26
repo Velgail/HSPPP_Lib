@@ -794,10 +794,10 @@ bool MediaManager::playMediaFoundation(MediaSlot& slot) {
 
 #ifdef _DEBUG
     // デバッグ: targetWindow確認
-    char dbg[256];
-    sprintf_s(dbg, "[MF Play] parent=%p target=%p type=%d\n",
+    wchar_t dbg[256];
+    swprintf_s(dbg, L"[MF Play] parent=%p target=%p type=%d\n",
         (void*)slot.parentWindow, (void*)slot.targetWindow, static_cast<int>(slot.type));
-    OutputDebugStringA(dbg);
+    OutputDebugStringW(dbg);
 #endif
 
     // トポロジ作成
@@ -849,24 +849,24 @@ bool MediaManager::playMediaFoundation(MediaSlot& slot) {
             // オーディオ出力
             hr = MFCreateAudioRendererActivate(&activate);
 #ifdef _DEBUG
-            OutputDebugStringA("[MF Play] Audio renderer created\n");
+            OutputDebugStringW(L"[MF Play] Audio renderer created\n");
 #endif
         }
         else if (majorType == MFMediaType_Video && slot.targetWindow) {
             // ビデオ出力（EVR）
             hr = MFCreateVideoRendererActivate(slot.targetWindow, &activate);
 #ifdef _DEBUG
-            char dbg2[256];
-            sprintf_s(dbg2, "[MF Play] Video renderer created, hr=0x%08X\n", hr);
-            OutputDebugStringA(dbg2);
+            wchar_t dbg2[256];
+            swprintf_s(dbg2, L"[MF Play] Video renderer created, hr=0x%08X\n", hr);
+            OutputDebugStringW(dbg2);
 #endif
         }
         else {
 #ifdef _DEBUG
-            char dbg3[256];
-            sprintf_s(dbg3, "[MF Play] Skipped stream: majorType video=%d, targetWindow=%p\n",
+            wchar_t dbg3[256];
+            swprintf_s(dbg3, L"[MF Play] Skipped stream: majorType video=%d, targetWindow=%p\n",
                 (majorType == MFMediaType_Video) ? 1 : 0, (void*)slot.targetWindow);
-            OutputDebugStringA(dbg3);
+            OutputDebugStringW(dbg3);
 #endif
             continue;  // サポートしないストリームタイプ
         }
@@ -1038,10 +1038,10 @@ void MediaManager::mmpan(int bufferId, int pan) {
     slot.pan = hspPanToFloat(pan);
 
 #ifdef _DEBUG
-    char dbg[256];
-    sprintf_s(dbg, "[mmpan] bufferId=%d, pan=%d -> %.2f, hasVoice=%d, hasSession=%d\n",
+    wchar_t dbg[256];
+    swprintf_s(dbg, L"[mmpan] bufferId=%d, pan=%d -> %.2f, hasVoice=%d, hasSession=%d\n",
         bufferId, pan, slot.pan, slot.sourceVoice != nullptr, slot.mediaSession != nullptr);
-    OutputDebugStringA(dbg);
+    OutputDebugStringW(dbg);
 #endif
 
     if (slot.sourceVoice) {

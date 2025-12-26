@@ -179,6 +179,259 @@ namespace hsppp {
     }
 
     // ============================================================
+    // NotePad クラス実装
+    // ============================================================
+
+    NotePad::NotePad(std::string_view text)
+        : m_buffer(text) {}
+
+    NotePad::NotePad(std::string&& text) noexcept
+        : m_buffer(std::move(text)) {}
+
+    size_t NotePad::count() const noexcept {
+        if (m_buffer.empty()) return 0;
+        
+        size_t newlineCount = static_cast<size_t>(std::count(m_buffer.begin(), m_buffer.end(), '\n'));
+        
+        // 末尾が改行で終わっている場合は、その後の空行はカウントしない（HSP互換）
+        // "test\ntest" → 2行
+        // "test\ntest\n" → 2行（末尾改行は無視）
+        if (!m_buffer.empty() && m_buffer.back() == '\n') {
+            return newlineCount;
+        }
+        return newlineCount + 1;
+    }
+
+    std::string NotePad::get(size_t index) const {
+        if (m_buffer.empty()) return "";
+
+        size_t currentLine = 0;
+        size_t start = 0;
+
+        while (start <= m_buffer.size()) {
+            size_t end = m_buffer.find('\n', start);
+            if (end == std::string::npos) {
+                end = m_buffer.size();
+            }
+
+            if (currentLine == index) {
+                size_t len = end - start;
+                // 末尾の \r を除去
+                if (len > 0 && m_buffer[start + len - 1] == '\r') {
+                    --len;
+                }
+                return m_buffer.substr(start, len);
+            }
+
+            if (end >= m_buffer.size()) break;
+            start = end + 1;
+            ++currentLine;
+        }
+
+        return "";
+    }
+
+    NotePad& NotePad::add(std::string_view text, int index, int overwrite) {
+        size_t lineCount = count();
+
+        // 末尾追加
+        if (index < 0 || static_cast<size_t>(index) >= lineCount) {
+            if (!m_buffer.empty() && m_buffer.back() != '\n') {
+                m_buffer.push_back('\n');
+            }
+            m_buffer.append(text);
+            return *this;
+        }
+
+        // 指定位置への挿入/上書き
+        size_t currentLine = 0;
+        size_t start = 0;
+
+        while (start <= m_buffer.size()) {
+            size_t end = m_buffer.find('\n', start);
+            if (end == std::string::npos) {
+                end = m_buffer.size();
+            }
+
+            if (currentLine == static_cast<size_t>(index)) {
+                if (overwrite != 0) {
+                    // 上書きモード：現在の行を置換
+                    m_buffer.replace(start, end - start, text);
+                } else {
+                    // 挿入モード：現在の行の前に挿入
+                    std::string insertText(text);
+                    insertText.push_back('\n');
+                    m_buffer.insert(start, insertText);
+                }
+                return *this;
+            }
+
+            if (end >= m_buffer.size()) break;
+            start = end + 1;
+            ++currentLine;
+        }
+
+        return *this;
+    }
+
+    NotePad& NotePad::del(size_t index) {
+        if (m_buffer.empty()) return *this;
+
+        size_t lineCount = count();
+        if (index >= lineCount) return *this;
+
+        size_t currentLine = 0;
+        size_t start = 0;
+
+        while (start <= m_buffer.size()) {
+            size_t end = m_buffer.find('\n', start);
+            if (end == std::string::npos) {
+                end = m_buffer.size();
+            }
+
+            if (currentLine == index) {
+                size_t eraseStart = start;
+                size_t eraseEnd = end;
+
+                // 最後の行でなければ改行も削除
+                if (index < lineCount - 1 && eraseEnd < m_buffer.size()) {
+                    eraseEnd++;  // \n を含む
+                }
+                // 先頭行以外で最後の行を削除する場合、直前の改行も削除
+                else if (index > 0 && index == lineCount - 1 && eraseStart > 0) {
+                    eraseStart--;  // 直前の \n を含める
+                }
+
+                m_buffer.erase(eraseStart, eraseEnd - eraseStart);
+                return *this;
+            }
+
+            if (end >= m_buffer.size()) break;
+            start = end + 1;
+            ++currentLine;
+        }
+
+        return *this;
+    }
+
+    int NotePad::find(std::string_view search, int mode, size_t startIndex) const {
+        if (m_buffer.empty()) return -1;
+
+        size_t currentLine = 0;
+        size_t start = 0;
+
+        while (start <= m_buffer.size()) {
+            size_t end = m_buffer.find('\n', start);
+            if (end == std::string::npos) {
+                end = m_buffer.size();
+            }
+
+            if (currentLine >= startIndex) {
+                size_t len = end - start;
+                // 末尾の \r を除去して比較
+                if (len > 0 && m_buffer[start + len - 1] == '\r') {
+                    --len;
+                }
+                std::string_view line(m_buffer.data() + start, len);
+
+                bool found = false;
+                switch (mode) {
+                    case 0:  // 完全一致
+                        found = (line == search);
+                        break;
+                    case 1:  // 先頭一致
+                        found = (line.size() >= search.size() &&
+                                 line.compare(0, search.size(), search) == 0);
+                        break;
+                    case 2:  // 部分一致
+                        found = (line.find(search) != std::string_view::npos);
+                        break;
+                    default:
+                        found = (line == search);
+                        break;
+                }
+
+                if (found) {
+                    return static_cast<int>(currentLine);
+                }
+            }
+
+            if (end >= m_buffer.size()) break;
+            start = end + 1;
+            ++currentLine;
+        }
+
+        return -1;
+    }
+
+    NotePad& NotePad::load(std::string_view filename, size_t maxSize) {
+        std::wstring wideFilename = internal::Utf8ToWide(filename);
+
+        HANDLE hFile = CreateFileW(
+            wideFilename.c_str(),
+            GENERIC_READ,
+            FILE_SHARE_READ,
+            nullptr,
+            OPEN_EXISTING,
+            FILE_ATTRIBUTE_NORMAL,
+            nullptr
+        );
+
+        if (hFile == INVALID_HANDLE_VALUE) {
+            m_buffer.clear();
+            return *this;
+        }
+
+        LARGE_INTEGER fileSize;
+        if (!GetFileSizeEx(hFile, &fileSize)) {
+            CloseHandle(hFile);
+            m_buffer.clear();
+            return *this;
+        }
+
+        size_t readSize = static_cast<size_t>(fileSize.QuadPart);
+        if (maxSize > 0 && readSize > maxSize) {
+            readSize = maxSize;
+        }
+
+        m_buffer.resize(readSize);
+        DWORD bytesRead = 0;
+        if (!ReadFile(hFile, m_buffer.data(), static_cast<DWORD>(readSize), &bytesRead, nullptr)) {
+            CloseHandle(hFile);
+            m_buffer.clear();
+            return *this;
+        }
+        CloseHandle(hFile);
+
+        m_buffer.resize(bytesRead);
+        return *this;
+    }
+
+    [[nodiscard]] bool NotePad::save(std::string_view filename) const {
+        std::wstring wideFilename = internal::Utf8ToWide(filename);
+
+        HANDLE hFile = CreateFileW(
+            wideFilename.c_str(),
+            GENERIC_WRITE,
+            0,
+            nullptr,
+            CREATE_ALWAYS,
+            FILE_ATTRIBUTE_NORMAL,
+            nullptr
+        );
+
+        if (hFile == INVALID_HANDLE_VALUE) {
+            return false;
+        }
+
+        DWORD bytesWritten = 0;
+        BOOL success = WriteFile(hFile, m_buffer.data(), static_cast<DWORD>(m_buffer.size()), &bytesWritten, nullptr);
+        CloseHandle(hFile);
+
+        return success && (bytesWritten == m_buffer.size());
+    }
+
+    // ============================================================
     // instr - 文字列の検索
     // ============================================================
     

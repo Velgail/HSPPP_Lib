@@ -284,10 +284,8 @@ namespace hsppp {
             wmsg += L"\n";
             OutputDebugStringW(wmsg.c_str());
         } else {
-            // 変換に失敗した場合はASCIIとして出力
-            std::string msg(message);
-            msg += "\n";
-            OutputDebugStringA(msg.c_str());
+            // 変換に失敗した場合もW系を使用（空文字列として出力）
+            OutputDebugStringW(L"[logmes: encoding error]\n");
         }
     }
 

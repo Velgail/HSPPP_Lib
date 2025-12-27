@@ -77,6 +77,140 @@ struct AudioBuffer {
 };
 
 // ============================================================
+// RAII ラッパー: UniqueSourceVoice（IXAudio2SourceVoice の自動破棄）
+// ============================================================
+
+/// @brief IXAudio2SourceVoice を RAII で管理するラッパークラス
+/// @details スコープを抜けるか例外が飛んだ際に自動的に DestroyVoice を呼び出す
+class UniqueSourceVoice {
+private:
+    IXAudio2SourceVoice* m_voice = nullptr;
+
+public:
+    UniqueSourceVoice() noexcept = default;
+    explicit UniqueSourceVoice(IXAudio2SourceVoice* voice) noexcept : m_voice(voice) {}
+    
+    ~UniqueSourceVoice() {
+        reset();
+    }
+    
+    // コピー禁止
+    UniqueSourceVoice(const UniqueSourceVoice&) = delete;
+    UniqueSourceVoice& operator=(const UniqueSourceVoice&) = delete;
+    
+    // ムーブ許可
+    UniqueSourceVoice(UniqueSourceVoice&& other) noexcept : m_voice(other.m_voice) {
+        other.m_voice = nullptr;
+    }
+    
+    UniqueSourceVoice& operator=(UniqueSourceVoice&& other) noexcept {
+        if (this != &other) {
+            reset();
+            m_voice = other.m_voice;
+            other.m_voice = nullptr;
+        }
+        return *this;
+    }
+    
+    /// @brief 保持しているボイスを破棄し、新しいボイスを設定
+    void reset(IXAudio2SourceVoice* voice = nullptr) noexcept {
+        if (m_voice && m_voice != voice) {
+            m_voice->Stop();
+            m_voice->DestroyVoice();
+        }
+        m_voice = voice;
+    }
+    
+    /// @brief 所有権を放棄してボイスを返す
+    [[nodiscard]] IXAudio2SourceVoice* release() noexcept {
+        IXAudio2SourceVoice* voice = m_voice;
+        m_voice = nullptr;
+        return voice;
+    }
+    
+    /// @brief 保持しているボイスを取得
+    [[nodiscard]] IXAudio2SourceVoice* get() const noexcept { return m_voice; }
+    
+    /// @brief ボイスが有効かどうか
+    [[nodiscard]] explicit operator bool() const noexcept { return m_voice != nullptr; }
+    
+    /// @brief ポインタとしてアクセス
+    IXAudio2SourceVoice* operator->() const noexcept { return m_voice; }
+    
+    /// @brief アドレス取得（CreateSourceVoice用）
+    IXAudio2SourceVoice** put() noexcept { 
+        reset();
+        return &m_voice; 
+    }
+};
+
+// ============================================================
+// RAII ラッパー: UniqueMasteringVoice（IXAudio2MasteringVoice の自動破棄）
+// ============================================================
+
+/// @brief IXAudio2MasteringVoice を RAII で管理するラッパークラス
+class UniqueMasteringVoice {
+private:
+    IXAudio2MasteringVoice* m_voice = nullptr;
+
+public:
+    UniqueMasteringVoice() noexcept = default;
+    explicit UniqueMasteringVoice(IXAudio2MasteringVoice* voice) noexcept : m_voice(voice) {}
+    
+    ~UniqueMasteringVoice() {
+        reset();
+    }
+    
+    // コピー禁止
+    UniqueMasteringVoice(const UniqueMasteringVoice&) = delete;
+    UniqueMasteringVoice& operator=(const UniqueMasteringVoice&) = delete;
+    
+    // ムーブ許可
+    UniqueMasteringVoice(UniqueMasteringVoice&& other) noexcept : m_voice(other.m_voice) {
+        other.m_voice = nullptr;
+    }
+    
+    UniqueMasteringVoice& operator=(UniqueMasteringVoice&& other) noexcept {
+        if (this != &other) {
+            reset();
+            m_voice = other.m_voice;
+            other.m_voice = nullptr;
+        }
+        return *this;
+    }
+    
+    /// @brief 保持しているボイスを破棄し、新しいボイスを設定
+    void reset(IXAudio2MasteringVoice* voice = nullptr) noexcept {
+        if (m_voice && m_voice != voice) {
+            m_voice->DestroyVoice();
+        }
+        m_voice = voice;
+    }
+    
+    /// @brief 所有権を放棄してボイスを返す
+    [[nodiscard]] IXAudio2MasteringVoice* release() noexcept {
+        IXAudio2MasteringVoice* voice = m_voice;
+        m_voice = nullptr;
+        return voice;
+    }
+    
+    /// @brief 保持しているボイスを取得
+    [[nodiscard]] IXAudio2MasteringVoice* get() const noexcept { return m_voice; }
+    
+    /// @brief ボイスが有効かどうか
+    [[nodiscard]] explicit operator bool() const noexcept { return m_voice != nullptr; }
+    
+    /// @brief ポインタとしてアクセス
+    IXAudio2MasteringVoice* operator->() const noexcept { return m_voice; }
+    
+    /// @brief アドレス取得（CreateMasteringVoice用）
+    IXAudio2MasteringVoice** put() noexcept { 
+        reset();
+        return &m_voice; 
+    }
+};
+
+// ============================================================
 // XAudio2用ボイスコールバック
 // ============================================================
 class XAudio2VoiceCallback : public IXAudio2VoiceCallback {
@@ -151,7 +285,7 @@ struct MediaSlot {
 
     // XAudio2用（SE/WAV）
     std::unique_ptr<AudioBuffer> audioBuffer;
-    IXAudio2SourceVoice* sourceVoice = nullptr;
+    UniqueSourceVoice sourceVoice;   // RAII管理
     std::unique_ptr<XAudio2VoiceCallback> voiceCallback;
 
     // Media Foundation用（BGM/動画）
@@ -233,7 +367,7 @@ private:
 
     // XAudio2
     ComPtr<IXAudio2> xaudio2_;
-    IXAudio2MasteringVoice* masterVoice_ = nullptr;
+    UniqueMasteringVoice masterVoice_;   // RAII管理
 
     // Media Foundation
     bool mfInitialized_ = false;

@@ -638,7 +638,7 @@ namespace hsppp {
             // ObjectInfoを登録
             ObjectInfo info;
             info.type = ObjectType::Button;
-            info.hwnd = hwndButton;
+            info.hwnd.reset(hwndButton);
             info.windowId = windowId;
             info.x = posX;
             info.y = posY;
@@ -649,7 +649,7 @@ namespace hsppp {
             info.enabled = true;
             info.focusSkipMode = 1;
 
-            int objectId = objMgr.registerObject(info);
+            int objectId = objMgr.registerObject(std::move(info));
 
             // カレントポジションを次の行に移動
             int nextY = posY + std::max(objH, objSpace);
@@ -701,7 +701,7 @@ namespace hsppp {
 
             ObjectInfo info;
             info.type = ObjectType::Input;
-            info.hwnd = hwndEdit;
+            info.hwnd.reset(hwndEdit);
             info.windowId = windowId;
             info.x = posX;
             info.y = posY;
@@ -712,7 +712,7 @@ namespace hsppp {
             info.enabled = true;
             info.focusSkipMode = 1;
 
-            int objectId = objMgr.registerObject(info);
+            int objectId = objMgr.registerObject(std::move(info));
 
             int nextY = posY + std::max(h, objSpaceY);
             surface->pos(posX, nextY);
@@ -787,7 +787,7 @@ namespace hsppp {
 
             ObjectInfo info;
             info.type = ObjectType::Mesbox;
-            info.hwnd = hwndEdit;
+            info.hwnd.reset(hwndEdit);
             info.windowId = windowId;
             info.x = posX;
             info.y = posY;
@@ -798,7 +798,7 @@ namespace hsppp {
             info.enabled = true;
             info.focusSkipMode = 1;
 
-            int objectId = objMgr.registerObject(info);
+            int objectId = objMgr.registerObject(std::move(info));
 
             int nextY = posY + std::max(h, objSpaceY);
             surface->pos(posX, nextY);
@@ -914,7 +914,7 @@ namespace hsppp {
 
         internal::ObjectInfo info;
         info.type = internal::ObjectType::Chkbox;
-        info.hwnd = hwndCheck;
+        info.hwnd.reset(hwndCheck);
         info.windowId = m_id;
         info.x = posX;
         info.y = posY;
@@ -924,7 +924,7 @@ namespace hsppp {
         info.enabled = true;
         info.focusSkipMode = 1;
 
-        int objectId = objMgr.registerObject(info);
+        int objectId = objMgr.registerObject(std::move(info));
 
         int nextY = posY + std::max(objH, objSpace);
         surface->pos(posX, nextY);
@@ -989,7 +989,7 @@ namespace hsppp {
 
         internal::ObjectInfo info;
         info.type = internal::ObjectType::Combox;
-        info.hwnd = hwndCombo;
+        info.hwnd.reset(hwndCombo);
         info.windowId = m_id;
         info.x = posX;
         info.y = posY;
@@ -999,7 +999,7 @@ namespace hsppp {
         info.enabled = true;
         info.focusSkipMode = 1;
 
-        int objectId = objMgr.registerObject(info);
+        int objectId = objMgr.registerObject(std::move(info));
 
         int nextY = posY + std::max(objH, objSpace);
         surface->pos(posX, nextY);
@@ -1063,7 +1063,7 @@ namespace hsppp {
 
         internal::ObjectInfo info;
         info.type = internal::ObjectType::Listbox;
-        info.hwnd = hwndList;
+        info.hwnd.reset(hwndList);
         info.windowId = m_id;
         info.x = posX;
         info.y = posY;
@@ -1073,7 +1073,7 @@ namespace hsppp {
         info.enabled = true;
         info.focusSkipMode = 1;
 
-        int objectId = objMgr.registerObject(info);
+        int objectId = objMgr.registerObject(std::move(info));
 
         int nextY = posY + std::max(expandY, objSpace);
         surface->pos(posX, nextY);

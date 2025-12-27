@@ -115,12 +115,7 @@ HRESULT MediaFoundationCallback::Invoke(IMFAsyncResult* pResult) {
 // MediaSlot デストラクタ・ムーブ
 // ============================================================
 MediaSlot::~MediaSlot() {
-    // XAudio2 voice 解放
-    if (sourceVoice) {
-        sourceVoice->Stop();
-        sourceVoice->DestroyVoice();
-        sourceVoice = nullptr;
-    }
+    // UniqueSourceVoice が RAII で自動解放するため、明示的な解放は不要
     
     // Media Foundation セッション解放
     if (mfCallback) {
@@ -162,13 +157,12 @@ MediaSlot::MediaSlot(MediaSlot&& other) noexcept
     , videoX(other.videoX)
     , videoY(other.videoY)
     , audioBuffer(std::move(other.audioBuffer))
-    , sourceVoice(other.sourceVoice)
+    , sourceVoice(std::move(other.sourceVoice))
     , voiceCallback(std::move(other.voiceCallback))
     , mediaSession(std::move(other.mediaSession))
     , mediaSource(std::move(other.mediaSource))
     , mfCallback(std::move(other.mfCallback))
 {
-    other.sourceVoice = nullptr;
     other.parentWindow = nullptr;
     other.targetWindow = nullptr;
     other.videoWindow = nullptr;
@@ -176,11 +170,7 @@ MediaSlot::MediaSlot(MediaSlot&& other) noexcept
 
 MediaSlot& MediaSlot::operator=(MediaSlot&& other) noexcept {
     if (this != &other) {
-        // 既存リソース解放
-        if (sourceVoice) {
-            sourceVoice->Stop();
-            sourceVoice->DestroyVoice();
-        }
+        // 既存リソース解放（sourceVoice は UniqueSourceVoice が自動解放）
         if (mediaSession) {
             mediaSession->Close();
         }
@@ -205,13 +195,12 @@ MediaSlot& MediaSlot::operator=(MediaSlot&& other) noexcept {
         videoX = other.videoX;
         videoY = other.videoY;
         audioBuffer = std::move(other.audioBuffer);
-        sourceVoice = other.sourceVoice;
+        sourceVoice = std::move(other.sourceVoice);
         voiceCallback = std::move(other.voiceCallback);
         mediaSession = std::move(other.mediaSession);
         mediaSource = std::move(other.mediaSource);
         mfCallback = std::move(other.mfCallback);
         
-        other.sourceVoice = nullptr;
         other.parentWindow = nullptr;
         other.targetWindow = nullptr;
         other.videoWindow = nullptr;
@@ -272,8 +261,9 @@ bool MediaManager::initializeXAudio2() {
     }
 
     // ステレオ出力のマスタリングボイスを作成（パンニング対応のため）
+    IXAudio2MasteringVoice* pMasterVoice = nullptr;
     hr = xaudio2_->CreateMasteringVoice(
-        &masterVoice_,
+        &pMasterVoice,
         2,                          // 出力チャンネル数（ステレオ）
         XAUDIO2_DEFAULT_SAMPLERATE,
         0,
@@ -284,15 +274,14 @@ bool MediaManager::initializeXAudio2() {
         xaudio2_.Reset();
         return false;
     }
+    masterVoice_.reset(pMasterVoice);
 
     return true;
 }
 
 void MediaManager::shutdownXAudio2() {
-    if (masterVoice_) {
-        masterVoice_->DestroyVoice();
-        masterVoice_ = nullptr;
-    }
+    // UniqueMasteringVoice が RAII で自動解放
+    masterVoice_.reset();
     xaudio2_.Reset();
 }
 
@@ -654,19 +643,12 @@ bool MediaManager::mmplay(int bufferId) {
 bool MediaManager::playXAudio2(MediaSlot& slot) {
     if (!xaudio2_ || !slot.audioBuffer || !slot.audioBuffer->isValid) return false;
 
-    // 既存の voice を破棄
-    if (slot.sourceVoice) {
-        slot.sourceVoice->Stop();
-        slot.sourceVoice->DestroyVoice();
-        slot.sourceVoice = nullptr;
-    }
-
     // コールバック作成
     slot.voiceCallback = std::make_unique<XAudio2VoiceCallback>();
 
     // Source Voice 作成
     HRESULT hr = xaudio2_->CreateSourceVoice(
-        &slot.sourceVoice,
+        slot.sourceVoice.put(),
         &slot.audioBuffer->format,
         0,
         XAUDIO2_DEFAULT_FREQ_RATIO,
@@ -686,8 +668,7 @@ bool MediaManager::playXAudio2(MediaSlot& slot) {
 
     hr = slot.sourceVoice->SubmitSourceBuffer(&buffer);
     if (FAILED(hr)) {
-        slot.sourceVoice->DestroyVoice();
-        slot.sourceVoice = nullptr;
+        slot.sourceVoice.reset();
         return false;
     }
 
@@ -763,7 +744,7 @@ void MediaManager::updateXAudio2Pan(MediaSlot& slot) {
         }
 
         slot.sourceVoice->SetOutputMatrix(
-            masterVoice_,
+            masterVoice_.get(),
             srcCh,
             dstCh,
             matrix.data()
@@ -1040,7 +1021,7 @@ void MediaManager::mmpan(int bufferId, int pan) {
 #ifdef _DEBUG
     wchar_t dbg[256];
     swprintf_s(dbg, L"[mmpan] bufferId=%d, pan=%d -> %.2f, hasVoice=%d, hasSession=%d\n",
-        bufferId, pan, slot.pan, slot.sourceVoice != nullptr, slot.mediaSession != nullptr);
+        bufferId, pan, slot.pan, (slot.sourceVoice ? 1 : 0), (slot.mediaSession ? 1 : 0));
     OutputDebugStringW(dbg);
 #endif
 

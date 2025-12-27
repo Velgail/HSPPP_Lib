@@ -643,23 +643,18 @@ bool MediaManager::mmplay(int bufferId) {
 bool MediaManager::playXAudio2(MediaSlot& slot) {
     if (!xaudio2_ || !slot.audioBuffer || !slot.audioBuffer->isValid) return false;
 
-    // 既存の voice を破棄（UniqueSourceVoice が RAII で処理）
-    slot.sourceVoice.reset();
-
     // コールバック作成
     slot.voiceCallback = std::make_unique<XAudio2VoiceCallback>();
 
     // Source Voice 作成
-    IXAudio2SourceVoice* pVoice = nullptr;
     HRESULT hr = xaudio2_->CreateSourceVoice(
-        &pVoice,
+        slot.sourceVoice.put(),
         &slot.audioBuffer->format,
         0,
         XAUDIO2_DEFAULT_FREQ_RATIO,
         slot.voiceCallback.get()
     );
     if (FAILED(hr)) return false;
-    slot.sourceVoice.reset(pVoice);
 
     // バッファ設定
     XAUDIO2_BUFFER buffer = {};

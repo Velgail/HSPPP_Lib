@@ -197,17 +197,44 @@ namespace hsppp {
         }
     }
 
+    // ginfo_* マクロ/システム変数互換（C++では関数として提供）
+    int ginfo_mx(const std::source_location& location) { return ginfo(ginfo_type_mx, location); }
+    int ginfo_my(const std::source_location& location) { return ginfo(ginfo_type_my, location); }
+    int ginfo_act(const std::source_location& location) { return ginfo(ginfo_type_act, location); }
+    int ginfo_sel(const std::source_location& location) { return ginfo(ginfo_type_sel, location); }
+    int ginfo_wx1(const std::source_location& location) { return ginfo(ginfo_type_wx1, location); }
+    int ginfo_wy1(const std::source_location& location) { return ginfo(ginfo_type_wy1, location); }
+    int ginfo_wx2(const std::source_location& location) { return ginfo(ginfo_type_wx2, location); }
+    int ginfo_wy2(const std::source_location& location) { return ginfo(ginfo_type_wy2, location); }
+    int ginfo_vx(const std::source_location& location) { return ginfo(ginfo_type_vx, location); }
+    int ginfo_vy(const std::source_location& location) { return ginfo(ginfo_type_vy, location); }
+    int ginfo_sizex(const std::source_location& location) { return ginfo(ginfo_type_sizex, location); }
+    int ginfo_sizey(const std::source_location& location) { return ginfo(ginfo_type_sizey, location); }
+    int ginfo_mesx(const std::source_location& location) { return ginfo(ginfo_type_mesx, location); }
+    int ginfo_mesy(const std::source_location& location) { return ginfo(ginfo_type_mesy, location); }
+    int ginfo_messizex(const std::source_location& location) { return ginfo(14, location); }
+    int ginfo_messizey(const std::source_location& location) { return ginfo(15, location); }
+    int ginfo_paluse(const std::source_location& location) { return ginfo(ginfo_type_paluse, location); }
+    int ginfo_dispx(const std::source_location& location) { return ginfo(ginfo_type_dispx, location); }
+    int ginfo_dispy(const std::source_location& location) { return ginfo(ginfo_type_dispy, location); }
+    int ginfo_cx(const std::source_location& location) { return ginfo(ginfo_type_cx, location); }
+    int ginfo_cy(const std::source_location& location) { return ginfo(ginfo_type_cy, location); }
+    int ginfo_intid(const std::source_location& location) { return ginfo(ginfo_type_intid, location); }
+    int ginfo_newid(const std::source_location& location) { return ginfo(ginfo_type_newid, location); }
+    int ginfo_sx(const std::source_location& location) { return ginfo(ginfo_type_sx, location); }
+    int ginfo_sy(const std::source_location& location) { return ginfo(ginfo_type_sy, location); }
+
     // ginfo_r, ginfo_g, ginfo_b マクロの代わりとなる関数
     int ginfo_r(const std::source_location& location) {
-        return ginfo(ginfo_colr);
+        return ginfo(ginfo_type_r, location);
     }
 
     int ginfo_g(const std::source_location& location) {
-        return ginfo(ginfo_colg);
+        return ginfo(ginfo_type_g, location);
     }
 
     int ginfo_b(const std::source_location& location) {
-        return ginfo(ginfo_colb);
+        return ginfo(ginfo_type_b, location);
     }
 
     // ============================================================

@@ -146,6 +146,71 @@ namespace hsppp {
     export inline constexpr int screen_usergcopy = 64;   // 描画用シェーダー (HGIMG4)
     export inline constexpr int screen_fullscreen = 256; // フルスクリーン (bgscr用)
 
+    // --- stick キーコードビットマスク (HSP Compatible) ---
+    export inline constexpr int stick_left    = 1;       // カーソルキー左(←)
+    export inline constexpr int stick_up      = 2;       // カーソルキー上(↑)
+    export inline constexpr int stick_right   = 4;       // カーソルキー右(→)
+    export inline constexpr int stick_down    = 8;       // カーソルキー下(↓)
+    export inline constexpr int stick_space   = 16;      // スペースキー
+    export inline constexpr int stick_enter   = 32;      // Enterキー
+    export inline constexpr int stick_ctrl    = 64;      // Ctrlキー
+    export inline constexpr int stick_esc     = 128;     // ESCキー
+    export inline constexpr int stick_lbutton = 256;     // マウス左ボタン
+    export inline constexpr int stick_rbutton = 512;     // マウス右ボタン
+    export inline constexpr int stick_tab     = 1024;    // TABキー
+    export inline constexpr int stick_z       = 2048;    // [Z]キー
+    export inline constexpr int stick_x       = 4096;    // [X]キー
+    export inline constexpr int stick_c       = 8192;    // [C]キー
+    export inline constexpr int stick_a       = 16384;   // [A]キー
+    export inline constexpr int stick_w       = 32768;   // [W]キー
+    export inline constexpr int stick_d       = 65536;   // [D]キー
+    export inline constexpr int stick_s       = 131072;  // [S]キー
+
+    // --- gmode コピーモード定数 (HSP Compatible) ---
+    export inline constexpr int gmode_copy       = 0;    // 通常コピー
+    export inline constexpr int gmode_mem        = 1;    // メモリ間コピー（高速）
+    export inline constexpr int gmode_and        = 2;    // 透明色付きコピー
+    export inline constexpr int gmode_or         = 3;    // 半透明合成コピー
+    export inline constexpr int gmode_alpha      = 4;    // 半透明合成コピー
+    export inline constexpr int gmode_add        = 5;    // 加算合成コピー
+    export inline constexpr int gmode_sub        = 6;    // 減算合成コピー
+
+    // --- ginfo type定数 (HSP Compatible) ---
+    export inline constexpr int ginfo_mx        = 0;     // スクリーン上のマウスカーソルX座標
+    export inline constexpr int ginfo_my        = 1;     // スクリーン上のマウスカーソルY座標
+    export inline constexpr int ginfo_act       = 2;     // アクティブなウィンドウID
+    export inline constexpr int ginfo_sel       = 3;     // 操作先ウィンドウID
+    export inline constexpr int ginfo_wx1       = 4;     // ウィンドウの左上X座標
+    export inline constexpr int ginfo_wy1       = 5;     // ウィンドウの左上Y座標
+    export inline constexpr int ginfo_wx2       = 6;     // ウィンドウの右下X座標
+    export inline constexpr int ginfo_wy2       = 7;     // ウィンドウの右下Y座標
+    export inline constexpr int ginfo_vx        = 8;     // 画面の可視範囲の左上X
+    export inline constexpr int ginfo_vy        = 9;     // 画面の可視範囲の左上Y
+    export inline constexpr int ginfo_sizex     = 10;    // 画面の可視範囲のXサイズ
+    export inline constexpr int ginfo_sizey     = 11;    // 画面の可視範囲のYサイズ
+    export inline constexpr int ginfo_mesx      = 12;    // mes命令で出力される文字のXサイズ
+    export inline constexpr int ginfo_mesy      = 13;    // mes命令で出力される文字のYサイズ
+    export inline constexpr int ginfo_colr      = 16;    // カレントカラーのR成分 (関数ginfo_r()と区別)
+    export inline constexpr int ginfo_colg      = 17;    // カレントカラーのG成分 (関数ginfo_g()と区別)
+    export inline constexpr int ginfo_colb      = 18;    // カレントカラーのB成分 (関数ginfo_b()と区別)
+    export inline constexpr int ginfo_paluse    = 19;    // パレットモードフラグ
+    export inline constexpr int ginfo_dispx     = 20;    // デスクトップのXサイズ
+    export inline constexpr int ginfo_dispy     = 21;    // デスクトップのYサイズ
+    export inline constexpr int ginfo_cx        = 22;    // カレントポジションX
+    export inline constexpr int ginfo_cy        = 23;    // カレントポジションY
+    export inline constexpr int ginfo_intid     = 24;    // メッセージ割り込み時のウィンドウID
+    export inline constexpr int ginfo_newid     = 25;    // 未使用ウィンドウID
+    export inline constexpr int ginfo_sx        = 26;    // 画面の初期化Xサイズ
+    export inline constexpr int ginfo_sy        = 27;    // 画面の初期化Yサイズ
+
+    // --- dirinfo type定数 (HSP Compatible) ---
+    export inline constexpr int dirinfo_cur     = 0;     // カレントディレクトリ
+    export inline constexpr int dirinfo_exe     = 1;     // 実行ファイルディレクトリ
+    export inline constexpr int dirinfo_win     = 2;     // Windowsディレクトリ
+    export inline constexpr int dirinfo_sys     = 3;     // Windowsシステムディレクトリ
+    export inline constexpr int dirinfo_cmdline = 4;     // コマンドライン文字列
+    export inline constexpr int dirinfo_tv      = 5;     // HSPTVディレクトリ（常に空）
+
 
     // ============================================================
     // ScreenParams 構造体（Designated Initializers用）

@@ -199,15 +199,15 @@ namespace hsppp {
 
     // ginfo_r, ginfo_g, ginfo_b マクロの代わりとなる関数
     int ginfo_r(const std::source_location& location) {
-        return ginfo(16);
+        return ginfo(ginfo_colr);
     }
 
     int ginfo_g(const std::source_location& location) {
-        return ginfo(17);
+        return ginfo(ginfo_colg);
     }
 
     int ginfo_b(const std::source_location& location) {
-        return ginfo(18);
+        return ginfo(ginfo_colb);
     }
 
     // ============================================================

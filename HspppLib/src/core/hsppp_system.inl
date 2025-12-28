@@ -215,23 +215,23 @@ namespace hsppp {
     // ============================================================
 
     std::string dir_cur(const std::source_location& location) {
-        return dirinfo(0, location);
+        return dirinfo(dirinfo_cur, location);
     }
 
     std::string dir_exe(const std::source_location& location) {
-        return dirinfo(1, location);
+        return dirinfo(dirinfo_exe, location);
     }
 
     std::string dir_win(const std::source_location& location) {
-        return dirinfo(2, location);
+        return dirinfo(dirinfo_win, location);
     }
 
     std::string dir_sys(const std::source_location& location) {
-        return dirinfo(3, location);
+        return dirinfo(dirinfo_sys, location);
     }
 
     std::string dir_cmdline(const std::source_location& location) {
-        return dirinfo(4, location);
+        return dirinfo(dirinfo_cmdline, location);
     }
 
     std::string dir_desktop(const std::source_location& location) {

@@ -150,258 +150,6 @@ int mesbox(std::string& var, OptInt sizeX, OptInt sizeY, OptInt style, OptInt ma
 }
 
 // ============================================================
-// chkbox - チェックボックス表示
-// ============================================================
-int chkbox(std::string_view label, int& var, const std::source_location& location) {
-    auto& objMgr = internal::ObjectManager::getInstance();
-    
-    int windowId = g_currentScreenId;
-    auto surface = getCurrentSurface();
-    if (!surface) {
-        throw HspError(ERR_INVALID_HANDLE, "Invalid window ID", location);
-    }
-    
-    auto pHspWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
-    if (!pHspWindow) {
-        throw HspError(ERR_UNSUPPORTED, "Cannot create chkbox on buffer", location);
-    }
-    
-    // Surface から objsize を取得
-    int objW = surface->getObjSizeX();
-    int objH = surface->getObjSizeY();
-    int objSpace = surface->getObjSpaceY();
-    
-    int posX = surface->getCurrentX();
-    int posY = surface->getCurrentY();
-    
-    HWND hwndParent = pHspWindow->getHwnd();
-    std::wstring wlabel = internal::Utf8ToWide(label);
-    
-    HWND hwndCheck = CreateWindowExW(
-        WS_EX_NOPARENTNOTIFY,
-        L"BUTTON",
-        wlabel.c_str(),
-        WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_CLIPSIBLINGS | BS_AUTOCHECKBOX,
-        posX, posY, objW, objH,
-        hwndParent,
-        (HMENU)(INT_PTR)(objMgr.getNextId()),
-        GetModuleHandle(nullptr),
-        nullptr
-    );
-    
-    if (!hwndCheck) {
-        throw HspError(ERR_SYSTEM_ERROR, "Failed to create checkbox", location);
-    }
-    
-    // Z-orderを最前面に設定
-    SetWindowPos(hwndCheck, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-    
-    // 初期状態を設定
-    SendMessageW(hwndCheck, BM_SETCHECK, var ? BST_CHECKED : BST_UNCHECKED, 0);
-    
-    HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-    SendMessageW(hwndCheck, WM_SETFONT, (WPARAM)hFont, TRUE);
-    
-    internal::ObjectInfo info;
-    info.type = internal::ObjectType::Chkbox;
-    info.hwnd.reset(hwndCheck);
-    info.windowId = windowId;
-    info.x = posX;
-    info.y = posY;
-    info.width = objW;
-    info.height = objH;
-    info.pStateVar = &var;
-    info.enabled = true;
-    info.focusSkipMode = 1;
-    
-    int objectId = objMgr.registerObject(std::move(info));
-    
-    int nextY = posY + std::max(objH, objSpace);
-    surface->pos(posX, nextY);
-    
-    return objectId;
-}
-
-// ============================================================
-// combox - コンボボックス表示
-// ============================================================
-int combox(int& var, OptInt expandY, std::string_view items, const std::source_location& location) {
-    auto& objMgr = internal::ObjectManager::getInstance();
-    
-    int windowId = g_currentScreenId;
-    auto surface = getCurrentSurface();
-    if (!surface) {
-        throw HspError(ERR_INVALID_HANDLE, "Invalid window ID", location);
-    }
-    
-    auto pHspWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
-    if (!pHspWindow) {
-        throw HspError(ERR_UNSUPPORTED, "Cannot create combox on buffer", location);
-    }
-    
-    // Surface から objsize を取得
-    int objW = surface->getObjSizeX();
-    int objH = surface->getObjSizeY();
-    int objSpace = surface->getObjSpaceY();
-    int expandYVal = expandY.value_or(100);
-    
-    int posX = surface->getCurrentX();
-    int posY = surface->getCurrentY();
-    
-    HWND hwndParent = pHspWindow->getHwnd();
-    
-    // コンボボックスはドロップダウン時の高さを含めたサイズで作成
-    HWND hwndCombo = CreateWindowExW(
-        WS_EX_NOPARENTNOTIFY,
-        L"COMBOBOX",
-        L"",
-        WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_CLIPSIBLINGS | CBS_DROPDOWNLIST | WS_VSCROLL,
-        posX, posY, objW, objH + expandYVal,
-        hwndParent,
-        (HMENU)(INT_PTR)(objMgr.getNextId()),
-        GetModuleHandle(nullptr),
-        nullptr
-    );
-    
-    if (!hwndCombo) {
-        throw HspError(ERR_SYSTEM_ERROR, "Failed to create combobox", location);
-    }
-    
-    // Z-orderを最前面に設定
-    SetWindowPos(hwndCombo, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-    
-    // アイテムを追加（\n区切り）
-    std::string itemStr(items);
-    size_t pos = 0;
-    while (pos < itemStr.size()) {
-        size_t nextPos = itemStr.find('\n', pos);
-        if (nextPos == std::string::npos) {
-            nextPos = itemStr.size();
-        }
-        std::string item = itemStr.substr(pos, nextPos - pos);
-        std::wstring witem = internal::Utf8ToWide(item);
-        SendMessageW(hwndCombo, CB_ADDSTRING, 0, (LPARAM)witem.c_str());
-        pos = nextPos + 1;
-    }
-    
-    // 初期選択を設定
-    if (var >= 0) {
-        SendMessageW(hwndCombo, CB_SETCURSEL, var, 0);
-    }
-    
-    HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-    SendMessageW(hwndCombo, WM_SETFONT, (WPARAM)hFont, TRUE);
-    
-    internal::ObjectInfo info;
-    info.type = internal::ObjectType::Combox;
-    info.hwnd.reset(hwndCombo);
-    info.windowId = windowId;
-    info.x = posX;
-    info.y = posY;
-    info.width = objW;
-    info.height = objH;
-    info.pStateVar = &var;
-    info.enabled = true;
-    info.focusSkipMode = 1;
-    
-    int objectId = objMgr.registerObject(std::move(info));
-    
-    int nextY = posY + std::max(objH, objSpace);
-    surface->pos(posX, nextY);
-    
-    return objectId;
-}
-
-// ============================================================
-// listbox - リストボックス表示
-// ============================================================
-int listbox(int& var, OptInt expandY, std::string_view items, const std::source_location& location) {
-    auto& objMgr = internal::ObjectManager::getInstance();
-    
-    int windowId = g_currentScreenId;
-    auto surface = getCurrentSurface();
-    if (!surface) {
-        throw HspError(ERR_INVALID_HANDLE, "Invalid window ID", location);
-    }
-    
-    auto pHspWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
-    if (!pHspWindow) {
-        throw HspError(ERR_UNSUPPORTED, "Cannot create listbox on buffer", location);
-    }
-    
-    // Surface から objsize を取得
-    int objW = surface->getObjSizeX();
-    int objH = surface->getObjSizeY();
-    int objSpace = surface->getObjSpaceY();
-    int height = expandY.value_or(100);
-    
-    int posX = surface->getCurrentX();
-    int posY = surface->getCurrentY();
-    
-    HWND hwndParent = pHspWindow->getHwnd();
-    
-    HWND hwndList = CreateWindowExW(
-        WS_EX_CLIENTEDGE | WS_EX_NOPARENTNOTIFY,
-        L"LISTBOX",
-        L"",
-        WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_CLIPSIBLINGS | WS_VSCROLL | LBS_NOTIFY,
-        posX, posY, objW, height,
-        hwndParent,
-        (HMENU)(INT_PTR)(objMgr.getNextId()),
-        GetModuleHandle(nullptr),
-        nullptr
-    );
-    
-    if (!hwndList) {
-        throw HspError(ERR_SYSTEM_ERROR, "Failed to create listbox", location);
-    }
-    
-    // Z-orderを最前面に設定
-    SetWindowPos(hwndList, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-    
-    // アイテムを追加
-    std::string itemStr(items);
-    size_t pos = 0;
-    while (pos < itemStr.size()) {
-        size_t nextPos = itemStr.find('\n', pos);
-        if (nextPos == std::string::npos) {
-            nextPos = itemStr.size();
-        }
-        std::string item = itemStr.substr(pos, nextPos - pos);
-        std::wstring witem = internal::Utf8ToWide(item);
-        SendMessageW(hwndList, LB_ADDSTRING, 0, (LPARAM)witem.c_str());
-        pos = nextPos + 1;
-    }
-    
-    // 初期選択を設定
-    if (var >= 0) {
-        SendMessageW(hwndList, LB_SETCURSEL, var, 0);
-    }
-    
-    HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-    SendMessageW(hwndList, WM_SETFONT, (WPARAM)hFont, TRUE);
-    
-    internal::ObjectInfo info;
-    info.type = internal::ObjectType::Listbox;
-    info.hwnd.reset(hwndList);
-    info.windowId = windowId;
-    info.x = posX;
-    info.y = posY;
-    info.width = objW;
-    info.height = height;
-    info.pStateVar = &var;
-    info.enabled = true;
-    info.focusSkipMode = 1;
-    
-    int objectId = objMgr.registerObject(std::move(info));
-    
-    int nextY = posY + std::max(height, objSpace);
-    surface->pos(posX, nextY);
-    
-    return objectId;
-}
-
-// ============================================================
 // 安全なAPI: shared_ptr版の実装
 // これらのオーバーロードはライフタイムが自動管理されるため、
 // ローカル変数として使用しても安全です。
@@ -747,8 +495,8 @@ void objprm(int objectId, std::string_view value, const std::source_location& lo
         case internal::ObjectType::Mesbox:
             SetWindowTextW(pInfo->hwnd, wvalue.c_str());
             // 変数も更新
-            if (pInfo->pStrVar) {
-                *pInfo->pStrVar = std::string(value);
+            if (auto* strVar = pInfo->getStrVar()) {
+                *strVar = std::string(value);
             }
             // input/mesboxの場合はフォーカスを設定
             if (pInfo->type != internal::ObjectType::Button) {
@@ -797,11 +545,11 @@ void objprm(int objectId, int value, const std::source_location& location) {
     
     switch (pInfo->type) {
         case internal::ObjectType::Input:
-            if (pInfo->pIntVar) {
-                *pInfo->pIntVar = value;
+            if (auto* intVar = pInfo->getIntVar()) {
+                *intVar = value;
                 SetWindowTextW(pInfo->hwnd, std::to_wstring(value).c_str());
-            } else if (pInfo->pStrVar) {
-                *pInfo->pStrVar = std::to_string(value);
+            } else if (auto* strVar = pInfo->getStrVar()) {
+                *strVar = std::to_string(value);
                 SetWindowTextW(pInfo->hwnd, std::to_wstring(value).c_str());
             }
             SetFocus(pInfo->hwnd);
@@ -809,22 +557,22 @@ void objprm(int objectId, int value, const std::source_location& location) {
             
         case internal::ObjectType::Chkbox:
             SendMessageW(pInfo->hwnd, BM_SETCHECK, value ? BST_CHECKED : BST_UNCHECKED, 0);
-            if (pInfo->pStateVar) {
-                *pInfo->pStateVar = value ? 1 : 0;
+            if (auto* stateVar = pInfo->getStateVar()) {
+                *stateVar = value ? 1 : 0;
             }
             break;
             
         case internal::ObjectType::Combox:
             SendMessageW(pInfo->hwnd, CB_SETCURSEL, value, 0);
-            if (pInfo->pStateVar) {
-                *pInfo->pStateVar = value;
+            if (auto* stateVar = pInfo->getStateVar()) {
+                *stateVar = value;
             }
             break;
             
         case internal::ObjectType::Listbox:
             SendMessageW(pInfo->hwnd, LB_SETCURSEL, value, 0);
-            if (pInfo->pStateVar) {
-                *pInfo->pStateVar = value;
+            if (auto* stateVar = pInfo->getStateVar()) {
+                *stateVar = value;
             }
             break;
             

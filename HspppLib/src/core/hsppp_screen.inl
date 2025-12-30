@@ -1114,8 +1114,8 @@ namespace hsppp {
             case internal::ObjectType::Input:
             case internal::ObjectType::Mesbox:
                 SetWindowTextW(pInfo->hwnd, wvalue.c_str());
-                if (pInfo->pStrVar) {
-                    *pInfo->pStrVar = std::string(value);
+                if (auto* strVar = pInfo->getStrVar()) {
+                    *strVar = std::string(value);
                 }
                 break;
 
@@ -1155,33 +1155,33 @@ namespace hsppp {
 
         switch (pInfo->type) {
             case internal::ObjectType::Input:
-                if (pInfo->pIntVar) {
-                    *pInfo->pIntVar = value;
+                if (auto* intVar = pInfo->getIntVar()) {
+                    *intVar = value;
                     SetWindowTextW(pInfo->hwnd, std::to_wstring(value).c_str());
-                } else if (pInfo->pStrVar) {
-                    *pInfo->pStrVar = std::to_string(value);
+                } else if (auto* strVar = pInfo->getStrVar()) {
+                    *strVar = std::to_string(value);
                     SetWindowTextW(pInfo->hwnd, std::to_wstring(value).c_str());
                 }
                 break;
 
             case internal::ObjectType::Chkbox:
                 SendMessageW(pInfo->hwnd, BM_SETCHECK, value ? BST_CHECKED : BST_UNCHECKED, 0);
-                if (pInfo->pStateVar) {
-                    *pInfo->pStateVar = value ? 1 : 0;
+                if (auto* stateVar = pInfo->getStateVar()) {
+                    *stateVar = value ? 1 : 0;
                 }
                 break;
 
             case internal::ObjectType::Combox:
                 SendMessageW(pInfo->hwnd, CB_SETCURSEL, value, 0);
-                if (pInfo->pStateVar) {
-                    *pInfo->pStateVar = value;
+                if (auto* stateVar = pInfo->getStateVar()) {
+                    *stateVar = value;
                 }
                 break;
 
             case internal::ObjectType::Listbox:
                 SendMessageW(pInfo->hwnd, LB_SETCURSEL, value, 0);
-                if (pInfo->pStateVar) {
-                    *pInfo->pStateVar = value;
+                if (auto* stateVar = pInfo->getStateVar()) {
+                    *stateVar = value;
                 }
                 break;
 

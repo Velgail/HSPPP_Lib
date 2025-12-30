@@ -1220,17 +1220,17 @@ namespace compile_test {
         [[maybe_unused]] int mesboxId4 = mesbox(mesboxVar, 300, 200, 0);  // 読取専用
         [[maybe_unused]] int mesboxId5 = mesbox(mesboxVar, 300, 200, 5, 1000); // 横スクロール付き
 
-        // chkbox - チェックボックス表示
-        int checkState = 0;
+        // chkbox - チェックボックス表示（shared_ptr版）
+        auto checkState = std::make_shared<int>(0);
         [[maybe_unused]] int chkboxId = chkbox("Check me", checkState);
 
-        // combox - コンボボックス表示
-        int comboxState = 0;
+        // combox - コンボボックス表示（shared_ptr版）
+        auto comboxState = std::make_shared<int>(0);
         [[maybe_unused]] int comboxId1 = combox(comboxState, 100, "Item1\nItem2\nItem3");
         [[maybe_unused]] int comboxId2 = combox(comboxState, omit, "A\nB\nC");
 
-        // listbox - リストボックス表示
-        int listboxState = 0;
+        // listbox - リストボックス表示（shared_ptr版）
+        auto listboxState = std::make_shared<int>(0);
         [[maybe_unused]] int listboxId1 = listbox(listboxState, 100, "Entry1\nEntry2\nEntry3");
         [[maybe_unused]] int listboxId2 = listbox(listboxState, omit, "X\nY\nZ");
 

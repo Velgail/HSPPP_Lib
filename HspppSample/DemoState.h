@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <memory>
 import hsppp;
 import <string>;
 import <optional>;
@@ -149,9 +150,10 @@ extern int g_buttonClickCount;
 extern std::string g_inputText;
 extern int g_inputNumber;
 extern std::string g_mesboxText;
-extern int g_checkState;
-extern int g_comboxState;
-extern int g_listboxState;
+// 選択系GUIコントロール用の状態変数（shared_ptrでライフタイム安全）
+extern std::shared_ptr<int> g_checkState;
+extern std::shared_ptr<int> g_comboxState;
+extern std::shared_ptr<int> g_listboxState;
 
 // マルチメディアデモ用変数
 extern bool g_mediaLoaded;

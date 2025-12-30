@@ -130,9 +130,8 @@ enum class ObjectType {
 };
 
 /// @brief オブジェクト情報構造体
-/// @warning pStrVar, pIntVar, pStateVar は変数のアドレスを保持するため、
-///          元の変数がスコープを抜けるとダングリングポインタになります。
-///          安全に使用するには ownedStrVar/ownedIntVar/ownedStateVar を使用してください。
+/// @note すべての変数バインディングは shared_ptr で管理され、
+///       ライフタイム安全性が保証されます。
 struct ObjectInfo {
     ObjectType type;              // オブジェクトの種類
     UniqueHwnd hwnd;              // Win32コントロールのハンドル（RAII管理）
@@ -144,19 +143,12 @@ struct ObjectInfo {
     std::function<int()> callback;  // コールバック関数
     bool isGosub;                 // gosub/goto 切り替え
     
-    // input/mesbox用: 生ポインタ版（後方互換、ユーザー責任でライフタイム管理）
-    std::string* pStrVar;         // 文字列変数へのポインタ（グローバル/static変数のみ使用可）
-    int* pIntVar;                 // 整数変数へのポインタ（グローバル/static変数のみ使用可）
-    int maxLength;                // 最大文字数
-    
-    // input/mesbox用: 安全版（shared_ptrでライフタイム管理）
+    // input/mesbox用（shared_ptrでライフタイム管理）
     std::shared_ptr<std::string> ownedStrVar;
     std::shared_ptr<int> ownedIntVar;
+    int maxLength;                // 最大文字数
     
-    // chkbox/combox/listbox用: 生ポインタ版
-    int* pStateVar;               // 状態変数へのポインタ（グローバル/static変数のみ使用可）
-    
-    // chkbox/combox/listbox用: 安全版
+    // chkbox/combox/listbox用（shared_ptrでライフタイム管理）
     std::shared_ptr<int> ownedStateVar;
     
     // 有効/無効、フォーカススキップ
@@ -170,27 +162,24 @@ struct ObjectInfo {
         , x(0), y(0)
         , width(64), height(24)
         , isGosub(false)
-        , pStrVar(nullptr)
-        , pIntVar(nullptr)
         , maxLength(0)
-        , pStateVar(nullptr)
         , enabled(true)
         , focusSkipMode(1)
     {}
     
-    /// @brief 文字列変数へのポインタを取得（安全版優先）
+    /// @brief 文字列変数へのポインタを取得
     std::string* getStrVar() const {
-        return ownedStrVar ? ownedStrVar.get() : pStrVar;
+        return ownedStrVar ? ownedStrVar.get() : nullptr;
     }
     
-    /// @brief 整数変数へのポインタを取得（安全版優先）
+    /// @brief 整数変数へのポインタを取得
     int* getIntVar() const {
-        return ownedIntVar ? ownedIntVar.get() : pIntVar;
+        return ownedIntVar ? ownedIntVar.get() : nullptr;
     }
     
-    /// @brief 状態変数へのポインタを取得（安全版優先）
+    /// @brief 状態変数へのポインタを取得
     int* getStateVar() const {
-        return ownedStateVar ? ownedStateVar.get() : pStateVar;
+        return ownedStateVar ? ownedStateVar.get() : nullptr;
     }
 };
 

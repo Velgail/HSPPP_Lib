@@ -4,6 +4,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 #include "DemoState.h"
+#include <memory>
 import hsppp;
 using namespace hsppp;
 
@@ -16,9 +17,11 @@ int g_buttonClickCount = 0;
 std::string g_inputText = "Hello HSPPP!";
 int g_inputNumber = 42;
 std::string g_mesboxText = "Line 1\nLine 2\nLine 3\nEdit me!";
-int g_checkState = 0;
-int g_comboxState = 0;
-int g_listboxState = 0;
+
+// 選択系GUIコントロール用の状態変数（shared_ptrでライフタイム安全）
+auto g_checkState = std::make_shared<int>(0);
+auto g_comboxState = std::make_shared<int>(0);
+auto g_listboxState = std::make_shared<int>(0);
 
 // GUIオブジェクトID
 static int g_btnId1 = -1;
@@ -173,13 +176,13 @@ static void updateChoiceBoxDemo(Screen& win) {
     
     win.pos(250, 80);
     win.color(0, 100, 0);
-    win.mes("Check: " + std::string(g_checkState ? "ON" : "OFF"));
+    win.mes("Check: " + std::string(*g_checkState ? "ON" : "OFF"));
     
     win.pos(250, 130);
-    win.mes("Combo: " + std::to_string(g_comboxState));
+    win.mes("Combo: " + std::to_string(*g_comboxState));
     
     win.pos(250, 200);
-    win.mes("List: " + std::to_string(g_listboxState));
+    win.mes("List: " + std::to_string(*g_listboxState));
     
     win.redraw(1);
 }

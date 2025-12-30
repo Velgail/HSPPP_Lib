@@ -2514,69 +2514,86 @@ namespace hsppp {
     export int mesbox(std::string& var, OptInt sizeX = {}, OptInt sizeY = {}, OptInt style = {}, OptInt maxLen = {},
                      const std::source_location& location = std::source_location::current());
 
+    // ============================================================
+    // 選択系GUIコントロール: shared_ptr版のみ提供
+    // ============================================================
+    // 
+    // 【設計上の注意】chkbox/combox/listbox には int& 版がありません。
+    // 
+    // HSPでは変数はすべてグローバルスコープなので、GUIオブジェクトが
+    // 変数を参照し続けても問題ありませんでした。しかしC++では、
+    // ローカル変数を参照で渡すと、関数を抜けた後にGUIがその変数を
+    // 参照し続け、ダングリングポインタ（未定義動作）となります。
+    //
+    // 安全のため、これらの関数は std::shared_ptr<int> 版のみ提供します。
+    // 
+    // 使用例:
+    //   auto checkState = std::make_shared<int>(0);
+    //   chkbox("Enable", checkState);
+    //
+    //   auto comboIndex = std::make_shared<int>(0);
+    //   combox(comboIndex, 100, "Option A\nOption B\nOption C");
+    // ============================================================
+
     /// @brief チェックボックス表示
     /// @param label チェックボックスの内容表示文字列
-    /// @param var チェックボックスの状態を保持する変数（0=OFF, 1=ON）
+    /// @param var チェックボックスの状態を保持する変数（shared_ptr: 0=OFF, 1=ON）
     /// @return オブジェクトID (stat相当)
-    export int chkbox(std::string_view label, int& var,
+    /// @note int& 版は提供していません（ライフタイム安全性のため）。
+    ///       std::make_shared<int>(初期値) で変数を作成してください。
+    export int chkbox(std::string_view label, std::shared_ptr<int> var,
                      const std::source_location& location = std::source_location::current());
 
     /// @brief コンボボックス表示
-    /// @param var コンボボックスの状態を保持する変数（選択インデックス）
+    /// @param var コンボボックスの状態を保持する変数（shared_ptr: 選択インデックス）
     /// @param expandY 拡張Yサイズ（リスト表示用、100〜150程度推奨）
     /// @param items コンボボックスの内容（\n区切りの文字列）
     /// @return オブジェクトID (stat相当)
-    export int combox(int& var, OptInt expandY, std::string_view items,
+    /// @note int& 版は提供していません（ライフタイム安全性のため）。
+    ///       std::make_shared<int>(初期値) で変数を作成してください。
+    export int combox(std::shared_ptr<int> var, OptInt expandY, std::string_view items,
                      const std::source_location& location = std::source_location::current());
 
     /// @brief リストボックス表示
-    /// @param var リストボックスの状態を保持する変数（選択インデックス）
+    /// @param var リストボックスの状態を保持する変数（shared_ptr: 選択インデックス）
     /// @param expandY 拡張Yサイズ
     /// @param items リストボックスの内容（\n区切りの文字列）
     /// @return オブジェクトID (stat相当)
-    export int listbox(int& var, OptInt expandY, std::string_view items,
+    /// @note int& 版は提供していません（ライフタイム安全性のため）。
+    ///       std::make_shared<int>(初期値) で変数を作成してください。
+    export int listbox(std::shared_ptr<int> var, OptInt expandY, std::string_view items,
                       const std::source_location& location = std::source_location::current());
 
     // ============================================================
-    // 安全なAPI: shared_ptr版（ライフタイムが自動管理される）
+    // input/mesbox: 参照版と shared_ptr版の両方を提供
+    // ============================================================
+    //
+    // input/mesbox は「作成時に値をコピー」する設計のため、
+    // 参照版でも比較的安全に使用できます（ただし同期は取れません）。
+    // 完全な双方向バインディングが必要な場合は shared_ptr 版を使用してください。
     // ============================================================
 
-    /// @brief 入力ボックス表示（安全版：shared_ptrで変数のライフタイムを管理）
+    /// @brief 入力ボックス表示（shared_ptr版：変数と双方向同期）
     /// @param var 入力のための文字列変数（shared_ptr）
     /// @return オブジェクトID (stat相当)
     export int input(std::shared_ptr<std::string> var, OptInt sizeX = {}, OptInt sizeY = {}, OptInt maxLen = {},
                     const std::source_location& location = std::source_location::current());
 
-    /// @brief 入力ボックス表示（安全版：shared_ptrで変数のライフタイムを管理）
+    /// @brief 入力ボックス表示（shared_ptr版：変数と双方向同期）
     /// @param var 入力のための整数変数（shared_ptr）
     /// @return オブジェクトID (stat相当)
     export int input(std::shared_ptr<int> var, OptInt sizeX = {}, OptInt sizeY = {}, OptInt maxLen = {},
                     const std::source_location& location = std::source_location::current());
 
-    /// @brief メッセージボックス表示（安全版：shared_ptrで変数のライフタイムを管理）
+    /// @brief メッセージボックス表示（shared_ptr版：変数と双方向同期）
     /// @param var 表示メッセージが代入された文字列型変数（shared_ptr）
     /// @return オブジェクトID (stat相当)
     export int mesbox(std::shared_ptr<std::string> var, OptInt sizeX = {}, OptInt sizeY = {}, OptInt style = {}, OptInt maxLen = {},
                      const std::source_location& location = std::source_location::current());
 
-    /// @brief チェックボックス表示（安全版：shared_ptrで変数のライフタイムを管理）
-    /// @param label チェックボックスの内容表示文字列
-    /// @param var チェックボックスの状態を保持する変数（shared_ptr）
-    /// @return オブジェクトID (stat相当)
-    export int chkbox(std::string_view label, std::shared_ptr<int> var,
-                     const std::source_location& location = std::source_location::current());
-
-    /// @brief コンボボックス表示（安全版：shared_ptrで変数のライフタイムを管理）
-    /// @param var コンボボックスの状態を保持する変数（shared_ptr）
-    /// @return オブジェクトID (stat相当)
-    export int combox(std::shared_ptr<int> var, OptInt expandY, std::string_view items,
-                     const std::source_location& location = std::source_location::current());
-
-    /// @brief リストボックス表示（安全版：shared_ptrで変数のライフタイムを管理）
-    /// @param var リストボックスの状態を保持する変数（shared_ptr）
-    /// @return オブジェクトID (stat相当)
-    export int listbox(std::shared_ptr<int> var, OptInt expandY, std::string_view items,
-                      const std::source_location& location = std::source_location::current());
+    // ============================================================
+    // オブジェクト操作
+    // ============================================================
 
     /// @brief オブジェクトをクリア
     /// @param startId 消去するオブジェクトID(開始)（省略時は0）

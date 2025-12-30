@@ -146,6 +146,81 @@ namespace hsppp {
     export inline constexpr int screen_usergcopy = 64;   // 描画用シェーダー (HGIMG4)
     export inline constexpr int screen_fullscreen = 256; // フルスクリーン (bgscr用)
 
+    // --- stick キーコードビットマスク (HSP Compatible) ---
+    export inline constexpr int stick_left    = 1;       // カーソルキー左(←)
+    export inline constexpr int stick_up      = 2;       // カーソルキー上(↑)
+    export inline constexpr int stick_right   = 4;       // カーソルキー右(→)
+    export inline constexpr int stick_down    = 8;       // カーソルキー下(↓)
+    export inline constexpr int stick_space   = 16;      // スペースキー
+    export inline constexpr int stick_enter   = 32;      // Enterキー
+    export inline constexpr int stick_ctrl    = 64;      // Ctrlキー
+    export inline constexpr int stick_esc     = 128;     // ESCキー
+    export inline constexpr int stick_lbutton = 256;     // マウス左ボタン
+    export inline constexpr int stick_rbutton = 512;     // マウス右ボタン
+    export inline constexpr int stick_tab     = 1024;    // TABキー
+    export inline constexpr int stick_z       = 2048;    // [Z]キー
+    export inline constexpr int stick_x       = 4096;    // [X]キー
+    export inline constexpr int stick_c       = 8192;    // [C]キー
+    export inline constexpr int stick_a       = 16384;   // [A]キー
+    export inline constexpr int stick_w       = 32768;   // [W]キー
+    export inline constexpr int stick_d       = 65536;   // [D]キー
+    export inline constexpr int stick_s       = 131072;  // [S]キー
+
+    // --- gmode コピーモード定数 (HSP Compatible) ---
+    export inline constexpr int gmode_copy       = 0;    // 通常コピー
+    export inline constexpr int gmode_mem        = 1;    // メモリ間コピー（高速）
+    export inline constexpr int gmode_and        = 2;    // 透明色付きコピー
+    export inline constexpr int gmode_or         = 3;    // 半透明合成コピー
+    export inline constexpr int gmode_alpha      = 4;    // 半透明合成コピー
+    export inline constexpr int gmode_add        = 5;    // 加算合成コピー
+    export inline constexpr int gmode_sub        = 6;    // 減算合成コピー
+
+    // --- ginfo type定数 (HSP Compatible) ---
+    // 注意: HSPでは ginfo_* は「値を返すマクロ/システム変数」の見た目を持つため、
+    // ここでは「ginfo(int type)のセレクタ」であることが明確な *_type_* 命名にする。
+    export inline constexpr int ginfo_type_mx        = 0;     // スクリーン上のマウスカーソルX座標
+    export inline constexpr int ginfo_type_my        = 1;     // スクリーン上のマウスカーソルY座標
+    export inline constexpr int ginfo_type_act       = 2;     // アクティブなウィンドウID
+    export inline constexpr int ginfo_type_sel       = 3;     // 操作先ウィンドウID
+    export inline constexpr int ginfo_type_wx1       = 4;     // ウィンドウの左上X座標
+    export inline constexpr int ginfo_type_wy1       = 5;     // ウィンドウの左上Y座標
+    export inline constexpr int ginfo_type_wx2       = 6;     // ウィンドウの右下X座標
+    export inline constexpr int ginfo_type_wy2       = 7;     // ウィンドウの右下Y座標
+    export inline constexpr int ginfo_type_vx        = 8;     // 画面の可視範囲の左上X（groll基点）
+    export inline constexpr int ginfo_type_vy        = 9;     // 画面の可視範囲の左上Y（groll基点）
+    export inline constexpr int ginfo_type_sizex     = 10;    // ウィンドウ全体のXサイズ
+    export inline constexpr int ginfo_type_sizey     = 11;    // ウィンドウ全体のYサイズ
+    export inline constexpr int ginfo_type_mesx      = 12;    // クライアント領域のXサイズ
+    export inline constexpr int ginfo_type_mesy      = 13;    // クライアント領域のYサイズ
+    export inline constexpr int ginfo_type_messizex  = 14;    // 最後のmes出力のXサイズ
+    export inline constexpr int ginfo_type_messizey  = 15;    // 最後のmes出力のYサイズ
+    export inline constexpr int ginfo_type_r         = 16;    // カレントカラーのR成分
+    export inline constexpr int ginfo_type_g         = 17;    // カレントカラーのG成分
+    export inline constexpr int ginfo_type_b         = 18;    // カレントカラーのB成分
+    // 互換: 以前の命名（typeの意味は同じ）
+    export inline constexpr int ginfo_type_colr      = ginfo_type_r;
+    export inline constexpr int ginfo_type_colg      = ginfo_type_g;
+    export inline constexpr int ginfo_type_colb      = ginfo_type_b;
+    export inline constexpr int ginfo_type_paluse    = 19;    // パレットモードフラグ
+    export inline constexpr int ginfo_type_dispx     = 20;    // デスクトップのXサイズ
+    export inline constexpr int ginfo_type_dispy     = 21;    // デスクトップのYサイズ
+    export inline constexpr int ginfo_type_cx        = 22;    // カレントポジションX
+    export inline constexpr int ginfo_type_cy        = 23;    // カレントポジションY
+    export inline constexpr int ginfo_type_intid     = 24;    // メッセージ割り込み時のウィンドウID
+    export inline constexpr int ginfo_type_newid     = 25;    // 未使用ウィンドウID
+    export inline constexpr int ginfo_type_sx        = 26;    // 画面の初期化Xサイズ
+    export inline constexpr int ginfo_type_sy        = 27;    // 画面の初期化Yサイズ
+
+    // --- dirinfo type定数 (HSP Compatible) ---
+    // 注意: HSPでは dir_* は値を返すマクロ/システム変数の見た目を持つため、
+    // ここでは「dirinfo(int type)のセレクタ」であることが明確な dir_type_* 命名にする。
+    export inline constexpr int dir_type_cur     = 0;     // カレントディレクトリ
+    export inline constexpr int dir_type_exe     = 1;     // 実行ファイルディレクトリ
+    export inline constexpr int dir_type_win     = 2;     // Windowsディレクトリ
+    export inline constexpr int dir_type_sys     = 3;     // Windowsシステムディレクトリ
+    export inline constexpr int dir_type_cmdline = 4;     // コマンドライン文字列
+    export inline constexpr int dir_type_tv      = 5;     // HSPTVディレクトリ（常に空）
+
 
     // ============================================================
     // ScreenParams 構造体（Designated Initializers用）
@@ -1045,6 +1120,8 @@ namespace hsppp {
                    const std::source_location& location = std::source_location::current());
     export void mes(std::string_view text, OptInt sw = {},
                    const std::source_location& location = std::source_location::current());
+    export std::pair<int, int> messize(std::string_view text,
+                   const std::source_location& location = std::source_location::current());
     export void boxf(int x1, int y1, int x2, int y2,
                     const std::source_location& location = std::source_location::current());
     // 引数なし版 boxf() -> 画面全体
@@ -1189,6 +1266,33 @@ namespace hsppp {
     ///   19: カラーモード, 20-21: デスクトップサイズ, 22-23: カレントポジション,
     ///   24: 割り込みウィンドウID, 25: 未使用ウィンドウID, 26-27: 初期化サイズ
     export int ginfo(int type, const std::source_location& location = std::source_location::current());
+
+    // ginfo_* マクロ/システム変数互換（C++では関数として提供）
+    export int ginfo_mx(const std::source_location& location = std::source_location::current());
+    export int ginfo_my(const std::source_location& location = std::source_location::current());
+    export int ginfo_act(const std::source_location& location = std::source_location::current());
+    export int ginfo_sel(const std::source_location& location = std::source_location::current());
+    export int ginfo_wx1(const std::source_location& location = std::source_location::current());
+    export int ginfo_wy1(const std::source_location& location = std::source_location::current());
+    export int ginfo_wx2(const std::source_location& location = std::source_location::current());
+    export int ginfo_wy2(const std::source_location& location = std::source_location::current());
+    export int ginfo_vx(const std::source_location& location = std::source_location::current());
+    export int ginfo_vy(const std::source_location& location = std::source_location::current());
+    export int ginfo_sizex(const std::source_location& location = std::source_location::current());
+    export int ginfo_sizey(const std::source_location& location = std::source_location::current());
+    export int ginfo_mesx(const std::source_location& location = std::source_location::current());
+    export int ginfo_mesy(const std::source_location& location = std::source_location::current());
+    export int ginfo_messizex(const std::source_location& location = std::source_location::current());
+    export int ginfo_messizey(const std::source_location& location = std::source_location::current());
+    export int ginfo_paluse(const std::source_location& location = std::source_location::current());
+    export int ginfo_dispx(const std::source_location& location = std::source_location::current());
+    export int ginfo_dispy(const std::source_location& location = std::source_location::current());
+    export int ginfo_cx(const std::source_location& location = std::source_location::current());
+    export int ginfo_cy(const std::source_location& location = std::source_location::current());
+    export int ginfo_intid(const std::source_location& location = std::source_location::current());
+    export int ginfo_newid(const std::source_location& location = std::source_location::current());
+    export int ginfo_sx(const std::source_location& location = std::source_location::current());
+    export int ginfo_sy(const std::source_location& location = std::source_location::current());
 
     /// @brief 現在設定されている色コード(R)を取得
     export int ginfo_r(const std::source_location& location = std::source_location::current());

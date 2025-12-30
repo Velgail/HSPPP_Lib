@@ -342,6 +342,10 @@ protected:
     int m_objSizeY;         // オブジェクト高さ
     int m_objSpaceY;        // オブジェクト間隔
 
+    // 最後のmes出力サイズ（ginfo 14/15 用）
+    int m_lastMesSizeX;     // 最後のmes出力のXサイズ
+    int m_lastMesSizeY;     // 最後のmes出力のYサイズ
+
 public:
     HspSurface(int width, int height);
     virtual ~HspSurface() = default;
@@ -424,6 +428,13 @@ public:
     int getObjSizeX() const { return m_objSizeX; }
     int getObjSizeY() const { return m_objSizeY; }
     int getObjSpaceY() const { return m_objSpaceY; }
+
+    // 最後のmes出力サイズ（ginfo 14/15 用）
+    int getLastMesSizeX() const { return m_lastMesSizeX; }
+    int getLastMesSizeY() const { return m_lastMesSizeY; }
+
+    // テキストサイズ計算（messize関数用）描画せずにテキストの全体サイズを取得
+    bool measureText(std::string_view text, int& width, int& height) const;
 
     // ゲッター
     int getWidth() const { return m_width; }

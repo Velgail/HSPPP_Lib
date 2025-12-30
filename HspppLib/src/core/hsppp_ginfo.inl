@@ -140,10 +140,10 @@ namespace hsppp {
             }
             return currentSurface ? currentSurface->getHeight() : 0;
         }
-        case 14:  // メッセージの出力Xサイズ（未実装）
-            return 0;
-        case 15:  // メッセージの出力Yサイズ（未実装）
-            return 0;
+        case 14:  // 最後のmes出力Xサイズ
+            return currentSurface ? currentSurface->getLastMesSizeX() : 0;
+        case 15:  // 最後のmes出力Yサイズ
+            return currentSurface ? currentSurface->getLastMesSizeY() : 0;
         case 16:  // 現在設定されているカラーコード(R)
         {
             if (currentSurface) {
@@ -197,17 +197,57 @@ namespace hsppp {
         }
     }
 
+    // ginfo_* マクロ/システム変数互換（C++では関数として提供）
+    int ginfo_mx(const std::source_location& location) { return ginfo(ginfo_type_mx, location); }
+    int ginfo_my(const std::source_location& location) { return ginfo(ginfo_type_my, location); }
+    int ginfo_act(const std::source_location& location) { return ginfo(ginfo_type_act, location); }
+    int ginfo_sel(const std::source_location& location) { return ginfo(ginfo_type_sel, location); }
+    int ginfo_wx1(const std::source_location& location) { return ginfo(ginfo_type_wx1, location); }
+    int ginfo_wy1(const std::source_location& location) { return ginfo(ginfo_type_wy1, location); }
+    int ginfo_wx2(const std::source_location& location) { return ginfo(ginfo_type_wx2, location); }
+    int ginfo_wy2(const std::source_location& location) { return ginfo(ginfo_type_wy2, location); }
+    int ginfo_vx(const std::source_location& location) { return ginfo(ginfo_type_vx, location); }
+    int ginfo_vy(const std::source_location& location) { return ginfo(ginfo_type_vy, location); }
+    int ginfo_sizex(const std::source_location& location) { return ginfo(ginfo_type_sizex, location); }
+    int ginfo_sizey(const std::source_location& location) { return ginfo(ginfo_type_sizey, location); }
+    int ginfo_mesx(const std::source_location& location) { return ginfo(ginfo_type_mesx, location); }
+    int ginfo_mesy(const std::source_location& location) { return ginfo(ginfo_type_mesy, location); }
+    int ginfo_messizex(const std::source_location& location) { return ginfo(ginfo_type_messizex, location); }
+    int ginfo_messizey(const std::source_location& location) { return ginfo(ginfo_type_messizey, location); }
+    int ginfo_paluse(const std::source_location& location) { return ginfo(ginfo_type_paluse, location); }
+    int ginfo_dispx(const std::source_location& location) { return ginfo(ginfo_type_dispx, location); }
+    int ginfo_dispy(const std::source_location& location) { return ginfo(ginfo_type_dispy, location); }
+    int ginfo_cx(const std::source_location& location) { return ginfo(ginfo_type_cx, location); }
+    int ginfo_cy(const std::source_location& location) { return ginfo(ginfo_type_cy, location); }
+    int ginfo_intid(const std::source_location& location) { return ginfo(ginfo_type_intid, location); }
+    int ginfo_newid(const std::source_location& location) { return ginfo(ginfo_type_newid, location); }
+    int ginfo_sx(const std::source_location& location) { return ginfo(ginfo_type_sx, location); }
+    int ginfo_sy(const std::source_location& location) { return ginfo(ginfo_type_sy, location); }
+
     // ginfo_r, ginfo_g, ginfo_b マクロの代わりとなる関数
     int ginfo_r(const std::source_location& location) {
-        return ginfo(16);
+        return ginfo(ginfo_type_r, location);
     }
 
     int ginfo_g(const std::source_location& location) {
-        return ginfo(17);
+        return ginfo(ginfo_type_g, location);
     }
 
     int ginfo_b(const std::source_location& location) {
-        return ginfo(18);
+        return ginfo(ginfo_type_b, location);
+    }
+
+    // ============================================================
+    // messize - テキストサイズ取得（描画せずにサイズのみ計算）
+    // ============================================================
+    std::pair<int, int> messize(std::string_view text, const std::source_location& location) {
+        auto currentSurface = getCurrentSurface();
+        if (!currentSurface) {
+            return { 0, 0 };
+        }
+        int w = 0, h = 0;
+        currentSurface->measureText(text, w, h);
+        return { w, h };
     }
 
     // ============================================================

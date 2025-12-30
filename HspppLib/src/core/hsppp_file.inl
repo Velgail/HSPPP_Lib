@@ -96,7 +96,7 @@ namespace hsppp {
         if (!SetCurrentDirectoryW(dirnameW.c_str())) {
             DWORD err = GetLastError();
             std::string msg = "ディレクトリの変更に失敗しました (Windows error: " + std::to_string(err) + ")";
-            throw HspError(12, msg, location);
+            throw HspError(ERR_FILE_IO, msg, location);
         }
     }
 
@@ -109,7 +109,7 @@ namespace hsppp {
         if (!CreateDirectoryW(dirnameW.c_str(), nullptr)) {
             DWORD err = GetLastError();
             if (err != ERROR_ALREADY_EXISTS) {
-                throw HspError(12, "ファイルが見つからないか無効な名前です", location);
+                throw HspError(ERR_FILE_IO, "ファイルが見つからないか無効な名前です", location);
             }
         }
     }
@@ -124,7 +124,7 @@ namespace hsppp {
         if (!DeleteFileW(filenameW.c_str())) {
             DWORD err = GetLastError();
             std::string msg = "ファイルの削除に失敗しました (Windows error: " + std::to_string(err) + ")";
-            throw HspError(12, msg, location);
+            throw HspError(ERR_FILE_IO, msg, location);
         }
     }
 
@@ -139,7 +139,7 @@ namespace hsppp {
         if (!CopyFileW(srcW.c_str(), destW.c_str(), FALSE)) {
             DWORD err = GetLastError();
             std::string msg = "ファイルのコピーに失敗しました (Windows error: " + std::to_string(err) + ")";
-            throw HspError(12, msg, location);
+            throw HspError(ERR_FILE_IO, msg, location);
         }
     }
 
@@ -259,7 +259,7 @@ namespace hsppp {
             if (hFile == INVALID_HANDLE_VALUE) {
                 DWORD err = GetLastError();
                 std::string msg = "ファイルを開けません (Windows error: " + std::to_string(err) + ")";
-                throw HspError(12, msg, location);
+                throw HspError(ERR_FILE_IO, msg, location);
             }
 
             // ファイルサイズを取得
@@ -268,7 +268,7 @@ namespace hsppp {
                 DWORD err = GetLastError();
                 CloseHandle(hFile);
                 std::string msg = "ファイルサイズの取得に失敗しました (Windows error: " + std::to_string(err) + ")";
-                throw HspError(12, msg, location);
+                throw HspError(ERR_FILE_IO, msg, location);
             }
 
             int64_t fileOffset = offset.value_or(0);
@@ -282,7 +282,7 @@ namespace hsppp {
                     DWORD err = GetLastError();
                     CloseHandle(hFile);
                     std::string msg = "ファイルオフセットの設定に失敗しました (Windows error: " + std::to_string(err) + ")";
-                    throw HspError(12, msg, location);
+                    throw HspError(ERR_FILE_IO, msg, location);
                 }
             }
 
@@ -300,7 +300,7 @@ namespace hsppp {
                     // 自動確保の上限チェック
                     if (readSize > kMaxAutoAllocSize) {
                         CloseHandle(hFile);
-                        throw HspError(12, "ファイルが大きすぎます (自動確保上限: 2GB)", location);
+                        throw HspError(ERR_FILE_IO, "ファイルが大きすぎます (自動確保上限: 2GB)", location);
                     }
                     buffer.resize(static_cast<size_t>(readSize));
                 } else {
@@ -331,7 +331,7 @@ namespace hsppp {
                     DWORD err = GetLastError();
                     CloseHandle(hFile);
                     std::string msg = "ファイルの読み込みに失敗しました (Windows error: " + std::to_string(err) + ")";
-                    throw HspError(12, msg, location);
+                    throw HspError(ERR_FILE_IO, msg, location);
                 }
 
                 if (bytesRead == 0) {
@@ -383,7 +383,7 @@ namespace hsppp {
             if (hFile == INVALID_HANDLE_VALUE) {
                 DWORD err = GetLastError();
                 std::string msg = "ファイルを開けません (Windows error: " + std::to_string(err) + ")";
-                throw HspError(12, msg, location);
+                throw HspError(ERR_FILE_IO, msg, location);
             }
 
             // オフセット位置に移動
@@ -394,7 +394,7 @@ namespace hsppp {
                     DWORD err = GetLastError();
                     CloseHandle(hFile);
                     std::string msg = "ファイルオフセットの設定に失敗しました (Windows error: " + std::to_string(err) + ")";
-                    throw HspError(12, msg, location);
+                    throw HspError(ERR_FILE_IO, msg, location);
                 }
             }
 
@@ -422,7 +422,7 @@ namespace hsppp {
                     DWORD err = GetLastError();
                     CloseHandle(hFile);
                     std::string msg = "ファイルの書き込みに失敗しました (Windows error: " + std::to_string(err) + ")";
-                    throw HspError(12, msg, location);
+                    throw HspError(ERR_FILE_IO, msg, location);
                 }
 
                 totalWritten += static_cast<int64_t>(bytesWritten);

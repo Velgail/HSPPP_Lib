@@ -238,6 +238,8 @@ HspSurface::HspSurface(int width, int height)
     , m_objSizeX(64)        // デフォルトオブジェクトサイズ
     , m_objSizeY(24)
     , m_objSpaceY(0)        // デフォルト間隔
+    , m_lastMesSizeX(0)     // 最後のmes出力サイズ
+    , m_lastMesSizeY(0)
 {
 }
 
@@ -479,6 +481,50 @@ void HspSurface::mes(std::string_view text, int options) {
             DWRITE_TEXT_METRICS metrics;
             pTextLayout->GetMetrics(&metrics);
 
+            // 最後のmes出力サイズを記録（ginfo 14/15 用）
+            // HSP仕様: 複数行ある文字列を出力した場合は、最後の行にあたるサイズを取得
+            if (metrics.lineCount <= 1) {
+                // 単一行の場合は全体のサイズ
+                m_lastMesSizeX = static_cast<int>(metrics.width);
+                m_lastMesSizeY = static_cast<int>(metrics.height);
+            }
+            else {
+                // 複数行の場合は最後の行のサイズを取得
+                // 改行位置を探して最後の行のテキストを抽出
+                size_t lastNewline = wideText.rfind(L'\n');
+                std::wstring lastLine = (lastNewline != std::wstring::npos) 
+                    ? wideText.substr(lastNewline + 1) 
+                    : wideText;
+                
+                if (lastLine.empty()) {
+                    // 最後の行が空の場合（末尾が改行）
+                    m_lastMesSizeX = 0;
+                    m_lastMesSizeY = static_cast<int>(metrics.height / metrics.lineCount);
+                }
+                else {
+                    // 最後の行だけのTextLayoutを作成して計測
+                    ComPtr<IDWriteTextLayout> pLastLineLayout;
+                    HRESULT hrLast = pDWriteFactory->CreateTextLayout(
+                        lastLine.c_str(),
+                        static_cast<UINT32>(lastLine.length()),
+                        m_pTextFormat.Get(),
+                        static_cast<FLOAT>(m_width),
+                        static_cast<FLOAT>(m_height),
+                        pLastLineLayout.GetAddressOf()
+                    );
+                    if (SUCCEEDED(hrLast) && pLastLineLayout) {
+                        DWRITE_TEXT_METRICS lastLineMetrics;
+                        pLastLineLayout->GetMetrics(&lastLineMetrics);
+                        m_lastMesSizeX = static_cast<int>(lastLineMetrics.width);
+                        m_lastMesSizeY = static_cast<int>(lastLineMetrics.height);
+                    }
+                    else {
+                        m_lastMesSizeX = static_cast<int>(metrics.width);
+                        m_lastMesSizeY = static_cast<int>(metrics.height / metrics.lineCount);
+                    }
+                }
+            }
+
             // 影を描画（オプション指定時）
             if (shadow) {
                 D2D1_RECT_F shadowRect = D2D1::RectF(
@@ -549,6 +595,45 @@ void HspSurface::mes(std::string_view text, int options) {
     if (autoManage) {
         endDrawAndPresent();
     }
+}
+
+bool HspSurface::measureText(std::string_view text, int& width, int& height) const {
+    if (!m_pTextFormat) {
+        width = 0;
+        height = 0;
+        return false;
+    }
+
+    std::wstring wideText = Utf8ToWide(text);
+
+    IDWriteFactory* pDWriteFactory = D2DDeviceManager::getInstance().getDWriteFactory();
+    if (!pDWriteFactory) {
+        width = 0;
+        height = 0;
+        return false;
+    }
+
+    ComPtr<IDWriteTextLayout> pTextLayout;
+    HRESULT hr = pDWriteFactory->CreateTextLayout(
+        wideText.c_str(),
+        static_cast<UINT32>(wideText.length()),
+        m_pTextFormat.Get(),
+        static_cast<FLOAT>(m_width),
+        static_cast<FLOAT>(m_height),
+        pTextLayout.GetAddressOf()
+    );
+
+    if (FAILED(hr) || !pTextLayout) {
+        width = 0;
+        height = 0;
+        return false;
+    }
+
+    DWRITE_TEXT_METRICS metrics;
+    pTextLayout->GetMetrics(&metrics);
+    width = static_cast<int>(metrics.width);
+    height = static_cast<int>(metrics.height);
+    return true;
 }
 
 void HspSurface::color(int r, int g, int b) {

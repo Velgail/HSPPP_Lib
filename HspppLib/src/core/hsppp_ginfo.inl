@@ -140,10 +140,10 @@ namespace hsppp {
             }
             return currentSurface ? currentSurface->getHeight() : 0;
         }
-        case 14:  // メッセージの出力Xサイズ（未実装）
-            return 0;
-        case 15:  // メッセージの出力Yサイズ（未実装）
-            return 0;
+        case 14:  // 最後のmes出力Xサイズ
+            return currentSurface ? currentSurface->getLastMesSizeX() : 0;
+        case 15:  // 最後のmes出力Yサイズ
+            return currentSurface ? currentSurface->getLastMesSizeY() : 0;
         case 16:  // 現在設定されているカラーコード(R)
         {
             if (currentSurface) {
@@ -212,8 +212,8 @@ namespace hsppp {
     int ginfo_sizey(const std::source_location& location) { return ginfo(ginfo_type_sizey, location); }
     int ginfo_mesx(const std::source_location& location) { return ginfo(ginfo_type_mesx, location); }
     int ginfo_mesy(const std::source_location& location) { return ginfo(ginfo_type_mesy, location); }
-    int ginfo_messizex(const std::source_location& location) { return ginfo(14, location); }
-    int ginfo_messizey(const std::source_location& location) { return ginfo(15, location); }
+    int ginfo_messizex(const std::source_location& location) { return ginfo(ginfo_type_messizex, location); }
+    int ginfo_messizey(const std::source_location& location) { return ginfo(ginfo_type_messizey, location); }
     int ginfo_paluse(const std::source_location& location) { return ginfo(ginfo_type_paluse, location); }
     int ginfo_dispx(const std::source_location& location) { return ginfo(ginfo_type_dispx, location); }
     int ginfo_dispy(const std::source_location& location) { return ginfo(ginfo_type_dispy, location); }
@@ -235,6 +235,19 @@ namespace hsppp {
 
     int ginfo_b(const std::source_location& location) {
         return ginfo(ginfo_type_b, location);
+    }
+
+    // ============================================================
+    // messize - テキストサイズ取得（描画せずにサイズのみ計算）
+    // ============================================================
+    std::pair<int, int> messize(std::string_view text, const std::source_location& location) {
+        auto currentSurface = getCurrentSurface();
+        if (!currentSurface) {
+            return { 0, 0 };
+        }
+        int w = 0, h = 0;
+        currentSurface->measureText(text, w, h);
+        return { w, h };
     }
 
     // ============================================================

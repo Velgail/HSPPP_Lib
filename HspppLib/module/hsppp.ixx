@@ -186,12 +186,14 @@ namespace hsppp {
     export inline constexpr int ginfo_type_wy1       = 5;     // ウィンドウの左上Y座標
     export inline constexpr int ginfo_type_wx2       = 6;     // ウィンドウの右下X座標
     export inline constexpr int ginfo_type_wy2       = 7;     // ウィンドウの右下Y座標
-    export inline constexpr int ginfo_type_vx        = 8;     // 画面の可視範囲の左上X
-    export inline constexpr int ginfo_type_vy        = 9;     // 画面の可視範囲の左上Y
-    export inline constexpr int ginfo_type_sizex     = 10;    // 画面の可視範囲のXサイズ
-    export inline constexpr int ginfo_type_sizey     = 11;    // 画面の可視範囲のYサイズ
-    export inline constexpr int ginfo_type_mesx      = 12;    // mes命令で出力される文字のXサイズ
-    export inline constexpr int ginfo_type_mesy      = 13;    // mes命令で出力される文字のYサイズ
+    export inline constexpr int ginfo_type_vx        = 8;     // 画面の可視範囲の左上X（groll基点）
+    export inline constexpr int ginfo_type_vy        = 9;     // 画面の可視範囲の左上Y（groll基点）
+    export inline constexpr int ginfo_type_sizex     = 10;    // ウィンドウ全体のXサイズ
+    export inline constexpr int ginfo_type_sizey     = 11;    // ウィンドウ全体のYサイズ
+    export inline constexpr int ginfo_type_mesx      = 12;    // クライアント領域のXサイズ
+    export inline constexpr int ginfo_type_mesy      = 13;    // クライアント領域のYサイズ
+    export inline constexpr int ginfo_type_messizex  = 14;    // 最後のmes出力のXサイズ
+    export inline constexpr int ginfo_type_messizey  = 15;    // 最後のmes出力のYサイズ
     export inline constexpr int ginfo_type_r         = 16;    // カレントカラーのR成分
     export inline constexpr int ginfo_type_g         = 17;    // カレントカラーのG成分
     export inline constexpr int ginfo_type_b         = 18;    // カレントカラーのB成分
@@ -211,13 +213,13 @@ namespace hsppp {
 
     // --- dirinfo type定数 (HSP Compatible) ---
     // 注意: HSPでは dir_* は値を返すマクロ/システム変数の見た目を持つため、
-    // ここでは「dirinfo(int type)のセレクタ」であることが明確な *_type_* 命名にする。
-    export inline constexpr int dirinfo_type_cur     = 0;     // カレントディレクトリ
-    export inline constexpr int dirinfo_type_exe     = 1;     // 実行ファイルディレクトリ
-    export inline constexpr int dirinfo_type_win     = 2;     // Windowsディレクトリ
-    export inline constexpr int dirinfo_type_sys     = 3;     // Windowsシステムディレクトリ
-    export inline constexpr int dirinfo_type_cmdline = 4;     // コマンドライン文字列
-    export inline constexpr int dirinfo_type_tv      = 5;     // HSPTVディレクトリ（常に空）
+    // ここでは「dirinfo(int type)のセレクタ」であることが明確な dir_type_* 命名にする。
+    export inline constexpr int dir_type_cur     = 0;     // カレントディレクトリ
+    export inline constexpr int dir_type_exe     = 1;     // 実行ファイルディレクトリ
+    export inline constexpr int dir_type_win     = 2;     // Windowsディレクトリ
+    export inline constexpr int dir_type_sys     = 3;     // Windowsシステムディレクトリ
+    export inline constexpr int dir_type_cmdline = 4;     // コマンドライン文字列
+    export inline constexpr int dir_type_tv      = 5;     // HSPTVディレクトリ（常に空）
 
 
     // ============================================================
@@ -1117,6 +1119,8 @@ namespace hsppp {
     export void pos(int x, int y,
                    const std::source_location& location = std::source_location::current());
     export void mes(std::string_view text, OptInt sw = {},
+                   const std::source_location& location = std::source_location::current());
+    export std::pair<int, int> messize(std::string_view text,
                    const std::source_location& location = std::source_location::current());
     export void boxf(int x1, int y1, int x2, int y2,
                     const std::source_location& location = std::source_location::current());

@@ -33,6 +33,7 @@ module;
 #include <fstream>
 #include <cstdio>
 #include <cctype>
+#include <random>
 #include <shlobj.h>
 #include <lmcons.h>
 #include <shellapi.h>

@@ -16,7 +16,7 @@ namespace hsppp {
     // IDからグローバルマップを経由してSurfaceを取得する
     // ============================================================
 
-    Screen& Screen::color(int r, int g, int b) {
+    Screen& Screen::color(int r, int g, int b, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (surface) {
             surface->color(r, g, b);
@@ -24,7 +24,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::pos(int x, int y) {
+    Screen& Screen::pos(int x, int y, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (surface) {
             surface->pos(x, y);
@@ -32,7 +32,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::mes(std::string_view text, OptInt sw) {
+    Screen& Screen::mes(std::string_view text, OptInt sw, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (surface) {
             surface->mes(text, sw.value_or(0));
@@ -40,7 +40,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::boxf(int x1, int y1, int x2, int y2) {
+    Screen& Screen::boxf(int x1, int y1, int x2, int y2, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (surface) {
             surface->boxf(x1, y1, x2, y2);
@@ -48,7 +48,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::boxf() {
+    Screen& Screen::boxf(const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (surface) {
             surface->boxf(0, 0, surface->getWidth(), surface->getHeight());
@@ -56,7 +56,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::cls(int mode) {
+    Screen& Screen::cls(int mode, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (surface) {
             surface->cls(mode);
@@ -64,7 +64,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::redraw(int mode) {
+    Screen& Screen::redraw(int mode, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (!surface) return *this;
 
@@ -88,7 +88,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::select() {
+    Screen& Screen::select(const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (surface) {
             g_currentSurface = surface;
@@ -127,7 +127,7 @@ namespace hsppp {
         return surface->getHeight();
     }
 
-    Screen& Screen::line(int x2, int y2) {
+    Screen& Screen::line(int x2, int y2, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (surface) {
             int startX = surface->getCurrentX();
@@ -137,7 +137,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::line(int x2, int y2, int x1, int y1) {
+    Screen& Screen::line(int x2, int y2, int x1, int y1, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (surface) {
             surface->line(x2, y2, x1, y1, true);
@@ -145,7 +145,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::circle(int x1, int y1, int x2, int y2, int fillMode) {
+    Screen& Screen::circle(int x1, int y1, int x2, int y2, int fillMode, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (surface) {
             surface->circle(x1, y1, x2, y2, fillMode);
@@ -153,7 +153,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::pset(int x, int y) {
+    Screen& Screen::pset(int x, int y, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (surface) {
             surface->pset(x, y);
@@ -161,7 +161,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::pset() {
+    Screen& Screen::pset(const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (surface) {
             int px = surface->getCurrentX();
@@ -171,7 +171,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::pget(int x, int y) {
+    Screen& Screen::pget(int x, int y, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (surface) {
             int r, g, b;
@@ -180,7 +180,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::pget() {
+    Screen& Screen::pget(const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (surface) {
             int px = surface->getCurrentX();
@@ -191,7 +191,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::gradf(int x, int y, int w, int h, int mode, int color1, int color2) {
+    Screen& Screen::gradf(int x, int y, int w, int h, int mode, int color1, int color2, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (surface) {
             surface->gradf(x, y, w, h, mode, color1, color2);
@@ -199,7 +199,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::grect(int cx, int cy, double angle, int w, int h) {
+    Screen& Screen::grect(int cx, int cy, double angle, int w, int h, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (surface) {
             surface->grect(cx, cy, angle, w, h);
@@ -207,7 +207,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::font(std::string_view fontName, int size, int style) {
+    Screen& Screen::font(std::string_view fontName, int size, int style, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (surface) {
             surface->font(fontName, size, style);
@@ -215,7 +215,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::sysfont(int type) {
+    Screen& Screen::sysfont(int type, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (surface) {
             surface->sysfont(type);
@@ -223,7 +223,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::title(std::string_view title) {
+    Screen& Screen::title(std::string_view title, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (!surface) return *this;
 
@@ -234,7 +234,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::width(int clientW, int clientH, int posX, int posY, int option) {
+    Screen& Screen::width(int clientW, int clientH, int posX, int posY, int option, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (!surface) return *this;
 
@@ -288,7 +288,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::groll(int scrollX, int scrollY) {
+    Screen& Screen::groll(int scrollX, int scrollY, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (!surface) return *this;
 
@@ -327,7 +327,7 @@ namespace hsppp {
         return pt.y;
     }
 
-    Screen& Screen::picload(std::string_view filename, int mode) {
+    Screen& Screen::picload(std::string_view filename, int mode, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (surface) {
             surface->picload(filename, mode);
@@ -335,7 +335,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::bmpsave(std::string_view filename) {
+    Screen& Screen::bmpsave(std::string_view filename, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (surface) {
             surface->bmpsave(filename);
@@ -347,7 +347,7 @@ namespace hsppp {
     // 画面コピー・変形描画（OOP版）
     // ============================================================
 
-    Screen& Screen::gmode(int mode, int sizeX, int sizeY, int blendRate) {
+    Screen& Screen::gmode(int mode, int sizeX, int sizeY, int blendRate, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (surface) {
             surface->setGmode(mode, sizeX, sizeY, blendRate);
@@ -355,7 +355,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::gcopy(int srcId, int srcX, int srcY, OptInt sizeX, OptInt sizeY) {
+    Screen& Screen::gcopy(int srcId, int srcX, int srcY, OptInt sizeX, OptInt sizeY, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (!surface) return *this;
 
@@ -372,7 +372,7 @@ namespace hsppp {
 
         try {
             // 共通実装ヘルパーを呼ぶ
-            hsppp::internal::gcopy_impl(surface, srcSurface, srcX, srcY, copyW, copyH, std::source_location::current());
+            hsppp::internal::gcopy_impl(surface, srcSurface, srcX, srcY, copyW, copyH, location);
         }
         catch (const hsppp::HspError&) {
             throw;  // HspErrorはそのまま再スロー
@@ -385,7 +385,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::gzoom(int destW, int destH, int srcId, int srcX, int srcY, OptInt srcW, OptInt srcH, int mode) {
+    Screen& Screen::gzoom(int destW, int destH, int srcId, int srcX, int srcY, OptInt srcW, OptInt srcH, int mode, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (!surface) return *this;
 
@@ -402,7 +402,7 @@ namespace hsppp {
 
         try {
             // 共通実装ヘルパーを呼ぶ
-            hsppp::internal::gzoom_impl(surface, destW, destH, srcSurface, srcX, srcY, copyW, copyH, mode, std::source_location::current());
+            hsppp::internal::gzoom_impl(surface, destW, destH, srcSurface, srcX, srcY, copyW, copyH, mode, location);
         }
         catch (const hsppp::HspError&) {
             throw;  // HspErrorはそのまま再スロー
@@ -415,7 +415,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::grotate(int srcId, int srcX, int srcY, double angle, OptInt dstW, OptInt dstH) {
+    Screen& Screen::grotate(int srcId, int srcX, int srcY, double angle, OptInt dstW, OptInt dstH, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (!surface) return *this;
 
@@ -438,7 +438,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::gsquare(int srcId, const Quad& dst) {
+    Screen& Screen::gsquare(int srcId, const Quad& dst, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (!surface) return *this;
 
@@ -450,7 +450,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::gsquare(int srcId, const Quad& dst, const QuadUV& src) {
+    Screen& Screen::gsquare(int srcId, const Quad& dst, const QuadUV& src, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (!surface) return *this;
 
@@ -472,7 +472,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::gsquare(int srcId, const Quad& dst, const QuadColors& colors) {
+    Screen& Screen::gsquare(int srcId, const Quad& dst, const QuadColors& colors, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (!surface) return *this;
 
@@ -489,7 +489,7 @@ namespace hsppp {
     // ウィンドウ表示制御（OOP版）
     // ============================================================
 
-    Screen& Screen::show() {
+    Screen& Screen::show(const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (!surface) return *this;
 
@@ -501,7 +501,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::hide() {
+    Screen& Screen::hide(const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (!surface) return *this;
 
@@ -512,7 +512,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::activate() {
+    Screen& Screen::activate(const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (!surface) return *this;
 
@@ -581,7 +581,7 @@ namespace hsppp {
     // Cel描画（OOP版・ヘルパーを呼ぶだけ）
     // ============================================================
 
-    Screen& Screen::celput(const Cel& cel, int cellIndex, OptInt x, OptInt y) {
+    Screen& Screen::celput(const Cel& cel, int cellIndex, OptInt x, OptInt y, const std::source_location& location) {
         if (!cel.valid()) return *this;
 
         auto surface = getSurfaceById(m_id);
@@ -820,13 +820,13 @@ namespace hsppp {
     // GUIオブジェクト生成（OOP版・ヘルパーを呼ぶだけ）
     // ============================================================
 
-    int Screen::button(std::string_view name, std::function<int()> callback, bool isGosub) {
+    int Screen::button(std::string_view name, std::function<int()> callback, bool isGosub, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (!surface) return -1;
         return internal::button_impl(surface, m_id, name, std::move(callback), isGosub);
     }
 
-    int Screen::input(std::shared_ptr<std::string> var, int maxLength, int mode) {
+    int Screen::input(std::shared_ptr<std::string> var, int maxLength, int mode, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (!surface) return -1;
         
@@ -838,7 +838,7 @@ namespace hsppp {
         return internal::input_impl(surface, m_id, var, maxLength, objW, objH, objSpace);
     }
 
-    int Screen::mesbox(std::shared_ptr<std::string> var, int maxLength, int mode) {
+    int Screen::mesbox(std::shared_ptr<std::string> var, int maxLength, int mode, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (!surface) return -1;
         
@@ -850,7 +850,7 @@ namespace hsppp {
         return internal::mesbox_impl(surface, m_id, var, maxLength, mode, objW, objH * 3, objSpace);
     }
 
-    Screen& Screen::objsize(int sizeX, int sizeY, int spaceY) {
+    Screen& Screen::objsize(int sizeX, int sizeY, int spaceY, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (surface) {
             surface->setObjSize(sizeX, sizeY, spaceY);
@@ -862,7 +862,7 @@ namespace hsppp {
     // マウス制御（OOP版）
     // ============================================================
 
-    Screen& Screen::mouse(int x, int y) {
+    Screen& Screen::mouse(int x, int y, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (!surface) return *this;
 
@@ -880,7 +880,7 @@ namespace hsppp {
     // 追加GUIオブジェクト生成（OOP版）
     // ============================================================
 
-    int Screen::chkbox(std::string_view label, std::shared_ptr<int> var) {
+    int Screen::chkbox(std::string_view label, std::shared_ptr<int> var, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (!surface) return -1;
 
@@ -940,7 +940,7 @@ namespace hsppp {
         return objectId;
     }
 
-    int Screen::combox(std::shared_ptr<int> var, int expandY, std::string_view items) {
+    int Screen::combox(std::shared_ptr<int> var, int expandY, std::string_view items, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (!surface) return -1;
 
@@ -1015,7 +1015,7 @@ namespace hsppp {
         return objectId;
     }
 
-    int Screen::listbox(std::shared_ptr<int> var, int expandY, std::string_view items) {
+    int Screen::listbox(std::shared_ptr<int> var, int expandY, std::string_view items, const std::source_location& location) {
         auto surface = getSurfaceById(m_id);
         if (!surface) return -1;
 
@@ -1093,13 +1093,13 @@ namespace hsppp {
     // GUIオブジェクト設定（OOP版）
     // ============================================================
 
-    Screen& Screen::objmode(int mode, int tabMove) {
+    Screen& Screen::objmode(int mode, int tabMove, const std::source_location& location) {
         auto& objMgr = internal::ObjectManager::getInstance();
         objMgr.setObjMode(mode, tabMove);
         return *this;
     }
 
-    Screen& Screen::objcolor(int r, int g, int b) {
+    Screen& Screen::objcolor(int r, int g, int b, const std::source_location& location) {
         auto& objMgr = internal::ObjectManager::getInstance();
         objMgr.setObjColor(r, g, b);
         return *this;
@@ -1109,7 +1109,7 @@ namespace hsppp {
     // GUIオブジェクト操作（OOP版）
     // ============================================================
 
-    Screen& Screen::objprm(int objectId, std::string_view value) {
+    Screen& Screen::objprm(int objectId, std::string_view value, const std::source_location& location) {
         auto& objMgr = internal::ObjectManager::getInstance();
         auto* pInfo = objMgr.getObject(objectId);
 
@@ -1155,7 +1155,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::objprm(int objectId, int value) {
+    Screen& Screen::objprm(int objectId, int value, const std::source_location& location) {
         auto& objMgr = internal::ObjectManager::getInstance();
         auto* pInfo = objMgr.getObject(objectId);
 
@@ -1204,7 +1204,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::objenable(int objectId, int enable) {
+    Screen& Screen::objenable(int objectId, int enable, const std::source_location& location) {
         auto& objMgr = internal::ObjectManager::getInstance();
         auto* pInfo = objMgr.getObject(objectId);
 
@@ -1217,7 +1217,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::objsel(int objectId) {
+    Screen& Screen::objsel(int objectId, const std::source_location& location) {
         auto& objMgr = internal::ObjectManager::getInstance();
         auto* pInfo = objMgr.getObject(objectId);
 

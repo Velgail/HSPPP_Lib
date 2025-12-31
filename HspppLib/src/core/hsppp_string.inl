@@ -231,7 +231,7 @@ namespace hsppp {
         return "";
     }
 
-    NotePad& NotePad::add(std::string_view text, int index, int overwrite) {
+    NotePad& NotePad::add(std::string_view text, int index, int overwrite, const std::source_location& location) {
         size_t lineCount = count();
 
         // 末尾追加
@@ -274,7 +274,7 @@ namespace hsppp {
         return *this;
     }
 
-    NotePad& NotePad::del(size_t index) {
+    NotePad& NotePad::del(size_t index, const std::source_location& location) {
         if (m_buffer.empty()) return *this;
 
         size_t lineCount = count();
@@ -364,7 +364,7 @@ namespace hsppp {
         return -1;
     }
 
-    NotePad& NotePad::load(std::string_view filename, size_t maxSize) {
+    NotePad& NotePad::load(std::string_view filename, size_t maxSize, const std::source_location& location) {
         std::wstring wideFilename = internal::Utf8ToWide(filename);
 
         HANDLE hFile = CreateFileW(
@@ -407,7 +407,7 @@ namespace hsppp {
         return *this;
     }
 
-    [[nodiscard]] bool NotePad::save(std::string_view filename) const {
+    [[nodiscard]] bool NotePad::save(std::string_view filename, const std::source_location& location) const {
         std::wstring wideFilename = internal::Utf8ToWide(filename);
 
         HANDLE hFile = CreateFileW(

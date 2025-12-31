@@ -17,7 +17,7 @@ Cel::Cel(int id) noexcept
 // Cel class メソッド実装
 // ============================================================
 
-Cel& Cel::divide(int divX, int divY) {
+Cel& Cel::divide(int divX, int divY, const std::source_location& location) {
     if (!m_valid) return *this;
     
     auto it = internal::g_celDataMap.find(m_id);
@@ -35,7 +35,7 @@ Cel& Cel::divide(int divX, int divY) {
     return *this;
 }
 
-Cel& Cel::put(int cellIndex, OptInt x, OptInt y) {
+Cel& Cel::put(int cellIndex, OptInt x, OptInt y, const std::source_location& location) {
     if (!m_valid) return *this;
     
     auto it = internal::g_celDataMap.find(m_id);

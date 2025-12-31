@@ -228,17 +228,17 @@ namespace hsppp {
     // Screen メンバ関数版
     // ============================================================
 
-    Screen& Screen::onclick(InterruptHandler handler) {
+    Screen& Screen::onclick(InterruptHandler handler, const std::source_location& location) {
         hsppp::onclick(handler);
         return *this;
     }
 
-    Screen& Screen::oncmd(InterruptHandler handler, int messageId) {
+    Screen& Screen::oncmd(InterruptHandler handler, int messageId, const std::source_location& location) {
         hsppp::oncmd(handler, messageId);
         return *this;
     }
 
-    Screen& Screen::onkey(InterruptHandler handler) {
+    Screen& Screen::onkey(InterruptHandler handler, const std::source_location& location) {
         hsppp::onkey(handler);
         return *this;
     }

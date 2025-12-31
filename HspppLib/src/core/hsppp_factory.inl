@@ -112,7 +112,7 @@ namespace hsppp {
     }
 
     // OOP版：構造体パラメータ（ID自動採番）
-    Screen screen(const ScreenParams& params) {
+    Screen screen(const ScreenParams& params, const std::source_location& location) {
         int id = getNextAutoId();
         return createWindowInternal(
             id,
@@ -128,8 +128,8 @@ namespace hsppp {
     }
 
     // OOP版：引数なし（ID自動採番、デフォルト設定）
-    Screen screen() {
-        return screen(ScreenParams{});
+    Screen screen(const std::source_location& location) {
+        return screen(ScreenParams{}, location);
     }
 
     // HSP互換版：ID明示指定
@@ -201,14 +201,14 @@ namespace hsppp {
     }
 
     // OOP版：構造体パラメータ（ID自動採番）
-    Screen buffer(const BufferParams& params) {
+    Screen buffer(const BufferParams& params, const std::source_location& location) {
         int id = getNextAutoId();
         return createBufferInternal(id, params.width, params.height, params.mode);
     }
 
     // OOP版：引数なし（ID自動採番、デフォルト設定）
-    Screen buffer() {
-        return buffer(BufferParams{});
+    Screen buffer(const std::source_location& location) {
+        return buffer(BufferParams{}, location);
     }
 
     // HSP互換版：ID明示指定
@@ -307,7 +307,7 @@ namespace hsppp {
     }
 
     // OOP版：構造体パラメータ（ID自動採番）
-    Screen bgscr(const BgscrParams& params) {
+    Screen bgscr(const BgscrParams& params, const std::source_location& location) {
         int id = getNextAutoId();
         return createBgscrInternal(
             id,
@@ -322,8 +322,8 @@ namespace hsppp {
     }
 
     // OOP版：引数なし（ID自動採番、デフォルト設定）
-    Screen bgscr() {
-        return bgscr(BgscrParams{});
+    Screen bgscr(const std::source_location& location) {
+        return bgscr(BgscrParams{}, location);
     }
 
     // HSP互換版：ID明示指定

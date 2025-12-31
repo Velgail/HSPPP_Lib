@@ -230,6 +230,49 @@ Screen& Screen::color(int r, int g, int b) {
 
 ---
 
+## モジュール分割計画（TODO）
+
+現在 `hsppp.ixx` は約3000行に達しており、以下の方針で分割を計画中。
+
+### 分割案
+
+```
+HspppLib/module/
+├── hsppp.ixx          # メインモジュール（export import で統合）
+├── hsppp_types.ixx    # OptInt, OptDouble, Screen, Quad 等の型定義
+├── hsppp_screen.ixx   # 画面制御命令 (screen, buffer, gsel, redraw 等)
+├── hsppp_drawing.ixx  # 描画命令 (mes, boxf, line, circle 等)
+├── hsppp_input.ixx    # 入力命令 (stick, getkey, mouse 等)
+├── hsppp_math.ixx     # 数学関数 (<cmath> 再エクスポート, deg2rad 等)
+├── hsppp_string.ixx   # 文字列関数 (strmid, instr, notesel 等)
+├── hsppp_file.ixx     # ファイル操作 (exist, delete, dirlist 等)
+└── hsppp_interrupt.ixx# 割り込み (onclick, onerror, stop 等)
+```
+
+### 統合方法
+
+```cpp
+// hsppp.ixx
+export module hsppp;
+
+export import :types;
+export import :screen;
+export import :drawing;
+export import :input;
+export import :math;
+export import :string;
+export import :file;
+export import :interrupt;
+```
+
+### 備考
+
+- コンパイル時間は大きく変わらない（モジュール単位でキャッシュされるため）
+- メンテナンス性向上が主目的
+- 分割後もユーザーは `import hsppp;` のみで全機能を使用可能
+
+---
+
 ## 変更履歴
 
 ### 2025-12-01

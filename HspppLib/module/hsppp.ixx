@@ -976,7 +976,7 @@ namespace hsppp {
     /// @return Screen ハンドル
     /// @example auto scr = screen(0, 800, 600);
     /// @example screen(0);  // 戻り値を無視してもOK（HSP互換）
-    export [[nodiscard]] Screen screen(
+    export Screen screen(
         int id,
         OptInt width    = {},
         OptInt height   = {},
@@ -998,7 +998,7 @@ namespace hsppp {
     /// @param height 初期化する画面サイズY (デフォルト: 480)
     /// @param mode 初期化する画面モード (デフォルト: 0=フルカラー)
     /// @return Screen ハンドル
-    export [[nodiscard]] Screen buffer(
+    export Screen buffer(
         int id,
         OptInt width  = {},
         OptInt height = {},
@@ -1019,7 +1019,7 @@ namespace hsppp {
     /// @param client_w ウィンドウのサイズX (省略時=widthと同じ)
     /// @param client_h ウィンドウのサイズY (省略時=heightと同じ)
     /// @return Screen ハンドル
-    export [[nodiscard]] Screen bgscr(
+    export Screen bgscr(
         int id,
         OptInt width    = {},
         OptInt height   = {},

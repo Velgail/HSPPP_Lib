@@ -158,6 +158,23 @@ VS 2022ではなく、必ずVS 18 (Visual Studio 2026) を使用してくださ�
 C++26 で `_` は「名前独立宣言」として特別な意味を持つようになるため、
 パラメータ省略には `omit` キーワードを使用する。
 
+### 数学関数と `<cmath>` の共存
+
+`hsppp` モジュールは `std::sin`, `std::cos` 等を再エクスポートしている。
+`using namespace hsppp;` と `#include <cmath>` を併用すると、
+`sin` 等の呼び出しが曖昧になる可能性がある。
+
+推奨される書き方：
+```cpp
+import hsppp;
+// OK: 明示的な名前空間
+hsppp::sin(hsppp::deg2rad(45.0));
+
+// OK: using namespace を使う場合は <cmath> を避ける
+using namespace hsppp;
+sin(deg2rad(45.0));  // hsppp::sin を呼ぶ
+```
+
 ### Screen クラスの軽量ハンドル方式
 
 `Screen` クラスは `shared_ptr<HspSurface>` を保持せず、ID のみを保持する。

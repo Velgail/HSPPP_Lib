@@ -71,7 +71,7 @@ DirectXのImmediate Mode（毎フレーム全消去）ではなく、HSPのCanva
   * **入力:** テンプレートを活用し、`int`, `float`, `double` すべてを受け入れる（暗黙キャスト）。
   * **出力:** 原則 `double` を返す。ユーザーに型を意識させる（警告による教育）。
   * **拡張:**
-      * `dsin(deg)`, `dcos(deg)`: 度数法版の三角関数。
+      * `deg2rad(deg)`, `rad2deg(rad)`: 度数法⇔ラジアン変換。
       * `dist(x, y)`: 距離計算。
       * `limit(v, min, max)`: 値の制限。
 

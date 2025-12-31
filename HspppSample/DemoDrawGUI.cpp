@@ -4,6 +4,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 #include "DemoState.h"
+#include <memory>
 import hsppp;
 using namespace hsppp;
 
@@ -13,12 +14,16 @@ using namespace hsppp;
 
 bool g_guiObjectsCreated = false;
 int g_buttonClickCount = 0;
-std::string g_inputText = "Hello HSPPP!";
-int g_inputNumber = 42;
-std::string g_mesboxText = "Line 1\nLine 2\nLine 3\nEdit me!";
-int g_checkState = 0;
-int g_comboxState = 0;
-int g_listboxState = 0;
+
+// 入力系GUIコントロール用の状態変数（shared_ptrでライフタイム安全）
+auto g_inputText = std::make_shared<std::string>("Hello HSPPP!");
+auto g_inputNumber = std::make_shared<std::string>("42");  // 文字列で受け取り、必要時にtoInt()で変換
+auto g_mesboxText = std::make_shared<std::string>("Line 1\nLine 2\nLine 3\nEdit me!");
+
+// 選択系GUIコントロール用の状態変数（shared_ptrでライフタイム安全）
+auto g_checkState = std::make_shared<int>(0);
+auto g_comboxState = std::make_shared<int>(0);
+auto g_listboxState = std::make_shared<int>(0);
 
 // GUIオブジェクトID
 static int g_btnId1 = -1;
@@ -59,10 +64,10 @@ static void initButtonInputDemo(Screen& win) {
     // ボタン2: リセット
     g_btnId2 = button("Reset", []() {
         g_buttonClickCount = 0;
-        g_inputText = "Hello HSPPP!";
-        g_inputNumber = 42;
-        objprm(g_inputStrId, g_inputText);
-        objprm(g_inputIntId, g_inputNumber);
+        *g_inputText = "Hello HSPPP!";
+        *g_inputNumber = "42";
+        objprm(g_inputStrId, *g_inputText);
+        objprm(g_inputIntId, *g_inputNumber);
         return 0;
     });
     
@@ -153,10 +158,10 @@ static void updateButtonInputDemo(Screen& win) {
     
     win.pos(250, 180);
     win.color(0, 100, 0);
-    win.mes("Current: " + g_inputText);
+    win.mes("Current: " + *g_inputText);
     
     win.pos(250, 220);
-    win.mes("Current: " + std::to_string(g_inputNumber));
+    win.mes("Current: " + *g_inputNumber);  // もうstringなので直接連結OK
     
     win.pos(350, 80);
     win.mes("Count: " + std::to_string(g_buttonClickCount));
@@ -173,13 +178,13 @@ static void updateChoiceBoxDemo(Screen& win) {
     
     win.pos(250, 80);
     win.color(0, 100, 0);
-    win.mes("Check: " + std::string(g_checkState ? "ON" : "OFF"));
+    win.mes("Check: " + std::string(*g_checkState ? "ON" : "OFF"));
     
     win.pos(250, 130);
-    win.mes("Combo: " + std::to_string(g_comboxState));
+    win.mes("Combo: " + std::to_string(*g_comboxState));
     
     win.pos(250, 200);
-    win.mes("List: " + std::to_string(g_listboxState));
+    win.mes("List: " + std::to_string(*g_listboxState));
     
     win.redraw(1);
 }

@@ -15,6 +15,7 @@ import <string>;
 import <algorithm>;
 import <numbers>;
 import <vector>;
+import <span>;
 
 namespace hsppp {
 
@@ -347,11 +348,15 @@ namespace hsppp {
         /// @brief 要素数を取得
         [[nodiscard]] static constexpr size_t size() noexcept { return vertex_count; }
 
+        /// @brief 全要素へのspan（安全なイテレータ）
+        [[nodiscard]] constexpr std::span<Point2i, vertex_count> data() noexcept { return v; }
+        [[nodiscard]] constexpr std::span<const Point2i, vertex_count> data() const noexcept { return v; }
+
         /// @brief イテレータサポート（範囲ベースfor用）
-        constexpr Point2i* begin() noexcept { return v; }
-        constexpr Point2i* end() noexcept { return v + vertex_count; }
-        constexpr const Point2i* begin() const noexcept { return v; }
-        constexpr const Point2i* end() const noexcept { return v + vertex_count; }
+        constexpr auto begin() noexcept { return data().begin(); }
+        constexpr auto end() noexcept { return data().end(); }
+        constexpr auto begin() const noexcept { return data().begin(); }
+        constexpr auto end() const noexcept { return data().end(); }
     };
 
     /// @brief 4頂点UV座標（gsquareコピー元用）
@@ -392,11 +397,15 @@ namespace hsppp {
         /// @brief 要素数を取得
         [[nodiscard]] static constexpr size_t size() noexcept { return vertex_count; }
 
+        /// @brief 全要素へのspan（安全なイテレータ）
+        [[nodiscard]] constexpr std::span<Point2i, vertex_count> data() noexcept { return v; }
+        [[nodiscard]] constexpr std::span<const Point2i, vertex_count> data() const noexcept { return v; }
+
         /// @brief イテレータサポート（範囲ベースfor用）
-        constexpr Point2i* begin() noexcept { return v; }
-        constexpr Point2i* end() noexcept { return v + vertex_count; }
-        constexpr const Point2i* begin() const noexcept { return v; }
-        constexpr const Point2i* end() const noexcept { return v + vertex_count; }
+        constexpr auto begin() noexcept { return data().begin(); }
+        constexpr auto end() noexcept { return data().end(); }
+        constexpr auto begin() const noexcept { return data().begin(); }
+        constexpr auto end() const noexcept { return data().end(); }
     };
 
     /// @brief 4頂点カラー（gsquareグラデーション用）
@@ -434,11 +443,15 @@ namespace hsppp {
         /// @brief 要素数を取得
         [[nodiscard]] static constexpr size_t size() noexcept { return color_count; }
 
+        /// @brief 全要素へのspan（安全なイテレータ）
+        [[nodiscard]] constexpr std::span<int, color_count> data() noexcept { return colors; }
+        [[nodiscard]] constexpr std::span<const int, color_count> data() const noexcept { return colors; }
+
         /// @brief イテレータサポート（範囲ベースfor用）
-        constexpr int* begin() noexcept { return colors; }
-        constexpr int* end() noexcept { return colors + color_count; }
-        constexpr const int* begin() const noexcept { return colors; }
-        constexpr const int* end() const noexcept { return colors + color_count; }
+        constexpr auto begin() noexcept { return data().begin(); }
+        constexpr auto end() noexcept { return data().end(); }
+        constexpr auto begin() const noexcept { return data().begin(); }
+        constexpr auto end() const noexcept { return data().end(); }
     };
 
 
@@ -446,16 +459,18 @@ namespace hsppp {
     // 割り込みハンドラ型定義（Screen クラスより前に定義が必要）
     // ============================================================
 
-    // 前方宣言（HspErrorクラスはこのファイルの後半で定義）
+    // 前方宣言（エラークラスはこのファイルの後半で定義）
+    export class HspErrorBase;
     export class HspError;
+    export class HspWeakError;
 
     /// @brief 汎用割り込みハンドラ型（onclick, onkey, onexit, oncmd用）
     /// @note ラムダ式、関数ポインタ、関数オブジェクトをサポート
     export using InterruptHandler = std::function<int()>;
 
     /// @brief エラーハンドラ型（onerror用）
-    /// @note HspErrorオブジェクトを受け取る
-    export using ErrorHandler = std::function<int(const HspError&)>;
+    /// @note HspErrorBaseオブジェクトを受け取る（HspError/HspWeakError両方に対応）
+    export using ErrorHandler = std::function<int(const HspErrorBase&)>;
 
     // ============================================================
     // Screen クラス - 軽量ハンドル（実体として操作可能）
@@ -506,20 +521,20 @@ namespace hsppp {
         /// @param divX 横方向の分割数
         /// @param divY 縦方向の分割数
         /// @return *this（メソッドチェーン用）
-        Cel& divide(int divX, int divY);
+        Cel& divide(int divX, int divY, const std::source_location& location = std::source_location::current());
 
         /// @brief 画像素材を描画
         /// @param cellIndex 表示するセル番号
         /// @param x X座標（省略時は現在のpos）
         /// @param y Y座標（省略時は現在のpos）
         /// @return *this（メソッドチェーン用）
-        Cel& put(int cellIndex, OptInt x = {}, OptInt y = {});
+        Cel& put(int cellIndex, OptInt x = {}, OptInt y = {}, const std::source_location& location = std::source_location::current());
 
         /// @brief 画像の幅を取得
-        [[nodiscard]] int width() const;
+        [[nodiscard]] int width(const std::source_location& location = std::source_location::current()) const;
 
         /// @brief 画像の高さを取得
-        [[nodiscard]] int height() const;
+        [[nodiscard]] int height(const std::source_location& location = std::source_location::current()) const;
     };
 
     /// @brief Surfaceへの軽量ハンドル
@@ -558,31 +573,31 @@ namespace hsppp {
         // ============================================================
 
         /// @brief 描画色を設定
-        Screen& color(int r, int g, int b);
+        Screen& color(int r, int g, int b, const std::source_location& location = std::source_location::current());
 
         /// @brief 描画位置を設定
-        Screen& pos(int x, int y);
+        Screen& pos(int x, int y, const std::source_location& location = std::source_location::current());
 
         /// @brief 文字列を描画
         /// @param text メッセージ文字列
         /// @param sw オプション (1=改行しない, 2=影, 4=縁取り, 8=簡易描画, 16=gmode設定)
-        Screen& mes(std::string_view text, OptInt sw = {});
+        Screen& mes(std::string_view text, OptInt sw = {}, const std::source_location& location = std::source_location::current());
 
         /// @brief 矩形を塗りつぶし
-        Screen& boxf(int x1, int y1, int x2, int y2);
+        Screen& boxf(int x1, int y1, int x2, int y2, const std::source_location& location = std::source_location::current());
 
         /// @brief 画面全体を塗りつぶし
-        Screen& boxf();
+        Screen& boxf(const std::source_location& location = std::source_location::current());
 
         /// @brief 画面クリア
         /// @param mode クリアする時の色 (0=白, 1=明るい灰色, 2=灰色, 3=暗い灰色, 4=黒)
-        Screen& cls(int mode = 0);
+        Screen& cls(int mode = 0, const std::source_location& location = std::source_location::current());
 
         /// @brief 描画制御
-        Screen& redraw(int mode = 1);
+        Screen& redraw(int mode = 1, const std::source_location& location = std::source_location::current());
 
         /// @brief このScreenをカレントに設定（HSPのgsel相当）
-        Screen& select();
+        Screen& select(const std::source_location& location = std::source_location::current());
 
         /// @brief 直線を描画
         /// @param x2 ラインの終点X座標
@@ -590,8 +605,8 @@ namespace hsppp {
         /// @param x1 ラインの始点X座標 (省略時=カレントポジション)
         /// @param y1 ラインの始点Y座標 (省略時=カレントポジション)
         /// @return *this（メソッドチェーン用）
-        Screen& line(int x2, int y2);
-        Screen& line(int x2, int y2, int x1, int y1);
+        Screen& line(int x2, int y2, const std::source_location& location = std::source_location::current());
+        Screen& line(int x2, int y2, int x1, int y1, const std::source_location& location = std::source_location::current());
 
         /// @brief 円を描画
         /// @param x1 矩形の左上X座標
@@ -600,27 +615,27 @@ namespace hsppp {
         /// @param y2 矩形の右下Y座標
         /// @param fillMode 描画モード (0=線, 1=塗りつぶし, デフォルト: 1)
         /// @return *this（メソッドチェーン用）
-        Screen& circle(int x1, int y1, int x2, int y2, int fillMode = 1);
+        Screen& circle(int x1, int y1, int x2, int y2, int fillMode = 1, const std::source_location& location = std::source_location::current());
 
         /// @brief 1ドットの点を描画
         /// @param x 画面上のX座標
         /// @param y 画面上のY座標
         /// @return *this（メソッドチェーン用）
-        Screen& pset(int x, int y);
+        Screen& pset(int x, int y, const std::source_location& location = std::source_location::current());
 
         /// @brief カレントポジションに1ドットの点を描画
         /// @return *this（メソッドチェーン用）
-        Screen& pset();
+        Screen& pset(const std::source_location& location = std::source_location::current());
 
         /// @brief 1ドットの色を取得し、選択色として設定
         /// @param x 画面上のX座標
         /// @param y 画面上のY座標
         /// @return *this（メソッドチェーン用）
-        Screen& pget(int x, int y);
+        Screen& pget(int x, int y, const std::source_location& location = std::source_location::current());
 
         /// @brief カレントポジションの色を取得し、選択色として設定
         /// @return *this（メソッドチェーン用）
-        Screen& pget();
+        Screen& pget(const std::source_location& location = std::source_location::current());
 
         /// @brief 矩形をグラデーションで塗りつぶす（OOP版）
         /// @param x 矩形の左上X座標
@@ -631,7 +646,7 @@ namespace hsppp {
         /// @param color1 塗りつぶし色1 (RGBカラーコード)
         /// @param color2 塗りつぶし色2 (RGBカラーコード)
         /// @return *this（メソッドチェーン用）
-        Screen& gradf(int x, int y, int w, int h, int mode, int color1, int color2);
+        Screen& gradf(int x, int y, int w, int h, int mode, int color1, int color2, const std::source_location& location = std::source_location::current());
 
         /// @brief 回転する矩形で塗りつぶす（OOP版）
         /// @param cx 矩形の中心X座標
@@ -640,13 +655,13 @@ namespace hsppp {
         /// @param w Xサイズ
         /// @param h Yサイズ
         /// @return *this（メソッドチェーン用）
-        Screen& grect(int cx, int cy, double angle, int w, int h);
+        Screen& grect(int cx, int cy, double angle, int w, int h, const std::source_location& location = std::source_location::current());
 
         /// @brief 幅を取得
-        [[nodiscard]] int width() const;
+        [[nodiscard]] int width(const std::source_location& location = std::source_location::current()) const;
 
         /// @brief 高さを取得
-        [[nodiscard]] int height() const;
+        [[nodiscard]] int height(const std::source_location& location = std::source_location::current()) const;
 
         /// @brief ウィンドウサイズ・位置を設定（width命令のOOP版）
         /// @param clientW クライアントサイズX
@@ -655,41 +670,41 @@ namespace hsppp {
         /// @param posY ウィンドウ位置Y (-1=変更なし)
         /// @param option 座標設定オプション (0=負値で現在維持, 1=負値も設定)
         /// @return *this（メソッドチェーン用）
-        Screen& width(int clientW, int clientH = -1, int posX = -1, int posY = -1, int option = 0);
+        Screen& width(int clientW, int clientH = -1, int posX = -1, int posY = -1, int option = 0, const std::source_location& location = std::source_location::current());
 
         /// @brief スクロール位置を設定（groll命令のOOP版）
         /// @param scrollX 描画基点X座標
         /// @param scrollY 描画基点Y座標
         /// @return *this（メソッドチェーン用）
-        Screen& groll(int scrollX, int scrollY);
+        Screen& groll(int scrollX, int scrollY, const std::source_location& location = std::source_location::current());
 
         /// @brief フォントを設定
         /// @param fontName フォント名
         /// @param size フォントサイズ (デフォルト: 12)
         /// @param style フォントスタイル (デフォルト: 0)
         /// @return *this（メソッドチェーン用）
-        Screen& font(std::string_view fontName, int size = 12, int style = 0);
+        Screen& font(std::string_view fontName, int size = 12, int style = 0, const std::source_location& location = std::source_location::current());
 
         /// @brief システムフォントを選択
         /// @param type フォント種類 (0=HSP標準, 10-17=システムフォント)
         /// @return *this（メソッドチェーン用）
-        Screen& sysfont(int type = 0);
+        Screen& sysfont(int type = 0, const std::source_location& location = std::source_location::current());
 
         /// @brief タイトルバーを設定
         /// @param title タイトル文字列
         /// @return *this（メソッドチェーン用）
-        Screen& title(std::string_view title);
+        Screen& title(std::string_view title, const std::source_location& location = std::source_location::current());
 
         /// @brief 画像ファイルをロード
         /// @param filename ファイル名
         /// @param mode モード (0=初期化してロード, 1=現在の画面に重ねる, 2=黒で初期化してロード)
         /// @return *this（メソッドチェーン用）
-        Screen& picload(std::string_view filename, int mode = 0);
+        Screen& picload(std::string_view filename, int mode = 0, const std::source_location& location = std::source_location::current());
 
         /// @brief 画面イメージをBMPファイルに保存
         /// @param filename ファイル名
         /// @return *this（メソッドチェーン用）
-        Screen& bmpsave(std::string_view filename);
+        Screen& bmpsave(std::string_view filename, const std::source_location& location = std::source_location::current());
 
         /// @brief このウィンドウ内でのマウスカーソルX座標を取得
         /// @return X座標
@@ -705,16 +720,16 @@ namespace hsppp {
 
         /// @brief クリック割り込みを設定
         /// @param handler コールバック関数/ラムダ (nullptr で解除)
-        Screen& onclick(InterruptHandler handler);
+        Screen& onclick(InterruptHandler handler, const std::source_location& location = std::source_location::current());
 
         /// @brief Windowsメッセージ割り込みを設定
         /// @param handler コールバック関数/ラムダ (nullptr で解除)
         /// @param messageId 監視するメッセージID
-        Screen& oncmd(InterruptHandler handler, int messageId);
+        Screen& oncmd(InterruptHandler handler, int messageId, const std::source_location& location = std::source_location::current());
 
         /// @brief キー割り込みを設定
         /// @param handler コールバック関数/ラムダ (nullptr で解除)
-        Screen& onkey(InterruptHandler handler);
+        Screen& onkey(InterruptHandler handler, const std::source_location& location = std::source_location::current());
 
         // ============================================================
         // 画面コピー・変形描画（OOP版）
@@ -726,7 +741,7 @@ namespace hsppp {
         /// @param sizeY コピーする大きさY (デフォルト: 32)
         /// @param blendRate 半透明合成時のブレンド率 (0～256)
         /// @return *this（メソッドチェーン用）
-        Screen& gmode(int mode, int sizeX = 32, int sizeY = 32, int blendRate = 256);
+        Screen& gmode(int mode, int sizeX = 32, int sizeY = 32, int blendRate = 256, const std::source_location& location = std::source_location::current());
 
         /// @brief 画面コピー（OOP版）
         /// @param srcId コピー元のウィンドウID
@@ -735,7 +750,7 @@ namespace hsppp {
         /// @param sizeX コピーする大きさX (省略時=gmodeで設定したサイズ)
         /// @param sizeY コピーする大きさY (省略時=gmodeで設定したサイズ)
         /// @return *this（メソッドチェーン用）
-        Screen& gcopy(int srcId, int srcX, int srcY, OptInt sizeX = {}, OptInt sizeY = {});
+        Screen& gcopy(int srcId, int srcX, int srcY, OptInt sizeX = {}, OptInt sizeY = {}, const std::source_location& location = std::source_location::current());
 
         /// @brief 変倍して画面コピー（OOP版）
         /// @param destW 画面にコピーする時の大きさX
@@ -747,7 +762,7 @@ namespace hsppp {
         /// @param srcH コピーする大きさY (省略時=gmodeサイズ)
         /// @param mode ズームのモード (0=高速, 1=高品質ハーフトーン)
         /// @return *this（メソッドチェーン用）
-        Screen& gzoom(int destW, int destH, int srcId, int srcX, int srcY, OptInt srcW = {}, OptInt srcH = {}, int mode = 0);
+        Screen& gzoom(int destW, int destH, int srcId, int srcX, int srcY, OptInt srcW = {}, OptInt srcH = {}, int mode = 0, const std::source_location& location = std::source_location::current());
 
         /// @brief 矩形画像を回転してコピー（OOP版）
         /// @param srcId コピー元のウィンドウID
@@ -757,27 +772,27 @@ namespace hsppp {
         /// @param dstW コピー先のXサイズ (省略時=gmodeで設定したサイズ)
         /// @param dstH コピー先のYサイズ (省略時=gmodeで設定したサイズ)
         /// @return *this（メソッドチェーン用）
-        Screen& grotate(int srcId, int srcX, int srcY, double angle, OptInt dstW = {}, OptInt dstH = {});
+        Screen& grotate(int srcId, int srcX, int srcY, double angle, OptInt dstW = {}, OptInt dstH = {}, const std::source_location& location = std::source_location::current());
 
         /// @brief 任意の四角形を単色塗りつぶし（OOP版）
         /// @param srcId ウィンドウID (マイナス値=-1～-256で単色塗りつぶし)
         /// @param dst コピー先座標（4頂点）
         /// @return *this（メソッドチェーン用）
-        Screen& gsquare(int srcId, const Quad& dst);
+        Screen& gsquare(int srcId, const Quad& dst, const std::source_location& location = std::source_location::current());
 
         /// @brief 任意の四角形へ画像をコピー（OOP版）
         /// @param srcId コピー元のウィンドウID (0以上)
         /// @param dst コピー先座標（4頂点）
         /// @param src コピー元座標（4頂点）
         /// @return *this（メソッドチェーン用）
-        Screen& gsquare(int srcId, const Quad& dst, const QuadUV& src);
+        Screen& gsquare(int srcId, const Quad& dst, const QuadUV& src, const std::source_location& location = std::source_location::current());
 
         /// @brief 任意の四角形をグラデーション塗りつぶし（OOP版）
         /// @param srcId gsquare_grad (-257) を指定
         /// @param dst コピー先座標（4頂点）
         /// @param colors 頂点の色（4色）
         /// @return *this（メソッドチェーン用）
-        Screen& gsquare(int srcId, const Quad& dst, const QuadColors& colors);
+        Screen& gsquare(int srcId, const Quad& dst, const QuadColors& colors, const std::source_location& location = std::source_location::current());
 
         // ============================================================
         // ウィンドウ表示制御（OOP版）
@@ -785,15 +800,15 @@ namespace hsppp {
 
         /// @brief ウィンドウを表示（gsel id, 1 相当）
         /// @return *this（メソッドチェーン用）
-        Screen& show();
+        Screen& show(const std::source_location& location = std::source_location::current());
 
         /// @brief ウィンドウを非表示（gsel id, -1 相当）
         /// @return *this（メソッドチェーン用）
-        Screen& hide();
+        Screen& hide(const std::source_location& location = std::source_location::current());
 
         /// @brief ウィンドウを最前面でアクティブ化（gsel id, 2 相当）
         /// @return *this（メソッドチェーン用）
-        Screen& activate();
+        Screen& activate(const std::source_location& location = std::source_location::current());
 
         // ============================================================
         // Cel描画（OOP版・Screen側主体）
@@ -805,7 +820,7 @@ namespace hsppp {
         /// @param x X座標（省略時は現在のpos）
         /// @param y Y座標（省略時は現在のpos）
         /// @return *this（メソッドチェーン用）
-        Screen& celput(const Cel& cel, int cellIndex, OptInt x = {}, OptInt y = {});
+        Screen& celput(const Cel& cel, int cellIndex, OptInt x = {}, OptInt y = {}, const std::source_location& location = std::source_location::current());
 
         // ============================================================
         // GUIオブジェクト生成（OOP版・ウィンドウ指定）
@@ -816,34 +831,34 @@ namespace hsppp {
         /// @param callback クリック時のコールバック
         /// @param isGosub true=gosub風, false=goto風
         /// @return オブジェクトID
-        int button(std::string_view name, std::function<int()> callback, bool isGosub = true);
+        int button(std::string_view name, std::function<int()> callback, bool isGosub = true, const std::source_location& location = std::source_location::current());
 
         /// @brief 入力ボックスを生成（OOP版・shared_ptr版）
         /// @param var 文字列変数（shared_ptr）
         /// @param maxLength 最大文字数
         /// @param mode 入力モード (0=文字列, 2=数値)
         /// @return オブジェクトID
-        int input(std::shared_ptr<std::string> var, int maxLength = 1024, int mode = 0);
+        int input(std::shared_ptr<std::string> var, int maxLength = 1024, int mode = 0, const std::source_location& location = std::source_location::current());
 
         /// @brief 複数行入力ボックスを生成（OOP版・shared_ptr版）
         /// @param var 文字列変数（shared_ptr）
         /// @param maxLength 最大文字数
         /// @param mode 入力モード
         /// @return オブジェクトID
-        int mesbox(std::shared_ptr<std::string> var, int maxLength = 4096, int mode = 0);
+        int mesbox(std::shared_ptr<std::string> var, int maxLength = 4096, int mode = 0, const std::source_location& location = std::source_location::current());
 
         /// @brief オブジェクトのサイズと間隔を設定（OOP版）
         /// @param sizeX オブジェクトの横幅
         /// @param sizeY オブジェクトの高さ
         /// @param spaceY 次のオブジェクトとの縦間隔（デフォルト0）
         /// @return *this（メソッドチェーン用）
-        Screen& objsize(int sizeX, int sizeY = 24, int spaceY = 0);
+        Screen& objsize(int sizeX, int sizeY = 24, int spaceY = 0, const std::source_location& location = std::source_location::current());
 
         /// @brief マウスカーソルの座標を設定（OOP版）
         /// @param x X座標（クライアント座標）
         /// @param y Y座標（クライアント座標）
         /// @return *this（メソッドチェーン用）
-        Screen& mouse(int x, int y);
+        Screen& mouse(int x, int y, const std::source_location& location = std::source_location::current());
 
         // ============================================================
         // 追加GUIオブジェクト生成（OOP版）
@@ -853,21 +868,21 @@ namespace hsppp {
         /// @param label チェックボックスの内容表示文字列
         /// @param var チェックボックスの状態を保持する変数（shared_ptr）
         /// @return オブジェクトID
-        int chkbox(std::string_view label, std::shared_ptr<int> var);
+        int chkbox(std::string_view label, std::shared_ptr<int> var, const std::source_location& location = std::source_location::current());
 
         /// @brief コンボボックスを生成（OOP版・shared_ptr版）
         /// @param var コンボボックスの状態を保持する変数（shared_ptr）
         /// @param expandY 拡張Yサイズ（リスト表示用）
         /// @param items コンボボックスの内容（\n区切りの文字列）
         /// @return オブジェクトID
-        int combox(std::shared_ptr<int> var, int expandY, std::string_view items);
+        int combox(std::shared_ptr<int> var, int expandY, std::string_view items, const std::source_location& location = std::source_location::current());
 
         /// @brief リストボックスを生成（OOP版・shared_ptr版）
         /// @param var リストボックスの状態を保持する変数（shared_ptr）
         /// @param expandY 拡張Yサイズ
         /// @param items リストボックスの内容（\n区切りの文字列）
         /// @return オブジェクトID
-        int listbox(std::shared_ptr<int> var, int expandY, std::string_view items);
+        int listbox(std::shared_ptr<int> var, int expandY, std::string_view items, const std::source_location& location = std::source_location::current());
 
         // ============================================================
         // GUIオブジェクト設定（OOP版）
@@ -877,14 +892,14 @@ namespace hsppp {
         /// @param mode フォント設定モード (objmode_* 定数)
         /// @param tabMove TABキーフォーカス移動 (0=無効, 1=有効、省略時は変更なし)
         /// @return *this（メソッドチェーン用）
-        Screen& objmode(int mode, int tabMove = -1);
+        Screen& objmode(int mode, int tabMove = -1, const std::source_location& location = std::source_location::current());
 
         /// @brief オブジェクトのカラー設定（OOP版）
         /// @param r 赤輝度 (0〜255)
         /// @param g 緑輝度 (0〜255)
         /// @param b 青輝度 (0〜255)
         /// @return *this（メソッドチェーン用）
-        Screen& objcolor(int r, int g, int b);
+        Screen& objcolor(int r, int g, int b, const std::source_location& location = std::source_location::current());
 
         // ============================================================
         // GUIオブジェクト操作（OOP版）
@@ -894,24 +909,24 @@ namespace hsppp {
         /// @param objectId オブジェクトID
         /// @param value 変更するパラメータの内容（文字列）
         /// @return *this（メソッドチェーン用）
-        Screen& objprm(int objectId, std::string_view value);
+        Screen& objprm(int objectId, std::string_view value, const std::source_location& location = std::source_location::current());
 
         /// @brief オブジェクトの内容を変更（OOP版・整数）
         /// @param objectId オブジェクトID
         /// @param value 変更するパラメータの内容（数値）
         /// @return *this（メソッドチェーン用）
-        Screen& objprm(int objectId, int value);
+        Screen& objprm(int objectId, int value, const std::source_location& location = std::source_location::current());
 
         /// @brief オブジェクトの有効・無効を設定（OOP版）
         /// @param objectId オブジェクトID
         /// @param enable 0=無効, それ以外=有効（デフォルト1）
         /// @return *this（メソッドチェーン用）
-        Screen& objenable(int objectId, int enable = 1);
+        Screen& objenable(int objectId, int enable = 1, const std::source_location& location = std::source_location::current());
 
         /// @brief オブジェクトに入力フォーカスを設定（OOP版）
         /// @param objectId オブジェクトID
         /// @return *this（メソッドチェーン用）
-        Screen& objsel(int objectId);
+        Screen& objsel(int objectId, const std::source_location& location = std::source_location::current());
     };
 
 
@@ -926,30 +941,30 @@ namespace hsppp {
     /// @param params 初期化パラメータ（IDは自動採番）
     /// @return Screen ハンドル
     /// @example auto win = screen({.width = 800, .height = 600});
-    export [[nodiscard]] Screen screen(const ScreenParams& params);
+    export [[nodiscard]] Screen screen(const ScreenParams& params, const std::source_location& location = std::source_location::current());
 
     /// @brief ウィンドウを初期化（OOP版・引数なし）
     /// @return Screen ハンドル（デフォルト設定で作成）
     /// @example auto win = screen();
-    export [[nodiscard]] Screen screen();
+    export [[nodiscard]] Screen screen(const std::source_location& location = std::source_location::current());
 
     /// @brief 仮想画面を初期化（OOP版・構造体）
     /// @param params 初期化パラメータ（IDは自動採番）
     /// @return Screen ハンドル
-    export [[nodiscard]] Screen buffer(const BufferParams& params);
+    export [[nodiscard]] Screen buffer(const BufferParams& params, const std::source_location& location = std::source_location::current());
 
     /// @brief 仮想画面を初期化（OOP版・引数なし）
     /// @return Screen ハンドル（デフォルト設定で作成）
-    export [[nodiscard]] Screen buffer();
+    export [[nodiscard]] Screen buffer(const std::source_location& location = std::source_location::current());
 
     /// @brief 枠なしウィンドウを初期化（OOP版・構造体）
     /// @param params 初期化パラメータ（IDは自動採番）
     /// @return Screen ハンドル
-    export [[nodiscard]] Screen bgscr(const BgscrParams& params);
+    export [[nodiscard]] Screen bgscr(const BgscrParams& params, const std::source_location& location = std::source_location::current());
 
     /// @brief 枠なしウィンドウを初期化（OOP版・引数なし）
     /// @return Screen ハンドル（デフォルト設定で作成）
-    export [[nodiscard]] Screen bgscr();
+    export [[nodiscard]] Screen bgscr(const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // HSP互換版関数（ID明示指定）
@@ -1485,7 +1500,7 @@ namespace hsppp {
     export class Media {
     public:
         Media();
-        explicit Media(std::string_view filename);
+        explicit Media(std::string_view filename, const std::source_location& location = std::source_location::current());
         ~Media();
 
         Media(const Media&) = delete;
@@ -1494,34 +1509,34 @@ namespace hsppp {
         Media& operator=(Media&& other) noexcept;
 
         /// @brief メディアファイルをロード
-        bool load(std::string_view filename);
+        bool load(std::string_view filename, const std::source_location& location = std::source_location::current());
         
         /// @brief メディアをアンロード
         void unload();
 
         /// @brief 再生開始
-        bool play();
+        bool play(const std::source_location& location = std::source_location::current());
         
         /// @brief 停止
-        void stop();
+        void stop(const std::source_location& location = std::source_location::current());
 
         /// @brief 音量設定（メソッドチェーン対応）
         /// @param v -1000（無音）〜 0（最大）
-        Media& vol(int v);
+        Media& vol(int v, const std::source_location& location = std::source_location::current());
         
         /// @brief パン設定（メソッドチェーン対応）
         /// @param p -1000（左）〜 0（中央）〜 1000（右）
-        Media& pan(int p);
+        Media& pan(int p, const std::source_location& location = std::source_location::current());
         
         /// @brief ループ設定
-        Media& loop(bool l);
+        Media& loop(bool l, const std::source_location& location = std::source_location::current());
         
         /// @brief 再生モード設定 (0=通常, 1=ループ, 2=終了まで待機)
-        Media& mode(int m);
+        Media& mode(int m, const std::source_location& location = std::source_location::current());
 
         /// @brief 動画再生先Screenを指定
         /// @param screenId 描画先のScreen ID（screen/bgscr で作成したウィンドウ）
-        Media& target(int screenId);
+        Media& target(int screenId, const std::source_location& location = std::source_location::current());
 
         /// @brief 現在の音量取得
         [[nodiscard]] int get_vol() const;
@@ -1568,16 +1583,16 @@ namespace hsppp {
     };
 
     /// @brief 現在の割り込みパラメータを取得
-    export const InterruptParams& getInterruptParams();
+    export const InterruptParams& getInterruptParams() noexcept;
 
     /// @brief システム変数 iparam を取得
-    export int iparam(const std::source_location& location = std::source_location::current());
+    export int iparam(const std::source_location& location = std::source_location::current()) noexcept;
 
     /// @brief システム変数 wparam を取得
-    export int wparam(const std::source_location& location = std::source_location::current());
+    export int wparam(const std::source_location& location = std::source_location::current()) noexcept;
 
     /// @brief システム変数 lparam を取得
-    export int lparam(const std::source_location& location = std::source_location::current());
+    export int lparam(const std::source_location& location = std::source_location::current()) noexcept;
 
     // ============================================================
     // sysval互換（Windowsハンドル系）
@@ -1636,34 +1651,66 @@ namespace hsppp {
     export inline constexpr int ERR_INTERNAL          = 17;  // 内部エラー
 
     // ============================================================
-    // HspError - エラー例外クラス
+    // HspErrorBase - エラー例外基底クラス
     // ============================================================
 
-    /// @brief HSPエラー例外
+    /// @brief HSPエラー例外の基底クラス
     /// @details C++例外システムと統合されたHSPエラーハンドリング
-    export class HspError : public std::runtime_error {
-    private:
+    /// @note HspError（致命的）とHspWeakError（復帰可能）の共通基底
+    export class HspErrorBase : public std::runtime_error {
+    protected:
         int m_errorCode;
         int m_lineNumber;
         std::string m_fileName;
         std::string m_functionName;
         std::string m_message;  // 元のエラーメッセージ（ユーザー向け）
+        std::exception_ptr m_originalException;  // 元の例外（存在する場合）
 
-    public:
-        /// @brief エラー例外を構築
-        /// @param errorCode エラーコード (ERR_*)
-        /// @param message エラーメッセージ
-        /// @param location 発生場所（std::source_locationから自動取得）
-        HspError(int errorCode,
-                std::string_view message,
-                const std::source_location& location = std::source_location::current())
-            : std::runtime_error(std::format("[HSP Error {}] {}", errorCode, message))
+        /// @brief エラー例外を構築（派生クラス用）
+        HspErrorBase(const char* prefix,
+                    int errorCode,
+                    std::string_view message,
+                    const std::source_location& location)
+            : std::runtime_error(std::format("[{} {}] {}", prefix, errorCode, message))
             , m_errorCode(errorCode)
             , m_lineNumber(static_cast<int>(location.line()))
             , m_fileName(location.file_name())
             , m_functionName(location.function_name())
             , m_message(message)
+            , m_originalException(nullptr)
         {}
+
+        /// @brief std::exceptionを抱え込んでエラー例外を構築（派生クラス用）
+        HspErrorBase(const char* prefix,
+                    int errorCode,
+                    std::string_view message,
+                    std::exception_ptr originalException,
+                    const std::source_location& location)
+            : std::runtime_error(std::format("[{} {}] {}", prefix, errorCode, message))
+            , m_errorCode(errorCode)
+            , m_lineNumber(static_cast<int>(location.line()))
+            , m_fileName(location.file_name())
+            , m_functionName(location.function_name())
+            , m_message(message)
+            , m_originalException(std::move(originalException))
+        {}
+
+        /// @brief std::exceptionから直接エラー例外を構築（派生クラス用）
+        HspErrorBase(const char* prefix,
+                    int errorCode,
+                    const std::exception& originalException,
+                    const std::source_location& location)
+            : std::runtime_error(std::format("[{} {}] {}", prefix, errorCode, originalException.what()))
+            , m_errorCode(errorCode)
+            , m_lineNumber(static_cast<int>(location.line()))
+            , m_fileName(location.file_name())
+            , m_functionName(location.function_name())
+            , m_message(originalException.what())
+            , m_originalException(std::current_exception())
+        {}
+
+    public:
+        virtual ~HspErrorBase() = default;
 
         /// @brief エラーコードを取得
         [[nodiscard]] int error_code() const noexcept { return m_errorCode; }
@@ -1679,6 +1726,113 @@ namespace hsppp {
 
         /// @brief 元のエラーメッセージを取得（ユーザー向け）
         [[nodiscard]] const std::string& message() const noexcept { return m_message; }
+
+        /// @brief 元の例外を取得（存在しない場合はnullptr）
+        [[nodiscard]] std::exception_ptr original_exception() const noexcept { return m_originalException; }
+
+        /// @brief 元の例外が存在するかチェック
+        [[nodiscard]] bool has_original_exception() const noexcept { return m_originalException != nullptr; }
+
+        /// @brief 元の例外を再スローする
+        /// @throws 元の例外（has_original_exception()がtrueの場合）
+        /// @note 元の例外が存在しない場合は何もしない
+        void rethrow_original() const {
+            if (m_originalException) {
+                std::rethrow_exception(m_originalException);
+            }
+        }
+
+        /// @brief 致命的エラーかどうか（派生クラスでオーバーライド）
+        [[nodiscard]] virtual bool is_fatal() const noexcept = 0;
+    };
+
+    // ============================================================
+    // HspError - 致命的エラー例外クラス
+    // ============================================================
+
+    /// @brief HSP致命的エラー例外
+    /// @details プログラム終了を前提としたエラー。ユーザーがキャッチしても良いが、基本は終了する。
+    export class HspError : public HspErrorBase {
+    public:
+        /// @brief エラー例外を構築
+        /// @param errorCode エラーコード (ERR_*)
+        /// @param message エラーメッセージ
+        /// @param location 発生場所（std::source_locationから自動取得）
+        HspError(int errorCode,
+                std::string_view message,
+                const std::source_location& location = std::source_location::current())
+            : HspErrorBase("HSP Error", errorCode, message, location)
+        {}
+
+        /// @brief std::exceptionを抱え込んでエラー例外を構築
+        /// @param errorCode エラーコード (ERR_*)
+        /// @param message エラーメッセージ
+        /// @param originalException 元の例外（std::exception_ptr）
+        /// @param location 発生場所（std::source_locationから自動取得）
+        HspError(int errorCode,
+                std::string_view message,
+                std::exception_ptr originalException,
+                const std::source_location& location = std::source_location::current())
+            : HspErrorBase("HSP Error", errorCode, message, std::move(originalException), location)
+        {}
+
+        /// @brief std::exceptionから直接エラー例外を構築
+        /// @param errorCode エラーコード (ERR_*)
+        /// @param originalException 元の例外
+        /// @param location 発生場所（std::source_locationから自動取得）
+        HspError(int errorCode,
+                const std::exception& originalException,
+                const std::source_location& location = std::source_location::current())
+            : HspErrorBase("HSP Error", errorCode, originalException, location)
+        {}
+
+        /// @brief 致命的エラーである
+        [[nodiscard]] bool is_fatal() const noexcept override { return true; }
+    };
+
+    // ============================================================
+    // HspWeakError - 復帰可能エラー例外クラス
+    // ============================================================
+
+    /// @brief HSP復帰可能エラー例外
+    /// @details ユーザーがtry-catchでキャッチして処理を続行できるエラー。
+    ///          キャッチされなければWinMainで捕捉され、onerror表示して終了する。
+    export class HspWeakError : public HspErrorBase {
+    public:
+        /// @brief エラー例外を構築
+        /// @param errorCode エラーコード (ERR_*)
+        /// @param message エラーメッセージ
+        /// @param location 発生場所（std::source_locationから自動取得）
+        HspWeakError(int errorCode,
+                    std::string_view message,
+                    const std::source_location& location = std::source_location::current())
+            : HspErrorBase("HSP Warning", errorCode, message, location)
+        {}
+
+        /// @brief std::exceptionを抱え込んでエラー例外を構築
+        /// @param errorCode エラーコード (ERR_*)
+        /// @param message エラーメッセージ
+        /// @param originalException 元の例外（std::exception_ptr）
+        /// @param location 発生場所（std::source_locationから自動取得）
+        HspWeakError(int errorCode,
+                    std::string_view message,
+                    std::exception_ptr originalException,
+                    const std::source_location& location = std::source_location::current())
+            : HspErrorBase("HSP Warning", errorCode, message, std::move(originalException), location)
+        {}
+
+        /// @brief std::exceptionから直接エラー例外を構築
+        /// @param errorCode エラーコード (ERR_*)
+        /// @param originalException 元の例外
+        /// @param location 発生場所（std::source_locationから自動取得）
+        HspWeakError(int errorCode,
+                    const std::exception& originalException,
+                    const std::source_location& location = std::source_location::current())
+            : HspErrorBase("HSP Warning", errorCode, originalException, location)
+        {}
+
+        /// @brief 致命的エラーではない（復帰可能）
+        [[nodiscard]] bool is_fatal() const noexcept override { return false; }
     };
 
     // ============================================================
@@ -1692,7 +1846,7 @@ namespace hsppp {
 
     /// @brief onerror割り込みの一時停止/再開
     /// @param enable 0=停止, 1=再開
-    export void onerror(int enable, const std::source_location& location = std::source_location::current());
+    export void onerror(int enable, const std::source_location& location = std::source_location::current()) noexcept;
 
     // ============================================================
     // onclick - クリック割り込み実行指定（HSP互換）
@@ -1703,7 +1857,7 @@ namespace hsppp {
 
     /// @brief onclick割り込みの一時停止/再開
     /// @param enable 0=停止, 1=再開
-    export void onclick(int enable, const std::source_location& location = std::source_location::current());
+    export void onclick(int enable, const std::source_location& location = std::source_location::current()) noexcept;
 
     // ============================================================
     // oncmd - Windowsメッセージ割り込み実行指定（HSP互換）
@@ -1720,7 +1874,7 @@ namespace hsppp {
 
     /// @brief oncmd割り込み全体の一時停止/再開
     /// @param enable 0=停止, 1=再開
-    export void oncmd(int enable, const std::source_location& location = std::source_location::current());
+    export void oncmd(int enable, const std::source_location& location = std::source_location::current()) noexcept;
 
     // ============================================================
     // onexit - 終了時にジャンプ（HSP互換）
@@ -1732,7 +1886,7 @@ namespace hsppp {
 
     /// @brief onexit割り込みの一時停止/再開
     /// @param enable 0=停止, 1=再開
-    export void onexit(int enable, const std::source_location& location = std::source_location::current());
+    export void onexit(int enable, const std::source_location& location = std::source_location::current()) noexcept;
 
     // ============================================================
     // onkey - キー割り込み実行指定（HSP互換）
@@ -1743,7 +1897,7 @@ namespace hsppp {
 
     /// @brief onkey割り込みの一時停止/再開
     /// @param enable 0=停止, 1=再開
-    export void onkey(int enable, const std::source_location& location = std::source_location::current());
+    export void onkey(int enable, const std::source_location& location = std::source_location::current()) noexcept;
 
     // ============================================================
     // ============================================================
@@ -1986,7 +2140,7 @@ namespace hsppp {
     /// @brief 文字列の長さを調べる
     /// @param p1 文字列
     /// @return 文字列の長さ（バイト数）
-    export [[nodiscard]] int64_t strlen(const std::string& p1);
+    export [[nodiscard]] int64_t strlen(const std::string& p1) noexcept;
 
     // ============================================================
     // 文字列操作関数（HSP互換）
@@ -2170,12 +2324,12 @@ namespace hsppp {
         /// @param index 挿入位置（省略または-1で末尾）
         /// @param overwrite 上書きモード（0=挿入, 1=上書き）
         /// @return *this（メソッドチェーン用）
-        NotePad& add(std::string_view text, int index = -1, int overwrite = 0);
+        NotePad& add(std::string_view text, int index = -1, int overwrite = 0, const std::source_location& location = std::source_location::current());
 
         /// @brief 行を削除（notedel相当）
         /// @param index 削除する行のインデックス
         /// @return *this（メソッドチェーン用）
-        NotePad& del(size_t index);
+        NotePad& del(size_t index, const std::source_location& location = std::source_location::current());
 
         /// @brief 全行をクリア
         /// @return *this（メソッドチェーン用）
@@ -2200,12 +2354,12 @@ namespace hsppp {
         /// @param filename ファイル名
         /// @param maxSize 最大サイズ（省略時は制限なし）
         /// @return *this（メソッドチェーン用）
-        NotePad& load(std::string_view filename, size_t maxSize = 0);
+        NotePad& load(std::string_view filename, size_t maxSize = 0, const std::source_location& location = std::source_location::current());
 
         /// @brief ファイルへ保存（notesave相当）
         /// @param filename ファイル名
         /// @return 保存に成功した場合true
-        [[nodiscard]] bool save(std::string_view filename) const;
+        [[nodiscard]] bool save(std::string_view filename, const std::source_location& location = std::source_location::current()) const;
 
         // ============================================================
         // 変換・アクセス
@@ -2486,97 +2640,92 @@ namespace hsppp {
     export int button(std::string_view name, std::function<int()> callback, bool isGosub = false,
                      const std::source_location& location = std::source_location::current());
 
-    /// @brief 入力ボックス表示
-    /// @param var 入力のための文字列変数（参照）
-    /// @param sizeX メッセージボックスのXサイズ（省略時はobjsizeに従う）
-    /// @param sizeY メッセージボックスのYサイズ（省略時はobjsizeに従う）
-    /// @param maxLen 入力できる最大文字数（省略時は変数サイズに従う）
-    /// @return オブジェクトID (stat相当)
-    export int input(std::string& var, OptInt sizeX = {}, OptInt sizeY = {}, OptInt maxLen = {},
-                    const std::source_location& location = std::source_location::current());
+    // ============================================================
+    // GUIコントロール: shared_ptr版のみ提供（ライフタイム安全性）
+    // ============================================================
+    // 
+    // 【設計上の注意】input/mesbox/chkbox/combox/listbox には参照版がありません。
+    // 
+    // HSPでは変数はすべてグローバルスコープなので、GUIオブジェクトが
+    // 変数を参照し続けても問題ありませんでした。しかしC++では、
+    // ローカル変数を参照で渡すと、関数を抜けた後にGUIがその変数を
+    // 参照し続け、ダングリングポインタ（未定義動作）となります。
+    //
+    // 安全のため、これらの関数は std::shared_ptr 版のみ提供します。
+    // 
+    // 使用例:
+    //   auto strVar = std::make_shared<std::string>("initial");
+    //   input(strVar, 200, 24, 256);
+    //
+    //   auto intVar = std::make_shared<int>(42);
+    //   input(intVar, 100, 24);
+    //
+    //   auto mesVar = std::make_shared<std::string>("Line1\nLine2");
+    //   mesbox(mesVar, 300, 200, 1);  // 編集可能
+    //
+    //   auto checkState = std::make_shared<int>(0);
+    //   chkbox("Enable", checkState);
+    //
+    //   auto comboIndex = std::make_shared<int>(0);
+    //   combox(comboIndex, 100, "Option A\nOption B\nOption C");
+    // ============================================================
 
-    /// @brief 入力ボックス表示（整数変数版）
-    /// @param var 入力のための整数変数（参照）
-    /// @param sizeX メッセージボックスのXサイズ（省略時はobjsizeに従う）
-    /// @param sizeY メッセージボックスのYサイズ（省略時はobjsizeに従う）
-    /// @param maxLen 入力できる最大文字数（省略時は32）
+    /// @brief 入力ボックス表示（文字列変数用）
+    /// @param var 入力のための文字列変数（shared_ptr）
+    /// @param sizeX 入力ボックスのXサイズ（省略時はobjsizeに従う）
+    /// @param sizeY 入力ボックスのYサイズ（省略時はobjsizeに従う）
+    /// @param maxLen 入力できる最大文字数（省略時は256）
     /// @return オブジェクトID (stat相当)
-    export int input(int& var, OptInt sizeX = {}, OptInt sizeY = {}, OptInt maxLen = {},
+    /// @note 参照版は提供していません（ライフタイム安全性のため）。
+    ///       std::make_shared<std::string>(初期値) で変数を作成してください。
+    /// @note 整数/実数入力が必要な場合は、文字列で受け取って toInt()/toDouble() で変換してください。
+    export int input(std::shared_ptr<std::string> var, OptInt sizeX = {}, OptInt sizeY = {}, OptInt maxLen = {},
                     const std::source_location& location = std::source_location::current());
 
     /// @brief メッセージボックス表示
-    /// @param var 表示メッセージが代入された文字列型変数
+    /// @param var 表示メッセージを保持する文字列変数（shared_ptr）
     /// @param sizeX メッセージボックスのXサイズ（省略時はobjsizeに従う）
     /// @param sizeY メッセージボックスのYサイズ（省略時はobjsizeに従う）
     /// @param style スタイル (0=読取専用, 1=編集可能, +4=横スクロールバー, +8=自動ラップ無効)
-    /// @param maxLen 入力できる最大文字数（省略時は変数サイズ、0で最大）
+    /// @param maxLen 入力できる最大文字数（省略時は32767）
     /// @return オブジェクトID (stat相当)
-    export int mesbox(std::string& var, OptInt sizeX = {}, OptInt sizeY = {}, OptInt style = {}, OptInt maxLen = {},
+    /// @note 参照版は提供していません（ライフタイム安全性のため）。
+    ///       std::make_shared<std::string>(初期値) で変数を作成してください。
+    export int mesbox(std::shared_ptr<std::string> var, OptInt sizeX = {}, OptInt sizeY = {}, OptInt style = {}, OptInt maxLen = {},
                      const std::source_location& location = std::source_location::current());
 
     /// @brief チェックボックス表示
     /// @param label チェックボックスの内容表示文字列
-    /// @param var チェックボックスの状態を保持する変数（0=OFF, 1=ON）
+    /// @param var チェックボックスの状態を保持する変数（shared_ptr: 0=OFF, 1=ON）
     /// @return オブジェクトID (stat相当)
-    export int chkbox(std::string_view label, int& var,
-                     const std::source_location& location = std::source_location::current());
-
-    /// @brief コンボボックス表示
-    /// @param var コンボボックスの状態を保持する変数（選択インデックス）
-    /// @param expandY 拡張Yサイズ（リスト表示用、100〜150程度推奨）
-    /// @param items コンボボックスの内容（\n区切りの文字列）
-    /// @return オブジェクトID (stat相当)
-    export int combox(int& var, OptInt expandY, std::string_view items,
-                     const std::source_location& location = std::source_location::current());
-
-    /// @brief リストボックス表示
-    /// @param var リストボックスの状態を保持する変数（選択インデックス）
-    /// @param expandY 拡張Yサイズ
-    /// @param items リストボックスの内容（\n区切りの文字列）
-    /// @return オブジェクトID (stat相当)
-    export int listbox(int& var, OptInt expandY, std::string_view items,
-                      const std::source_location& location = std::source_location::current());
-
-    // ============================================================
-    // 安全なAPI: shared_ptr版（ライフタイムが自動管理される）
-    // ============================================================
-
-    /// @brief 入力ボックス表示（安全版：shared_ptrで変数のライフタイムを管理）
-    /// @param var 入力のための文字列変数（shared_ptr）
-    /// @return オブジェクトID (stat相当)
-    export int input(std::shared_ptr<std::string> var, OptInt sizeX = {}, OptInt sizeY = {}, OptInt maxLen = {},
-                    const std::source_location& location = std::source_location::current());
-
-    /// @brief 入力ボックス表示（安全版：shared_ptrで変数のライフタイムを管理）
-    /// @param var 入力のための整数変数（shared_ptr）
-    /// @return オブジェクトID (stat相当)
-    export int input(std::shared_ptr<int> var, OptInt sizeX = {}, OptInt sizeY = {}, OptInt maxLen = {},
-                    const std::source_location& location = std::source_location::current());
-
-    /// @brief メッセージボックス表示（安全版：shared_ptrで変数のライフタイムを管理）
-    /// @param var 表示メッセージが代入された文字列型変数（shared_ptr）
-    /// @return オブジェクトID (stat相当)
-    export int mesbox(std::shared_ptr<std::string> var, OptInt sizeX = {}, OptInt sizeY = {}, OptInt style = {}, OptInt maxLen = {},
-                     const std::source_location& location = std::source_location::current());
-
-    /// @brief チェックボックス表示（安全版：shared_ptrで変数のライフタイムを管理）
-    /// @param label チェックボックスの内容表示文字列
-    /// @param var チェックボックスの状態を保持する変数（shared_ptr）
-    /// @return オブジェクトID (stat相当)
+    /// @note 参照版は提供していません（ライフタイム安全性のため）。
+    ///       std::make_shared<int>(初期値) で変数を作成してください。
     export int chkbox(std::string_view label, std::shared_ptr<int> var,
                      const std::source_location& location = std::source_location::current());
 
-    /// @brief コンボボックス表示（安全版：shared_ptrで変数のライフタイムを管理）
-    /// @param var コンボボックスの状態を保持する変数（shared_ptr）
+    /// @brief コンボボックス表示
+    /// @param var コンボボックスの状態を保持する変数（shared_ptr: 選択インデックス）
+    /// @param expandY 拡張Yサイズ（リスト表示用、100〜150程度推奨）
+    /// @param items コンボボックスの内容（\n区切りの文字列）
     /// @return オブジェクトID (stat相当)
+    /// @note 参照版は提供していません（ライフタイム安全性のため）。
+    ///       std::make_shared<int>(初期値) で変数を作成してください。
     export int combox(std::shared_ptr<int> var, OptInt expandY, std::string_view items,
                      const std::source_location& location = std::source_location::current());
 
-    /// @brief リストボックス表示（安全版：shared_ptrで変数のライフタイムを管理）
-    /// @param var リストボックスの状態を保持する変数（shared_ptr）
+    /// @brief リストボックス表示
+    /// @param var リストボックスの状態を保持する変数（shared_ptr: 選択インデックス）
+    /// @param expandY 拡張Yサイズ
+    /// @param items リストボックスの内容（\n区切りの文字列）
     /// @return オブジェクトID (stat相当)
+    /// @note 参照版は提供していません（ライフタイム安全性のため）。
+    ///       std::make_shared<int>(初期値) で変数を作成してください。
     export int listbox(std::shared_ptr<int> var, OptInt expandY, std::string_view items,
                       const std::source_location& location = std::source_location::current());
+
+    // ============================================================
+    // オブジェクト操作
+    // ============================================================
 
     /// @brief オブジェクトをクリア
     /// @param startId 消去するオブジェクトID(開始)（省略時は0）
@@ -2774,8 +2923,9 @@ namespace hsppp {
         export void init_system(const std::source_location& location = std::source_location::current());
         export void close_system(const std::source_location& location = std::source_location::current());
 
-        // HspError例外を処理（エラーハンドラを呼び出す）
-        export void handleHspError(const HspError& error, const std::source_location& location = std::source_location::current());
+        // HspErrorBase派生例外を処理（エラーハンドラを呼び出す）
+        // HspError（致命的）とHspWeakError（復帰可能）の両方に対応
+        export void handleHspError(const HspErrorBase& error, const std::source_location& location = std::source_location::current());
     }
 }
 

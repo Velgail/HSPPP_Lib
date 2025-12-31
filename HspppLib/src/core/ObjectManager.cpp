@@ -2,6 +2,7 @@
 // GUIオブジェクトマネージャーの実装
 
 #include "Internal.h"
+#include <stdexcept>
 
 namespace hsppp::internal {
 
@@ -154,6 +155,48 @@ void ObjectManager::resetSettings() {
     m_objSpaceY = 0;
     m_fontMode = 1;
     // m_tabEnabled はリセットしない（HSP仕様）
+}
+
+void ObjectManager::syncSingleInputControl(HWND hwnd) {
+    // HWNDからオブジェクトを検索
+    auto it = m_hwndMap.find(hwnd);
+    if (it == m_hwndMap.end()) {
+        return;
+    }
+    
+    ObjectInfo* pInfo = getObject(it->second);
+    if (!pInfo) {
+        return;
+    }
+    
+    // Input/Mesbox以外は無視
+    if (pInfo->type != ObjectType::Input && pInfo->type != ObjectType::Mesbox) {
+        return;
+    }
+    
+    if (!hwnd || !IsWindow(hwnd)) {
+        return;
+    }
+    
+    // EDITコントロールからテキストを取得
+    int len = GetWindowTextLengthW(hwnd);
+    std::wstring wtext(len + 1, L'\0');
+    GetWindowTextW(hwnd, wtext.data(), len + 1);
+    wtext.resize(len);  // ヌル終端を除去
+    
+    // UTF-8に変換
+    std::string utf8Text = WideToUtf8(wtext);
+    
+    // 文字列変数を更新
+    if (pInfo->ownedStrVar) {
+        *pInfo->ownedStrVar = utf8Text;
+    }
+}
+
+void ObjectManager::syncInputControls() {
+    for (auto& [id, info] : m_objects) {
+        syncSingleInputControl(info.hwnd.get());
+    }
 }
 
 } // namespace hsppp::internal

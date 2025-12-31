@@ -196,48 +196,50 @@ namespace hsppp {
     // gsel - 描画先指定、ウィンドウ最前面、非表示設定（HSP互換）
     // ============================================================
     void gsel(OptInt id, OptInt mode, const std::source_location& location) {
-        using namespace internal;
+        safe_call(location, [&] {
+            using namespace internal;
 
-        int p1 = id.value_or(0);
-        int p2 = mode.value_or(0);
+            int p1 = id.value_or(0);
+            int p2 = mode.value_or(0);
 
-        // 指定されたIDのサーフェスを取得
-        auto it = g_surfaces.find(p1);
-        if (it == g_surfaces.end()) {
-            return;  // 存在しないIDは無視
-        }
-
-        auto surface = it->second;
-
-        // カレントサーフェスとして設定
-        g_currentSurface = surface;
-        g_currentScreenId = p1;  // GUI命令用にIDを保持
-
-        // HspWindowの場合はウィンドウ操作
-        auto pWindow = std::dynamic_pointer_cast<HspWindow>(surface);
-        if (pWindow) {
-            HWND hwnd = pWindow->getHwnd();
-            switch (p2) {
-            case -1:
-                // 非表示にする
-                ShowWindow(hwnd, SW_HIDE);
-                break;
-            case 0:
-                // 特に影響なし（描画先のみ変更）
-                break;
-            case 1:
-                // アクティブにする
-                ShowWindow(hwnd, SW_SHOW);
-                SetForegroundWindow(hwnd);
-                break;
-            case 2:
-                // アクティブ＋最前面
-                ShowWindow(hwnd, SW_SHOW);
-                SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-                SetForegroundWindow(hwnd);
-                break;
+            // 指定されたIDのサーフェスを取得
+            auto it = g_surfaces.find(p1);
+            if (it == g_surfaces.end()) {
+                return;  // 存在しないIDは無視
             }
-        }
+
+            auto surface = it->second;
+
+            // カレントサーフェスとして設定
+            g_currentSurface = surface;
+            g_currentScreenId = p1;  // GUI命令用にIDを保持
+
+            // HspWindowの場合はウィンドウ操作
+            auto pWindow = std::dynamic_pointer_cast<HspWindow>(surface);
+            if (pWindow) {
+                HWND hwnd = pWindow->getHwnd();
+                switch (p2) {
+                case -1:
+                    // 非表示にする
+                    ShowWindow(hwnd, SW_HIDE);
+                    break;
+                case 0:
+                    // 特に影響なし（描画先のみ変更）
+                    break;
+                case 1:
+                    // アクティブにする
+                    ShowWindow(hwnd, SW_SHOW);
+                    SetForegroundWindow(hwnd);
+                    break;
+                case 2:
+                    // アクティブ＋最前面
+                    ShowWindow(hwnd, SW_SHOW);
+                    SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+                    SetForegroundWindow(hwnd);
+                    break;
+                }
+            }
+        });
     }
 
     // ============================================================
@@ -245,27 +247,29 @@ namespace hsppp {
     // カレントサーフェスのgmode設定を変更する
     // ============================================================
     void gmode(OptInt mode, OptInt size_x, OptInt size_y, OptInt blend_rate, const std::source_location& location) {
-        int m = mode.value_or(0);
-        int sx = size_x.value_or(32);
-        int sy = size_y.value_or(32);
-        int br = blend_rate.value_or(0);
+        safe_call(location, [&] {
+            int m = mode.value_or(0);
+            int sx = size_x.value_or(32);
+            int sy = size_y.value_or(32);
+            int br = blend_rate.value_or(0);
 
-        // パラメータ範囲チェック
-        if (m < 0 || m > 6) {
-            throw HspError(ERR_OUT_OF_RANGE, "gmodeのモードは0～6の範囲で指定してください", location);
-        }
-        if (sx <= 0 || sy <= 0) {
-            throw HspError(ERR_OUT_OF_RANGE, "gmodeのサイズは正の値を指定してください", location);
-        }
-        if (br < 0 || br > 256) {
-            throw HspError(ERR_OUT_OF_RANGE, "gmodeのブレンド率は0～256の範囲で指定してください", location);
-        }
+            // パラメータ範囲チェック
+            if (m < 0 || m > 6) {
+                throw HspError(ERR_OUT_OF_RANGE, "gmodeのモードは0～6の範囲で指定してください", location);
+            }
+            if (sx <= 0 || sy <= 0) {
+                throw HspError(ERR_OUT_OF_RANGE, "gmodeのサイズは正の値を指定してください", location);
+            }
+            if (br < 0 || br > 256) {
+                throw HspError(ERR_OUT_OF_RANGE, "gmodeのブレンド率は0～256の範囲で指定してください", location);
+            }
 
-        // カレントサーフェスのgmode設定を変更
-        auto currentSurface = getCurrentSurface();
-        if (currentSurface) {
-            currentSurface->setGmode(m, sx, sy, br);
-        }
+            // カレントサーフェスのgmode設定を変更
+            auto currentSurface = getCurrentSurface();
+            if (currentSurface) {
+                currentSurface->setGmode(m, sx, sy, br);
+            }
+        });
     }
 
     // ============================================================
@@ -274,25 +278,25 @@ namespace hsppp {
     // コピー先サーフェスのgmode設定を使用
     // ============================================================
     void gcopy(OptInt src_id, OptInt src_x, OptInt src_y, OptInt size_x, OptInt size_y, const std::source_location& location) {
-        using namespace internal;
+        safe_call(location, [&] {
+            using namespace internal;
 
-        // カレントサーフェス（コピー先）を取得
-        auto destSurface = getCurrentSurface();
-        if (!destSurface) {
-            throw HspError(ERR_INVALID_HANDLE, "gcopyのカレントサーフェスが無効です", location);
-        }
+            // カレントサーフェス（コピー先）を取得
+            auto destSurface = getCurrentSurface();
+            if (!destSurface) {
+                throw HspError(ERR_INVALID_HANDLE, "gcopyのカレントサーフェスが無効です", location);
+            }
 
-        // サーフェスのgmode設定を取得
-        int gmodeSizeX = destSurface->getGmodeSizeX();
-        int gmodeSizeY = destSurface->getGmodeSizeY();
+            // サーフェスのgmode設定を取得
+            int gmodeSizeX = destSurface->getGmodeSizeX();
+            int gmodeSizeY = destSurface->getGmodeSizeY();
 
-        int p1 = src_id.value_or(0);
-        int p2 = src_x.value_or(0);
-        int p3 = src_y.value_or(0);
-        int p4 = size_x.value_or(gmodeSizeX);
-        int p5 = size_y.value_or(gmodeSizeY);
+            int p1 = src_id.value_or(0);
+            int p2 = src_x.value_or(0);
+            int p3 = src_y.value_or(0);
+            int p4 = size_x.value_or(gmodeSizeX);
+            int p5 = size_y.value_or(gmodeSizeY);
 
-        try {
             // コピー元サーフェスを取得
             auto srcIt = g_surfaces.find(p1);
             if (srcIt == g_surfaces.end()) {
@@ -302,11 +306,7 @@ namespace hsppp {
 
             // 共通実装ヘルパーを呼ぶ
             gcopy_impl(destSurface, srcSurface, p2, p3, p4, p5, location);
-        }
-        catch (const std::exception& e) {
-            // 例外を書き換え
-            throw HspError(ERR_SYSTEM_ERROR, std::format("gcopyでエラーが発生しました: {}", e.what()), location);
-        }
+        });
     }
 
     // ============================================================
@@ -316,28 +316,28 @@ namespace hsppp {
     // ============================================================
     void gzoom(OptInt dest_w, OptInt dest_h, OptInt src_id, OptInt src_x, OptInt src_y,
                OptInt src_w, OptInt src_h, OptInt mode, const std::source_location& location) {
-        using namespace internal;
+        safe_call(location, [&] {
+            using namespace internal;
 
-        // カレントサーフェス（コピー先）を取得
-        auto destSurface = getCurrentSurface();
-        if (!destSurface) {
-            throw HspError(ERR_INVALID_HANDLE, "gzoomのカレントサーフェスが無効です", location);
-        }
+            // カレントサーフェス（コピー先）を取得
+            auto destSurface = getCurrentSurface();
+            if (!destSurface) {
+                throw HspError(ERR_INVALID_HANDLE, "gzoomのカレントサーフェスが無効です", location);
+            }
 
-        // サーフェスのgmode設定を取得
-        int gmodeSizeX = destSurface->getGmodeSizeX();
-        int gmodeSizeY = destSurface->getGmodeSizeY();
+            // サーフェスのgmode設定を取得
+            int gmodeSizeX = destSurface->getGmodeSizeX();
+            int gmodeSizeY = destSurface->getGmodeSizeY();
 
-        int p1 = dest_w.value_or(gmodeSizeX);
-        int p2 = dest_h.value_or(gmodeSizeY);
-        int p3 = src_id.value_or(0);
-        int p4 = src_x.value_or(0);
-        int p5 = src_y.value_or(0);
-        int p6 = src_w.value_or(gmodeSizeX);
-        int p7 = src_h.value_or(gmodeSizeY);
-        int p8 = mode.value_or(0);
+            int p1 = dest_w.value_or(gmodeSizeX);
+            int p2 = dest_h.value_or(gmodeSizeY);
+            int p3 = src_id.value_or(0);
+            int p4 = src_x.value_or(0);
+            int p5 = src_y.value_or(0);
+            int p6 = src_w.value_or(gmodeSizeX);
+            int p7 = src_h.value_or(gmodeSizeY);
+            int p8 = mode.value_or(0);
 
-        try {
             // コピー元サーフェスを取得
             auto srcIt = g_surfaces.find(p3);
             if (srcIt == g_surfaces.end()) {
@@ -347,11 +347,7 @@ namespace hsppp {
 
             // 共通実装ヘルパーを呼ぶ
             gzoom_impl(destSurface, p1, p2, srcSurface, p4, p5, p6, p7, p8, location);
-        }
-        catch (const std::exception& e) {
-            // 例外を書き換え
-            throw HspError(ERR_SYSTEM_ERROR, std::format("gzoomでエラーが発生しました: {}", e.what()), location);
-        }
+        });
     }
 
 } // namespace hsppp

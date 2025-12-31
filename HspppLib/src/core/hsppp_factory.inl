@@ -112,24 +112,26 @@ namespace hsppp {
     }
 
     // OOP版：構造体パラメータ（ID自動採番）
-    Screen screen(const ScreenParams& params) {
-        int id = getNextAutoId();
-        return createWindowInternal(
-            id,
-            params.width,
-            params.height,
-            params.mode,
-            params.pos_x,
-            params.pos_y,
-            params.client_w,
-            params.client_h,
-            params.title
-        );
+    Screen screen(const ScreenParams& params, const std::source_location& location) {
+        return safe_call(location, [&] {
+            int id = getNextAutoId();
+            return createWindowInternal(
+                id,
+                params.width,
+                params.height,
+                params.mode,
+                params.pos_x,
+                params.pos_y,
+                params.client_w,
+                params.client_h,
+                params.title
+            );
+        });
     }
 
     // OOP版：引数なし（ID自動採番、デフォルト設定）
-    Screen screen() {
-        return screen(ScreenParams{});
+    Screen screen(const std::source_location& location) {
+        return screen(ScreenParams{}, location);
     }
 
     // HSP互換版：ID明示指定
@@ -145,17 +147,19 @@ namespace hsppp {
         std::string_view title,
         const std::source_location& location
     ) {
-        return createWindowInternal(
-            id,
-            width.value_or(640),
-            height.value_or(480),
-            mode.value_or(0),
-            pos_x.value_or(-1),
-            pos_y.value_or(-1),
-            client_w.value_or(0),
-            client_h.value_or(0),
-            title
-        );
+        return safe_call(location, [&] {
+            return createWindowInternal(
+                id,
+                width.value_or(640),
+                height.value_or(480),
+                mode.value_or(0),
+                pos_x.value_or(-1),
+                pos_y.value_or(-1),
+                client_w.value_or(0),
+                client_h.value_or(0),
+                title
+            );
+        });
     }
 
     // ============================================================
@@ -201,24 +205,28 @@ namespace hsppp {
     }
 
     // OOP版：構造体パラメータ（ID自動採番）
-    Screen buffer(const BufferParams& params) {
-        int id = getNextAutoId();
-        return createBufferInternal(id, params.width, params.height, params.mode);
+    Screen buffer(const BufferParams& params, const std::source_location& location) {
+        return safe_call(location, [&] {
+            int id = getNextAutoId();
+            return createBufferInternal(id, params.width, params.height, params.mode);
+        });
     }
 
     // OOP版：引数なし（ID自動採番、デフォルト設定）
-    Screen buffer() {
-        return buffer(BufferParams{});
+    Screen buffer(const std::source_location& location) {
+        return buffer(BufferParams{}, location);
     }
 
     // HSP互換版：ID明示指定
     Screen buffer(int id, OptInt width, OptInt height, OptInt mode, const std::source_location& location) {
-        return createBufferInternal(
-            id,
-            width.value_or(640),
-            height.value_or(480),
-            mode.value_or(0)
-        );
+        return safe_call(location, [&] {
+            return createBufferInternal(
+                id,
+                width.value_or(640),
+                height.value_or(480),
+                mode.value_or(0)
+            );
+        });
     }
 
     // ============================================================
@@ -307,38 +315,42 @@ namespace hsppp {
     }
 
     // OOP版：構造体パラメータ（ID自動採番）
-    Screen bgscr(const BgscrParams& params) {
-        int id = getNextAutoId();
-        return createBgscrInternal(
-            id,
-            params.width,
-            params.height,
-            params.mode,
-            params.pos_x,
-            params.pos_y,
-            params.client_w,
-            params.client_h
-        );
+    Screen bgscr(const BgscrParams& params, const std::source_location& location) {
+        return safe_call(location, [&] {
+            int id = getNextAutoId();
+            return createBgscrInternal(
+                id,
+                params.width,
+                params.height,
+                params.mode,
+                params.pos_x,
+                params.pos_y,
+                params.client_w,
+                params.client_h
+            );
+        });
     }
 
     // OOP版：引数なし（ID自動採番、デフォルト設定）
-    Screen bgscr() {
-        return bgscr(BgscrParams{});
+    Screen bgscr(const std::source_location& location) {
+        return bgscr(BgscrParams{}, location);
     }
 
     // HSP互換版：ID明示指定
     Screen bgscr(int id, OptInt width, OptInt height, OptInt mode,
                  OptInt pos_x, OptInt pos_y, OptInt client_w, OptInt client_h, const std::source_location& location) {
-        return createBgscrInternal(
-            id,
-            width.value_or(640),
-            height.value_or(480),
-            mode.value_or(0),
-            pos_x.value_or(-1),
-            pos_y.value_or(-1),
-            client_w.value_or(0),
-            client_h.value_or(0)
-        );
+        return safe_call(location, [&] {
+            return createBgscrInternal(
+                id,
+                width.value_or(640),
+                height.value_or(480),
+                mode.value_or(0),
+                pos_x.value_or(-1),
+                pos_y.value_or(-1),
+                client_w.value_or(0),
+                client_h.value_or(0)
+            );
+        });
     }
 
 } // namespace hsppp

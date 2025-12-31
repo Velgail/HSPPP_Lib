@@ -1,0 +1,25 @@
+# GitHub Pages 設定
+title: HSPPP Documentation
+description: HSP互換 C++23 ライブラリ
+theme: jekyll-theme-cayman
+
+# ナビゲーション
+nav:
+  - title: Home
+    url: /
+  - title: Tutorial
+    url: /guides/tutorial
+  - title: API Reference
+    url: /api/
+  - title: FAQ
+    url: /faq
+
+# Markdown 設定
+markdown: kramdown
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+
+# その他
+baseurl: /HspppLib
+url: https://velgail.github.io

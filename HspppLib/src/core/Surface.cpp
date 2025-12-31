@@ -1284,21 +1284,18 @@ void HspSurface::gsquareGrad(const int (&dstX)[4], const int (&dstY)[4], const i
 
 HspWindow::HspWindow(int width, int height, std::string_view title)
     : HspSurface(width, height)
-    , m_hwnd(nullptr)
     , m_pSwapChain(nullptr)
     , m_title(Utf8ToWide(title))
     , m_clientWidth(width)      // 初期値はバッファサイズと同じ
     , m_clientHeight(height)
+    , m_hwnd(nullptr)
     , m_scrollX(0)
     , m_scrollY(0)
 {
 }
 
 HspWindow::~HspWindow() {
-    if (m_hwnd) {
-        DestroyWindow(m_hwnd);
-        m_hwnd = nullptr;
-    }
+    // UniqueHwnd handles destruction
 }
 
 bool HspWindow::initialize() {
@@ -1424,7 +1421,7 @@ bool HspWindow::createWindow(
     int posX = (x < 0) ? CW_USEDEFAULT : x;
     int posY = (y < 0) ? CW_USEDEFAULT : y;
 
-    m_hwnd = CreateWindowExW(
+    m_hwnd.reset(CreateWindowExW(
         exStyle,
         classNameStr.c_str(),
         m_title.c_str(),
@@ -1434,9 +1431,9 @@ bool HspWindow::createWindow(
         nullptr, nullptr,
         hInstance,
         this
-    );
+    ));
 
-    return m_hwnd != nullptr;
+    return m_hwnd.get() != nullptr;
 }
 
 void HspWindow::present() {

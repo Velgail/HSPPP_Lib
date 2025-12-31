@@ -570,7 +570,7 @@ namespace compile_test {
     
     // テスト用ハンドラ
     int test_interrupt_handler() { return 0; }
-    int test_error_handler(const HspError& error) {
+    int test_error_handler(const HspErrorBase& error) {
         [[maybe_unused]] int code = error.error_code();
         [[maybe_unused]] int line = error.line_number();
         return 0;
@@ -591,9 +591,9 @@ namespace compile_test {
         hsppp::oncmd(0);   // 全体停止
         hsppp::oncmd(1);   // 全体再開
         
-        // onerror (ErrorHandler型 - HspError引数を受け取る)
+        // onerror (ErrorHandler型 - HspErrorBase引数を受け取る)
         hsppp::onerror(test_error_handler);
-        hsppp::onerror([](const HspError& e) { return 0; });  // ラムダ式
+        hsppp::onerror([](const HspErrorBase& e) { return 0; });  // ラムダ式
         hsppp::onerror(nullptr);
         hsppp::onerror(0);
         hsppp::onerror(1);
@@ -1200,43 +1200,41 @@ namespace compile_test {
         [[maybe_unused]] int btnId = button("Test Button", []() { return 0; });
         [[maybe_unused]] int btnId2 = button("Gosub Button", []() { return 1; }, true);
 
-        // input - 入力ボックス表示（文字列）
-        std::string strVar = "initial";
+        // input - 入力ボックス表示（文字列）- shared_ptr版
+        auto strVar = std::make_shared<std::string>("initial");
         [[maybe_unused]] int inputId1 = input(strVar);
         [[maybe_unused]] int inputId2 = input(strVar, 200);
         [[maybe_unused]] int inputId3 = input(strVar, 200, 30);
         [[maybe_unused]] int inputId4 = input(strVar, 200, 30, 256);
 
-        // input - 入力ボックス表示（整数）
-        int intVar = 42;
-        [[maybe_unused]] int inputId5 = input(intVar);
-        [[maybe_unused]] int inputId6 = input(intVar, 100, 25, 10);
+        // 整数/実数入力が必要な場合は文字列で受け取ってtoInt()/toDouble()で変換
+        // 例: int value = toInt(*strVar);
 
-        // mesbox - メッセージボックス表示
-        std::string mesboxVar = "Line1\nLine2\nLine3";
+        // mesbox - メッセージボックス表示 - shared_ptr版
+        auto mesboxVar = std::make_shared<std::string>("Line1\nLine2\nLine3");
         [[maybe_unused]] int mesboxId1 = mesbox(mesboxVar);
         [[maybe_unused]] int mesboxId2 = mesbox(mesboxVar, 300, 200);
         [[maybe_unused]] int mesboxId3 = mesbox(mesboxVar, 300, 200, 1);  // 編集可能
         [[maybe_unused]] int mesboxId4 = mesbox(mesboxVar, 300, 200, 0);  // 読取専用
         [[maybe_unused]] int mesboxId5 = mesbox(mesboxVar, 300, 200, 5, 1000); // 横スクロール付き
 
-        // chkbox - チェックボックス表示
-        int checkState = 0;
+        // chkbox - チェックボックス表示（shared_ptr版）
+        auto checkState = std::make_shared<int>(0);
         [[maybe_unused]] int chkboxId = chkbox("Check me", checkState);
 
-        // combox - コンボボックス表示
-        int comboxState = 0;
+        // combox - コンボボックス表示（shared_ptr版）
+        auto comboxState = std::make_shared<int>(0);
         [[maybe_unused]] int comboxId1 = combox(comboxState, 100, "Item1\nItem2\nItem3");
         [[maybe_unused]] int comboxId2 = combox(comboxState, omit, "A\nB\nC");
 
-        // listbox - リストボックス表示
-        int listboxState = 0;
+        // listbox - リストボックス表示（shared_ptr版）
+        auto listboxState = std::make_shared<int>(0);
         [[maybe_unused]] int listboxId1 = listbox(listboxState, 100, "Entry1\nEntry2\nEntry3");
         [[maybe_unused]] int listboxId2 = listbox(listboxState, omit, "X\nY\nZ");
 
         // objprm - オブジェクトの内容を変更
         objprm(btnId, "New Label");
-        objprm(inputId5, 123);
+        objprm(inputId1, "new value");  // 文字列で設定
 
         // objsel - オブジェクトに入力フォーカスを設定
         objsel(inputId1);

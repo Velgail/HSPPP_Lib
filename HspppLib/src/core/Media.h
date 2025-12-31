@@ -12,6 +12,7 @@
 #include <string>
 #include <string_view>
 #include <memory>
+#include <source_location>
 
 namespace hsppp {
 
@@ -22,7 +23,7 @@ class Media {
 public:
     // コンストラクタ
     Media();
-    explicit Media(std::string_view filename);
+    explicit Media(std::string_view filename, const std::source_location& location = std::source_location::current());
     ~Media();
 
     // コピー禁止、ムーブ許可
@@ -32,19 +33,19 @@ public:
     Media& operator=(Media&& other) noexcept;
 
     // ファイル操作
-    bool load(std::string_view filename);
+    bool load(std::string_view filename, const std::source_location& location = std::source_location::current());
     void unload();
 
     // 再生制御
-    bool play();
-    void stop();
+    bool play(const std::source_location& location = std::source_location::current());
+    void stop(const std::source_location& location = std::source_location::current());
 
     // 設定（メソッドチェーン対応）
-    Media& vol(int v);       // -1000（無音）〜 0（最大）
-    Media& pan(int p);       // -1000（左）〜 0（中央）〜 1000（右）
-    Media& loop(bool l);     // ループ設定（次にload()が呼ばれる際に適用されます）
-    Media& mode(int m);      // 再生モード (0=通常, 1=ループ, 2=終了まで待機)（次にload()が呼ばれる際に適用されます）
-    Media& target(int screenId);  // 動画再生先Screenを指定
+    Media& vol(int v, const std::source_location& location = std::source_location::current());       // -1000（無音）〜 0（最大）
+    Media& pan(int p, const std::source_location& location = std::source_location::current());       // -1000（左）〜 0（中央）〜 1000（右）
+    Media& loop(bool l, const std::source_location& location = std::source_location::current());     // ループ設定（次にload()が呼ばれる際に適用されます）
+    Media& mode(int m, const std::source_location& location = std::source_location::current());      // 再生モード (0=通常, 1=ループ, 2=終了まで待機)（次にload()が呼ばれる際に適用されます）
+    Media& target(int screenId, const std::source_location& location = std::source_location::current());  // 動画再生先Screenを指定
 
     // 取得
     [[nodiscard]] int get_vol() const;

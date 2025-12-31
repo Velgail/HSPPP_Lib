@@ -459,16 +459,18 @@ namespace hsppp {
     // 割り込みハンドラ型定義（Screen クラスより前に定義が必要）
     // ============================================================
 
-    // 前方宣言（HspErrorクラスはこのファイルの後半で定義）
+    // 前方宣言（エラークラスはこのファイルの後半で定義）
+    export class HspErrorBase;
     export class HspError;
+    export class HspWeakError;
 
     /// @brief 汎用割り込みハンドラ型（onclick, onkey, onexit, oncmd用）
     /// @note ラムダ式、関数ポインタ、関数オブジェクトをサポート
     export using InterruptHandler = std::function<int()>;
 
     /// @brief エラーハンドラ型（onerror用）
-    /// @note HspErrorオブジェクトを受け取る
-    export using ErrorHandler = std::function<int(const HspError&)>;
+    /// @note HspErrorBaseオブジェクトを受け取る（HspError/HspWeakError両方に対応）
+    export using ErrorHandler = std::function<int(const HspErrorBase&)>;
 
     // ============================================================
     // Screen クラス - 軽量ハンドル（実体として操作可能）
@@ -529,10 +531,10 @@ namespace hsppp {
         Cel& put(int cellIndex, OptInt x = {}, OptInt y = {}, const std::source_location& location = std::source_location::current());
 
         /// @brief 画像の幅を取得
-        [[nodiscard]] int width() const;
+        [[nodiscard]] int width(const std::source_location& location = std::source_location::current()) const;
 
         /// @brief 画像の高さを取得
-        [[nodiscard]] int height() const;
+        [[nodiscard]] int height(const std::source_location& location = std::source_location::current()) const;
     };
 
     /// @brief Surfaceへの軽量ハンドル
@@ -656,10 +658,10 @@ namespace hsppp {
         Screen& grect(int cx, int cy, double angle, int w, int h, const std::source_location& location = std::source_location::current());
 
         /// @brief 幅を取得
-        [[nodiscard]] int width() const;
+        [[nodiscard]] int width(const std::source_location& location = std::source_location::current()) const;
 
         /// @brief 高さを取得
-        [[nodiscard]] int height() const;
+        [[nodiscard]] int height(const std::source_location& location = std::source_location::current()) const;
 
         /// @brief ウィンドウサイズ・位置を設定（width命令のOOP版）
         /// @param clientW クライアントサイズX
@@ -1581,16 +1583,16 @@ namespace hsppp {
     };
 
     /// @brief 現在の割り込みパラメータを取得
-    export const InterruptParams& getInterruptParams();
+    export const InterruptParams& getInterruptParams() noexcept;
 
     /// @brief システム変数 iparam を取得
-    export int iparam(const std::source_location& location = std::source_location::current());
+    export int iparam(const std::source_location& location = std::source_location::current()) noexcept;
 
     /// @brief システム変数 wparam を取得
-    export int wparam(const std::source_location& location = std::source_location::current());
+    export int wparam(const std::source_location& location = std::source_location::current()) noexcept;
 
     /// @brief システム変数 lparam を取得
-    export int lparam(const std::source_location& location = std::source_location::current());
+    export int lparam(const std::source_location& location = std::source_location::current()) noexcept;
 
     // ============================================================
     // sysval互換（Windowsハンドル系）
@@ -1649,14 +1651,14 @@ namespace hsppp {
     export inline constexpr int ERR_INTERNAL          = 17;  // 内部エラー
 
     // ============================================================
-    // HspError - エラー例外クラス
+    // HspErrorBase - エラー例外基底クラス
     // ============================================================
 
-    /// @brief HSPエラー例外
+    /// @brief HSPエラー例外の基底クラス
     /// @details C++例外システムと統合されたHSPエラーハンドリング
-    /// @note std::exceptionを抱え込むことができ、original_exception()で元の例外を取得可能
-    export class HspError : public std::runtime_error {
-    private:
+    /// @note HspError（致命的）とHspWeakError（復帰可能）の共通基底
+    export class HspErrorBase : public std::runtime_error {
+    protected:
         int m_errorCode;
         int m_lineNumber;
         std::string m_fileName;
@@ -1664,15 +1666,12 @@ namespace hsppp {
         std::string m_message;  // 元のエラーメッセージ（ユーザー向け）
         std::exception_ptr m_originalException;  // 元の例外（存在する場合）
 
-    public:
-        /// @brief エラー例外を構築
-        /// @param errorCode エラーコード (ERR_*)
-        /// @param message エラーメッセージ
-        /// @param location 発生場所（std::source_locationから自動取得）
-        HspError(int errorCode,
-                std::string_view message,
-                const std::source_location& location = std::source_location::current())
-            : std::runtime_error(std::format("[HSP Error {}] {}", errorCode, message))
+        /// @brief エラー例外を構築（派生クラス用）
+        HspErrorBase(const char* prefix,
+                    int errorCode,
+                    std::string_view message,
+                    const std::source_location& location)
+            : std::runtime_error(std::format("[{} {}] {}", prefix, errorCode, message))
             , m_errorCode(errorCode)
             , m_lineNumber(static_cast<int>(location.line()))
             , m_fileName(location.file_name())
@@ -1681,16 +1680,13 @@ namespace hsppp {
             , m_originalException(nullptr)
         {}
 
-        /// @brief std::exceptionを抱え込んでエラー例外を構築
-        /// @param errorCode エラーコード (ERR_*)
-        /// @param message エラーメッセージ
-        /// @param originalException 元の例外（std::exception_ptr）
-        /// @param location 発生場所（std::source_locationから自動取得）
-        HspError(int errorCode,
-                std::string_view message,
-                std::exception_ptr originalException,
-                const std::source_location& location = std::source_location::current())
-            : std::runtime_error(std::format("[HSP Error {}] {}", errorCode, message))
+        /// @brief std::exceptionを抱え込んでエラー例外を構築（派生クラス用）
+        HspErrorBase(const char* prefix,
+                    int errorCode,
+                    std::string_view message,
+                    std::exception_ptr originalException,
+                    const std::source_location& location)
+            : std::runtime_error(std::format("[{} {}] {}", prefix, errorCode, message))
             , m_errorCode(errorCode)
             , m_lineNumber(static_cast<int>(location.line()))
             , m_fileName(location.file_name())
@@ -1699,14 +1695,12 @@ namespace hsppp {
             , m_originalException(std::move(originalException))
         {}
 
-        /// @brief std::exceptionから直接エラー例外を構築
-        /// @param errorCode エラーコード (ERR_*)
-        /// @param originalException 元の例外
-        /// @param location 発生場所（std::source_locationから自動取得）
-        HspError(int errorCode,
-                const std::exception& originalException,
-                const std::source_location& location = std::source_location::current())
-            : std::runtime_error(std::format("[HSP Error {}] {}", errorCode, originalException.what()))
+        /// @brief std::exceptionから直接エラー例外を構築（派生クラス用）
+        HspErrorBase(const char* prefix,
+                    int errorCode,
+                    const std::exception& originalException,
+                    const std::source_location& location)
+            : std::runtime_error(std::format("[{} {}] {}", prefix, errorCode, originalException.what()))
             , m_errorCode(errorCode)
             , m_lineNumber(static_cast<int>(location.line()))
             , m_fileName(location.file_name())
@@ -1714,6 +1708,9 @@ namespace hsppp {
             , m_message(originalException.what())
             , m_originalException(std::current_exception())
         {}
+
+    public:
+        virtual ~HspErrorBase() = default;
 
         /// @brief エラーコードを取得
         [[nodiscard]] int error_code() const noexcept { return m_errorCode; }
@@ -1744,6 +1741,98 @@ namespace hsppp {
                 std::rethrow_exception(m_originalException);
             }
         }
+
+        /// @brief 致命的エラーかどうか（派生クラスでオーバーライド）
+        [[nodiscard]] virtual bool is_fatal() const noexcept = 0;
+    };
+
+    // ============================================================
+    // HspError - 致命的エラー例外クラス
+    // ============================================================
+
+    /// @brief HSP致命的エラー例外
+    /// @details プログラム終了を前提としたエラー。ユーザーがキャッチしても良いが、基本は終了する。
+    export class HspError : public HspErrorBase {
+    public:
+        /// @brief エラー例外を構築
+        /// @param errorCode エラーコード (ERR_*)
+        /// @param message エラーメッセージ
+        /// @param location 発生場所（std::source_locationから自動取得）
+        HspError(int errorCode,
+                std::string_view message,
+                const std::source_location& location = std::source_location::current())
+            : HspErrorBase("HSP Error", errorCode, message, location)
+        {}
+
+        /// @brief std::exceptionを抱え込んでエラー例外を構築
+        /// @param errorCode エラーコード (ERR_*)
+        /// @param message エラーメッセージ
+        /// @param originalException 元の例外（std::exception_ptr）
+        /// @param location 発生場所（std::source_locationから自動取得）
+        HspError(int errorCode,
+                std::string_view message,
+                std::exception_ptr originalException,
+                const std::source_location& location = std::source_location::current())
+            : HspErrorBase("HSP Error", errorCode, message, std::move(originalException), location)
+        {}
+
+        /// @brief std::exceptionから直接エラー例外を構築
+        /// @param errorCode エラーコード (ERR_*)
+        /// @param originalException 元の例外
+        /// @param location 発生場所（std::source_locationから自動取得）
+        HspError(int errorCode,
+                const std::exception& originalException,
+                const std::source_location& location = std::source_location::current())
+            : HspErrorBase("HSP Error", errorCode, originalException, location)
+        {}
+
+        /// @brief 致命的エラーである
+        [[nodiscard]] bool is_fatal() const noexcept override { return true; }
+    };
+
+    // ============================================================
+    // HspWeakError - 復帰可能エラー例外クラス
+    // ============================================================
+
+    /// @brief HSP復帰可能エラー例外
+    /// @details ユーザーがtry-catchでキャッチして処理を続行できるエラー。
+    ///          キャッチされなければWinMainで捕捉され、onerror表示して終了する。
+    export class HspWeakError : public HspErrorBase {
+    public:
+        /// @brief エラー例外を構築
+        /// @param errorCode エラーコード (ERR_*)
+        /// @param message エラーメッセージ
+        /// @param location 発生場所（std::source_locationから自動取得）
+        HspWeakError(int errorCode,
+                    std::string_view message,
+                    const std::source_location& location = std::source_location::current())
+            : HspErrorBase("HSP Warning", errorCode, message, location)
+        {}
+
+        /// @brief std::exceptionを抱え込んでエラー例外を構築
+        /// @param errorCode エラーコード (ERR_*)
+        /// @param message エラーメッセージ
+        /// @param originalException 元の例外（std::exception_ptr）
+        /// @param location 発生場所（std::source_locationから自動取得）
+        HspWeakError(int errorCode,
+                    std::string_view message,
+                    std::exception_ptr originalException,
+                    const std::source_location& location = std::source_location::current())
+            : HspErrorBase("HSP Warning", errorCode, message, std::move(originalException), location)
+        {}
+
+        /// @brief std::exceptionから直接エラー例外を構築
+        /// @param errorCode エラーコード (ERR_*)
+        /// @param originalException 元の例外
+        /// @param location 発生場所（std::source_locationから自動取得）
+        HspWeakError(int errorCode,
+                    const std::exception& originalException,
+                    const std::source_location& location = std::source_location::current())
+            : HspErrorBase("HSP Warning", errorCode, originalException, location)
+        {}
+
+        /// @brief 致命的エラーではない（復帰可能）
+        [[nodiscard]] bool is_fatal() const noexcept override { return false; }
     };
 
     // ============================================================
@@ -1757,7 +1846,7 @@ namespace hsppp {
 
     /// @brief onerror割り込みの一時停止/再開
     /// @param enable 0=停止, 1=再開
-    export void onerror(int enable, const std::source_location& location = std::source_location::current());
+    export void onerror(int enable, const std::source_location& location = std::source_location::current()) noexcept;
 
     // ============================================================
     // onclick - クリック割り込み実行指定（HSP互換）
@@ -1768,7 +1857,7 @@ namespace hsppp {
 
     /// @brief onclick割り込みの一時停止/再開
     /// @param enable 0=停止, 1=再開
-    export void onclick(int enable, const std::source_location& location = std::source_location::current());
+    export void onclick(int enable, const std::source_location& location = std::source_location::current()) noexcept;
 
     // ============================================================
     // oncmd - Windowsメッセージ割り込み実行指定（HSP互換）
@@ -1785,7 +1874,7 @@ namespace hsppp {
 
     /// @brief oncmd割り込み全体の一時停止/再開
     /// @param enable 0=停止, 1=再開
-    export void oncmd(int enable, const std::source_location& location = std::source_location::current());
+    export void oncmd(int enable, const std::source_location& location = std::source_location::current()) noexcept;
 
     // ============================================================
     // onexit - 終了時にジャンプ（HSP互換）
@@ -1797,7 +1886,7 @@ namespace hsppp {
 
     /// @brief onexit割り込みの一時停止/再開
     /// @param enable 0=停止, 1=再開
-    export void onexit(int enable, const std::source_location& location = std::source_location::current());
+    export void onexit(int enable, const std::source_location& location = std::source_location::current()) noexcept;
 
     // ============================================================
     // onkey - キー割り込み実行指定（HSP互換）
@@ -1808,7 +1897,7 @@ namespace hsppp {
 
     /// @brief onkey割り込みの一時停止/再開
     /// @param enable 0=停止, 1=再開
-    export void onkey(int enable, const std::source_location& location = std::source_location::current());
+    export void onkey(int enable, const std::source_location& location = std::source_location::current()) noexcept;
 
     // ============================================================
     // ============================================================
@@ -2051,7 +2140,7 @@ namespace hsppp {
     /// @brief 文字列の長さを調べる
     /// @param p1 文字列
     /// @return 文字列の長さ（バイト数）
-    export [[nodiscard]] int64_t strlen(const std::string& p1);
+    export [[nodiscard]] int64_t strlen(const std::string& p1) noexcept;
 
     // ============================================================
     // 文字列操作関数（HSP互換）
@@ -2834,8 +2923,9 @@ namespace hsppp {
         export void init_system(const std::source_location& location = std::source_location::current());
         export void close_system(const std::source_location& location = std::source_location::current());
 
-        // HspError例外を処理（エラーハンドラを呼び出す）
-        export void handleHspError(const HspError& error, const std::source_location& location = std::source_location::current());
+        // HspErrorBase派生例外を処理（エラーハンドラを呼び出す）
+        // HspError（致命的）とHspWeakError（復帰可能）の両方に対応
+        export void handleHspError(const HspErrorBase& error, const std::source_location& location = std::source_location::current());
     }
 }
 

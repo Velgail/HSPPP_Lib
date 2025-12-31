@@ -62,6 +62,7 @@ Media& Media::operator=(Media&& other) noexcept = default;
 // ファイル操作
 // ============================================================
 bool Media::load(std::string_view filename, const std::source_location& location) {
+    // MediaManagerは例外を投げない設計なので、try-catchは不要
     m_impl->m_filename = std::string(filename);
     
     int loadMode = m_impl->m_loop ? 1 : m_impl->m_mode;
@@ -92,11 +93,13 @@ void Media::unload() {
 // 再生制御
 // ============================================================
 bool Media::play(const std::source_location& location) {
+    // MediaManagerは例外を投げない設計なので、try-catchは不要
     if (!m_impl->m_loaded) return false;
     return internal::MediaManager::getInstance().mmplay(m_impl->m_bufferId);
 }
 
 void Media::stop(const std::source_location& location) {
+    // MediaManagerは例外を投げない設計なので、try-catchは不要
     if (m_impl->m_loaded) {
         internal::MediaManager::getInstance().mmstop(m_impl->m_bufferId);
     }
@@ -106,6 +109,7 @@ void Media::stop(const std::source_location& location) {
 // 設定（メソッドチェーン）
 // ============================================================
 Media& Media::vol(int v, const std::source_location& location) {
+    // MediaManagerは例外を投げない設計なので、try-catchは不要
     m_impl->m_vol = v;
     if (m_impl->m_loaded) {
         internal::MediaManager::getInstance().mmvol(m_impl->m_bufferId, v);
@@ -114,6 +118,7 @@ Media& Media::vol(int v, const std::source_location& location) {
 }
 
 Media& Media::pan(int p, const std::source_location& location) {
+    // MediaManagerは例外を投げない設計なので、try-catchは不要
     m_impl->m_pan = p;
     if (m_impl->m_loaded) {
         internal::MediaManager::getInstance().mmpan(m_impl->m_bufferId, p);

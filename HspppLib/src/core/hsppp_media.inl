@@ -31,54 +31,66 @@ void* getWindowHwndById(int id);
 // ============================================================
 int mmload(std::string_view filename, OptInt bufferId, OptInt mode,
            const std::source_location& location) {
-    int id = bufferId.value_or(0);
-    int modeVal = mode.value_or(0);
+    return safe_call(location, [&]() -> int {
+        int id = bufferId.value_or(0);
+        int modeVal = mode.value_or(0);
 
-    // 動画再生用に現在のウィンドウのHWNDを取得
-    void* hwnd = internal::getWindowHwndById(g_currentScreenId);
+        // 動画再生用に現在のウィンドウのHWNDを取得
+        void* hwnd = internal::getWindowHwndById(g_currentScreenId);
 
-    return internal::MediaManager_mmload(filename, id, modeVal, hwnd);
+        return internal::MediaManager_mmload(filename, id, modeVal, hwnd);
+    });
 }
 
 // ============================================================
 // mmplay - メディア再生
 // ============================================================
 int mmplay(OptInt bufferId, const std::source_location& location) {
-    int id = bufferId.value_or(0);
+    return safe_call(location, [&]() -> int {
+        int id = bufferId.value_or(0);
 
-    return internal::MediaManager_mmplay(id);
+        return internal::MediaManager_mmplay(id);
+    });
 }
 
 // ============================================================
 // mmstop - メディア再生の停止
 // ============================================================
 void mmstop(OptInt bufferId, const std::source_location& location) {
-    int id = bufferId.is_default() ? -1 : bufferId.value();
+    safe_call(location, [&] {
+        int id = bufferId.is_default() ? -1 : bufferId.value();
 
-    internal::MediaManager_mmstop(id);
+        internal::MediaManager_mmstop(id);
+    });
 }
 
 // ============================================================
 // mmvol - 音量の設定
 // ============================================================
 void mmvol(int bufferId, int vol, const std::source_location& location) {
-    internal::MediaManager_mmvol(bufferId, vol);
+    safe_call(location, [&] {
+        internal::MediaManager_mmvol(bufferId, vol);
+    });
 }
 
 // ============================================================
 // mmpan - パンニングの設定
 // ============================================================
 void mmpan(int bufferId, int pan, const std::source_location& location) {
-    internal::MediaManager_mmpan(bufferId, pan);
+    safe_call(location, [&] {
+        internal::MediaManager_mmpan(bufferId, pan);
+    });
 }
 
 // ============================================================
 // mmstat - メディアの状態取得
 // ============================================================
 int mmstat(int bufferId, OptInt mode, const std::source_location& location) {
-    int modeVal = mode.value_or(0);
+    return safe_call(location, [&]() -> int {
+        int modeVal = mode.value_or(0);
 
-    return internal::MediaManager_mmstat(bufferId, modeVal);
+        return internal::MediaManager_mmstat(bufferId, modeVal);
+    });
 }
 
 } // namespace hsppp

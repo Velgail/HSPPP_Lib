@@ -38,51 +38,53 @@ namespace hsppp {
 
     int exec(const std::string& filename, OptInt mode, const std::string& command,
               const std::source_location& location) {
-        int execMode = mode.value_or(0);
-        std::wstring filenameW = internal::Utf8ToWide(filename);
-        // commandW は sei.lpVerb で使用するため、if ブロック外で宣言して寿命を保証
-        std::wstring commandW;
+        return safe_call(location, [&]() -> int {
+            int execMode = mode.value_or(0);
+            std::wstring filenameW = internal::Utf8ToWide(filename);
+            // commandW は sei.lpVerb で使用するため、if ブロック外で宣言して寿命を保証
+            std::wstring commandW;
 
-        SHELLEXECUTEINFOW sei = {};
-        sei.cbSize = sizeof(sei);
-        // SEE_MASK_FLAG_NO_UI: エラーダイアログを抑制（HSP互換動作）
-        // 失敗時は GetLastError() の戻り値で呼び出し側が判断する
-        sei.fMask = SEE_MASK_FLAG_NO_UI;
-        sei.hwnd = nullptr;
-        sei.nShow = (execMode & exec_minimized) ? SW_SHOWMINIMIZED : SW_SHOWNORMAL;
+            SHELLEXECUTEINFOW sei = {};
+            sei.cbSize = sizeof(sei);
+            // SEE_MASK_FLAG_NO_UI: エラーダイアログを抑制（HSP互換動作）
+            // 失敗時は GetLastError() の戻り値で呼び出し側が判断する
+            sei.fMask = SEE_MASK_FLAG_NO_UI;
+            sei.hwnd = nullptr;
+            sei.nShow = (execMode & exec_minimized) ? SW_SHOWMINIMIZED : SW_SHOWNORMAL;
 
-        if (!command.empty()) {
-            // コマンド（操作名）が指定された場合
-            commandW = internal::Utf8ToWide(command);
-            sei.lpVerb = commandW.c_str();
-            sei.lpFile = filenameW.c_str();
-            sei.lpParameters = nullptr;
-        }
-        else if (execMode & exec_print) {
-            // 印刷モード
-            sei.lpVerb = L"print";
-            sei.lpFile = filenameW.c_str();
-        }
-        else if (execMode & exec_shellexec) {
-            // 関連付けアプリで開く
-            sei.lpVerb = L"open";
-            sei.lpFile = filenameW.c_str();
-        }
-        else {
-            // ノーマル実行（プログラムを直接実行）
-            // ファイル名とパラメータを分離する
-            // ShellExecuteExWは賢く解釈してくれるため、手動での分割は不要かつ危険
-            sei.lpVerb = nullptr;  // デフォルト動作
-            sei.lpFile = filenameW.c_str();
-            sei.lpParameters = nullptr;
-        }
+            if (!command.empty()) {
+                // コマンド（操作名）が指定された場合
+                commandW = internal::Utf8ToWide(command);
+                sei.lpVerb = commandW.c_str();
+                sei.lpFile = filenameW.c_str();
+                sei.lpParameters = nullptr;
+            }
+            else if (execMode & exec_print) {
+                // 印刷モード
+                sei.lpVerb = L"print";
+                sei.lpFile = filenameW.c_str();
+            }
+            else if (execMode & exec_shellexec) {
+                // 関連付けアプリで開く
+                sei.lpVerb = L"open";
+                sei.lpFile = filenameW.c_str();
+            }
+            else {
+                // ノーマル実行（プログラムを直接実行）
+                // ファイル名とパラメータを分離する
+                // ShellExecuteExWは賢く解釈してくれるため、手動での分割は不要かつ危険
+                sei.lpVerb = nullptr;  // デフォルト動作
+                sei.lpFile = filenameW.c_str();
+                sei.lpParameters = nullptr;
+            }
 
-        if (ShellExecuteExW(&sei)) {
-            return 0;  // 成功
-        }
-        else {
-            return static_cast<int>(GetLastError());  // エラーコード
-        }
+            if (ShellExecuteExW(&sei)) {
+                return 0;  // 成功
+            }
+            else {
+                return static_cast<int>(GetLastError());  // エラーコード
+            }
+        });
     }
 
     // ============================================================
@@ -92,12 +94,14 @@ namespace hsppp {
     // 注意: chdir() はプロセス全体のカレントディレクトリを変更します。
     // 相対パスを使用する他のコードに影響を与える可能性があります。
     void chdir(const std::string& dirname, const std::source_location& location) {
-        std::wstring dirnameW = internal::Utf8ToWide(dirname);
-        if (!SetCurrentDirectoryW(dirnameW.c_str())) {
-            DWORD err = GetLastError();
-            std::string msg = "ディレクトリの変更に失敗しました (Windows error: " + std::to_string(err) + ")";
-            throw HspError(ERR_FILE_IO, msg, location);
-        }
+        safe_call(location, [&] {
+            std::wstring dirnameW = internal::Utf8ToWide(dirname);
+            if (!SetCurrentDirectoryW(dirnameW.c_str())) {
+                DWORD err = GetLastError();
+                std::string msg = "ディレクトリの変更に失敗しました (Windows error: " + std::to_string(err) + ")";
+                throw HspError(ERR_FILE_IO, msg, location);
+            }
+        });
     }
 
     // ============================================================
@@ -105,13 +109,15 @@ namespace hsppp {
     // ============================================================
 
     void mkdir(const std::string& dirname, const std::source_location& location) {
-        std::wstring dirnameW = internal::Utf8ToWide(dirname);
-        if (!CreateDirectoryW(dirnameW.c_str(), nullptr)) {
-            DWORD err = GetLastError();
-            if (err != ERROR_ALREADY_EXISTS) {
-                throw HspError(ERR_FILE_IO, "ファイルが見つからないか無効な名前です", location);
+        safe_call(location, [&] {
+            std::wstring dirnameW = internal::Utf8ToWide(dirname);
+            if (!CreateDirectoryW(dirnameW.c_str(), nullptr)) {
+                DWORD err = GetLastError();
+                if (err != ERROR_ALREADY_EXISTS) {
+                    throw HspError(ERR_FILE_IO, "ファイルが見つからないか無効な名前です", location);
+                }
             }
-        }
+        });
     }
 
     // ============================================================
@@ -120,12 +126,14 @@ namespace hsppp {
     // ============================================================
 
     void deletefile(const std::string& filename, const std::source_location& location) {
-        std::wstring filenameW = internal::Utf8ToWide(filename);
-        if (!DeleteFileW(filenameW.c_str())) {
-            DWORD err = GetLastError();
-            std::string msg = "ファイルの削除に失敗しました (Windows error: " + std::to_string(err) + ")";
-            throw HspError(ERR_FILE_IO, msg, location);
-        }
+        safe_call(location, [&] {
+            std::wstring filenameW = internal::Utf8ToWide(filename);
+            if (!DeleteFileW(filenameW.c_str())) {
+                DWORD err = GetLastError();
+                std::string msg = "ファイルの削除に失敗しました (Windows error: " + std::to_string(err) + ")";
+                throw HspError(ERR_FILE_IO, msg, location);
+            }
+        });
     }
 
     // ============================================================
@@ -134,13 +142,15 @@ namespace hsppp {
 
     // 注意: bcopy() は既存ファイルを警告なしに上書きします（HSP互換動作）。
     void bcopy(const std::string& src, const std::string& dest, const std::source_location& location) {
-        std::wstring srcW = internal::Utf8ToWide(src);
-        std::wstring destW = internal::Utf8ToWide(dest);
-        if (!CopyFileW(srcW.c_str(), destW.c_str(), FALSE)) {
-            DWORD err = GetLastError();
-            std::string msg = "ファイルのコピーに失敗しました (Windows error: " + std::to_string(err) + ")";
-            throw HspError(ERR_FILE_IO, msg, location);
-        }
+        safe_call(location, [&] {
+            std::wstring srcW = internal::Utf8ToWide(src);
+            std::wstring destW = internal::Utf8ToWide(dest);
+            if (!CopyFileW(srcW.c_str(), destW.c_str(), FALSE)) {
+                DWORD err = GetLastError();
+                std::string msg = "ファイルのコピーに失敗しました (Windows error: " + std::to_string(err) + ")";
+                throw HspError(ERR_FILE_IO, msg, location);
+            }
+        });
     }
 
     // ============================================================
@@ -148,20 +158,22 @@ namespace hsppp {
     // ============================================================
 
     int64_t exist(const std::string& filename, const std::source_location& location) {
-        std::wstring filenameW = internal::Utf8ToWide(filename);
-        WIN32_FILE_ATTRIBUTE_DATA fileInfo;
-        
-        if (GetFileAttributesExW(filenameW.c_str(), GetFileExInfoStandard, &fileInfo)) {
-            // ファイルサイズを取得
-            LARGE_INTEGER fileSize;
-            fileSize.LowPart = fileInfo.nFileSizeLow;
-            fileSize.HighPart = fileInfo.nFileSizeHigh;
-            return static_cast<int64_t>(fileSize.QuadPart);
-        }
-        else {
-            // ファイルが存在しない
-            return -1;
-        }
+        return safe_call(location, [&]() -> int64_t {
+            std::wstring filenameW = internal::Utf8ToWide(filename);
+            WIN32_FILE_ATTRIBUTE_DATA fileInfo;
+            
+            if (GetFileAttributesExW(filenameW.c_str(), GetFileExInfoStandard, &fileInfo)) {
+                // ファイルサイズを取得
+                LARGE_INTEGER fileSize;
+                fileSize.LowPart = fileInfo.nFileSizeLow;
+                fileSize.HighPart = fileInfo.nFileSizeHigh;
+                return static_cast<int64_t>(fileSize.QuadPart);
+            }
+            else {
+                // ファイルが存在しない
+                return -1;
+            }
+        });
     }
 
     // ============================================================
@@ -176,28 +188,29 @@ namespace hsppp {
     // mode 7: ディレクトリと隠し属性・システム属性ファイルのみ
 
     std::vector<std::string> dirlist(const std::string& filemask, OptInt mode, const std::source_location& location) {
-        int dirMode = mode.value_or(0);
-        std::wstring maskW = internal::Utf8ToWide(filemask);
-        
-        WIN32_FIND_DATAW findData;
-        HANDLE hFind = FindFirstFileW(maskW.c_str(), &findData);
-        
-        if (hFind == INVALID_HANDLE_VALUE) {
-            return {};
-        }
-
-        std::vector<std::string> result;
-
-        do {
-            // "." と ".." をスキップ
-            if (wcscmp(findData.cFileName, L".") == 0 || wcscmp(findData.cFileName, L"..") == 0) {
-                continue;
+        return safe_call(location, [&]() -> std::vector<std::string> {
+            int dirMode = mode.value_or(0);
+            std::wstring maskW = internal::Utf8ToWide(filemask);
+            
+            WIN32_FIND_DATAW findData;
+            HANDLE hFind = FindFirstFileW(maskW.c_str(), &findData);
+            
+            if (hFind == INVALID_HANDLE_VALUE) {
+                return {};
             }
 
-            bool isDir = (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-            bool isHidden = (findData.dwFileAttributes & FILE_ATTRIBUTE_HIDDEN) != 0;
-            bool isSystem = (findData.dwFileAttributes & FILE_ATTRIBUTE_SYSTEM) != 0;
-            bool isHiddenOrSystem = isHidden || isSystem;
+            std::vector<std::string> result;
+
+            do {
+                // "." と ".." をスキップ
+                if (wcscmp(findData.cFileName, L".") == 0 || wcscmp(findData.cFileName, L"..") == 0) {
+                    continue;
+                }
+
+                bool isDir = (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+                bool isHidden = (findData.dwFileAttributes & FILE_ATTRIBUTE_HIDDEN) != 0;
+                bool isSystem = (findData.dwFileAttributes & FILE_ATTRIBUTE_SYSTEM) != 0;
+                bool isHiddenOrSystem = isHidden || isSystem;
 
             // モードに応じてフィルタリング
             bool include = false;
@@ -235,6 +248,7 @@ namespace hsppp {
 
         FindClose(hFind);
         return result;
+        });
     }
 
     // ============================================================
@@ -346,12 +360,16 @@ namespace hsppp {
 
     int64_t bload(const std::string& filename, std::string& buffer, OptInt64 size, OptInt64 offset,
               const std::source_location& location) {
-        return bload_impl(filename, buffer, size, offset, location);
+        return safe_call(location, [&]() -> int64_t {
+            return bload_impl(filename, buffer, size, offset, location);
+        });
     }
 
     int64_t bload(const std::string& filename, std::vector<uint8_t>& buffer, OptInt64 size, OptInt64 offset,
               const std::source_location& location) {
-        return bload_impl(filename, buffer, size, offset, location);
+        return safe_call(location, [&]() -> int64_t {
+            return bload_impl(filename, buffer, size, offset, location);
+        });
     }
 
     // ============================================================
@@ -434,12 +452,16 @@ namespace hsppp {
 
     int64_t bsave(const std::string& filename, const std::string& buffer, OptInt64 size, OptInt64 offset,
                const std::source_location& location) {
-        return bsave_impl(filename, buffer, size, offset, location);
+        return safe_call(location, [&]() -> int64_t {
+            return bsave_impl(filename, buffer, size, offset, location);
+        });
     }
 
     int64_t bsave(const std::string& filename, const std::vector<uint8_t>& buffer, OptInt64 size, OptInt64 offset,
                const std::source_location& location) {
-        return bsave_impl(filename, buffer, size, offset, location);
+        return safe_call(location, [&]() -> int64_t {
+            return bsave_impl(filename, buffer, size, offset, location);
+        });
     }
 
     // ============================================================
@@ -452,147 +474,149 @@ namespace hsppp {
 
     DialogResult dialog(const std::string& message, OptInt type, const std::string& option,
                const std::source_location& location) {
-        int dialogType = type.value_or(0);
-        
-        // カレントウィンドウのHWNDを取得（オーナーウィンドウとして使用）
-        HWND ownerHwnd = nullptr;
-        auto current = getCurrentSurface();
-        auto pWindow = current ? std::dynamic_pointer_cast<internal::HspWindow>(current) : nullptr;
-        if (pWindow && pWindow->getHwnd()) {
-            ownerHwnd = pWindow->getHwnd();
-        }
-        
-        // メッセージボックス (type 0-3)
-        if (dialogType >= 0 && dialogType <= 3) {
-            std::wstring messageW = internal::Utf8ToWide(message);
-            std::wstring titleW = internal::Utf8ToWide(option);
+        return safe_call(location, [&]() -> DialogResult {
+            int dialogType = type.value_or(0);
             
-            UINT mbType = MB_OK;
-            if (dialogType == 1) {
-                mbType = MB_OK | MB_ICONWARNING;
+            // カレントウィンドウのHWNDを取得（オーナーウィンドウとして使用）
+            HWND ownerHwnd = nullptr;
+            auto current = getCurrentSurface();
+            auto pWindow = current ? std::dynamic_pointer_cast<internal::HspWindow>(current) : nullptr;
+            if (pWindow && pWindow->getHwnd()) {
+                ownerHwnd = pWindow->getHwnd();
             }
-            else if (dialogType == 2) {
-                mbType = MB_YESNO;
-            }
-            else if (dialogType == 3) {
-                mbType = MB_YESNO | MB_ICONWARNING;
-            }
-
-            int result = MessageBoxW(ownerHwnd, messageW.c_str(), 
-                                    titleW.empty() ? nullptr : titleW.c_str(), mbType);
-            return { result, std::to_string(result) };
-        }
-
-        // ファイルOPEN/SAVEダイアログ (type 16-17)
-        if (dialogType == dialog_open || dialogType == dialog_save) {
-            wchar_t filenameBuffer[MAX_PATH] = {};
             
-            // フィルタ文字列を構築
-            // message: 拡張子（例: "txt" または "txt|log"）
-            // option: 説明（例: "テキストファイル" または "テキストファイル|ログファイル"）
-            std::wstring filterW;
-            
-            // ローカルでパイプ区切りを解析するラムダ（split への依存を排除）
-            auto parsePipeSeparated = [](const std::string& input) {
-                std::vector<std::string> parts;
-                std::string current;
-                for (char ch : input) {
-                    if (ch == '|') {
-                        parts.push_back(current);
-                        current.clear();
-                    } else {
-                        current.push_back(ch);
-                    }
-                }
-                parts.push_back(current);
-                return parts;
-            };
-            
-            if (message.empty() || message == "*") {
-                filterW = L"すべてのファイル\0*.*\0\0";
-            }
-            else {
-                // HSP形式のフィルタを解析（|区切り）
-                // parsePipeSeparatedとUtf8ToWideは例外を投げない
-                auto exts = parsePipeSeparated(message);
-                auto descs = parsePipeSeparated(option);
+            // メッセージボックス (type 0-3)
+            if (dialogType >= 0 && dialogType <= 3) {
+                std::wstring messageW = internal::Utf8ToWide(message);
+                std::wstring titleW = internal::Utf8ToWide(option);
                 
-                for (size_t i = 0; i < exts.size(); i++) {
-                    std::wstring extW = internal::Utf8ToWide(exts[i]);
-                    std::wstring descW = (i < descs.size()) ? internal::Utf8ToWide(descs[i]) : extW;
+                UINT mbType = MB_OK;
+                if (dialogType == 1) {
+                    mbType = MB_OK | MB_ICONWARNING;
+                }
+                else if (dialogType == 2) {
+                    mbType = MB_YESNO;
+                }
+                else if (dialogType == 3) {
+                    mbType = MB_YESNO | MB_ICONWARNING;
+                }
+
+                int result = MessageBoxW(ownerHwnd, messageW.c_str(), 
+                                        titleW.empty() ? nullptr : titleW.c_str(), mbType);
+                return { result, std::to_string(result) };
+            }
+
+            // ファイルOPEN/SAVEダイアログ (type 16-17)
+            if (dialogType == dialog_open || dialogType == dialog_save) {
+                wchar_t filenameBuffer[MAX_PATH] = {};
+                
+                // フィルタ文字列を構築
+                // message: 拡張子（例: "txt" または "txt|log"）
+                // option: 説明（例: "テキストファイル" または "テキストファイル|ログファイル"）
+                std::wstring filterW;
+                
+                // ローカルでパイプ区切りを解析するラムダ（split への依存を排除）
+                auto parsePipeSeparated = [](const std::string& input) {
+                    std::vector<std::string> parts;
+                    std::string current;
+                    for (char ch : input) {
+                        if (ch == '|') {
+                            parts.push_back(current);
+                            current.clear();
+                        } else {
+                            current.push_back(ch);
+                        }
+                    }
+                    parts.push_back(current);
+                    return parts;
+                };
+                
+                if (message.empty() || message == "*") {
+                    filterW = L"すべてのファイル\0*.*\0\0";
+                }
+                else {
+                    // HSP形式のフィルタを解析（|区切り）
+                    // parsePipeSeparatedとUtf8ToWideは例外を投げない
+                    auto exts = parsePipeSeparated(message);
+                    auto descs = parsePipeSeparated(option);
                     
-                    filterW += descW;
-                    filterW += L'\0';
-                    filterW += L"*.";
-                    filterW += extW;
+                    for (size_t i = 0; i < exts.size(); i++) {
+                        std::wstring extW = internal::Utf8ToWide(exts[i]);
+                        std::wstring descW = (i < descs.size()) ? internal::Utf8ToWide(descs[i]) : extW;
+                        
+                        filterW += descW;
+                        filterW += L'\0';
+                        filterW += L"*.";
+                        filterW += extW;
+                        filterW += L'\0';
+                    }
                     filterW += L'\0';
                 }
-                filterW += L'\0';
+
+                OPENFILENAMEW ofn = {};
+                ofn.lStructSize = sizeof(ofn);
+                ofn.hwndOwner = ownerHwnd;  // オーナーウィンドウを設定
+                ofn.lpstrFilter = filterW.c_str();
+                ofn.lpstrFile = filenameBuffer;
+                ofn.nMaxFile = MAX_PATH;
+                ofn.Flags = OFN_EXPLORER | OFN_HIDEREADONLY;
+                
+                if (dialogType == dialog_open) {
+                    ofn.Flags |= OFN_FILEMUSTEXIST;
+                }
+                else {
+                    ofn.Flags |= OFN_OVERWRITEPROMPT;
+                }
+
+                BOOL result;
+                if (dialogType == dialog_open) {
+                    result = GetOpenFileNameW(&ofn);
+                }
+                else {
+                    result = GetSaveFileNameW(&ofn);
+                }
+
+                if (result) {
+                    std::string path = internal::WideToUtf8(filenameBuffer);
+                    return { 1, path };
+                }
+                else {
+                    return { 0, "" };
+                }
             }
 
-            OPENFILENAMEW ofn = {};
-            ofn.lStructSize = sizeof(ofn);
-            ofn.hwndOwner = ownerHwnd;  // オーナーウィンドウを設定
-            ofn.lpstrFilter = filterW.c_str();
-            ofn.lpstrFile = filenameBuffer;
-            ofn.nMaxFile = MAX_PATH;
-            ofn.Flags = OFN_EXPLORER | OFN_HIDEREADONLY;
-            
-            if (dialogType == dialog_open) {
-                ofn.Flags |= OFN_FILEMUSTEXIST;
-            }
-            else {
-                ofn.Flags |= OFN_OVERWRITEPROMPT;
+            // カラー選択ダイアログ (type 32-33)
+            if (dialogType == dialog_color || dialogType == dialog_colorex) {
+                static COLORREF customColors[16] = {};
+                
+                CHOOSECOLORW cc = {};
+                cc.lStructSize = sizeof(cc);
+                cc.hwndOwner = ownerHwnd;  // オーナーウィンドウを設定
+                cc.lpCustColors = customColors;
+                cc.Flags = CC_RGBINIT;
+                
+                if (dialogType == dialog_colorex) {
+                    cc.Flags |= CC_FULLOPEN;  // 拡張ダイアログ（RGB自由選択）
+                }
+
+                if (ChooseColorW(&cc)) {
+                    // 選択された色をカレントサーフェスのcolorに設定
+                    // これにより ginfo_r/g/b で取得可能になる
+                    hsppp::color(
+                        GetRValue(cc.rgbResult),
+                        GetGValue(cc.rgbResult),
+                        GetBValue(cc.rgbResult)
+                    );
+                    return { 1, "1" };
+                }
+                else {
+                    return { 0, "0" };
+                }
             }
 
-            BOOL result;
-            if (dialogType == dialog_open) {
-                result = GetOpenFileNameW(&ofn);
-            }
-            else {
-                result = GetSaveFileNameW(&ofn);
-            }
-
-            if (result) {
-                std::string path = internal::WideToUtf8(filenameBuffer);
-                return { 1, path };
-            }
-            else {
-                return { 0, "" };
-            }
-        }
-
-        // カラー選択ダイアログ (type 32-33)
-        if (dialogType == dialog_color || dialogType == dialog_colorex) {
-            static COLORREF customColors[16] = {};
-            
-            CHOOSECOLORW cc = {};
-            cc.lStructSize = sizeof(cc);
-            cc.hwndOwner = ownerHwnd;  // オーナーウィンドウを設定
-            cc.lpCustColors = customColors;
-            cc.Flags = CC_RGBINIT;
-            
-            if (dialogType == dialog_colorex) {
-                cc.Flags |= CC_FULLOPEN;  // 拡張ダイアログ（RGB自由選択）
-            }
-
-            if (ChooseColorW(&cc)) {
-                // 選択された色をカレントサーフェスのcolorに設定
-                // これにより ginfo_r/g/b で取得可能になる
-                hsppp::color(
-                    GetRValue(cc.rgbResult),
-                    GetGValue(cc.rgbResult),
-                    GetBValue(cc.rgbResult)
-                );
-                return { 1, "1" };
-            }
-            else {
-                return { 0, "0" };
-            }
-        }
-
-        // 未サポートのタイプ
-        return { 0, "0" };
+            // 未サポートのタイプ
+            return { 0, "0" };
+        });
     }
 
 } // namespace hsppp

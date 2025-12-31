@@ -107,19 +107,19 @@ namespace hsppp {
     // 割り込みパラメータ取得関数
     // ============================================================
 
-    const InterruptParams& getInterruptParams() {
+    const InterruptParams& getInterruptParams() noexcept {
         return g_interruptParams;
     }
 
-    int iparam(const std::source_location& location) {
+    int iparam(const std::source_location& location) noexcept {
         return g_interruptParams.iparam;
     }
 
-    int wparam(const std::source_location& location) {
+    int wparam(const std::source_location& location) noexcept {
         return g_interruptParams.wparam;
     }
 
-    int lparam(const std::source_location& location) {
+    int lparam(const std::source_location& location) noexcept {
         return g_interruptParams.lparam;
     }
 
@@ -128,27 +128,29 @@ namespace hsppp {
     // ============================================================
 
     void stop(const std::source_location& location) {
-        MSG msg;
+        safe_call(location, [&] {
+            MSG msg;
 
-        // 割り込みが発生するまでメッセージループ
-        while (!g_shouldQuit) {
-            // ペンディング中の割り込みを処理
-            if (processPendingInterrupt()) {
-                return;  // 割り込みハンドラが呼ばれたら戻る
-            }
-
-            if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
-                if (msg.message == WM_QUIT) {
-                    g_shouldQuit = true;
-                    return;
+            // 割り込みが発生するまでメッセージループ
+            while (!g_shouldQuit) {
+                // ペンディング中の割り込みを処理
+                if (processPendingInterrupt()) {
+                    return;  // 割り込みハンドラが呼ばれたら戻る
                 }
-                TranslateMessage(&msg);
-                DispatchMessage(&msg);
+
+                if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
+                    if (msg.message == WM_QUIT) {
+                        g_shouldQuit = true;
+                        return;
+                    }
+                    TranslateMessage(&msg);
+                    DispatchMessage(&msg);
+                }
+                else {
+                    Sleep(1);
+                }
             }
-            else {
-                Sleep(1);
-            }
-        }
+        });
     }
 
     // ============================================================
@@ -156,11 +158,13 @@ namespace hsppp {
     // ============================================================
 
     void onclick(InterruptHandler handler, const std::source_location& location) {
-        g_onclickHandler.handler = handler;
-        g_onclickHandler.enabled = (handler != nullptr);
+        safe_call(location, [&] {
+            g_onclickHandler.handler = handler;
+            g_onclickHandler.enabled = (handler != nullptr);
+        });
     }
 
-    void onclick(int enable, const std::source_location& location) {
+    void onclick(int enable, const std::source_location& location) noexcept {
         g_onclickHandler.enabled = (enable != 0);
     }
 
@@ -169,19 +173,23 @@ namespace hsppp {
     // ============================================================
 
     void oncmd(InterruptHandler handler, int messageId, const std::source_location& location) {
-        auto& info = g_oncmdHandlers[messageId];
-        info.handler = handler;
-        info.enabled = (handler != nullptr);
+        safe_call(location, [&] {
+            auto& info = g_oncmdHandlers[messageId];
+            info.handler = handler;
+            info.enabled = (handler != nullptr);
+        });
     }
 
     void oncmd(int enable, int messageId, const std::source_location& location) {
-        auto it = g_oncmdHandlers.find(messageId);
-        if (it != g_oncmdHandlers.end()) {
-            it->second.enabled = (enable != 0);
-        }
+        safe_call(location, [&] {
+            auto it = g_oncmdHandlers.find(messageId);
+            if (it != g_oncmdHandlers.end()) {
+                it->second.enabled = (enable != 0);
+            }
+        });
     }
 
-    void oncmd(int enable, const std::source_location& location) {
+    void oncmd(int enable, const std::source_location& location) noexcept {
         g_oncmdGlobalEnabled = (enable != 0);
     }
 
@@ -190,11 +198,13 @@ namespace hsppp {
     // ============================================================
 
     void onerror(ErrorHandler handler, const std::source_location& location) {
-        g_onerrorHandler.handler = handler;
-        g_onerrorHandler.enabled = (handler != nullptr);
+        safe_call(location, [&] {
+            g_onerrorHandler.handler = handler;
+            g_onerrorHandler.enabled = (handler != nullptr);
+        });
     }
 
-    void onerror(int enable, const std::source_location& location) {
+    void onerror(int enable, const std::source_location& location) noexcept {
         g_onerrorHandler.enabled = (enable != 0);
     }
 
@@ -203,11 +213,13 @@ namespace hsppp {
     // ============================================================
 
     void onexit(InterruptHandler handler, const std::source_location& location) {
-        g_onexitHandler.handler = handler;
-        g_onexitHandler.enabled = (handler != nullptr);
+        safe_call(location, [&] {
+            g_onexitHandler.handler = handler;
+            g_onexitHandler.enabled = (handler != nullptr);
+        });
     }
 
-    void onexit(int enable, const std::source_location& location) {
+    void onexit(int enable, const std::source_location& location) noexcept {
         g_onexitHandler.enabled = (enable != 0);
     }
 
@@ -216,11 +228,13 @@ namespace hsppp {
     // ============================================================
 
     void onkey(InterruptHandler handler, const std::source_location& location) {
-        g_onkeyHandler.handler = handler;
-        g_onkeyHandler.enabled = (handler != nullptr);
+        safe_call(location, [&] {
+            g_onkeyHandler.handler = handler;
+            g_onkeyHandler.enabled = (handler != nullptr);
+        });
     }
 
-    void onkey(int enable, const std::source_location& location) {
+    void onkey(int enable, const std::source_location& location) noexcept {
         g_onkeyHandler.enabled = (enable != 0);
     }
 
@@ -229,17 +243,23 @@ namespace hsppp {
     // ============================================================
 
     Screen& Screen::onclick(InterruptHandler handler, const std::source_location& location) {
-        hsppp::onclick(handler);
+        safe_call(location, [&] {
+            hsppp::onclick(handler);
+        });
         return *this;
     }
 
     Screen& Screen::oncmd(InterruptHandler handler, int messageId, const std::source_location& location) {
-        hsppp::oncmd(handler, messageId);
+        safe_call(location, [&] {
+            hsppp::oncmd(handler, messageId);
+        });
         return *this;
     }
 
     Screen& Screen::onkey(InterruptHandler handler, const std::source_location& location) {
-        hsppp::onkey(handler);
+        safe_call(location, [&] {
+            hsppp::onkey(handler);
+        });
         return *this;
     }
 
@@ -307,11 +327,20 @@ namespace hsppp::internal {
     // エラー割り込みは例外処理で直接handleHspErrorによって処理されるため、
     // triggerOnError関数は使用されません（後方互換性のため残していますが、実際には呼び出されない）
 
-    // HspError例外を処理（メインループから呼び出し）
-    void handleHspError(const hsppp::HspError& error, const std::source_location& location) {
+    // HspErrorBase派生例外を処理（メインループから呼び出し）
+    // HspError（致命的）とHspWeakError（復帰可能）の両方を同じように表示して終了
+    void handleHspError(const hsppp::HspErrorBase& error, const std::source_location& location) {
         if (g_onerrorHandler.enabled && g_onerrorHandler.handler) {
-            // HspErrorオブジェクトを直接ハンドラに渡す
-            g_onerrorHandler.handler(error);
+            // onerrorハンドラが設定されている場合
+            // TODO: HspErrorBaseを受け取れるようにErrorHandler型を変更する必要があるかも
+            // 現状はHspErrorにダウンキャストして渡す（一時的な措置）
+            if (const auto* hspError = dynamic_cast<const hsppp::HspError*>(&error)) {
+                g_onerrorHandler.handler(*hspError);
+            } else {
+                // HspWeakErrorの場合はHspErrorに変換して渡す
+                hsppp::HspError converted(error.error_code(), error.message());
+                g_onerrorHandler.handler(converted);
+            }
 
             // HSP仕様: onerror ハンドラは gosub 相当で、自動的に end で終了
             hsppp::end(1);
@@ -320,6 +349,7 @@ namespace hsppp::internal {
             // ハンドラが設定されていない場合は、HSP互換の簡潔なエラー表示
             // 形式: "#Error <エラー番号> in line <行番号> (<ファイル名>)"
             //       "-->エラーメッセージ"
+            // HspWeakErrorの場合は "#Warning" と表示
 
             // ファイル名を取得（パスの最後の部分のみ）
             std::string fileName = error.file_name();
@@ -328,8 +358,10 @@ namespace hsppp::internal {
                 fileName = fileName.substr(lastSlash + 1);
             }
 
+            const char* prefix = error.is_fatal() ? "#Error" : "#Warning";
             std::string errorMsg = std::format(
-                "#Error {} in line {} ({})\n-->{}",
+                "{} {} in line {} ({})\n-->{}",
+                prefix,
                 error.error_code(),
                 error.line_number(),
                 fileName,

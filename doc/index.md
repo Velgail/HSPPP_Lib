@@ -25,7 +25,7 @@ int hspMain() {
     pos(120, 140);
     mes("Hello, HSPPP!");
     
-    // hspMain を抜けると、ライブラリがメッセージループを回し続ける（HSPの stop 相当）
+    // hspMain を抜けると stop() と同等の動作になる
     return 0;
 }
 ```

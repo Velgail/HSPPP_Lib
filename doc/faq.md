@@ -3,6 +3,7 @@
 ## 目次
 
 - [基本](#基本)
+- [C++20以降の機能](#c20以降の機能)
 - [GUI コントロール](#gui-コントロール)
 - [ライフタイムと安全性](#ライフタイムと安全性)
 - [HSPとの互換性](#hspとの互換性)
@@ -27,6 +28,44 @@ A: Visual Studio 2026 (VS 18) が必要です。C++23 のモジュール機能�
 ### Q: `main()` を書かないのはなぜですか？
 
 A: HSPPP ライブラリが `WinMain` を実装し、ユーザー定義の `hspMain()` を提供する設計です。これはWinMainとWindowsの複雑なお作法を隠蔽することで HSP の「エントリポイント不要」の体験を再現しています。
+
+---
+
+## C++20以降の機能
+
+C++17 の書籍（[江添亮の詳説C++17](https://ezoeryou.github.io/cpp17book/) など）でカバーされていない、このプロジェクトで使われている機能です。
+
+| 機能 | 規格 | 用途 | cpprefjp |
+|------|------|------|----------|
+| モジュール | C++20 | `import hsppp;` | [modules](https://cpprefjp.github.io/lang/cpp20/modules.html) |
+| std::format | C++20 | `strf()` の内部実装 | [format](https://cpprefjp.github.io/reference/format.html) |
+| std::source_location | C++20 | エラー発生箇所の自動取得 | [source_location](https://cpprefjp.github.io/reference/source_location.html) |
+
+### Q: `import hsppp;` とは何ですか？
+
+A: C++20 で導入された**モジュール**機能です。従来の `#include` と異なり、コンパイル時間の短縮とマクロ汚染の防止ができます。
+
+```cpp
+// C++20 モジュール方式（HSPPPで使用）
+import hsppp;
+
+// 従来の #include 方式（HSPPPでは使用しない）
+// #include "hsppp.h"
+```
+
+### Q: `strf()` の中で使われている `std::format` とは？
+
+A: C++20 で導入された書式化ライブラリです。Python の f-string に似た記法で文字列を組み立てられます。
+
+```cpp
+std::string s = strf("x={}, y={}", 100, 200);  // "x=100, y=200"
+```
+
+### Q: 関数の引数にある `std::source_location` とは？
+
+A: C++20 で導入された、呼び出し元のソース位置（ファイル名・行番号・関数名）を自動取得する機能です。HSPPP ではエラー発生時に「どこで問題が起きたか」を表示するために使用しています。
+
+ユーザーが意識する必要はありません（デフォルト引数で自動取得されます）。
 
 ---
 
@@ -108,14 +147,23 @@ A: 完全な互換性はありませんが、多くの命令は同じ名前・�
 
 ### Q: HSP の `goto`/`gosub` は使えますか？
 
-A: `button` のコールバックで処理を記述できますが、C++ では関数やラムダを使用することを推奨します。
+A: **使えません。** C++ の関数を使用してください。
+
+- `gosub` → 関数呼び出しで代替
+- `goto` → C++ では不要（関数・ループ・条件分岐で構造化）
 
 ```cpp
-// HSPPP推奨スタイル
-button("Click", []() { 
-    // 処理
-    return 0; 
-});
+// gosub *draw → 関数呼び出し
+void draw() {
+    color(255, 0, 0);
+    boxf(0, 0, 100, 100);
+}
+
+int hspMain() {
+    screen(0, 640, 480);
+    draw();  // 関数を呼ぶだけ
+    stop();
+}
 ```
 
 ### Q: HSP の `dim`/`sdim` に相当するものは？
@@ -133,17 +181,14 @@ s.reserve(256);
 
 ### Q: HSP の `stop` に相当するものは？
 
-A: `hspMain()` から `return` すると、ライブラリがメッセージループで待機します（`stop` 相当）。
-
-明示的にプログラムを終了したい場合は `end()` を使用してください。
+A: `stop()` 関数をそのまま使用できます。
 
 ```cpp
-// HSP: stop → hspMain から return
-return 0;
-
-// HSP: end → end() を呼び出し
-end(0);  // 即座にプログラム終了
+stop();   // 割り込みを待機（HSPのstopと同じ）
+end(0);   // プログラムを終了（HSPのendと同じ）
 ```
+
+`hspMain()` から `return` した場合も `stop()` と同等の動作になります。
 
 ### Q: パラメータの省略はどうすればいいですか？
 

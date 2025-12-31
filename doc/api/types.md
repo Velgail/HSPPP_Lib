@@ -167,7 +167,7 @@ public:
     Screen& onkey(InterruptHandler handler);
     
     // GUIオブジェクト
-    int button(std::string_view name, std::function<int()> callback, bool isGosub = true);
+    int button(std::string_view name, std::function<int()> callback);
     int input(std::shared_ptr<std::string> var, int maxLength = 1024, int mode = 0);
     int mesbox(std::shared_ptr<std::string> var, int maxLength = 4096, int mode = 0);
     int chkbox(std::string_view label, std::shared_ptr<int> var);

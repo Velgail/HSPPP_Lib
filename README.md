@@ -146,6 +146,13 @@ HspppLib/
 
 ## 🔗 リンク
 
+### C++ 学習リソース
+
+- [江添亮の詳説C++17](https://ezoeryou.github.io/cpp17book/) - C++17 の体系的な解説書（日本語）
+- [cpprefjp](https://cpprefjp.github.io/) - C++ 標準ライブラリリファレンス（日本語）
+
+### 関連プロジェクト
+
 - [HSP公式サイト](https://hsp.tv/) - HSPとは何かを知りたい方向け
 
 ---

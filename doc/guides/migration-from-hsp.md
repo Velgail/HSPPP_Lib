@@ -151,6 +151,8 @@ for (int cnt = 0; cnt < 10; cnt++) {
 
 ### goto/gosub → 関数
 
+HSPPP では `goto` / `gosub` の代わりに C++ の関数を使用します。
+
 ```hsp
 ; HSP
 gosub *draw
@@ -172,7 +174,7 @@ void draw() {
 int hspMain() {
     screen(0, 640, 480);
     draw();
-    return 0;  // stop 相当
+    stop();  // 割り込みを待機
 }
 ```
 

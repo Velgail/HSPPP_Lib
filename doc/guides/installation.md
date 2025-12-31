@@ -61,7 +61,7 @@ int hspMain() {
     
     // 初期化処理、または while ループでゲームループを実装
     
-    return 0;  // hspMain を抜けると stop 相当（メッセージループ待機）
+    return 0;  // hspMain を抜けると stop() と同等の動作になる
 }
 ```
 

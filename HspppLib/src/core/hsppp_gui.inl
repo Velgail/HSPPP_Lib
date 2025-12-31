@@ -61,7 +61,7 @@ void objcolor(OptInt r, OptInt g, OptInt b, const std::source_location& location
 // ============================================================
 // button - ボタン表示
 // ============================================================
-int button(std::string_view name, std::function<int()> callback, bool isGosub, const std::source_location& location) {
+int button(std::string_view name, std::function<int()> callback, const std::source_location& location) {
     return safe_call(location, [&]() -> int {
         ensureDefaultScreen();
 
@@ -70,7 +70,7 @@ int button(std::string_view name, std::function<int()> callback, bool isGosub, c
             throw HspError(ERR_INVALID_HANDLE, "Invalid window ID", location);
         }
 
-        return internal::button_impl(surface, g_currentScreenId, name, std::move(callback), isGosub);
+        return internal::button_impl(surface, g_currentScreenId, name, std::move(callback));
     });
 }
 

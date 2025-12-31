@@ -29,7 +29,7 @@ int hspMain() {
     pos(100, 100);
     mes("Hello, World!");
     
-    // hspMain を抜けると stop 相当（メッセージループ待機）
+    // hspMain を抜けると stop() と同等の動作になる
     return 0;
 }
 ```
@@ -178,7 +178,7 @@ int hspMain() {
     color(255, 0, 0);
     circle(x - 20, y - 20, x + 20, y + 20, 1);
     
-    return 0;  // stop 相当
+    stop();  // 割り込みを待機（return 0 でも同様の動作）
 }
 ```
 

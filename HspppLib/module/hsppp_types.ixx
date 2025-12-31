@@ -625,7 +625,7 @@ export namespace hsppp {
         // ============================================================
 
         /// @brief ボタンを生成（OOP版）
-        int button(std::string_view name, std::function<int()> callback, bool isGosub = true, const std::source_location& location = std::source_location::current());
+        int button(std::string_view name, std::function<int()> callback, const std::source_location& location = std::source_location::current());
 
         /// @brief 入力ボックスを生成（OOP版・shared_ptr版）
         int input(std::shared_ptr<std::string> var, int maxLength = 1024, int mode = 0, const std::source_location& location = std::source_location::current());

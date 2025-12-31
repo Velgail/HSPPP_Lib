@@ -72,14 +72,13 @@ void objcolor(OptInt r = {}, OptInt g = {}, OptInt b = {});
 ボタンを作成します。
 
 ```cpp
-int button(std::string_view name, std::function<int()> callback, bool isGosub = false);
+int button(std::string_view name, std::function<int()> callback);
 ```
 
 | パラメータ | 説明 |
 |-----------|------|
 | `name` | ボタンのラベル |
 | `callback` | クリック時に呼び出される関数 |
-| `isGosub` | true=割り込み後に戻る, false=ワンショット |
 
 **戻り値:** オブジェクトID
 

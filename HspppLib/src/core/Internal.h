@@ -192,7 +192,6 @@ struct ObjectInfo {
     
     // button用
     std::function<int()> callback;  // コールバック関数
-    bool isGosub;                 // gosub/goto 切り替え
     
     // input/mesbox用（shared_ptrでライフタイム管理）
     std::shared_ptr<std::string> ownedStrVar;
@@ -212,7 +211,6 @@ struct ObjectInfo {
         , windowId(-1)
         , x(0), y(0)
         , width(64), height(24)
-        , isGosub(false)
         , maxLength(0)
         , enabled(true)
         , focusSkipMode(1)

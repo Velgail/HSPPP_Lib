@@ -115,6 +115,57 @@ public:
 };
 
 // ============================================================
+// RAII ラッパー: UniqueHandle（HANDLE の自動破棄）
+// ============================================================
+
+/// @brief HANDLE を RAII で管理するラッパークラス
+class UniqueHandle {
+private:
+    HANDLE m_handle = INVALID_HANDLE_VALUE;
+
+public:
+    UniqueHandle() noexcept = default;
+    explicit UniqueHandle(HANDLE handle) noexcept : m_handle(handle) {}
+
+    ~UniqueHandle() {
+        reset();
+    }
+
+    // コピー禁止
+    UniqueHandle(const UniqueHandle&) = delete;
+    UniqueHandle& operator=(const UniqueHandle&) = delete;
+
+    // ムーブ許可
+    UniqueHandle(UniqueHandle&& other) noexcept : m_handle(other.m_handle) {
+        other.m_handle = INVALID_HANDLE_VALUE;
+    }
+
+    UniqueHandle& operator=(UniqueHandle&& other) noexcept {
+        if (this != &other) {
+            reset();
+            m_handle = other.m_handle;
+            other.m_handle = INVALID_HANDLE_VALUE;
+        }
+        return *this;
+    }
+
+    void reset(HANDLE handle = INVALID_HANDLE_VALUE) noexcept {
+        if (m_handle != INVALID_HANDLE_VALUE && m_handle != nullptr) {
+            CloseHandle(m_handle);
+        }
+        m_handle = handle;
+    }
+
+    [[nodiscard]] HANDLE get() const noexcept { return m_handle; }
+    
+    [[nodiscard]] bool is_valid() const noexcept {
+        return m_handle != INVALID_HANDLE_VALUE && m_handle != nullptr;
+    }
+
+    explicit operator bool() const noexcept { return is_valid(); }
+};
+
+// ============================================================
 // GUIオブジェクト管理構造体（buttonシリーズ用）
 // ============================================================
 
@@ -439,7 +490,6 @@ public:
 // ウィンドウを表すSurface（スワップチェーン使用）
 class HspWindow : public HspSurface {
 private:
-    HWND m_hwnd;
     ComPtr<IDXGISwapChain1> m_pSwapChain;
     ComPtr<ID2D1Bitmap1> m_pBackBufferBitmap;  // スワップチェーンのバックバッファ
     std::wstring m_title;
@@ -447,6 +497,8 @@ private:
     // クライアントサイズ（実際のウィンドウ表示サイズ、m_width/m_height以下）
     int m_clientWidth;
     int m_clientHeight;
+
+    UniqueHwnd m_hwnd;
     
     // スクロール位置（groll用）
     int m_scrollX;

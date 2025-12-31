@@ -121,6 +121,7 @@ MediaSlot::~MediaSlot() {
     if (mfCallback) {
         mfCallback->isPlaying = false;
         mfCallback->hasEnded = true;
+        mfCallback->SetSession(nullptr);
     }
 
     if (mediaSession) {

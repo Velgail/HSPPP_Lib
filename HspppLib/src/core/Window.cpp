@@ -260,6 +260,10 @@ LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
                         *pVar = static_cast<int>(sel);
                     }
                 }
+                // Input/Mesbox のテキスト変更（即時同期）
+                else if ((pInfo->type == ObjectType::Input || pInfo->type == ObjectType::Mesbox) && notifyCode == EN_CHANGE) {
+                    objMgr.syncSingleInputControl(hwndControl);
+                }
             }
         }
         return 0;

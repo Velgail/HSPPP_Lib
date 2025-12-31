@@ -68,6 +68,7 @@ namespace hsppp {
         if (time_ms < 0) {
             throw HspError(ERR_OUT_OF_RANGE, "awaitの待ち時間は0以上の値を指定してください", location);
         }
+        
         MSG msg;
         DWORD currentTime = GetTickCount();
 

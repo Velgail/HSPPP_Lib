@@ -374,8 +374,12 @@ namespace hsppp {
             // 共通実装ヘルパーを呼ぶ
             hsppp::internal::gcopy_impl(surface, srcSurface, srcX, srcY, copyW, copyH, std::source_location::current());
         }
+        catch (const hsppp::HspError&) {
+            throw;  // HspErrorはそのまま再スロー
+        }
         catch (const std::exception& e) {
-            // エラーをサイレントに抑える（OOP版はエラーハンドリングを呼び出し側に任せる）
+            // std::exceptionをHspErrorに変換してrethrow
+            throw hsppp::HspError(hsppp::ERR_SYSTEM_ERROR, e);
         }
 
         return *this;
@@ -400,8 +404,12 @@ namespace hsppp {
             // 共通実装ヘルパーを呼ぶ
             hsppp::internal::gzoom_impl(surface, destW, destH, srcSurface, srcX, srcY, copyW, copyH, mode, std::source_location::current());
         }
+        catch (const hsppp::HspError&) {
+            throw;  // HspErrorはそのまま再スロー
+        }
         catch (const std::exception& e) {
-            // エラーをサイレントに抑える（OOP版はエラーハンドリングを呼び出し側に任せる）
+            // std::exceptionをHspErrorに変換してrethrow
+            throw hsppp::HspError(hsppp::ERR_SYSTEM_ERROR, e);
         }
 
         return *this;

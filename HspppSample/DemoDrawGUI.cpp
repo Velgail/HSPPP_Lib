@@ -17,7 +17,7 @@ int g_buttonClickCount = 0;
 
 // 入力系GUIコントロール用の状態変数（shared_ptrでライフタイム安全）
 auto g_inputText = std::make_shared<std::string>("Hello HSPPP!");
-auto g_inputNumber = std::make_shared<int>(42);
+auto g_inputNumber = std::make_shared<std::string>("42");  // 文字列で受け取り、必要時にtoInt()で変換
 auto g_mesboxText = std::make_shared<std::string>("Line 1\nLine 2\nLine 3\nEdit me!");
 
 // 選択系GUIコントロール用の状態変数（shared_ptrでライフタイム安全）
@@ -65,7 +65,7 @@ static void initButtonInputDemo(Screen& win) {
     g_btnId2 = button("Reset", []() {
         g_buttonClickCount = 0;
         *g_inputText = "Hello HSPPP!";
-        *g_inputNumber = 42;
+        *g_inputNumber = "42";
         objprm(g_inputStrId, *g_inputText);
         objprm(g_inputIntId, *g_inputNumber);
         return 0;
@@ -161,7 +161,7 @@ static void updateButtonInputDemo(Screen& win) {
     win.mes("Current: " + *g_inputText);
     
     win.pos(250, 220);
-    win.mes("Current: " + std::to_string(*g_inputNumber));
+    win.mes("Current: " + *g_inputNumber);  // もうstringなので直接連結OK
     
     win.pos(350, 80);
     win.mes("Count: " + std::to_string(g_buttonClickCount));

@@ -149,7 +149,7 @@ extern bool g_guiObjectsCreated;
 extern int g_buttonClickCount;
 // 入力系GUIコントロール用の状態変数（shared_ptrでライフタイム安全）
 extern std::shared_ptr<std::string> g_inputText;
-extern std::shared_ptr<int> g_inputNumber;
+extern std::shared_ptr<std::string> g_inputNumber;  // 文字列で受け取り、必要時にtoInt()で変換
 extern std::shared_ptr<std::string> g_mesboxText;
 // 選択系GUIコントロール用の状態変数（shared_ptrでライフタイム安全）
 extern std::shared_ptr<int> g_checkState;

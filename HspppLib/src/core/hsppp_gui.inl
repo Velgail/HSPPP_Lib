@@ -92,34 +92,6 @@ int input(std::shared_ptr<std::string> var, OptInt sizeX, OptInt sizeY, OptInt m
     return internal::input_impl(surface, g_currentScreenId, var, maxChars, w, h, objSpace);
 }
 
-// input (shared_ptr<int>版)
-int input(std::shared_ptr<int> var, OptInt sizeX, OptInt sizeY, OptInt maxLen, const std::source_location& location) {
-    ensureDefaultScreen();
-
-    auto surface = getCurrentSurface();
-    if (!surface) {
-        throw HspError(ERR_INVALID_HANDLE, "Invalid window ID", location);
-    }
-
-    // Surface から objsize を取得
-    int objW = surface->getObjSizeX();
-    int objH = surface->getObjSizeY();
-    int objSpace = surface->getObjSpaceY();
-
-    int w = sizeX.value_or(objW);
-    int h = sizeY.value_or(objH);
-    int maxChars = maxLen.value_or(32);
-
-    auto strVar = std::make_shared<std::string>(std::to_string(*var));
-    int result = internal::input_impl(surface, g_currentScreenId, strVar, maxChars, w, h, objSpace);
-    try {
-        *var = std::stoi(*strVar);
-    } catch (...) {
-        *var = 0;
-    }
-    return result;
-}
-
 // mesbox (shared_ptr<std::string>版)
 int mesbox(std::shared_ptr<std::string> var, OptInt sizeX, OptInt sizeY, OptInt style, OptInt maxLen, const std::source_location& location) {
     ensureDefaultScreen();

@@ -300,6 +300,14 @@ public:
     
     /// @brief 次のオブジェクトIDを取得（内部用）
     int getNextId() const { return m_nextId; }
+    
+    /// @brief 単一のEDITコントロールの内容を変数に同期
+    /// EN_CHANGE通知時にWindowProcから呼び出す
+    void syncSingleInputControl(HWND hwnd);
+    
+    /// @brief すべてのEDITコントロールの内容を変数に同期
+    /// 明示的に全同期が必要な場合に使用
+    void syncInputControls();
 };
 
 // Direct2D 1.1 デバイスマネージャー（シングルトン）

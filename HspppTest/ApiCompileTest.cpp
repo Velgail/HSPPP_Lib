@@ -1207,10 +1207,8 @@ namespace compile_test {
         [[maybe_unused]] int inputId3 = input(strVar, 200, 30);
         [[maybe_unused]] int inputId4 = input(strVar, 200, 30, 256);
 
-        // input - 入力ボックス表示（整数）- shared_ptr版
-        auto intVar = std::make_shared<int>(42);
-        [[maybe_unused]] int inputId5 = input(intVar);
-        [[maybe_unused]] int inputId6 = input(intVar, 100, 25, 10);
+        // 整数/実数入力が必要な場合は文字列で受け取ってtoInt()/toDouble()で変換
+        // 例: int value = toInt(*strVar);
 
         // mesbox - メッセージボックス表示 - shared_ptr版
         auto mesboxVar = std::make_shared<std::string>("Line1\nLine2\nLine3");
@@ -1236,7 +1234,7 @@ namespace compile_test {
 
         // objprm - オブジェクトの内容を変更
         objprm(btnId, "New Label");
-        objprm(inputId5, 123);
+        objprm(inputId1, "new value");  // 文字列で設定
 
         // objsel - オブジェクトに入力フォーカスを設定
         objsel(inputId1);

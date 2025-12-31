@@ -512,27 +512,22 @@ namespace hsppp {
                 filterW = L"すべてのファイル\0*.*\0\0";
             }
             else {
-                try {
-                    // HSP形式のフィルタを解析（|区切り）
-                    auto exts = parsePipeSeparated(message);
-                    auto descs = parsePipeSeparated(option);
+                // HSP形式のフィルタを解析（|区切り）
+                // parsePipeSeparatedとUtf8ToWideは例外を投げない
+                auto exts = parsePipeSeparated(message);
+                auto descs = parsePipeSeparated(option);
+                
+                for (size_t i = 0; i < exts.size(); i++) {
+                    std::wstring extW = internal::Utf8ToWide(exts[i]);
+                    std::wstring descW = (i < descs.size()) ? internal::Utf8ToWide(descs[i]) : extW;
                     
-                    for (size_t i = 0; i < exts.size(); i++) {
-                        std::wstring extW = internal::Utf8ToWide(exts[i]);
-                        std::wstring descW = (i < descs.size()) ? internal::Utf8ToWide(descs[i]) : extW;
-                        
-                        filterW += descW;
-                        filterW += L'\0';
-                        filterW += L"*.";
-                        filterW += extW;
-                        filterW += L'\0';
-                    }
+                    filterW += descW;
+                    filterW += L'\0';
+                    filterW += L"*.";
+                    filterW += extW;
                     filterW += L'\0';
                 }
-                catch (...) {
-                    // 予期しない例外が発生した場合は汎用フィルタにフォールバック
-                    filterW = L"すべてのファイル\0*.*\0\0";
-                }
+                filterW += L'\0';
             }
 
             OPENFILENAMEW ofn = {};

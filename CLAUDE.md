@@ -228,3 +228,71 @@ HspppSample/
 - **削除する** - 不要なコードはバージョン管理にあるので削除OK
 - **UserApp.cppは破壊OK** - デモコードなので自由に書き換えて良い
 - **テストコードで検証** - ApiCompileTest.cppで全パターンをコンパイル検証
+
+### Unicode 必須（ANSI API 禁止）
+
+**このプロジェクトは Unicode ビルドです。ANSI 版 API の使用は禁止です。**
+
+禁止例：
+- `OutputDebugStringA` → `OutputDebugStringW` を使用
+- `MessageBoxA` → `MessageBoxW` を使用
+- `CreateFileA` → `CreateFileW` を使用
+- その他すべての `*A` サフィックス API
+
+理由：
+- Unicode 文字（日本語等）が正しく処理されない
+- 文字化けの原因となる
+- プロジェクト設定と不整合
+
+```cpp
+// NG: ANSI 版 API
+OutputDebugStringA("error message");
+
+// OK: Unicode 版 API
+OutputDebugStringW(L"error message");
+
+// OK: std::string から変換
+OutputDebugStringW(internal::Utf8ToWide(e.what()).c_str());
+```
+
+### 例外握りつぶし禁止
+
+**`catch(...)` や `catch(const std::exception&)` で例外を握りつぶすことは禁止。**
+
+禁止パターン：
+```cpp
+// NG: 例外を握りつぶしてデフォルト値を返す
+try {
+    doSomething();
+} catch (...) {
+    return defaultValue;  // 何が起きたか不明
+}
+
+// NG: ログ出力だけして握りつぶす
+try {
+    doSomething();
+} catch (const std::exception& e) {
+    OutputDebugStringW(L"error occurred");  // で、どうするの？
+}
+```
+
+正しい対処：
+1. **例外を投げないコードには try-catch を書かない**（過剰防衛禁止）
+2. **例外を変換する場合は HspError に変換して rethrow**
+3. **意図的なフォールバックは HSP 互換動作としてコメント明記**
+
+```cpp
+// OK: HspError に変換して rethrow
+try {
+    somethingThatThrows();
+} catch (const std::exception& e) {
+    throw HspError(ERR_SYSTEM_ERROR, e);  // 元の例外を保持
+}
+
+// OK: HSP 互換の意図的なフォールバック（数値変換など）
+try {
+    return std::stoi(str);
+} catch (const std::invalid_argument&) {
+    return 0;  // HSP 互換: 変換失敗時は 0
+}
+```

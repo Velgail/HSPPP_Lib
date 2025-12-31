@@ -1654,6 +1654,7 @@ namespace hsppp {
 
     /// @brief HSPエラー例外
     /// @details C++例外システムと統合されたHSPエラーハンドリング
+    /// @note std::exceptionを抱え込むことができ、original_exception()で元の例外を取得可能
     export class HspError : public std::runtime_error {
     private:
         int m_errorCode;
@@ -1661,6 +1662,7 @@ namespace hsppp {
         std::string m_fileName;
         std::string m_functionName;
         std::string m_message;  // 元のエラーメッセージ（ユーザー向け）
+        std::exception_ptr m_originalException;  // 元の例外（存在する場合）
 
     public:
         /// @brief エラー例外を構築
@@ -1676,6 +1678,41 @@ namespace hsppp {
             , m_fileName(location.file_name())
             , m_functionName(location.function_name())
             , m_message(message)
+            , m_originalException(nullptr)
+        {}
+
+        /// @brief std::exceptionを抱え込んでエラー例外を構築
+        /// @param errorCode エラーコード (ERR_*)
+        /// @param message エラーメッセージ
+        /// @param originalException 元の例外（std::exception_ptr）
+        /// @param location 発生場所（std::source_locationから自動取得）
+        HspError(int errorCode,
+                std::string_view message,
+                std::exception_ptr originalException,
+                const std::source_location& location = std::source_location::current())
+            : std::runtime_error(std::format("[HSP Error {}] {}", errorCode, message))
+            , m_errorCode(errorCode)
+            , m_lineNumber(static_cast<int>(location.line()))
+            , m_fileName(location.file_name())
+            , m_functionName(location.function_name())
+            , m_message(message)
+            , m_originalException(std::move(originalException))
+        {}
+
+        /// @brief std::exceptionから直接エラー例外を構築
+        /// @param errorCode エラーコード (ERR_*)
+        /// @param originalException 元の例外
+        /// @param location 発生場所（std::source_locationから自動取得）
+        HspError(int errorCode,
+                const std::exception& originalException,
+                const std::source_location& location = std::source_location::current())
+            : std::runtime_error(std::format("[HSP Error {}] {}", errorCode, originalException.what()))
+            , m_errorCode(errorCode)
+            , m_lineNumber(static_cast<int>(location.line()))
+            , m_fileName(location.file_name())
+            , m_functionName(location.function_name())
+            , m_message(originalException.what())
+            , m_originalException(std::current_exception())
         {}
 
         /// @brief エラーコードを取得
@@ -1692,6 +1729,21 @@ namespace hsppp {
 
         /// @brief 元のエラーメッセージを取得（ユーザー向け）
         [[nodiscard]] const std::string& message() const noexcept { return m_message; }
+
+        /// @brief 元の例外を取得（存在しない場合はnullptr）
+        [[nodiscard]] std::exception_ptr original_exception() const noexcept { return m_originalException; }
+
+        /// @brief 元の例外が存在するかチェック
+        [[nodiscard]] bool has_original_exception() const noexcept { return m_originalException != nullptr; }
+
+        /// @brief 元の例外を再スローする
+        /// @throws 元の例外（has_original_exception()がtrueの場合）
+        /// @note 元の例外が存在しない場合は何もしない
+        void rethrow_original() const {
+            if (m_originalException) {
+                std::rethrow_exception(m_originalException);
+            }
+        }
     };
 
     // ============================================================
@@ -2537,18 +2589,8 @@ namespace hsppp {
     /// @return オブジェクトID (stat相当)
     /// @note 参照版は提供していません（ライフタイム安全性のため）。
     ///       std::make_shared<std::string>(初期値) で変数を作成してください。
+    /// @note 整数/実数入力が必要な場合は、文字列で受け取って toInt()/toDouble() で変換してください。
     export int input(std::shared_ptr<std::string> var, OptInt sizeX = {}, OptInt sizeY = {}, OptInt maxLen = {},
-                    const std::source_location& location = std::source_location::current());
-
-    /// @brief 入力ボックス表示（整数変数用）
-    /// @param var 入力のための整数変数（shared_ptr）
-    /// @param sizeX 入力ボックスのXサイズ（省略時はobjsizeに従う）
-    /// @param sizeY 入力ボックスのYサイズ（省略時はobjsizeに従う）
-    /// @param maxLen 入力できる最大文字数（省略時は32）
-    /// @return オブジェクトID (stat相当)
-    /// @note 参照版は提供していません（ライフタイム安全性のため）。
-    ///       std::make_shared<int>(初期値) で変数を作成してください。
-    export int input(std::shared_ptr<int> var, OptInt sizeX = {}, OptInt sizeY = {}, OptInt maxLen = {},
                     const std::source_location& location = std::source_location::current());
 
     /// @brief メッセージボックス表示

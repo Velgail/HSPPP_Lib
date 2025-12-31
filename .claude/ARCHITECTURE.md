@@ -238,15 +238,15 @@ Screen& Screen::color(int r, int g, int b) {
 
 ```
 HspppLib/module/
-├── hsppp.ixx          # メインモジュール（export import で統合）
-├── hsppp_types.ixx    # OptInt, OptDouble, Screen, Quad 等の型定義
-├── hsppp_screen.ixx   # 画面制御命令 (screen, buffer, gsel, redraw 等)
-├── hsppp_drawing.ixx  # 描画命令 (mes, boxf, line, circle 等)
-├── hsppp_input.ixx    # 入力命令 (stick, getkey, mouse 等)
-├── hsppp_math.ixx     # 数学関数 (<cmath> 再エクスポート, deg2rad 等)
-├── hsppp_string.ixx   # 文字列関数 (strmid, instr, notesel 等)
-├── hsppp_file.ixx     # ファイル操作 (exist, delete, dirlist 等)
-└── hsppp_interrupt.ixx# 割り込み (onclick, onerror, stop 等)
+├── hsppp.ixx           # メインモジュール（export import で統合）
+├── hsppp_types.ixx     # OptInt, OptDouble, Screen, Quad 等の型定義
+├── hsppp_screen.ixx    # 画面制御命令 (screen, buffer, gsel, redraw 等)
+├── hsppp_drawing.ixx   # 描画命令 (mes, boxf, line, circle 等)
+├── hsppp_input.ixx     # 入力命令 (stick, getkey, mouse 等)
+├── hsppp_math.ixx      # 数学関数 (<cmath> 再エクスポート, deg2rad 等)
+├── hsppp_string.ixx    # 文字列関数 (strmid, instr, notesel 等)
+├── hsppp_file.ixx      # ファイル操作 (exist, delete, dirlist 等)
+└── hsppp_interrupt.ixx # 割り込み (onclick, onerror, stop 等)
 ```
 
 ### 統合方法

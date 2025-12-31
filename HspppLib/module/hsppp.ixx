@@ -15,6 +15,7 @@ import <string>;
 import <algorithm>;
 import <numbers>;
 import <vector>;
+import <span>;
 
 namespace hsppp {
 
@@ -347,11 +348,15 @@ namespace hsppp {
         /// @brief 要素数を取得
         [[nodiscard]] static constexpr size_t size() noexcept { return vertex_count; }
 
+        /// @brief 全要素へのspan（安全なイテレータ）
+        [[nodiscard]] constexpr std::span<Point2i, vertex_count> data() noexcept { return v; }
+        [[nodiscard]] constexpr std::span<const Point2i, vertex_count> data() const noexcept { return v; }
+
         /// @brief イテレータサポート（範囲ベースfor用）
-        constexpr Point2i* begin() noexcept { return v; }
-        constexpr Point2i* end() noexcept { return v + vertex_count; }
-        constexpr const Point2i* begin() const noexcept { return v; }
-        constexpr const Point2i* end() const noexcept { return v + vertex_count; }
+        constexpr auto begin() noexcept { return data().begin(); }
+        constexpr auto end() noexcept { return data().end(); }
+        constexpr auto begin() const noexcept { return data().begin(); }
+        constexpr auto end() const noexcept { return data().end(); }
     };
 
     /// @brief 4頂点UV座標（gsquareコピー元用）
@@ -392,11 +397,15 @@ namespace hsppp {
         /// @brief 要素数を取得
         [[nodiscard]] static constexpr size_t size() noexcept { return vertex_count; }
 
+        /// @brief 全要素へのspan（安全なイテレータ）
+        [[nodiscard]] constexpr std::span<Point2i, vertex_count> data() noexcept { return v; }
+        [[nodiscard]] constexpr std::span<const Point2i, vertex_count> data() const noexcept { return v; }
+
         /// @brief イテレータサポート（範囲ベースfor用）
-        constexpr Point2i* begin() noexcept { return v; }
-        constexpr Point2i* end() noexcept { return v + vertex_count; }
-        constexpr const Point2i* begin() const noexcept { return v; }
-        constexpr const Point2i* end() const noexcept { return v + vertex_count; }
+        constexpr auto begin() noexcept { return data().begin(); }
+        constexpr auto end() noexcept { return data().end(); }
+        constexpr auto begin() const noexcept { return data().begin(); }
+        constexpr auto end() const noexcept { return data().end(); }
     };
 
     /// @brief 4頂点カラー（gsquareグラデーション用）
@@ -434,11 +443,15 @@ namespace hsppp {
         /// @brief 要素数を取得
         [[nodiscard]] static constexpr size_t size() noexcept { return color_count; }
 
+        /// @brief 全要素へのspan（安全なイテレータ）
+        [[nodiscard]] constexpr std::span<int, color_count> data() noexcept { return colors; }
+        [[nodiscard]] constexpr std::span<const int, color_count> data() const noexcept { return colors; }
+
         /// @brief イテレータサポート（範囲ベースfor用）
-        constexpr int* begin() noexcept { return colors; }
-        constexpr int* end() noexcept { return colors + color_count; }
-        constexpr const int* begin() const noexcept { return colors; }
-        constexpr const int* end() const noexcept { return colors + color_count; }
+        constexpr auto begin() noexcept { return data().begin(); }
+        constexpr auto end() noexcept { return data().end(); }
+        constexpr auto begin() const noexcept { return data().begin(); }
+        constexpr auto end() const noexcept { return data().end(); }
     };
 
 
@@ -2486,48 +2499,29 @@ namespace hsppp {
     export int button(std::string_view name, std::function<int()> callback, bool isGosub = false,
                      const std::source_location& location = std::source_location::current());
 
-    /// @brief 入力ボックス表示
-    /// @param var 入力のための文字列変数（参照）
-    /// @param sizeX メッセージボックスのXサイズ（省略時はobjsizeに従う）
-    /// @param sizeY メッセージボックスのYサイズ（省略時はobjsizeに従う）
-    /// @param maxLen 入力できる最大文字数（省略時は変数サイズに従う）
-    /// @return オブジェクトID (stat相当)
-    export int input(std::string& var, OptInt sizeX = {}, OptInt sizeY = {}, OptInt maxLen = {},
-                    const std::source_location& location = std::source_location::current());
-
-    /// @brief 入力ボックス表示（整数変数版）
-    /// @param var 入力のための整数変数（参照）
-    /// @param sizeX メッセージボックスのXサイズ（省略時はobjsizeに従う）
-    /// @param sizeY メッセージボックスのYサイズ（省略時はobjsizeに従う）
-    /// @param maxLen 入力できる最大文字数（省略時は32）
-    /// @return オブジェクトID (stat相当)
-    export int input(int& var, OptInt sizeX = {}, OptInt sizeY = {}, OptInt maxLen = {},
-                    const std::source_location& location = std::source_location::current());
-
-    /// @brief メッセージボックス表示
-    /// @param var 表示メッセージが代入された文字列型変数
-    /// @param sizeX メッセージボックスのXサイズ（省略時はobjsizeに従う）
-    /// @param sizeY メッセージボックスのYサイズ（省略時はobjsizeに従う）
-    /// @param style スタイル (0=読取専用, 1=編集可能, +4=横スクロールバー, +8=自動ラップ無効)
-    /// @param maxLen 入力できる最大文字数（省略時は変数サイズ、0で最大）
-    /// @return オブジェクトID (stat相当)
-    export int mesbox(std::string& var, OptInt sizeX = {}, OptInt sizeY = {}, OptInt style = {}, OptInt maxLen = {},
-                     const std::source_location& location = std::source_location::current());
-
     // ============================================================
-    // 選択系GUIコントロール: shared_ptr版のみ提供
+    // GUIコントロール: shared_ptr版のみ提供（ライフタイム安全性）
     // ============================================================
     // 
-    // 【設計上の注意】chkbox/combox/listbox には int& 版がありません。
+    // 【設計上の注意】input/mesbox/chkbox/combox/listbox には参照版がありません。
     // 
     // HSPでは変数はすべてグローバルスコープなので、GUIオブジェクトが
     // 変数を参照し続けても問題ありませんでした。しかしC++では、
     // ローカル変数を参照で渡すと、関数を抜けた後にGUIがその変数を
     // 参照し続け、ダングリングポインタ（未定義動作）となります。
     //
-    // 安全のため、これらの関数は std::shared_ptr<int> 版のみ提供します。
+    // 安全のため、これらの関数は std::shared_ptr 版のみ提供します。
     // 
     // 使用例:
+    //   auto strVar = std::make_shared<std::string>("initial");
+    //   input(strVar, 200, 24, 256);
+    //
+    //   auto intVar = std::make_shared<int>(42);
+    //   input(intVar, 100, 24);
+    //
+    //   auto mesVar = std::make_shared<std::string>("Line1\nLine2");
+    //   mesbox(mesVar, 300, 200, 1);  // 編集可能
+    //
     //   auto checkState = std::make_shared<int>(0);
     //   chkbox("Enable", checkState);
     //
@@ -2535,11 +2529,45 @@ namespace hsppp {
     //   combox(comboIndex, 100, "Option A\nOption B\nOption C");
     // ============================================================
 
+    /// @brief 入力ボックス表示（文字列変数用）
+    /// @param var 入力のための文字列変数（shared_ptr）
+    /// @param sizeX 入力ボックスのXサイズ（省略時はobjsizeに従う）
+    /// @param sizeY 入力ボックスのYサイズ（省略時はobjsizeに従う）
+    /// @param maxLen 入力できる最大文字数（省略時は256）
+    /// @return オブジェクトID (stat相当)
+    /// @note 参照版は提供していません（ライフタイム安全性のため）。
+    ///       std::make_shared<std::string>(初期値) で変数を作成してください。
+    export int input(std::shared_ptr<std::string> var, OptInt sizeX = {}, OptInt sizeY = {}, OptInt maxLen = {},
+                    const std::source_location& location = std::source_location::current());
+
+    /// @brief 入力ボックス表示（整数変数用）
+    /// @param var 入力のための整数変数（shared_ptr）
+    /// @param sizeX 入力ボックスのXサイズ（省略時はobjsizeに従う）
+    /// @param sizeY 入力ボックスのYサイズ（省略時はobjsizeに従う）
+    /// @param maxLen 入力できる最大文字数（省略時は32）
+    /// @return オブジェクトID (stat相当)
+    /// @note 参照版は提供していません（ライフタイム安全性のため）。
+    ///       std::make_shared<int>(初期値) で変数を作成してください。
+    export int input(std::shared_ptr<int> var, OptInt sizeX = {}, OptInt sizeY = {}, OptInt maxLen = {},
+                    const std::source_location& location = std::source_location::current());
+
+    /// @brief メッセージボックス表示
+    /// @param var 表示メッセージを保持する文字列変数（shared_ptr）
+    /// @param sizeX メッセージボックスのXサイズ（省略時はobjsizeに従う）
+    /// @param sizeY メッセージボックスのYサイズ（省略時はobjsizeに従う）
+    /// @param style スタイル (0=読取専用, 1=編集可能, +4=横スクロールバー, +8=自動ラップ無効)
+    /// @param maxLen 入力できる最大文字数（省略時は32767）
+    /// @return オブジェクトID (stat相当)
+    /// @note 参照版は提供していません（ライフタイム安全性のため）。
+    ///       std::make_shared<std::string>(初期値) で変数を作成してください。
+    export int mesbox(std::shared_ptr<std::string> var, OptInt sizeX = {}, OptInt sizeY = {}, OptInt style = {}, OptInt maxLen = {},
+                     const std::source_location& location = std::source_location::current());
+
     /// @brief チェックボックス表示
     /// @param label チェックボックスの内容表示文字列
     /// @param var チェックボックスの状態を保持する変数（shared_ptr: 0=OFF, 1=ON）
     /// @return オブジェクトID (stat相当)
-    /// @note int& 版は提供していません（ライフタイム安全性のため）。
+    /// @note 参照版は提供していません（ライフタイム安全性のため）。
     ///       std::make_shared<int>(初期値) で変数を作成してください。
     export int chkbox(std::string_view label, std::shared_ptr<int> var,
                      const std::source_location& location = std::source_location::current());
@@ -2549,7 +2577,7 @@ namespace hsppp {
     /// @param expandY 拡張Yサイズ（リスト表示用、100〜150程度推奨）
     /// @param items コンボボックスの内容（\n区切りの文字列）
     /// @return オブジェクトID (stat相当)
-    /// @note int& 版は提供していません（ライフタイム安全性のため）。
+    /// @note 参照版は提供していません（ライフタイム安全性のため）。
     ///       std::make_shared<int>(初期値) で変数を作成してください。
     export int combox(std::shared_ptr<int> var, OptInt expandY, std::string_view items,
                      const std::source_location& location = std::source_location::current());
@@ -2559,37 +2587,10 @@ namespace hsppp {
     /// @param expandY 拡張Yサイズ
     /// @param items リストボックスの内容（\n区切りの文字列）
     /// @return オブジェクトID (stat相当)
-    /// @note int& 版は提供していません（ライフタイム安全性のため）。
+    /// @note 参照版は提供していません（ライフタイム安全性のため）。
     ///       std::make_shared<int>(初期値) で変数を作成してください。
     export int listbox(std::shared_ptr<int> var, OptInt expandY, std::string_view items,
                       const std::source_location& location = std::source_location::current());
-
-    // ============================================================
-    // input/mesbox: 参照版と shared_ptr版の両方を提供
-    // ============================================================
-    //
-    // input/mesbox は「作成時に値をコピー」する設計のため、
-    // 参照版でも比較的安全に使用できます（ただし同期は取れません）。
-    // 完全な双方向バインディングが必要な場合は shared_ptr 版を使用してください。
-    // ============================================================
-
-    /// @brief 入力ボックス表示（shared_ptr版：変数と双方向同期）
-    /// @param var 入力のための文字列変数（shared_ptr）
-    /// @return オブジェクトID (stat相当)
-    export int input(std::shared_ptr<std::string> var, OptInt sizeX = {}, OptInt sizeY = {}, OptInt maxLen = {},
-                    const std::source_location& location = std::source_location::current());
-
-    /// @brief 入力ボックス表示（shared_ptr版：変数と双方向同期）
-    /// @param var 入力のための整数変数（shared_ptr）
-    /// @return オブジェクトID (stat相当)
-    export int input(std::shared_ptr<int> var, OptInt sizeX = {}, OptInt sizeY = {}, OptInt maxLen = {},
-                    const std::source_location& location = std::source_location::current());
-
-    /// @brief メッセージボックス表示（shared_ptr版：変数と双方向同期）
-    /// @param var 表示メッセージが代入された文字列型変数（shared_ptr）
-    /// @return オブジェクトID (stat相当)
-    export int mesbox(std::shared_ptr<std::string> var, OptInt sizeX = {}, OptInt sizeY = {}, OptInt style = {}, OptInt maxLen = {},
-                     const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // オブジェクト操作

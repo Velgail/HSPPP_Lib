@@ -147,9 +147,10 @@ extern std::string g_lastErrorMessage;
 // GUIデモ用変数
 extern bool g_guiObjectsCreated;
 extern int g_buttonClickCount;
-extern std::string g_inputText;
-extern int g_inputNumber;
-extern std::string g_mesboxText;
+// 入力系GUIコントロール用の状態変数（shared_ptrでライフタイム安全）
+extern std::shared_ptr<std::string> g_inputText;
+extern std::shared_ptr<int> g_inputNumber;
+extern std::shared_ptr<std::string> g_mesboxText;
 // 選択系GUIコントロール用の状態変数（shared_ptrでライフタイム安全）
 extern std::shared_ptr<int> g_checkState;
 extern std::shared_ptr<int> g_comboxState;

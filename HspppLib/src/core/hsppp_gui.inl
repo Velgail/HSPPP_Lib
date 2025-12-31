@@ -68,93 +68,9 @@ int button(std::string_view name, std::function<int()> callback, bool isGosub, c
 
 // ============================================================
 // input - 入力ボックス表示（文字列版）
+// shared_ptrによりライフタイムが自動管理されるため、
+// GUIオブジェクトより先に変数が破棄されるリスクがありません。
 // ============================================================
-int input(std::string& var, OptInt sizeX, OptInt sizeY, OptInt maxLen, const std::source_location& location) {
-    ensureDefaultScreen();
-
-    auto surface = getCurrentSurface();
-    if (!surface) {
-        throw HspError(ERR_INVALID_HANDLE, "Invalid window ID", location);
-    }
-
-    // Surface から objsize を取得
-    int objW = surface->getObjSizeX();
-    int objH = surface->getObjSizeY();
-    int objSpace = surface->getObjSpaceY();
-
-    int w = sizeX.value_or(objW);
-    int h = sizeY.value_or(objH);
-    int maxChars = maxLen.value_or(256);
-
-    auto varPtr = std::make_shared<std::string>(var);
-    int result = internal::input_impl(surface, g_currentScreenId, varPtr, maxChars, w, h, objSpace);
-    var = *varPtr;
-    return result;
-}
-
-// ============================================================
-// input - 入力ボックス表示（整数版）
-// ============================================================
-int input(int& var, OptInt sizeX, OptInt sizeY, OptInt maxLen, const std::source_location& location) {
-    ensureDefaultScreen();
-
-    auto surface = getCurrentSurface();
-    if (!surface) {
-        throw HspError(ERR_INVALID_HANDLE, "Invalid window ID", location);
-    }
-
-    // Surface から objsize を取得
-    int objW = surface->getObjSizeX();
-    int objH = surface->getObjSizeY();
-    int objSpace = surface->getObjSpaceY();
-
-    int w = sizeX.value_or(objW);
-    int h = sizeY.value_or(objH);
-    int maxChars = maxLen.value_or(32);
-
-    auto varPtr = std::make_shared<std::string>(std::to_string(var));
-    int result = internal::input_impl(surface, g_currentScreenId, varPtr, maxChars, w, h, objSpace);
-    try {
-        var = std::stoi(*varPtr);
-    } catch (...) {
-        var = 0;
-    }
-    return result;
-}
-
-// ============================================================
-// mesbox - メッセージボックス表示
-// ============================================================
-int mesbox(std::string& var, OptInt sizeX, OptInt sizeY, OptInt style, OptInt maxLen, const std::source_location& location) {
-    ensureDefaultScreen();
-
-    auto surface = getCurrentSurface();
-    if (!surface) {
-        throw HspError(ERR_INVALID_HANDLE, "Invalid window ID", location);
-    }
-
-    // Surface から objsize を取得
-    int objW = surface->getObjSizeX();
-    int objH = surface->getObjSizeY();
-    int objSpace = surface->getObjSpaceY();
-
-    int w = sizeX.value_or(objW);
-    int h = sizeY.value_or(objH * 3);  // mesbox はデフォルトで高さ 3 倍
-    int styleVal = style.value_or(1);
-    int maxChars = maxLen.value_or(32767);
-
-    auto varPtr = std::make_shared<std::string>(var);
-    int result = internal::mesbox_impl(surface, g_currentScreenId, varPtr, maxChars, styleVal, w, h, objSpace);
-    var = *varPtr;
-    return result;
-}
-
-// ============================================================
-// 安全なAPI: shared_ptr版の実装
-// これらのオーバーロードはライフタイムが自動管理されるため、
-// ローカル変数として使用しても安全です。
-// ============================================================
-
 // input (shared_ptr<std::string>版)
 int input(std::shared_ptr<std::string> var, OptInt sizeX, OptInt sizeY, OptInt maxLen, const std::source_location& location) {
     ensureDefaultScreen();

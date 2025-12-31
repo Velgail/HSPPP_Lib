@@ -1200,20 +1200,20 @@ namespace compile_test {
         [[maybe_unused]] int btnId = button("Test Button", []() { return 0; });
         [[maybe_unused]] int btnId2 = button("Gosub Button", []() { return 1; }, true);
 
-        // input - 入力ボックス表示（文字列）
-        std::string strVar = "initial";
+        // input - 入力ボックス表示（文字列）- shared_ptr版
+        auto strVar = std::make_shared<std::string>("initial");
         [[maybe_unused]] int inputId1 = input(strVar);
         [[maybe_unused]] int inputId2 = input(strVar, 200);
         [[maybe_unused]] int inputId3 = input(strVar, 200, 30);
         [[maybe_unused]] int inputId4 = input(strVar, 200, 30, 256);
 
-        // input - 入力ボックス表示（整数）
-        int intVar = 42;
+        // input - 入力ボックス表示（整数）- shared_ptr版
+        auto intVar = std::make_shared<int>(42);
         [[maybe_unused]] int inputId5 = input(intVar);
         [[maybe_unused]] int inputId6 = input(intVar, 100, 25, 10);
 
-        // mesbox - メッセージボックス表示
-        std::string mesboxVar = "Line1\nLine2\nLine3";
+        // mesbox - メッセージボックス表示 - shared_ptr版
+        auto mesboxVar = std::make_shared<std::string>("Line1\nLine2\nLine3");
         [[maybe_unused]] int mesboxId1 = mesbox(mesboxVar);
         [[maybe_unused]] int mesboxId2 = mesbox(mesboxVar, 300, 200);
         [[maybe_unused]] int mesboxId3 = mesbox(mesboxVar, 300, 200, 1);  // 編集可能

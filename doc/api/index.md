@@ -2,9 +2,26 @@
 
 HSPPP の全 API リファレンスです。
 
-<!-- 注意: このドキュメントは hsppp.ixx に基づいています。 -->
+## 詳細リファレンス（カテゴリ別）
 
-## カテゴリ別索引
+各カテゴリの詳細なドキュメントは以下のページを参照してください：
+
+| カテゴリ | 説明 |
+|---------|------|
+| [画面制御](screen.md) | screen, buffer, gsel, gmode, gcopy, gzoom 等 |
+| [描画](drawing.md) | color, pos, mes, boxf, circle, line, gradf, grect, gsquare 等 |
+| [入力](input.md) | stick, getkey, mousex, mousey, mouse 等 |
+| [GUI](gui.md) | button, input, mesbox, chkbox, combox, listbox 等 |
+| [ファイル操作](file.md) | exist, bload, bsave, dialog, dirlist 等 |
+| [割り込み](interrupt.md) | onclick, onkey, onexit, onerror, stop, await, wait 等 |
+| [文字列操作](string.md) | strmid, instr, strrep, split, NotePad クラス等 |
+| [数学](math.md) | rnd, deg2rad, limit, イージング, 標準数学関数等 |
+| [メディア](media.md) | mmload, mmplay, mmstop, Media クラス等 |
+| [型定義](types.md) | OptInt, Screen, Cel, Quad, DialogResult 等 |
+
+---
+
+## クイックリファレンス（関数一覧）
 
 ### ウィンドウ・画面制御
 
@@ -170,35 +187,21 @@ win.color(255, 0, 0).boxf(0, 0, 100, 100);
 
 ## 型定義
 
-### OptInt / OptDouble
+型定義の詳細は [型定義リファレンス](types.md) を参照してください。
 
-省略可能なパラメータに使用される型です。`omit` を渡すとデフォルト値が使用されます。
+### 主要な型
 
-```cpp
-// sizeY を省略
-input(text, 200, omit, 256);
-```
-
-<!-- 根拠: hsppp.ixx の OptInt, OptDouble, omit 定義。 -->
-
-### Screen
-
-ウィンドウまたはバッファを表す軽量ハンドルクラスです。内部は ID のみ保持。
-
-```cpp
-auto win = screen({.width = 640, .height = 480});
-auto buf = buffer({.width = 256, .height = 256});
-```
-
-### Quad / QuadUV / QuadColors
-
-`gsquare` 命令用の4頂点座標・UV・色を表す構造体です。
-
-```cpp
-Quad dst = {{0, 0}, {100, 0}, {100, 100}, {0, 100}};
-QuadUV src = {{0, 0}, {32, 0}, {32, 32}, {0, 32}};
-QuadColors colors = {0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00};
-```
+| 型 | 説明 |
+|----|------|
+| `OptInt` / `OptDouble` | 省略可能なパラメータ（`omit` または `{}` で省略） |
+| `Screen` | ウィンドウ/バッファの軽量ハンドル |
+| `Cel` | 画像素材の軽量ハンドル |
+| `Media` | メディア再生クラス（OOP版） |
+| `NotePad` | メモリノートパッドクラス（OOP版） |
+| `Quad` / `QuadUV` / `QuadColors` | gsquare用4頂点構造体 |
+| `DialogResult` | dialog命令の戻り値 |
+| `InterruptHandler` / `ErrorHandler` | 割り込みハンドラ型 |
+| `HspError` / `HspWeakError` | エラー例外クラス |
 
 ---
 

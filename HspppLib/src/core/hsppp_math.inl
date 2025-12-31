@@ -39,16 +39,18 @@ namespace hsppp {
     }
 
     void randomize(OptInt p1, const std::source_location& location) {
-        unsigned int seed;
-        if (p1.is_default()) {
-            // 時刻ベースのシード
-            auto now = std::chrono::high_resolution_clock::now();
-            seed = static_cast<unsigned int>(now.time_since_epoch().count());
-        } else {
-            seed = static_cast<unsigned int>(p1.value());
-        }
-        g_randomEngine.seed(seed);
-        g_randomInitialized = true;
+        safe_call(location, [&] {
+            unsigned int seed;
+            if (p1.is_default()) {
+                // 時刻ベースのシード
+                auto now = std::chrono::high_resolution_clock::now();
+                seed = static_cast<unsigned int>(now.time_since_epoch().count());
+            } else {
+                seed = static_cast<unsigned int>(p1.value());
+            }
+            g_randomEngine.seed(seed);
+            g_randomInitialized = true;
+        });
     }
 
     int limit(int p1, OptInt p2, OptInt p3) {
@@ -106,18 +108,24 @@ namespace hsppp {
     }
 
     std::string str(double value, const std::source_location& location) {
-        return std::to_string(value);
+        return safe_call(location, [&]() -> std::string {
+            return std::to_string(value);
+        });
     }
 
     std::string str(int value, const std::source_location& location) {
-        return std::to_string(value);
+        return safe_call(location, [&]() -> std::string {
+            return std::to_string(value);
+        });
     }
 
     std::string str(int64_t value, const std::source_location& location) {
-        return std::to_string(value);
+        return safe_call(location, [&]() -> std::string {
+            return std::to_string(value);
+        });
     }
 
-    int64_t strlen(const std::string& p1) {
+    int64_t strlen(const std::string& p1) noexcept {
         return static_cast<int64_t>(p1.size());
     }
 
@@ -126,81 +134,87 @@ namespace hsppp {
     // ============================================================
 
     void hsvcolor(int p1, int p2, int p3, const std::source_location& location) {
-        // パラメータ範囲チェック
-        if (p1 < 0 || p1 > 191) {
-            throw HspError(ERR_OUT_OF_RANGE, "hsvcolorのH値は0～191の範囲で指定してください", location);
-        }
-        if (p2 < 0 || p2 > 255) {
-            throw HspError(ERR_OUT_OF_RANGE, "hsvcolorのS値は0～255の範囲で指定してください", location);
-        }
-        if (p3 < 0 || p3 > 255) {
-            throw HspError(ERR_OUT_OF_RANGE, "hsvcolorのV値は0～255の範囲で指定してください", location);
-        }
-
-        // HSVをRGBに変換
-        // H: 0-191 (色相), S: 0-255 (彩度), V: 0-255 (明度)
-        
-        int h = p1;
-        int s = p2;
-        int v = p3;
-        
-        // Hを0-191から0-360にマッピング
-        float hue = h * 360.0f / 192.0f;
-        float sat = s / 255.0f;
-        float val = v / 255.0f;
-        
-        int r, g, b;
-        
-        if (s == 0) {
-            // 彩度0の場合はグレースケール
-            r = g = b = v;
-        } else {
-            float h6 = hue / 60.0f;
-            int hi = static_cast<int>(h6) % 6;
-            float f = h6 - static_cast<int>(h6);
-            float p = val * (1.0f - sat);
-            float q = val * (1.0f - sat * f);
-            float t = val * (1.0f - sat * (1.0f - f));
-            
-            switch (hi) {
-                case 0: r = static_cast<int>(val * 255); g = static_cast<int>(t * 255); b = static_cast<int>(p * 255); break;
-                case 1: r = static_cast<int>(q * 255); g = static_cast<int>(val * 255); b = static_cast<int>(p * 255); break;
-                case 2: r = static_cast<int>(p * 255); g = static_cast<int>(val * 255); b = static_cast<int>(t * 255); break;
-                case 3: r = static_cast<int>(p * 255); g = static_cast<int>(q * 255); b = static_cast<int>(val * 255); break;
-                case 4: r = static_cast<int>(t * 255); g = static_cast<int>(p * 255); b = static_cast<int>(val * 255); break;
-                default: r = static_cast<int>(val * 255); g = static_cast<int>(p * 255); b = static_cast<int>(q * 255); break;
+        safe_call(location, [&] {
+            // パラメータ範囲チェック
+            if (p1 < 0 || p1 > 191) {
+                throw HspError(ERR_OUT_OF_RANGE, "hsvcolorのH値は0～191の範囲で指定してください", location);
             }
-        }
-        
-        // color関数を呼び出してカレントカラーを設定
-        color(r, g, b, location);
+            if (p2 < 0 || p2 > 255) {
+                throw HspError(ERR_OUT_OF_RANGE, "hsvcolorのS値は0～255の範囲で指定してください", location);
+            }
+            if (p3 < 0 || p3 > 255) {
+                throw HspError(ERR_OUT_OF_RANGE, "hsvcolorのV値は0～255の範囲で指定してください", location);
+            }
+
+            // HSVをRGBに変換
+            // H: 0-191 (色相), S: 0-255 (彩度), V: 0-255 (明度)
+            
+            int h = p1;
+            int s = p2;
+            int v = p3;
+            
+            // Hを0-191から0-360にマッピング
+            float hue = h * 360.0f / 192.0f;
+            float sat = s / 255.0f;
+            float val = v / 255.0f;
+            
+            int r, g, b;
+            
+            if (s == 0) {
+                // 彩度0の場合はグレースケール
+                r = g = b = v;
+            } else {
+                float h6 = hue / 60.0f;
+                int hi = static_cast<int>(h6) % 6;
+                float f = h6 - static_cast<int>(h6);
+                float p = val * (1.0f - sat);
+                float q = val * (1.0f - sat * f);
+                float t = val * (1.0f - sat * (1.0f - f));
+                
+                switch (hi) {
+                    case 0: r = static_cast<int>(val * 255); g = static_cast<int>(t * 255); b = static_cast<int>(p * 255); break;
+                    case 1: r = static_cast<int>(q * 255); g = static_cast<int>(val * 255); b = static_cast<int>(p * 255); break;
+                    case 2: r = static_cast<int>(p * 255); g = static_cast<int>(val * 255); b = static_cast<int>(t * 255); break;
+                    case 3: r = static_cast<int>(p * 255); g = static_cast<int>(q * 255); b = static_cast<int>(val * 255); break;
+                    case 4: r = static_cast<int>(t * 255); g = static_cast<int>(p * 255); b = static_cast<int>(val * 255); break;
+                    default: r = static_cast<int>(val * 255); g = static_cast<int>(p * 255); b = static_cast<int>(q * 255); break;
+                }
+            }
+            
+            // color関数を呼び出してカレントカラーを設定
+            color(r, g, b, location);
+        });
     }
 
     void rgbcolor(int p1, const std::source_location& location) {
-        // $rrggbb形式のカラーコードをRGBに分解
-        int r = (p1 >> 16) & 0xFF;
-        int g = (p1 >> 8) & 0xFF;
-        int b = p1 & 0xFF;
-        
-        // color関数を呼び出してカレントカラーを設定
-        color(r, g, b, location);
+        safe_call(location, [&] {
+            // $rrggbb形式のカラーコードをRGBに分解
+            int r = (p1 >> 16) & 0xFF;
+            int g = (p1 >> 8) & 0xFF;
+            int b = p1 & 0xFF;
+            
+            // color関数を呼び出してカレントカラーを設定
+            color(r, g, b, location);
+        });
     }
 
     void syscolor(int p1, const std::source_location& location) {
-        // パラメータ範囲チェック（Windowsシステムカラーは0～30）
-        if (p1 < 0 || p1 > 30) {
-            throw HspError(ERR_OUT_OF_RANGE, "syscolorのインデックスは0～30の範囲で指定してください", location);
-        }
+        safe_call(location, [&] {
+            // パラメータ範囲チェック（Windowsシステムカラーは0～30）
+            if (p1 < 0 || p1 > 30) {
+                throw HspError(ERR_OUT_OF_RANGE, "syscolorのインデックスは0～30の範囲で指定してください", location);
+            }
 
-        // Windowsシステムカラーを取得
-        DWORD sysColor = GetSysColor(p1);
-        
-        int r = GetRValue(sysColor);
-        int g = GetGValue(sysColor);
-        int b = GetBValue(sysColor);
-        
-        // color関数を呼び出してカレントカラーを設定
-        color(r, g, b, location);
+            // Windowsシステムカラーを取得
+            DWORD sysColor = GetSysColor(p1);
+            
+            int r = GetRValue(sysColor);
+            int g = GetGValue(sysColor);
+            int b = GetBValue(sysColor);
+            
+            // color関数を呼び出してカレントカラーを設定
+            color(r, g, b, location);
+        });
     }
 
 } // namespace hsppp

@@ -263,10 +263,12 @@ namespace hsppp {
     }
 
     int sortget(int index, const std::source_location& location) {
-        if (index < 0 || static_cast<size_t>(index) >= g_sortIndices.size()) {
-            throw HspError(ERR_OUT_OF_ARRAY, "sortgetのインデックスが範囲外です", location);
-        }
-        return g_sortIndices[index];
+        return safe_call(location, [&]() -> int {
+            if (index < 0 || static_cast<size_t>(index) >= g_sortIndices.size()) {
+                throw HspError(ERR_OUT_OF_ARRAY, "sortgetのインデックスが範囲外です", location);
+            }
+            return g_sortIndices[index];
+        });
     }
 
     // ============================================================

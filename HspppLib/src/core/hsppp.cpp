@@ -26,6 +26,8 @@ module;
 #include <source_location>
 #include <format>
 #include <stdexcept>
+#include <filesystem>
+#include <system_error>
 #include <map>
 #include <memory>
 #include <fstream>
@@ -102,6 +104,83 @@ namespace {
             current = g_currentSurface.lock();
         }
         return current;
+    }
+
+    // ============================================================
+    // safe_call - 例外を適切なHspError/HspWeakErrorに変換するラッパー
+    // ============================================================
+    // std::exceptionの継承階層を網羅し、適切なエラー種別に変換して再スローする。
+    // 既存のHspErrorBase派生例外はそのまま通過させる。
+    
+    template<typename Func>
+    auto safe_call(const std::source_location& loc, Func&& func) -> decltype(func()) {
+        using ReturnType = decltype(func());
+        
+        try {
+            return func();
+        }
+        // HspErrorBase派生はそのまま通過
+        catch (const hsppp::HspErrorBase&) {
+            throw;
+        }
+        // --- 致命的エラー (HspError) ---
+        // メモリ不足
+        catch (const std::bad_alloc& e) {
+            throw hsppp::HspError(hsppp::ERR_OUT_OF_MEMORY, e, loc);
+        }
+        // 配列境界外アクセス
+        catch (const std::out_of_range& e) {
+            throw hsppp::HspError(hsppp::ERR_OUT_OF_ARRAY, e, loc);
+        }
+        // 長さエラー（コンテナサイズ超過など）
+        catch (const std::length_error& e) {
+            throw hsppp::HspError(hsppp::ERR_BUFFER_OVERFLOW, e, loc);
+        }
+        // 無効引数
+        catch (const std::invalid_argument& e) {
+            throw hsppp::HspError(hsppp::ERR_OUT_OF_RANGE, e, loc);
+        }
+        // ドメインエラー（数学関数など）
+        catch (const std::domain_error& e) {
+            throw hsppp::HspError(hsppp::ERR_OUT_OF_RANGE, e, loc);
+        }
+        // オーバーフロー
+        catch (const std::overflow_error& e) {
+            throw hsppp::HspError(hsppp::ERR_BUFFER_OVERFLOW, e, loc);
+        }
+        // アンダーフロー
+        catch (const std::underflow_error& e) {
+            throw hsppp::HspError(hsppp::ERR_OUT_OF_RANGE, e, loc);
+        }
+        // --- 復帰可能エラー (HspWeakError) ---
+        // ファイルシステムエラー
+        catch (const std::filesystem::filesystem_error& e) {
+            throw hsppp::HspWeakError(hsppp::ERR_FILE_IO, e, loc);
+        }
+        // 範囲エラー（計算結果が範囲外など - 復帰可能なケースが多い）
+        catch (const std::range_error& e) {
+            throw hsppp::HspWeakError(hsppp::ERR_OUT_OF_RANGE, e, loc);
+        }
+        // ランタイムエラー（その他）- 復帰可能として扱う
+        catch (const std::runtime_error& e) {
+            throw hsppp::HspWeakError(hsppp::ERR_SYSTEM_ERROR, e, loc);
+        }
+        // ロジックエラー（プログラムバグ）- 致命的
+        catch (const std::logic_error& e) {
+            throw hsppp::HspError(hsppp::ERR_INTERNAL, e, loc);
+        }
+        // システムエラー（errnoベース）- 復帰可能
+        catch (const std::system_error& e) {
+            throw hsppp::HspWeakError(hsppp::ERR_SYSTEM_ERROR, e, loc);
+        }
+        // その他すべてのstd::exception - 致命的として扱う
+        catch (const std::exception& e) {
+            throw hsppp::HspError(hsppp::ERR_INTERNAL, e, loc);
+        }
+        // 非std例外（滅多にないが念のため）
+        catch (...) {
+            throw hsppp::HspError(hsppp::ERR_INTERNAL, "Unknown exception caught", loc);
+        }
     }
 }
 

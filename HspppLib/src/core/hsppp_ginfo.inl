@@ -8,11 +8,12 @@ namespace hsppp {
     // ginfo - ウィンドウ情報の取得（HSP互換）
     // ============================================================
     int ginfo(int type, const std::source_location& location) {
-        // パラメータチェック
-        if (type < 0 || type > 27) {
-            throw HspError(ERR_OUT_OF_RANGE, "ginfoのtypeは0～27の範囲で指定してください", location);
-        }
-        using namespace internal;
+        return safe_call(location, [&]() -> int {
+            // パラメータチェック
+            if (type < 0 || type > 27) {
+                throw HspError(ERR_OUT_OF_RANGE, "ginfoのtypeは0～27の範囲で指定してください", location);
+            }
+            using namespace internal;
         
         auto currentSurface = getCurrentSurface();
         auto pWindow = currentSurface ? std::dynamic_pointer_cast<HspWindow>(currentSurface) : nullptr;
@@ -22,13 +23,13 @@ namespace hsppp {
         {
             POINT pt;
             GetCursorPos(&pt);
-            return pt.x;
+            return static_cast<int>(pt.x);
         }
         case 1:  // スクリーン上のマウスカーソルY座標
         {
             POINT pt;
             GetCursorPos(&pt);
-            return pt.y;
+            return static_cast<int>(pt.y);
         }
         case 2:  // アクティブなウィンドウID
         {
@@ -37,7 +38,7 @@ namespace hsppp {
             for (const auto& pair : g_surfaces) {
                 auto pWin = std::dynamic_pointer_cast<HspWindow>(pair.second);
                 if (pWin && pWin->getHwnd() == hwndActive) {
-                    return pair.first;
+                    return static_cast<int>(pair.first);
                 }
             }
             return -1;  // HSP以外のウィンドウがアクティブ
@@ -48,7 +49,7 @@ namespace hsppp {
             if (current) {
                 for (const auto& pair : g_surfaces) {
                     if (pair.second == current) {
-                        return pair.first;
+                        return static_cast<int>(pair.first);
                     }
                 }
             }
@@ -59,7 +60,7 @@ namespace hsppp {
             if (pWindow && pWindow->getHwnd()) {
                 RECT rect;
                 GetWindowRect(pWindow->getHwnd(), &rect);
-                return rect.left;
+                return static_cast<int>(rect.left);
             }
             return 0;
         }
@@ -68,7 +69,7 @@ namespace hsppp {
             if (pWindow && pWindow->getHwnd()) {
                 RECT rect;
                 GetWindowRect(pWindow->getHwnd(), &rect);
-                return rect.top;
+                return static_cast<int>(rect.top);
             }
             return 0;
         }
@@ -77,7 +78,7 @@ namespace hsppp {
             if (pWindow && pWindow->getHwnd()) {
                 RECT rect;
                 GetWindowRect(pWindow->getHwnd(), &rect);
-                return rect.right;
+                return static_cast<int>(rect.right);
             }
             return 0;
         }
@@ -86,7 +87,7 @@ namespace hsppp {
             if (pWindow && pWindow->getHwnd()) {
                 RECT rect;
                 GetWindowRect(pWindow->getHwnd(), &rect);
-                return rect.bottom;
+                return static_cast<int>(rect.bottom);
             }
             return 0;
         }
@@ -109,7 +110,7 @@ namespace hsppp {
             if (pWindow && pWindow->getHwnd()) {
                 RECT rect;
                 GetWindowRect(pWindow->getHwnd(), &rect);
-                return rect.right - rect.left;
+                return static_cast<int>(rect.right - rect.left);
             }
             return currentSurface ? currentSurface->getWidth() : 0;
         }
@@ -118,7 +119,7 @@ namespace hsppp {
             if (pWindow && pWindow->getHwnd()) {
                 RECT rect;
                 GetWindowRect(pWindow->getHwnd(), &rect);
-                return rect.bottom - rect.top;
+                return static_cast<int>(rect.bottom - rect.top);
             }
             return currentSurface ? currentSurface->getHeight() : 0;
         }
@@ -127,7 +128,7 @@ namespace hsppp {
             if (pWindow && pWindow->getHwnd()) {
                 RECT rect;
                 GetClientRect(pWindow->getHwnd(), &rect);
-                return rect.right;
+                return static_cast<int>(rect.right);
             }
             return currentSurface ? currentSurface->getWidth() : 0;
         }
@@ -136,7 +137,7 @@ namespace hsppp {
             if (pWindow && pWindow->getHwnd()) {
                 RECT rect;
                 GetClientRect(pWindow->getHwnd(), &rect);
-                return rect.bottom;
+                return static_cast<int>(rect.bottom);
             }
             return currentSurface ? currentSurface->getHeight() : 0;
         }
@@ -195,6 +196,7 @@ namespace hsppp {
         default:
             return 0;
         }
+        });
     }
 
     // ginfo_* マクロ/システム変数互換（C++では関数として提供）
@@ -241,141 +243,153 @@ namespace hsppp {
     // messize - テキストサイズ取得（描画せずにサイズのみ計算）
     // ============================================================
     std::pair<int, int> messize(std::string_view text, const std::source_location& location) {
-        auto currentSurface = getCurrentSurface();
-        if (!currentSurface) {
-            return { 0, 0 };
-        }
-        int w = 0, h = 0;
-        currentSurface->measureText(text, w, h);
-        return { w, h };
+        return safe_call(location, [&] {
+            auto currentSurface = getCurrentSurface();
+            if (!currentSurface) {
+                return std::pair<int, int>{ 0, 0 };
+            }
+            int w = 0, h = 0;
+            currentSurface->measureText(text, w, h);
+            return std::pair<int, int>{ w, h };
+        });
     }
 
     // ============================================================
     // font - フォント設定（HSP互換）
     // ============================================================
     int font(std::string_view fontName, OptInt size, OptInt style, OptInt decorationWidth, const std::source_location& location) {
-        auto currentSurface = getCurrentSurface();
-        if (!currentSurface) return -1;
+        return safe_call(location, [&] {
+            auto currentSurface = getCurrentSurface();
+            if (!currentSurface) return -1;
 
-        int p1 = size.value_or(12);
-        int p2 = style.value_or(0);
-        // p3 (decorationWidth) は現在未使用（mes命令のオプションで使用予定）
+            int p1 = size.value_or(12);
+            int p2 = style.value_or(0);
+            // p3 (decorationWidth) は現在未使用（mes命令のオプションで使用予定）
 
-        // パラメータ範囲チェック
-        if (p1 <= 0) {
-            throw HspError(ERR_OUT_OF_RANGE, "fontのサイズは正の値を指定してください", location);
-        }
-        if (p1 > 10000) {
-            throw HspError(ERR_OUT_OF_RANGE, "fontのサイズが大きすぎます（10000以下）", location);
-        }
-        if (p2 < 0 || p2 > 31) {
-            throw HspError(ERR_OUT_OF_RANGE, "fontのスタイルは0～31の範囲で指定してください", location);
-        }
+            // パラメータ範囲チェック
+            if (p1 <= 0) {
+                throw HspError(ERR_OUT_OF_RANGE, "fontのサイズは正の値を指定してください", location);
+            }
+            if (p1 > 10000) {
+                throw HspError(ERR_OUT_OF_RANGE, "fontのサイズが大きすぎます（10000以下）", location);
+            }
+            if (p2 < 0 || p2 > 31) {
+                throw HspError(ERR_OUT_OF_RANGE, "fontのスタイルは0～31の範囲で指定してください", location);
+            }
 
-        bool success = currentSurface->font(fontName, p1, p2);
-        return success ? 0 : -1;
+            bool success = currentSurface->font(fontName, p1, p2);
+            return success ? 0 : -1;
+        });
     }
 
     // ============================================================
     // sysfont - システムフォント選択（HSP互換）
     // ============================================================
     void sysfont(OptInt type, const std::source_location& location) {
-        auto currentSurface = getCurrentSurface();
-        if (!currentSurface) return;
+        safe_call(location, [&] {
+            auto currentSurface = getCurrentSurface();
+            if (!currentSurface) return;
 
-        int p1 = type.value_or(0);
+            int p1 = type.value_or(0);
 
-        // パラメータ範囲チェック (0, 10-17が有効)
-        bool validType = (p1 == 0) || (p1 >= 10 && p1 <= 17);
-        if (!validType) {
-            throw HspError(ERR_OUT_OF_RANGE, "sysfontのtypeは0または10～17の範囲で指定してください", location);
-        }
+            // パラメータ範囲チェック (0, 10-17が有効)
+            bool validType = (p1 == 0) || (p1 >= 10 && p1 <= 17);
+            if (!validType) {
+                throw HspError(ERR_OUT_OF_RANGE, "sysfontのtypeは0または10～17の範囲で指定してください", location);
+            }
 
-        currentSurface->sysfont(p1);
+            currentSurface->sysfont(p1);
+        });
     }
 
     // ============================================================
     // title - タイトルバー設定（HSP互換）
     // ============================================================
     void title(std::string_view str, const std::source_location& location) {
-        using namespace internal;
+        safe_call(location, [&] {
+            using namespace internal;
 
-        auto currentSurface = getCurrentSurface();
-        if (!currentSurface) return;
+            auto currentSurface = getCurrentSurface();
+            if (!currentSurface) return;
 
-        auto pWindow = std::dynamic_pointer_cast<HspWindow>(currentSurface);
-        if (pWindow) {
-            pWindow->setTitle(str);
-        }
+            auto pWindow = std::dynamic_pointer_cast<HspWindow>(currentSurface);
+            if (pWindow) {
+                pWindow->setTitle(str);
+            }
+        });
     }
 
     // ============================================================
     // width - ウィンドウサイズ設定（HSP互換）
     // ============================================================
     void width(OptInt clientW, OptInt clientH, OptInt posX, OptInt posY, OptInt option, const std::source_location& location) {
-        using namespace internal;
+        safe_call(location, [&] {
+            using namespace internal;
 
-        auto currentSurface = getCurrentSurface();
-        if (!currentSurface) return;
+            auto currentSurface = getCurrentSurface();
+            if (!currentSurface) return;
 
-        auto pWindow = std::dynamic_pointer_cast<HspWindow>(currentSurface);
-        if (!pWindow) return;
+            auto pWindow = std::dynamic_pointer_cast<HspWindow>(currentSurface);
+            if (!pWindow) return;
 
-        int p1 = clientW.value_or(-1);
-        int p2 = clientH.value_or(-1);
-        int p3 = posX.value_or(-1);
-        int p4 = posY.value_or(-1);
-        int p5 = option.value_or(0);
+            int p1 = clientW.value_or(-1);
+            int p2 = clientH.value_or(-1);
+            int p3 = posX.value_or(-1);
+            int p4 = posY.value_or(-1);
+            int p5 = option.value_or(0);
 
-        HWND hwnd = pWindow->getHwnd();
-        if (!hwnd) return;
+            HWND hwnd = pWindow->getHwnd();
+            if (!hwnd) return;
 
-        // サイズ変更
-        if (p1 >= 0 || p2 >= 0) {
-            RECT clientRect;
-            GetClientRect(hwnd, &clientRect);
-            int newW = (p1 >= 0) ? p1 : (clientRect.right - clientRect.left);
-            int newH = (p2 >= 0) ? p2 : (clientRect.bottom - clientRect.top);
-            
-            // screen/buffer/bgscrの初期化サイズを超えないようにクランプ
-            int maxW = pWindow->getWidth();
-            int maxH = pWindow->getHeight();
-            if (newW > maxW) newW = maxW;
-            if (newH > maxH) newH = maxH;
-            
-            pWindow->setClientSize(newW, newH);
-        }
-
-        // 位置変更
-        if (p5 == 0) {
-            // option=0: 負の値は現在の位置を維持
-            if (p3 >= 0 || p4 >= 0) {
-                RECT windowRect;
-                GetWindowRect(hwnd, &windowRect);
-                int newX = (p3 >= 0) ? p3 : windowRect.left;
-                int newY = (p4 >= 0) ? p4 : windowRect.top;
-                pWindow->setWindowPos(newX, newY);
+            // サイズ変更
+            if (p1 >= 0 || p2 >= 0) {
+                RECT clientRect;
+                GetClientRect(hwnd, &clientRect);
+                int newW = (p1 >= 0) ? p1 : (clientRect.right - clientRect.left);
+                int newH = (p2 >= 0) ? p2 : (clientRect.bottom - clientRect.top);
+                
+                // screen/buffer/bgscrの初期化サイズを超えないようにクランプ
+                int maxW = pWindow->getWidth();
+                int maxH = pWindow->getHeight();
+                if (newW > maxW) newW = maxW;
+                if (newH > maxH) newH = maxH;
+                
+                pWindow->setClientSize(newW, newH);
             }
-        }
-        else {
-            // option=1: 負の値も含めて設定（マルチモニタ対応）
-            pWindow->setWindowPos(p3, p4);
-        }
+
+            // 位置変更
+            if (p5 == 0) {
+                // option=0: 負の値は現在の位置を維持
+                if (p3 >= 0 || p4 >= 0) {
+                    RECT windowRect;
+                    GetWindowRect(hwnd, &windowRect);
+                    int newX = (p3 >= 0) ? p3 : windowRect.left;
+                    int newY = (p4 >= 0) ? p4 : windowRect.top;
+                    pWindow->setWindowPos(newX, newY);
+                }
+            }
+            else {
+                // option=1: 負の値も含めて設定（マルチモニタ対応）
+                pWindow->setWindowPos(p3, p4);
+            }
+        });
     }
 
     // ============================================================
     // groll - スクロール位置設定（HSP互換）
     // ============================================================
     void groll(int scrollX, int scrollY, const std::source_location& location) {
-        using namespace internal;
+        safe_call(location, [&] {
+            using namespace internal;
 
-        auto currentSurface = getCurrentSurface();
-        if (!currentSurface) return;
+            auto currentSurface = getCurrentSurface();
+            if (!currentSurface) return;
 
-        auto pWindow = std::dynamic_pointer_cast<HspWindow>(currentSurface);
-        if (!pWindow) return;
+            auto pWindow = std::dynamic_pointer_cast<HspWindow>(currentSurface);
+            if (!pWindow) return;
 
-        pWindow->setScroll(scrollX, scrollY);
+            pWindow->setScroll(scrollX, scrollY);
+        });
     }
 
 } // namespace hsppp

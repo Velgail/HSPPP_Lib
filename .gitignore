@@ -365,3 +365,6 @@ FodyWeavers.xsd
 *.hs
 output.bmp
 .vscode/tasks.json
+
+# HSP reference files (not for distribution)
+HspHelp/

@@ -161,6 +161,10 @@ namespace {
         catch (const std::range_error& e) {
             throw hsppp::HspWeakError(hsppp::ERR_OUT_OF_RANGE, e, loc);
         }
+        // システムエラー（errnoベース）- 復帰可能（runtime_error派生なので先にcatch）
+        catch (const std::system_error& e) {
+            throw hsppp::HspWeakError(hsppp::ERR_SYSTEM_ERROR, e, loc);
+        }
         // ランタイムエラー（その他）- 復帰可能として扱う
         catch (const std::runtime_error& e) {
             throw hsppp::HspWeakError(hsppp::ERR_SYSTEM_ERROR, e, loc);
@@ -168,10 +172,6 @@ namespace {
         // ロジックエラー（プログラムバグ）- 致命的
         catch (const std::logic_error& e) {
             throw hsppp::HspError(hsppp::ERR_INTERNAL, e, loc);
-        }
-        // システムエラー（errnoベース）- 復帰可能
-        catch (const std::system_error& e) {
-            throw hsppp::HspWeakError(hsppp::ERR_SYSTEM_ERROR, e, loc);
         }
         // その他すべてのstd::exception - 致命的として扱う
         catch (const std::exception& e) {

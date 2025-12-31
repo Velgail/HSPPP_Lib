@@ -365,7 +365,7 @@ namespace hsppp {
     }
 
     NotePad& NotePad::load(std::string_view filename, size_t maxSize, const std::source_location& location) {
-        try {
+        safe_call(location, [&] {
             std::wstring wideFilename = internal::Utf8ToWide(filename);
 
             HANDLE hFile = CreateFileW(
@@ -406,18 +406,12 @@ namespace hsppp {
             CloseHandle(hFile);
 
             m_buffer.resize(bytesRead);
-        }
-        catch (const HspError&) {
-            throw;
-        }
-        catch (const std::exception& e) {
-            throw HspError(ERR_FILE_IO, e, location);
-        }
+        });
         return *this;
     }
 
     [[nodiscard]] bool NotePad::save(std::string_view filename, const std::source_location& location) const {
-        try {
+        return safe_call(location, [&] {
             std::wstring wideFilename = internal::Utf8ToWide(filename);
 
             HANDLE hFile = CreateFileW(
@@ -444,13 +438,7 @@ namespace hsppp {
                     std::format("ファイルの書き込みに失敗: {}", filename), location);
             }
             return true;
-        }
-        catch (const HspError&) {
-            throw;
-        }
-        catch (const std::exception& e) {
-            throw HspError(ERR_FILE_IO, e, location);
-        }
+        });
     }
 
     // ============================================================

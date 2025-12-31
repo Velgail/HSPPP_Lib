@@ -131,9 +131,7 @@ namespace hsppp {
 
     // OOP版：引数なし（ID自動採番、デフォルト設定）
     Screen screen(const std::source_location& location) {
-        return safe_call(location, [&] {
-            return screen(ScreenParams{}, std::source_location{});
-        });
+        return screen(ScreenParams{}, location);
     }
 
     // HSP互換版：ID明示指定
@@ -216,9 +214,7 @@ namespace hsppp {
 
     // OOP版：引数なし（ID自動採番、デフォルト設定）
     Screen buffer(const std::source_location& location) {
-        return safe_call(location, [&] {
-            return buffer(BufferParams{}, std::source_location{});
-        });
+        return buffer(BufferParams{}, location);
     }
 
     // HSP互換版：ID明示指定
@@ -337,9 +333,7 @@ namespace hsppp {
 
     // OOP版：引数なし（ID自動採番、デフォルト設定）
     Screen bgscr(const std::source_location& location) {
-        return safe_call(location, [&] {
-            return bgscr(BgscrParams{}, std::source_location{});
-        });
+        return bgscr(BgscrParams{}, location);
     }
 
     // HSP互換版：ID明示指定

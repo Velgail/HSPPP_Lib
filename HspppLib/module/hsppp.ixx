@@ -470,7 +470,7 @@ namespace hsppp {
 
     /// @brief エラーハンドラ型（onerror用）
     /// @note HspErrorBaseオブジェクトを受け取る（HspError/HspWeakError両方に対応）
-    export using ErrorHandler = std::function<int(const HspError&)>;
+    export using ErrorHandler = std::function<int(const HspErrorBase&)>;
 
     // ============================================================
     // Screen クラス - 軽量ハンドル（実体として操作可能）

@@ -332,15 +332,7 @@ namespace hsppp::internal {
     void handleHspError(const hsppp::HspErrorBase& error, const std::source_location& location) {
         if (g_onerrorHandler.enabled && g_onerrorHandler.handler) {
             // onerrorハンドラが設定されている場合
-            // TODO: HspErrorBaseを受け取れるようにErrorHandler型を変更する必要があるかも
-            // 現状はHspErrorにダウンキャストして渡す（一時的な措置）
-            if (const auto* hspError = dynamic_cast<const hsppp::HspError*>(&error)) {
-                g_onerrorHandler.handler(*hspError);
-            } else {
-                // HspWeakErrorの場合はHspErrorに変換して渡す
-                hsppp::HspError converted(error.error_code(), error.message());
-                g_onerrorHandler.handler(converted);
-            }
+            g_onerrorHandler.handler(error);
 
             // HSP仕様: onerror ハンドラは gosub 相当で、自動的に end で終了
             hsppp::end(1);

@@ -151,7 +151,6 @@
   <ItemGroup>
     <ClCompile Include="pch.cpp" />
     <ClCompile Include="src\core\HspppLib.cpp" />
-    <ClCompile Include="module\graphics.ixx" />
     <ClCompile Include="module\hsppp.ixx" />
     <ClCompile Include="module\hsppp_types.ixx" />
     <ClCompile Include="module\hsppp_screen.ixx" />
@@ -161,7 +160,6 @@
     <ClCompile Include="module\hsppp_string.ixx" />
     <ClCompile Include="module\hsppp_file.ixx" />
     <ClCompile Include="module\hsppp_interrupt.ixx" />
-    <ClCompile Include="module\input.ixx" />
     <ClCompile Include="src\boot\WinMain.cpp" />
     <ClCompile Include="src\core\hsppp.cpp" />
     <ClCompile Include="src\core\ImageLoader.cpp" />

@@ -18,12 +18,6 @@
     <ClCompile Include="module\hsppp.ixx">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="module\graphics.ixx">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="module\input.ixx">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
     <ClCompile Include="src\boot\WinMain.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>

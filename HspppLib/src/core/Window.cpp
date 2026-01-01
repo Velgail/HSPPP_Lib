@@ -77,7 +77,7 @@ LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
 
     // oncmd: 登録されたメッセージを処理
     int oncmdReturnValue = 0;
-    if (triggerOnCmd(uMsg, wParam, lParam, oncmdReturnValue)) {
+    if (triggerOnCmd(getWindowIdFromHwnd(hwnd), uMsg, wParam, lParam, oncmdReturnValue)) {
         return oncmdReturnValue;
     }
 
@@ -100,13 +100,15 @@ LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
     case WM_CLOSE:
     {
         // onexit: 終了割り込みを確認
-        // ウィンドウIDは今のところ0固定（将来的にはウィンドウ管理が必要）
-        if (triggerOnExit(0, 0)) {
+        int windowId = getWindowIdFromHwnd(hwnd);
+        if (triggerOnExit(windowId, 0)) {
             // 割り込みハンドラが設定されている場合は終了をブロック
             // ウィンドウは閉じず、ハンドラ内でend()が呼ばれるまで待機
             return 0;
         }
+        // onexitが未定義の場合は、ウィンドウを閉じてアプリケーションを終了
         DestroyWindow(hwnd);
+        hsppp::end(0);
         return 0;
     }
 
@@ -130,22 +132,22 @@ LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
 
     // onclick: マウスボタン押下
     case WM_LBUTTONDOWN:
-        triggerOnClick(0, wParam, lParam);  // 左ボタン = 0
+        triggerOnClick(getWindowIdFromHwnd(hwnd), 0, wParam, lParam);  // 左ボタン = 0
         return DefWindowProc(hwnd, uMsg, wParam, lParam);
 
     case WM_RBUTTONDOWN:
-        triggerOnClick(1, wParam, lParam);  // 右ボタン = 1
+        triggerOnClick(getWindowIdFromHwnd(hwnd), 1, wParam, lParam);  // 右ボタン = 1
         return DefWindowProc(hwnd, uMsg, wParam, lParam);
 
     case WM_MBUTTONDOWN:
-        triggerOnClick(2, wParam, lParam);  // 中ボタン = 2
+        triggerOnClick(getWindowIdFromHwnd(hwnd), 2, wParam, lParam);  // 中ボタン = 2
         return DefWindowProc(hwnd, uMsg, wParam, lParam);
 
     // onkey: キー入力
     // WM_KEYDOWN/WM_SYSKEYDOWN: 特殊キー（矢印、Ctrl、Alt等）と通常キーの仮想キーコード
     case WM_KEYDOWN:
     case WM_SYSKEYDOWN:
-        triggerOnKey(static_cast<int>(wParam), wParam, lParam);
+        triggerOnKey(getWindowIdFromHwnd(hwnd), static_cast<int>(wParam), wParam, lParam);
         return DefWindowProc(hwnd, uMsg, wParam, lParam);
 
     // WM_CHAR: 文字入力（後方互換性のため残す）
@@ -165,7 +167,7 @@ LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
     // Windowsシャットダウン時
     case WM_QUERYENDSESSION:
         // onexit で処理される可能性がある
-        if (triggerOnExit(0, 1)) {
+        if (triggerOnExit(getWindowIdFromHwnd(hwnd), 1)) {
             // 割り込みハンドラが設定されている場合はシャットダウンを遅延
             return TRUE;  // 終了を許可するが、処理を実行
         }

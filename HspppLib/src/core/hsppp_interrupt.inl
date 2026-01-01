@@ -271,27 +271,27 @@ namespace hsppp {
 namespace hsppp::internal {
 
     // クリック割り込みをトリガー
-    void triggerOnClick(int buttonId, WPARAM wp, LPARAM lp) {
+    void triggerOnClick(int windowId, int buttonId, WPARAM wp, LPARAM lp) {
         if (g_onclickHandler.enabled && g_onclickHandler.handler) {
             setPendingInterrupt(PendingInterruptType::OnClick, 
-                               buttonId, 
-                               static_cast<int>(wp), 
+                               buttonId,    // iparam: ボタンID
+                               windowId,    // wparam: ウィンドウID
                                static_cast<int>(lp));
         }
     }
 
     // キー割り込みをトリガー
-    void triggerOnKey(int charCode, WPARAM wp, LPARAM lp) {
+    void triggerOnKey(int windowId, int charCode, WPARAM wp, LPARAM lp) {
         if (g_onkeyHandler.enabled && g_onkeyHandler.handler) {
             setPendingInterrupt(PendingInterruptType::OnKey, 
-                               charCode, 
-                               static_cast<int>(wp), 
+                               charCode,    // iparam: キーコード
+                               windowId,    // wparam: ウィンドウID
                                static_cast<int>(lp));
         }
     }
 
     // Windowsメッセージ割り込みをトリガー
-    bool triggerOnCmd(int messageId, WPARAM wp, LPARAM lp, int& returnValue) {
+    bool triggerOnCmd(int windowId, int messageId, WPARAM wp, LPARAM lp, int& returnValue) {
         if (!g_oncmdGlobalEnabled) return false;
 
         auto it = g_oncmdHandlers.find(messageId);
@@ -302,7 +302,7 @@ namespace hsppp::internal {
 
         // 即座に呼び出して戻り値を取得
         g_interruptParams.iparam = messageId;
-        g_interruptParams.wparam = static_cast<int>(wp);
+        g_interruptParams.wparam = windowId;  // ウィンドウID
         g_interruptParams.lparam = static_cast<int>(lp);
         returnValue = info.handler();
         return (returnValue != -1);  // -1以外ならカスタム戻り値を使用

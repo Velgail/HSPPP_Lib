@@ -611,18 +611,21 @@ public:
 // ============================================================
 namespace hsppp::internal {
     // クリック割り込みをトリガー
-    void triggerOnClick(int buttonId, WPARAM wp, LPARAM lp);
+    void triggerOnClick(int windowId, int buttonId, WPARAM wp, LPARAM lp);
 
     // キー割り込みをトリガー
-    void triggerOnKey(int charCode, WPARAM wp, LPARAM lp);
+    void triggerOnKey(int windowId, int charCode, WPARAM wp, LPARAM lp);
 
     // Windowsメッセージ割り込みをトリガー
     // 戻り値: true=カスタム戻り値を使用, false=デフォルト処理
-    bool triggerOnCmd(int messageId, WPARAM wp, LPARAM lp, int& returnValue);
+    bool triggerOnCmd(int windowId, int messageId, WPARAM wp, LPARAM lp, int& returnValue);
 
     // 終了割り込みをトリガー
     // 戻り値: true=終了をブロック, false=終了を許可
     bool triggerOnExit(int windowId, int reason);
+
+    // HWNDからウィンドウIDを逆引き（見つからなければ0を返す）
+    int getWindowIdFromHwnd(HWND hwnd);
 
     // マウスホイールデルタを設定（WindowProcから呼び出し）
     void setMouseWheelDelta(int delta);

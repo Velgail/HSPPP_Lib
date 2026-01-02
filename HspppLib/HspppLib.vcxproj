@@ -170,24 +170,22 @@
     <ClInclude Include="src\core\Internal.h" />
     <ClInclude Include="src\core\Media.h" />
     <ClInclude Include="src\core\MediaManager.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="src\core\hsppp_cel.inl" />
-    <None Include="src\core\hsppp_copy.inl" />
-    <None Include="src\core\hsppp_drawing.inl" />
-    <None Include="src\core\hsppp_easing.inl" />
-    <None Include="src\core\hsppp_factory.inl" />
-    <None Include="src\core\hsppp_file.inl" />
-    <None Include="src\core\hsppp_ginfo.inl" />
-    <None Include="src\core\hsppp_gui.inl" />
-    <None Include="src\core\hsppp_image.inl" />
-    <None Include="src\core\hsppp_input.inl" />
-    <None Include="src\core\hsppp_interrupt.inl" />
-    <None Include="src\core\hsppp_math.inl" />
-    <None Include="src\core\hsppp_media.inl" />
-    <None Include="src\core\hsppp_screen.inl" />
-    <None Include="src\core\hsppp_string.inl" />
-    <None Include="src\core\hsppp_system.inl" />
+    <ClInclude Include="src\core\hsppp_cel.inl" />
+    <ClInclude Include="src\core\hsppp_copy.inl" />
+    <ClInclude Include="src\core\hsppp_drawing.inl" />
+    <ClInclude Include="src\core\hsppp_easing.inl" />
+    <ClInclude Include="src\core\hsppp_factory.inl" />
+    <ClInclude Include="src\core\hsppp_file.inl" />
+    <ClInclude Include="src\core\hsppp_ginfo.inl" />
+    <ClInclude Include="src\core\hsppp_gui.inl" />
+    <ClInclude Include="src\core\hsppp_image.inl" />
+    <ClInclude Include="src\core\hsppp_input.inl" />
+    <ClInclude Include="src\core\hsppp_interrupt.inl" />
+    <ClInclude Include="src\core\hsppp_math.inl" />
+    <ClInclude Include="src\core\hsppp_media.inl" />
+    <ClInclude Include="src\core\hsppp_screen.inl" />
+    <ClInclude Include="src\core\hsppp_string.inl" />
+    <ClInclude Include="src\core\hsppp_system.inl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

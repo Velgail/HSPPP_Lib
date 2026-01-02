@@ -44,46 +44,59 @@
     <ClInclude Include="src\core\Internal.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="src\core\hsppp_copy.inl">
+    <ClInclude Include="src\core\Media.h">
       <Filter>ヘッダー ファイル</Filter>
-    </None>
-    <None Include="src\core\hsppp_drawing.inl">
+    </ClInclude>
+    <ClInclude Include="src\core\MediaManager.h">
       <Filter>ヘッダー ファイル</Filter>
-    </None>
-    <None Include="src\core\hsppp_factory.inl">
+    </ClInclude>
+    <ClInclude Include="src\core\hsppp_cel.inl">
       <Filter>ヘッダー ファイル</Filter>
-    </None>
-    <None Include="src\core\hsppp_ginfo.inl">
+    </ClInclude>
+    <ClInclude Include="src\core\hsppp_copy.inl">
       <Filter>ヘッダー ファイル</Filter>
-    </None>
-    <None Include="src\core\hsppp_input.inl">
+    </ClInclude>
+    <ClInclude Include="src\core\hsppp_drawing.inl">
       <Filter>ヘッダー ファイル</Filter>
-    </None>
-    <None Include="src\core\hsppp_interrupt.inl">
+    </ClInclude>
+    <ClInclude Include="src\core\hsppp_easing.inl">
       <Filter>ヘッダー ファイル</Filter>
-    </None>
-    <None Include="src\core\hsppp_screen.inl">
+    </ClInclude>
+    <ClInclude Include="src\core\hsppp_factory.inl">
       <Filter>ヘッダー ファイル</Filter>
-    </None>
-    <None Include="src\core\hsppp_cel.inl">
+    </ClInclude>
+    <ClInclude Include="src\core\hsppp_file.inl">
       <Filter>ヘッダー ファイル</Filter>
-    </None>
-    <None Include="src\core\hsppp_file.inl">
+    </ClInclude>
+    <ClInclude Include="src\core\hsppp_ginfo.inl">
       <Filter>ヘッダー ファイル</Filter>
-    </None>
-    <None Include="src\core\hsppp_image.inl">
+    </ClInclude>
+    <ClInclude Include="src\core\hsppp_gui.inl">
       <Filter>ヘッダー ファイル</Filter>
-    </None>
-    <None Include="src\core\hsppp_math.inl">
+    </ClInclude>
+    <ClInclude Include="src\core\hsppp_image.inl">
       <Filter>ヘッダー ファイル</Filter>
-    </None>
-    <None Include="src\core\hsppp_string.inl">
+    </ClInclude>
+    <ClInclude Include="src\core\hsppp_input.inl">
       <Filter>ヘッダー ファイル</Filter>
-    </None>
-    <None Include="src\core\hsppp_system.inl">
+    </ClInclude>
+    <ClInclude Include="src\core\hsppp_interrupt.inl">
       <Filter>ヘッダー ファイル</Filter>
-    </None>
+    </ClInclude>
+    <ClInclude Include="src\core\hsppp_math.inl">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\hsppp_media.inl">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\hsppp_screen.inl">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\hsppp_string.inl">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\hsppp_system.inl">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

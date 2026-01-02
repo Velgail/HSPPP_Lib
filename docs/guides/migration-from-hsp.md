@@ -1,3 +1,8 @@
+---
+layout: default
+title: HSPからの移行ガイド
+---
+
 # HSP からの移行ガイド
 
 HSP (Hot Soup Processor) から HSPPP への移行方法を解説します。

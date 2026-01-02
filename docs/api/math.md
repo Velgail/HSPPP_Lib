@@ -1,3 +1,8 @@
+---
+layout: default
+title: 数学API
+---
+
 # 数学 API リファレンス
 
 数学関数・乱数・イージングに関するAPIです。

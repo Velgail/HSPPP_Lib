@@ -3,6 +3,13 @@ title: HSPPP Documentation
 description: HSP互換 C++23 ライブラリ
 theme: jekyll-theme-cayman
 
+# サイトURL設定
+baseurl: /HSPPP_Lib
+url: https://velgail.github.io
+
+# リポジトリ情報
+repository: Velgail/HSPPP_Lib
+
 # ナビゲーション
 nav:
   - title: Home
@@ -19,7 +26,14 @@ markdown: kramdown
 kramdown:
   input: GFM
   syntax_highlighter: rouge
+  auto_ids: true
 
-# その他
-baseurl: /HspppLib
-url: https://velgail.github.io
+# プラグイン
+plugins:
+  - jekyll-relative-links
+  - jekyll-seo-tag
+
+# 相対リンク設定
+relative_links:
+  enabled: true
+  collections: false

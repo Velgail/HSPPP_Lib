@@ -1,8 +1,15 @@
+---
+layout: default
+title: ホーム
+---
+
 # HSPPP ドキュメント
 
 **HSPPP** は HSP (Hot Soup Processor) 互換の C++23 ライブラリです。
 
 HSP の親しみやすい API を C++ で使用でき、HSP互換スタイルとオブジェクト指向スタイルの両方をサポートします。
+
+---
 
 ## クイックスタート
 

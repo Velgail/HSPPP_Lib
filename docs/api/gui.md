@@ -1,3 +1,8 @@
+---
+layout: default
+title: GUI API
+---
+
 # GUI API リファレンス
 
 GUIコントロールの作成と操作に関するAPIです。

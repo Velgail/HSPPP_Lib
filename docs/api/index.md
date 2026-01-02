@@ -1,3 +1,8 @@
+---
+layout: default
+title: API リファレンス
+---
+
 # API リファレンス
 
 HSPPP の全 API リファレンスです。

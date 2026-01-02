@@ -1,3 +1,8 @@
+---
+layout: default
+title: 描画API
+---
+
 # 描画 API リファレンス
 
 図形・テキスト・画像の描画に関するAPIです。

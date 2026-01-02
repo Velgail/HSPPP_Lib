@@ -1,3 +1,8 @@
+---
+layout: default
+title: 入力API
+---
+
 # 入力 API リファレンス
 
 キーボード・マウス入力に関するAPIです。

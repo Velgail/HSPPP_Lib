@@ -1,3 +1,8 @@
+---
+layout: default
+title: メディアAPI
+---
+
 # メディア API リファレンス
 
 音声・動画再生に関するAPIです。

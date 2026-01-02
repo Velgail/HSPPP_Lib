@@ -1,3 +1,8 @@
+---
+layout: default
+title: 画面API
+---
+
 # 画面制御 API リファレンス
 
 ウィンドウとバッファの作成・制御に関するAPIです。

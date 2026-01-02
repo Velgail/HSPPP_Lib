@@ -1,7 +1,7 @@
 // HspppLib/src/core/Media.cpp
 // OOP版メディアクラス実装
 
-#include "Media.h"
+import hsppp;
 #include "MediaManager.h"
 #include <atomic>
 

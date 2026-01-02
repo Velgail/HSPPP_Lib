@@ -18,6 +18,7 @@ export import :math;
 export import :string;
 export import :file;
 export import :interrupt;
+export import :media;
 
 // バージョン情報のインクルードとエクスポート
 #include "../src/core/version.hpp"

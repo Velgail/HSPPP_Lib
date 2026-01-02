@@ -156,6 +156,7 @@
     <ClCompile Include="module\hsppp_string.ixx" />
     <ClCompile Include="module\hsppp_file.ixx" />
     <ClCompile Include="module\hsppp_interrupt.ixx" />
+    <ClCompile Include="module\hsppp_media.ixx" />
     <ClCompile Include="src\boot\WinMain.cpp" />
     <ClCompile Include="src\core\hsppp.cpp" />
     <ClCompile Include="src\core\ImageLoader.cpp" />
@@ -164,11 +165,9 @@
     <ClCompile Include="src\core\ObjectManager.cpp" />
     <ClCompile Include="src\core\Surface.cpp" />
     <ClCompile Include="src\core\Window.cpp" />
-    <ClCompile Include="src\utils\Random.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\core\Internal.h" />
-    <ClInclude Include="src\core\Media.h" />
     <ClInclude Include="src\core\MediaManager.h" />
     <ClInclude Include="src\core\hsppp_cel.inl" />
     <ClInclude Include="src\core\hsppp_copy.inl" />

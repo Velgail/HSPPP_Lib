@@ -19,7 +19,7 @@ import hsppp;
 using namespace hsppp;
 
 // エントリポイント: hspMain() を定義（main/WinMain は書かない）
-int hspMain() {
+void hspMain() {
     // ウィンドウ作成
     screen(0, 640, 480);
     title("Hello HSPPP!");
@@ -33,7 +33,6 @@ int hspMain() {
     mes("Hello, HSPPP!");
     
     // hspMain を抜けると stop() と同等の動作になる
-    return 0;
 }
 ```
 

@@ -22,7 +22,7 @@ HSP (Hot Soup Processor) から HSPPP への移行方法を解説します。
 
 | 項目 | HSP | HSPPP (C++) |
 |------|-----|-------------|
-| エントリポイント | なし（自動実行） | `int hspMain()` |
+| エントリポイント | なし（自動実行） | `void hspMain()` |
 | 変数宣言 | 不要 | 必須 |
 | 行末 | 改行 | `;` |
 | 文字列 | `"..."` または `'...'` | `"..."` のみ |
@@ -176,7 +176,7 @@ void draw() {
     boxf(0, 0, 100, 100);
 }
 
-int hspMain() {
+void hspMain() {
     screen(0, 640, 480);
     draw();
     stop();  // 割り込みを待機
@@ -312,7 +312,7 @@ using namespace hsppp;
 
 int x = 320, y = 240;
 
-int hspMain() {
+void hspMain() {
     screen(0, 640, 480);
     title("Sample");
     
@@ -351,7 +351,7 @@ int hspMain() {
 
 移行時に確認するポイント：
 
-- [ ] `int hspMain()` を定義したか（`main()` ではない）
+- [ ] `void hspMain()` を定義したか（`main()` ではない）
 - [ ] 変数はすべて型を指定して宣言したか
 - [ ] 行末に `;` を付けたか
 - [ ] `goto`/`gosub` を関数に置き換えたか

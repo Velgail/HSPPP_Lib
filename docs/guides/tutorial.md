@@ -25,7 +25,7 @@ title: チュートリアル
 import hsppp;
 using namespace hsppp;
 
-int hspMain() {
+void hspMain() {
     // ウィンドウを作成
     screen(0, 640, 480);
     title("Hello HSPPP!");
@@ -35,8 +35,7 @@ int hspMain() {
     mes("Hello, World!");
     
     // hspMain を抜けると stop() と同等の動作になる
-    return 0;
-}
+    }
 ```
 
 <!-- 根拠: WinMain.cpp で hspMain() を呼び出し、戻った後は GetMessage ループで待機。 -->
@@ -59,7 +58,7 @@ int hspMain() {
 import hsppp;
 using namespace hsppp;
 
-int hspMain() {
+void hspMain() {
     screen(0, 640, 480);
     
     // 背景を白でクリア
@@ -78,8 +77,7 @@ int hspMain() {
     color(0, 255, 0);
     line(400, 150, 300, 50);
     
-    return 0;
-}
+    }
 ```
 
 <!-- 根拠: hsppp.ixx で boxf, circle, line を export。 -->
@@ -92,7 +90,7 @@ int hspMain() {
 import hsppp;
 using namespace hsppp;
 
-int hspMain() {
+void hspMain() {
     auto win = screen({.width = 640, .height = 480});
     
     win.color(255, 255, 255).cls()
@@ -100,8 +98,7 @@ int hspMain() {
        .color(0, 0, 255).circle(200, 100, 250, 150)
        .color(0, 255, 0).line(400, 150, 300, 50);
     
-    return 0;
-}
+    }
 ```
 
 <!-- 根拠: Screen クラスのメンバ関数は Screen& を返し、メソッドチェーンが可能。hsppp.ixx の Screen クラス定義を参照。 -->
@@ -118,7 +115,7 @@ using namespace hsppp;
 
 int x = 320, y = 240;
 
-int hspMain() {
+void hspMain() {
     screen(0, 640, 480);
     
     while (true) {
@@ -144,8 +141,7 @@ int hspMain() {
         await(16);
     }
     
-    return 0;
-}
+    }
 ```
 
 <!-- 根拠: UserApp.cpp のメインループ実装。stick() の戻り値ビットは hsppp.ixx の stick_* 定数を参照。 -->
@@ -158,7 +154,7 @@ using namespace hsppp;
 
 int x = 320, y = 240;
 
-int hspMain() {
+void hspMain() {
     screen(0, 640, 480);
     
     // キー入力の割り込みを設定
@@ -195,7 +191,7 @@ int hspMain() {
 import hsppp;
 using namespace hsppp;
 
-int hspMain() {
+void hspMain() {
     screen(0, 640, 480);
     
     onclick([]() {
@@ -208,8 +204,7 @@ int hspMain() {
         return 0;
     });
     
-    return 0;
-}
+    }
 ```
 
 <!-- 根拠: hsppp.ixx で onclick, mousex, mousey を export。 -->
@@ -227,7 +222,7 @@ using namespace hsppp;
 auto inputText = std::make_shared<std::string>("名前を入力");
 int clickCount = 0;
 
-int hspMain() {
+void hspMain() {
     screen(0, 400, 300);
     
     pos(20, 20);
@@ -253,8 +248,7 @@ int hspMain() {
         return 0;
     });
     
-    return 0;
-}
+    }
 ```
 
 <!-- 根拠: hsppp_file.ixx で input は shared_ptr<std::string> 版のみ提供。button は std::function<int()> を受け取る。 -->
@@ -269,7 +263,7 @@ using namespace hsppp;
 auto checkState = std::make_shared<int>(0);
 auto comboIndex = std::make_shared<int>(0);
 
-int hspMain() {
+void hspMain() {
     screen(0, 400, 300);
     
     pos(20, 20);
@@ -293,8 +287,7 @@ int hspMain() {
         return 0;
     });
     
-    return 0;
-}
+    }
 ```
 
 <!-- 根拠: hsppp.ixx で chkbox, combox, listbox は shared_ptr<int> 版のみ提供。int& 版は安全性のため提供していない。 -->
@@ -309,7 +302,7 @@ int hspMain() {
 import hsppp;
 using namespace hsppp;
 
-int hspMain() {
+void hspMain() {
     screen(0, 640, 480);
     
     // バッファに画像を読み込み
@@ -323,8 +316,7 @@ int hspMain() {
     pos(100, 100);
     gcopy(1, 0, 0, 200, 200);
     
-    return 0;
-}
+    }
 ```
 
 <!-- 根拠: hsppp.ixx で buffer, picload, gsel, gcopy を export。 -->

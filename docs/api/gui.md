@@ -355,7 +355,7 @@ clrobj(2, 5);   // ID 2〜5を削除
 ### 設定画面
 
 ```cpp
-int hspMain() {
+void hspMain() {
     screen(0, 400, 300);
     title("Settings");
     
@@ -398,7 +398,7 @@ int hspMain() {
 ### 計算機
 
 ```cpp
-int hspMain() {
+void hspMain() {
     screen(0, 300, 200);
     title("Calculator");
     

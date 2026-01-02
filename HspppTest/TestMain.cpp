@@ -21,7 +21,7 @@ namespace hsppp_test {
 }
 
 // ユーザーのエントリーポイント（テスト実行用）
-int hspMain() {
+void hspMain() {
     // テスト結果表示用ウィンドウ
     auto resultWin = screen({.width = 500, .height = 400, .title = "HSPPP Test Results"});
     resultWin.color(240, 240, 240).boxf();

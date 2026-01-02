@@ -51,7 +51,7 @@ import hsppp;
 
 // ユーザーが UserApp.cpp で定義する関数(前方宣言)
 // extern "C" にするかは設計次第ですが、一旦 C++ リンクで進めます
-extern int hspMain();
+extern void hspMain();
 
 // アプリケーションのエントリーポイント
 int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nCmdShow) {

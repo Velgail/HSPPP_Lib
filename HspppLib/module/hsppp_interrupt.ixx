@@ -298,4 +298,4 @@ export namespace hsppp {
 } // namespace hsppp
 
 // グローバル名前空間にユーザー定義関数が存在することを期待する
-extern int hspMain();
+extern void hspMain();

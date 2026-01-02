@@ -234,7 +234,7 @@ bgm.vol(-200)     // 音量80%
 ```cpp
 Media bgm;
 
-int hspMain() {
+void hspMain() {
     screen(0, 640, 480);
     
     bgm.load("bgm.mp3");
@@ -272,7 +272,7 @@ void playExplosion() {
 ```cpp
 Media video;
 
-int hspMain() {
+void hspMain() {
     screen(0, 640, 480);
     
     video.load("intro.mp4");
@@ -346,7 +346,7 @@ public:
 
 SoundManager sound;
 
-int hspMain() {
+void hspMain() {
     screen(0, 640, 480);
     
     sound.playBgm("title.mp3");

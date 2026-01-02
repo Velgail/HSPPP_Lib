@@ -60,7 +60,7 @@ using namespace hsppp;
 import hsppp;
 using namespace hsppp;
 
-int hspMain() {
+void hspMain() {
     screen(0, 640, 480);
     title("My App");
     
@@ -70,14 +70,14 @@ int hspMain() {
 }
 ```
 
-<!-- 根拠: WinMain.cpp よりライブラリ側で WinMain を定義し、extern int hspMain(); を呼び出す。hspMain() から戻った後は GetMessage ループで待機。 -->
+<!-- 根拠: WinMain.cpp よりライブラリ側で WinMain を定義し、extern void hspMain(); を呼び出す。hspMain() から戻った後は GetMessage ループで待機。 -->
 
 ### ゲームループの実装例
 
 アニメーションやリアルタイム更新が必要な場合は、`hspMain()` 内で `while` ループを書きます：
 
 ```cpp
-int hspMain() {
+void hspMain() {
     screen(0, 640, 480);
     
     int x = 320, y = 240;
@@ -146,7 +146,7 @@ int hspMain() {
 
 **原因**: `hspMain()` 関数が定義されていない
 
-**解決策**: ユーザーコードで `int hspMain()` を定義してください
+**解決策**: ユーザーコードで `void hspMain()` を定義してください
 
 ### リンクエラー: 未解決の外部シンボル（その他）
 

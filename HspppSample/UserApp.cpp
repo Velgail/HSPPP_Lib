@@ -388,7 +388,7 @@ void processDemoSelection(Screen& win) {
 // メインエントリーポイント
 // ═══════════════════════════════════════════════════════════════════
 
-int hspMain() {
+void hspMain() {
     // メインウィンドウ作成
     auto win = screen({.width = 640, .height = 480, .title = "HSPPP Feature Demo - Press F1 for Help"});
     

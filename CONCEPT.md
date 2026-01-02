@@ -127,7 +127,7 @@ HSPPP_Solution.slnx
 
 ## 5\. ユーザーへの移行ガイド（Short）
 
-1.  **WinMainは書かない:** `int hspMain()` から書き始める。
+1.  **WinMainは書かない:** `void hspMain()` から書き始める。
 2.  **変数は宣言する:** 使う前に `int x = 0;` のように書く。
 3.  **IncludeではなくImport:** `import hsppp;` を使う。
 4.  **ラベルジャンプは卒業:** `button goto` ではなく `if (button())` を使う。

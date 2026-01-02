@@ -25,7 +25,7 @@ import hsppp;
 using namespace hsppp;
 
 // エントリポイント: hspMain() を定義（main/WinMain は書かない）
-int hspMain() {
+void hspMain() {
     // ウィンドウ作成
     screen(0, 640, 480);
     title("Hello HSPPP!");
@@ -49,7 +49,7 @@ int hspMain() {
 import hsppp;
 using namespace hsppp;
 
-int hspMain() {
+void hspMain() {
     // 構造体による初期化
     auto win = screen({.width = 800, .height = 600, .title = "OOP Style"});
     

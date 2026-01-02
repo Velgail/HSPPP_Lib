@@ -333,7 +333,7 @@ if (result) {
 ### ファイル選択と読み込み
 
 ```cpp
-int hspMain() {
+void hspMain() {
     screen(0, 640, 480);
     
     auto result = dialog("テキストファイル", dialog_open, "*.txt");

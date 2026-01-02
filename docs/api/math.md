@@ -418,7 +418,7 @@ using std::lgamma;     // 対数ガンマ関数
 ### 円運動
 
 ```cpp
-int hspMain() {
+void hspMain() {
     screen(0, 640, 480);
     double t = 0.0;
     
@@ -444,7 +444,7 @@ int hspMain() {
 ### ランダムな星空
 
 ```cpp
-int hspMain() {
+void hspMain() {
     screen(0, 640, 480);
     randomize();
     

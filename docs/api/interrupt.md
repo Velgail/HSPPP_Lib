@@ -194,7 +194,7 @@ void stop();
 **使用例:**
 
 ```cpp
-int hspMain() {
+void hspMain() {
     screen(0, 640, 480);
     
     onclick([]() {
@@ -432,7 +432,7 @@ int64_t sendmsg(int64_t hwndValue, int msg, int64_t wparam, std::string_view lpa
 int x = 320, y = 240;
 bool running = true;
 
-int hspMain() {
+void hspMain() {
     screen(0, 640, 480);
     
     // ESCキーで終了

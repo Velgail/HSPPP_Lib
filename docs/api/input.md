@@ -188,7 +188,7 @@ inline constexpr int stick_s       = 131072;  // [S]キー
 ```cpp
 int x = 320, y = 240;
 
-int hspMain() {
+void hspMain() {
     screen(0, 640, 480);
     
     while (true) {
@@ -219,7 +219,7 @@ int hspMain() {
 ### マウスによる描画
 
 ```cpp
-int hspMain() {
+void hspMain() {
     screen(0, 640, 480);
     title("Paint - Left click to draw");
     

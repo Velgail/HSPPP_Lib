@@ -88,7 +88,7 @@ git push origin v0.2.0
 ```cpp
 import hsppp;
 
-int hspMain() {
+void hspMain() {
     // バージョン文字列を取得
     const char* ver = hsppp::version();
     hsppp::mes(std::format("HspppLib version: {}", ver));

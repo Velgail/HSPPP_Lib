@@ -1,6 +1,28 @@
 ﻿// HspppLib/src/boot/WinMain.cpp
 #define NOMINMAX
 #include <windows.h>
+#include "../core/version.hpp"
+
+// バージョン情報をコンパイル時に出力
+#define HSPPP_STRINGIFY(x) #x
+#define HSPPP_TOSTRING(x) HSPPP_STRINGIFY(x)
+
+#pragma message("===============================================")
+#pragma message("HspppLib - Hot Soup Processor Plus Plus")
+#pragma message("Version: " HSPPP_TOSTRING(0.1.0))
+#ifdef _DEBUG
+#pragma message("Build Type: Debug")
+#else
+#pragma message("Build Type: Release")
+#endif
+#ifdef _WIN64
+#pragma message("Platform: Windows x64")
+#else
+#pragma message("Platform: Windows x86")
+#endif
+#pragma message("C++ Standard: C++23")
+#pragma message("===============================================")
+
 import hsppp;
 
 // Static Library 内の WinMain を強制的にリンクさせるためのおまじない (MSVC用)

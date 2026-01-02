@@ -179,8 +179,8 @@ namespace hsppp {
             return currentSurface ? currentSurface->getCurrentX() : 0;
         case 23:  // カレントポジションのY座標
             return currentSurface ? currentSurface->getCurrentY() : 0;
-        case 24:  // メッセージ割り込み時のウィンドウID（未実装）
-            return 0;
+        case 24:  // メッセージ割り込み時のウィンドウID
+            return wparam();
         case 25:  // 未使用ウィンドウID
         {
             for (int i = 0; ; ++i) {

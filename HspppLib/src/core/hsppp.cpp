@@ -84,6 +84,7 @@ namespace {
         return ptr.get();
     }
 
+
     // 現在のスクリーンIDを保持（GUI命令用）
     int g_currentScreenId = 0;
 
@@ -254,6 +255,17 @@ namespace hsppp::internal {
 
         // COM終了処理
         CoUninitialize();
+    }
+
+    // HWNDからウィンドウIDを逆引き（見つからなければ0を返す）
+    int getWindowIdFromHwnd(HWND hwnd) {
+        for (const auto& pair : g_surfaces) {
+            auto window = std::dynamic_pointer_cast<HspWindow>(pair.second);
+            if (window && window->getHwnd() == hwnd) {
+                return pair.first;
+            }
+        }
+        return 0;  // 見つからなければデフォルトID
     }
 
     // ============================================================

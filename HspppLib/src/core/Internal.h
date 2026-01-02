@@ -509,9 +509,12 @@ private:
     // スクロール位置（groll用）
     int m_scrollX;
     int m_scrollY;
+    
+    // ウィンドウID（パフォーマンス最適化: O(N)検索を回避）
+    int m_windowId;
 
 public:
-    HspWindow(int width, int height, std::string_view title);
+    HspWindow(int width, int height, std::string_view title, int windowId = 0);
     virtual ~HspWindow();
 
     // 初期化
@@ -535,6 +538,7 @@ public:
 
     // ゲッター
     HWND getHwnd() const { return m_hwnd; }
+    int getWindowId() const { return m_windowId; }
     int getClientWidth() const { return m_clientWidth; }
     int getClientHeight() const { return m_clientHeight; }
     int getScrollX() const { return m_scrollX; }
@@ -611,18 +615,21 @@ public:
 // ============================================================
 namespace hsppp::internal {
     // クリック割り込みをトリガー
-    void triggerOnClick(int buttonId, WPARAM wp, LPARAM lp);
+    void triggerOnClick(int windowId, int buttonId, WPARAM wp, LPARAM lp);
 
     // キー割り込みをトリガー
-    void triggerOnKey(int charCode, WPARAM wp, LPARAM lp);
+    void triggerOnKey(int windowId, int charCode, WPARAM wp, LPARAM lp);
 
     // Windowsメッセージ割り込みをトリガー
     // 戻り値: true=カスタム戻り値を使用, false=デフォルト処理
-    bool triggerOnCmd(int messageId, WPARAM wp, LPARAM lp, int& returnValue);
+    bool triggerOnCmd(int windowId, int messageId, WPARAM wp, LPARAM lp, int& returnValue);
 
     // 終了割り込みをトリガー
     // 戻り値: true=終了をブロック, false=終了を許可
     bool triggerOnExit(int windowId, int reason);
+
+    // HWNDからウィンドウIDを逆引き（見つからなければ0を返す）
+    int getWindowIdFromHwnd(HWND hwnd);
 
     // マウスホイールデルタを設定（WindowProcから呼び出し）
     void setMouseWheelDelta(int delta);

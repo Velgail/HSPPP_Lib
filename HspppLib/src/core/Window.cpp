@@ -75,9 +75,13 @@ LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
     // Win32 API の制約により、GWLP_USERDATA から HspWindow を取得する際は
     // 生ポインタを使用せざるを得ない。スコープを最小化して安全性を確保。
 
+    // パフォーマンス最適化: HspWindowポインタから直接ウィンドウIDを取得
+    auto pWindow = reinterpret_cast<HspWindow*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
+    const int windowId = pWindow ? pWindow->getWindowId() : getWindowIdFromHwnd(hwnd);
+
     // oncmd: 登録されたメッセージを処理
     int oncmdReturnValue = 0;
-    if (triggerOnCmd(getWindowIdFromHwnd(hwnd), uMsg, wParam, lParam, oncmdReturnValue)) {
+    if (triggerOnCmd(windowId, uMsg, wParam, lParam, oncmdReturnValue)) {
         return oncmdReturnValue;
     }
 
@@ -100,7 +104,6 @@ LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
     case WM_CLOSE:
     {
         // onexit: 終了割り込みを確認
-        int windowId = getWindowIdFromHwnd(hwnd);
         if (triggerOnExit(windowId, 0)) {
             // 割り込みハンドラが設定されている場合は終了をブロック
             // ウィンドウは閉じず、ハンドラ内でend()が呼ばれるまで待機
@@ -114,14 +117,10 @@ LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
 
     case WM_PAINT:
     {
-        // ポインタのスコープを最小化：このブロック内でのみ有効
-        const auto pWindow = reinterpret_cast<HspWindow*>(
-            GetWindowLongPtr(hwnd, GWLP_USERDATA));
-
         PAINTSTRUCT ps;
         BeginPaint(hwnd, &ps);
 
-        // 厳格な null チェック
+        // 厳格な null チェック（pWindowは既に取得済み）
         if (pWindow != nullptr) {
             pWindow->onPaint();
         }
@@ -132,22 +131,22 @@ LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
 
     // onclick: マウスボタン押下
     case WM_LBUTTONDOWN:
-        triggerOnClick(getWindowIdFromHwnd(hwnd), 0, wParam, lParam);  // 左ボタン = 0
+        triggerOnClick(windowId, 0, wParam, lParam);  // 左ボタン = 0
         return DefWindowProc(hwnd, uMsg, wParam, lParam);
 
     case WM_RBUTTONDOWN:
-        triggerOnClick(getWindowIdFromHwnd(hwnd), 1, wParam, lParam);  // 右ボタン = 1
+        triggerOnClick(windowId, 1, wParam, lParam);  // 右ボタン = 1
         return DefWindowProc(hwnd, uMsg, wParam, lParam);
 
     case WM_MBUTTONDOWN:
-        triggerOnClick(getWindowIdFromHwnd(hwnd), 2, wParam, lParam);  // 中ボタン = 2
+        triggerOnClick(windowId, 2, wParam, lParam);  // 中ボタン = 2
         return DefWindowProc(hwnd, uMsg, wParam, lParam);
 
     // onkey: キー入力
     // WM_KEYDOWN/WM_SYSKEYDOWN: 特殊キー（矢印、Ctrl、Alt等）と通常キーの仮想キーコード
     case WM_KEYDOWN:
     case WM_SYSKEYDOWN:
-        triggerOnKey(getWindowIdFromHwnd(hwnd), static_cast<int>(wParam), wParam, lParam);
+        triggerOnKey(windowId, static_cast<int>(wParam), wParam, lParam);
         return DefWindowProc(hwnd, uMsg, wParam, lParam);
 
     // WM_CHAR: 文字入力（後方互換性のため残す）
@@ -167,7 +166,7 @@ LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
     // Windowsシャットダウン時
     case WM_QUERYENDSESSION:
         // onexit で処理される可能性がある
-        if (triggerOnExit(getWindowIdFromHwnd(hwnd), 1)) {
+        if (triggerOnExit(windowId, 1)) {
             // 割り込みハンドラが設定されている場合はシャットダウンを遅延
             return TRUE;  // 終了を許可するが、処理を実行
         }
@@ -184,8 +183,6 @@ LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
     case WM_SIZE:
     {
         if (wParam != SIZE_MINIMIZED) {
-            const auto pWindow = reinterpret_cast<HspWindow*>(
-                GetWindowLongPtr(hwnd, GWLP_USERDATA));
             if (pWindow != nullptr) {
                 int newWidth = LOWORD(lParam);
                 int newHeight = HIWORD(lParam);
@@ -198,8 +195,6 @@ LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
     // ウィンドウの最大/最小サイズ制限（HSP仕様：バッファサイズがリミッター）
     case WM_GETMINMAXINFO:
     {
-        const auto pWindow = reinterpret_cast<HspWindow*>(
-            GetWindowLongPtr(hwnd, GWLP_USERDATA));
         if (pWindow != nullptr) {
             auto pMinMax = reinterpret_cast<MINMAXINFO*>(lParam);
             

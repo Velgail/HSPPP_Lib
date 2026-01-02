@@ -509,9 +509,12 @@ private:
     // スクロール位置（groll用）
     int m_scrollX;
     int m_scrollY;
+    
+    // ウィンドウID（パフォーマンス最適化: O(N)検索を回避）
+    int m_windowId;
 
 public:
-    HspWindow(int width, int height, std::string_view title);
+    HspWindow(int width, int height, std::string_view title, int windowId = 0);
     virtual ~HspWindow();
 
     // 初期化
@@ -535,6 +538,7 @@ public:
 
     // ゲッター
     HWND getHwnd() const { return m_hwnd; }
+    int getWindowId() const { return m_windowId; }
     int getClientWidth() const { return m_clientWidth; }
     int getClientHeight() const { return m_clientHeight; }
     int getScrollX() const { return m_scrollX; }

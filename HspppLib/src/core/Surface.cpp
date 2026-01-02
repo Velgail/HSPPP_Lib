@@ -1282,7 +1282,7 @@ void HspSurface::gsquareGrad(const int (&dstX)[4], const int (&dstY)[4], const i
 
 // ========== HspWindow 実装 ==========
 
-HspWindow::HspWindow(int width, int height, std::string_view title)
+HspWindow::HspWindow(int width, int height, std::string_view title, int windowId)
     : HspSurface(width, height)
     , m_pSwapChain(nullptr)
     , m_title(Utf8ToWide(title))
@@ -1291,6 +1291,7 @@ HspWindow::HspWindow(int width, int height, std::string_view title)
     , m_hwnd(nullptr)
     , m_scrollX(0)
     , m_scrollY(0)
+    , m_windowId(windowId)
 {
 }
 

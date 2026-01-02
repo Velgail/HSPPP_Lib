@@ -67,8 +67,8 @@ namespace hsppp {
         int clientWidth = (client_w > 0) ? client_w : width;
         int clientHeight = (client_h > 0) ? client_h : height;
 
-        // HspWindowインスタンスの作成
-        auto window = std::make_shared<HspWindow>(width, height, title);
+        // HspWindowインスタンスの作成（ウィンドウIDを渡す）
+        auto window = std::make_shared<HspWindow>(width, height, title, id);
 
         // ウィンドウマネージャーの取得
         WindowManager& windowManager = WindowManager::getInstance();
@@ -271,8 +271,8 @@ namespace hsppp {
         int clientWidth = (client_w > 0) ? client_w : width;
         int clientHeight = (client_h > 0) ? client_h : height;
 
-        // HspWindowインスタンスの作成（タイトルは空）
-        auto window = std::make_shared<HspWindow>(width, height, "");
+        // HspWindowインスタンスの作成（タイトルは空、ウィンドウIDを渡す）
+        auto window = std::make_shared<HspWindow>(width, height, "", id);
 
         // ウィンドウマネージャーの取得
         WindowManager& windowManager = WindowManager::getInstance();

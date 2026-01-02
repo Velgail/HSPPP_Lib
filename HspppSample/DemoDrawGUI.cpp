@@ -64,7 +64,6 @@ static void initButtonInputDemo(Screen& win) {
     // ボタン1: カウントアップ
     g_btnId1 = button("Count Up", []() {
         g_buttonClickCount++;
-        return 0;
     });
     
     // ボタン2: リセット
@@ -74,7 +73,6 @@ static void initButtonInputDemo(Screen& win) {
         *g_inputNumber = "42";
         objprm(g_inputStrId, *g_inputText);
         objprm(g_inputIntId, *g_inputNumber);
-        return 0;
     });
     
     win.pos(20, 140);

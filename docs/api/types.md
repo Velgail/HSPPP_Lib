@@ -439,7 +439,7 @@ if (result) {
 
 ```cpp
 // 汎用割り込みハンドラ（onclick, onkey, onexit, oncmd用）
-using InterruptHandler = std::function<int()>;
+using InterruptHandler = std::function<void()>;
 
 // エラーハンドラ（onerror用）
 using ErrorHandler = std::function<int(const HspErrorBase&)>;
@@ -451,7 +451,6 @@ using ErrorHandler = std::function<int(const HspErrorBase&)>;
 // ラムダ式で指定
 onclick([]() {
     logmes("Clicked!");
-    return 0;
 });
 
 // エラーハンドラ

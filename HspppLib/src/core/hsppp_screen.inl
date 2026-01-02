@@ -651,7 +651,7 @@ namespace hsppp {
     namespace internal {
         
         int button_impl(std::shared_ptr<HspSurface> surface, int windowId,
-                       std::string_view name, std::function<int()> callback) {
+                       std::string_view name, std::function<void()> callback) {
             auto& objMgr = ObjectManager::getInstance();
 
             auto pHspWindow = std::dynamic_pointer_cast<HspWindow>(surface);
@@ -871,7 +871,7 @@ namespace hsppp {
     // GUIオブジェクト生成（OOP版・ヘルパーを呼ぶだけ）
     // ============================================================
 
-    int Screen::button(std::string_view name, std::function<int()> callback, const std::source_location& location) {
+    int Screen::button(std::string_view name, std::function<void()> callback, const std::source_location& location) {
         return safe_call(location, [&]() -> int {
             auto surface = getSurfaceById(m_id);
             if (!surface) return -1;

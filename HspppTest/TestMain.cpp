@@ -112,5 +112,4 @@ void hspMain() {
     await(10000);  // 10秒待機
 
     end( (compileOk && runtimeFailed == 0) ? 0 : 1);
-    return 0;
 }

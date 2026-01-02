@@ -306,12 +306,13 @@ namespace hsppp::internal {
         auto& info = it->second;
         if (!info.enabled || !info.handler) return false;
 
-        // 即座に呼び出して戻り値を取得
+        // 即座に呼び出し
         g_interruptParams.iparam = messageId;
         g_interruptParams.wparam = windowId;  // ウィンドウID
         g_interruptParams.lparam = static_cast<int>(lp);
-        returnValue = info.handler();
-        return (returnValue != -1);  // -1以外ならカスタム戻り値を使用
+        info.handler();
+        returnValue = 0;  // デフォルト値
+        return false;  // Windowsデフォルト処理を実行
     }
 
     // 終了割り込みをトリガー

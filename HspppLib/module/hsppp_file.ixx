@@ -159,7 +159,7 @@ export namespace hsppp {
                   const std::source_location& location = std::source_location::current());
 
     /// @brief ボタン表示
-    int button(std::string_view name, std::function<int()> callback,
+    int button(std::string_view name, std::function<void()> callback,
                const std::source_location& location = std::source_location::current());
 
     /// @brief 入力ボックス表示（文字列変数用）

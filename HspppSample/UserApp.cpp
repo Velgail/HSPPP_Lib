@@ -396,24 +396,21 @@ void hspMain() {
     auto helpWin = screen({.width = 320, .height = 500, .mode = screen_hide, .title = "HSPPP Help"});
     
     // 割り込みハンドラ設定
-    onclick([]() -> int {
+    onclick([]() {
         g_clickCount++;
-        return 0;
     });
     
-    onkey([]() -> int {
+    onkey([]() {
         g_keyCount++;
         g_lastKey = iparam();
-        return 0;
     });
     
-    hsppp::onexit([]() -> int {
+    hsppp::onexit([]() {
         static int exitAttempts = 0;
         exitAttempts++;
         if (exitAttempts >= 2) {
             end(0);
         }
-        return 0;
     });
     
     // メインループ
@@ -537,6 +534,4 @@ void hspMain() {
         
         await(16);
     }
-    
-    return 0;
 }

@@ -381,7 +381,7 @@ export namespace hsppp {
 
     /// @brief 汎用割り込みハンドラ型（onclick, onkey, onexit, oncmd用）
     /// @note ラムダ式、関数ポインタ、関数オブジェクトをサポート
-    using InterruptHandler = std::function<int()>;
+    using InterruptHandler = std::function<void()>;
 
     /// @brief エラーハンドラ型（onerror用）
     /// @note HspErrorBaseオブジェクトを受け取る（HspError/HspWeakError両方に対応）
@@ -631,7 +631,7 @@ export namespace hsppp {
         // ============================================================
 
         /// @brief ボタンを生成（OOP版）
-        int button(std::string_view name, std::function<int()> callback, const std::source_location& location = std::source_location::current());
+        int button(std::string_view name, std::function<void()> callback, const std::source_location& location = std::source_location::current());
 
         /// @brief 入力ボックスを生成（OOP版・shared_ptr版）
         int input(std::shared_ptr<std::string> var, int maxLength = 1024, int mode = 0, const std::source_location& location = std::source_location::current());

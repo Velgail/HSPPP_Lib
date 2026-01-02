@@ -93,7 +93,6 @@ int button(std::string_view name, std::function<int()> callback);
 pos(10, 10);
 button("Click me!", []() {
     dialog("Button clicked!", dialog_info);
-    return 0;
 });
 
 // カウンター付きボタン
@@ -102,7 +101,6 @@ auto countPtr = std::make_shared<int>(0);
 button("Count", [countPtr]() {
     (*countPtr)++;
     logmes(format("Count: {}", *countPtr));
-    return 0;
 });
 ```
 
@@ -138,7 +136,6 @@ input(text, 200);
 pos(10, 50);
 button("Show", [text]() {
     dialog(*text, dialog_info);
-    return 0;
 });
 ```
 
@@ -210,7 +207,6 @@ chkbox("Debug mode", debug);
 pos(10, 80);
 button("Check", [enabled, debug]() {
     logmes(format("Enabled: {}, Debug: {}", *enabled, *debug));
-    return 0;
 });
 ```
 
@@ -243,7 +239,6 @@ combox(selection, 100, "Option 1\nOption 2\nOption 3");
 pos(10, 50);
 button("Get Selection", [selection]() {
     dialog(format("Selected: {}", *selection), dialog_info);
-    return 0;
 });
 ```
 
@@ -388,7 +383,6 @@ void hspMain() {
         logmes(format("Sound: {}", *volume));
         logmes(format("Difficulty: {}", *difficulty));
         dialog("Settings saved!", dialog_info);
-        return 0;
     });
     
     return 0;
@@ -429,19 +423,16 @@ void hspMain() {
     
     button("+", [=]() {
         *result = str(toInt(*num1) + toInt(*num2));
-        return 0;
     });
     
     pos(70, 120);
     button("-", [=]() {
         *result = str(toInt(*num1) - toInt(*num2));
-        return 0;
     });
     
     pos(130, 120);
     button("×", [=]() {
         *result = str(toInt(*num1) * toInt(*num2));
-        return 0;
     });
     
     pos(190, 120);
@@ -452,7 +443,6 @@ void hspMain() {
         } else {
             *result = "Error";
         }
-        return 0;
     });
     
     return 0;

@@ -67,7 +67,7 @@ void objcolor(OptInt r, OptInt g, OptInt b, const std::source_location& location
 // ============================================================
 // button - ボタン表示
 // ============================================================
-int button(std::string_view name, std::function<int()> callback, const std::source_location& location) {
+int button(std::string_view name, std::function<void()> callback, const std::source_location& location) {
     return safe_call(location, [&]() -> int {
         ensureDefaultScreen();
 

@@ -197,7 +197,7 @@ struct ObjectInfo {
     int width, height;            // サイズ
     
     // button用
-    std::function<int()> callback;  // コールバック関数
+    std::function<void()> callback;  // コールバック関数
     
     // input/mesbox用（shared_ptrでライフタイム管理）
     std::shared_ptr<std::string> ownedStrVar;

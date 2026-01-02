@@ -1,4 +1,10 @@
-﻿// HspppLib/src/core/hsppp_input.inl
+﻿// Source: https://github.com/Velgail/HspppLib
+// Distributed under the Boost Software License, Version 1.0.
+// See accompanying file LICENSE or copy at
+// https://www.boost.org/LICENSE_1_0.txt
+// SPDX-License-Identifier: BSL-1.0
+
+// HspppLib/src/core/hsppp_input.inl
 // 入力系関数の実装（stick, getkey, mouse, mousex, mousey, mousew, wait）
 // hsppp.cpp から #include されることを想定
 

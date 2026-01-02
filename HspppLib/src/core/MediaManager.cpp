@@ -1,3 +1,9 @@
+// Source: https://github.com/Velgail/HspppLib
+// Distributed under the Boost Software License, Version 1.0.
+// See accompanying file LICENSE or copy at
+// https://www.boost.org/LICENSE_1_0.txt
+// SPDX-License-Identifier: BSL-1.0
+
 // HspppLib/src/core/MediaManager.cpp
 // マルチメディア管理実装（XAudio2 + Media Foundation ハイブリッド）
 

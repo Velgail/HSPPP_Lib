@@ -1,4 +1,10 @@
-﻿// HspppSample/DemoDrawInterrupt.cpp
+﻿// Source: https://github.com/Velgail/HspppLib
+// Distributed under the Boost Software License, Version 1.0.
+// See accompanying file LICENSE or copy at
+// https://www.boost.org/LICENSE_1_0.txt
+// SPDX-License-Identifier: BSL-1.0
+
+// HspppSample/DemoDrawInterrupt.cpp
 // ═══════════════════════════════════════════════════════════════════
 // HSPPP デモアプリケーション - 割り込みデモ描画
 // ═══════════════════════════════════════════════════════════════════

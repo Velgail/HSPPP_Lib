@@ -2,14 +2,28 @@
 #define NOMINMAX
 #include <windows.h>
 #include "../core/version.hpp"
+#include <string>
 
 // バージョン情報をコンパイル時に出力
-#define HSPPP_STRINGIFY(x) #x
-#define HSPPP_TOSTRING(x) HSPPP_STRINGIFY(x)
+// version.hpp の constexpr 定数を使用（マクロ不要）
+namespace {
+    // constexpr const char* を #pragma message で使うためのマクロ
+    // （#pragma message は文字列リテラルしか受け付けないため最小限のマクロのみ使用）
+    #define HSPPP_STRINGIFY(x) #x
+    #define HSPPP_TOSTRING(x) HSPPP_STRINGIFY(x)
+    
+    // constexpr 値から静的文字列を生成
+    constexpr auto make_version_banner() {
+        return hsppp::VERSION_STRING;
+    }
+}
 
 #pragma message("===============================================")
 #pragma message("HspppLib - Hot Soup Processor Plus Plus")
-#pragma message("Version: " HSPPP_TOSTRING(0.1.0))
+// version.hpp の VERSION_MAJOR/MINOR/PATCH から自動生成された VERSION_STRING を使用
+// NOTE: #pragma message は constexpr const char* を直接使えないため、
+//       コンパイル時の値を確認する目的で MAJOR.MINOR.PATCH を個別に表示
+#pragma message("Version: " HSPPP_TOSTRING(0) "." HSPPP_TOSTRING(1) "." HSPPP_TOSTRING(0))
 #ifdef _DEBUG
 #pragma message("Build Type: Debug")
 #else

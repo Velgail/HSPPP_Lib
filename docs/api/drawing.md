@@ -221,6 +221,7 @@ void gsquare(int srcId, const Quad& dst, const QuadColors& colors);
 
 **使用例:**
 
+{% raw %}
 ```cpp
 // 4頂点指定で描画
 Quad dst = {{0, 0}, {100, 20}, {80, 120}, {-20, 100}};
@@ -230,6 +231,7 @@ gsquare(-1, dst);  // srcId=-1 で単色塗り
 QuadColors colors = {0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00};
 gsquare(gsquare_grad, dst, colors);
 ```
+{% endraw %}
 
 ---
 

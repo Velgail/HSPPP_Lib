@@ -72,8 +72,8 @@ HSPPP の全 API リファレンスです。
 
 | 関数 | 説明 | 備考 |
 |------|------|------|| `button` | ボタンの作成 | `std::function<int()>` コールバック |
-| `input` | 入力ボックスの作成 | `string&` または `shared_ptr<string>` |
-| `mesbox` | メッセージボックスの作成 | `string&` または `shared_ptr<string>` |
+| `input` | 入力ボックスの作成 | **`shared_ptr<string>` のみ** |
+| `mesbox` | メッセージボックスの作成 | **`shared_ptr<string>` のみ** |
 | `chkbox` | チェックボックスの作成 | **`shared_ptr<int>` のみ** |
 | `combox` | コンボボックスの作成 | **`shared_ptr<int>` のみ** |
 | `listbox` | リストボックスの作成 | **`shared_ptr<int>` のみ** |

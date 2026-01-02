@@ -224,7 +224,7 @@ int hspMain() {
 import hsppp;
 using namespace hsppp;
 
-std::string inputText = "名前を入力";
+auto inputText = std::make_shared<std::string>("名前を入力");
 int clickCount = 0;
 
 int hspMain() {
@@ -238,7 +238,7 @@ int hspMain() {
     input(inputText);
     
     pos(20, 90);
-    button("クリック", []() {
+    button("クリック", [inputText]() {
         clickCount++;
         
         // 表示を更新
@@ -247,7 +247,7 @@ int hspMain() {
         
         color(0, 0, 0);
         pos(20, 130);
-        mes("こんにちは、" + inputText + "さん！ (" + 
+        mes("こんにちは、" + *inputText + "さん！ (" + 
             std::to_string(clickCount) + "回目)");
         
         return 0;
@@ -257,7 +257,7 @@ int hspMain() {
 }
 ```
 
-<!-- 根拠: hsppp.ixx で button, input, objsize を export。button は std::function<int()> を受け取る。 -->
+<!-- 根拠: hsppp_file.ixx で input は shared_ptr<std::string> 版のみ提供。button は std::function<int()> を受け取る。 -->
 
 ### チェックボックス・コンボボックス
 

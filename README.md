@@ -1,5 +1,6 @@
 # HSPPP - Hot Soup Processor Plus Plus
 
+[![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](https://github.com/Velgail/HspppLib)
 [![C++23](https://img.shields.io/badge/C%2B%2B-23-blue.svg)](https://en.cppreference.com/w/cpp/23)
 [![License: BSL-1.0](https://img.shields.io/badge/License-BSL--1.0-blue.svg)](LICENSE.txt)
 [![Platform: Windows](https://img.shields.io/badge/Platform-Windows-lightgrey.svg)](https://www.microsoft.com/windows)

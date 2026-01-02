@@ -224,16 +224,12 @@ input s, 200, 24
 ```
 
 ```cpp
-// HSPPP (参照版 - 初期値のコピーのみ)
-std::string s;
-input(s, 200, 24);
-
-// HSPPP (shared_ptr版 - 双方向同期)
+// HSPPP (shared_ptr版のみ提供)
 auto s = std::make_shared<std::string>("");
 input(s, 200, 24);
 ```
 
-<!-- 根拠: hsppp.ixx で両バージョンを提供。参照版は「作成時コピー」、shared_ptr版は「双方向同期」。 -->
+<!-- 根拠: hsppp_file.ixx で input は shared_ptr<std::string> 版のみ提供。ライフタイム安全性のため。 -->
 
 ### チェックボックス
 

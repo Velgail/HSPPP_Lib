@@ -7,34 +7,17 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="framework.h">
-      <Filter>インクルードヘッダー</Filter>
-    </ClInclude>
-    <ClInclude Include="targetver.h">
-      <Filter>インクルードヘッダー</Filter>
-    </ClInclude>
-    <ClInclude Include="Resource.h">
-      <Filter>インクルードヘッダー</Filter>
-    </ClInclude>
-    <ClInclude Include="HspppSample.h">
-      <Filter>インクルードヘッダー</Filter>
-    </ClInclude>
     <ClInclude Include="DemoState.h">
       <Filter>インクルードヘッダー</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Image Include="HspppSample.ico" />
-    <Image Include="small.ico" />
-  </ItemGroup>
-  <ItemGroup>
     <ClCompile Include="UserApp.cpp" />
     <ClCompile Include="DemoDrawBasic.cpp" />
     <ClCompile Include="DemoDrawExtended.cpp" />
+    <ClCompile Include="DemoDrawGUI.cpp" />
     <ClCompile Include="DemoDrawImage.cpp" />
     <ClCompile Include="DemoDrawInterrupt.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ResourceCompile Include="HspppSample.rc" />
+    <ClCompile Include="DemoDrawMedia.cpp" />
   </ItemGroup>
 </Project>

@@ -7,47 +7,18 @@
 // HspppLib/src/boot/WinMain.cpp
 #define NOMINMAX
 #include <windows.h>
-#include "../core/version.hpp"
 #include <string>
-
-// バージョン情報をコンパイル時に出力
-// version.hpp の constexpr 定数を使用（マクロ不要）
-namespace {
-    // constexpr const char* を #pragma message で使うためのマクロ
-    // （#pragma message は文字列リテラルしか受け付けないため最小限のマクロのみ使用）
-    #define HSPPP_STRINGIFY(x) #x
-    #define HSPPP_TOSTRING(x) HSPPP_STRINGIFY(x)
-    
-    // constexpr 値から静的文字列を生成
-    constexpr auto make_version_banner() {
-        return hsppp::VERSION_STRING;
-    }
-}
-
-#pragma message("===============================================")
-#pragma message("HspppLib - Hot Soup Processor Plus Plus")
-// version.hpp の VERSION_MAJOR/MINOR/PATCH から自動生成された VERSION_STRING を使用
-// NOTE: #pragma message は constexpr const char* を直接使えないため、
-//       コンパイル時の値を確認する目的で MAJOR.MINOR.PATCH を個別に表示
-#pragma message("Version: " HSPPP_TOSTRING(0) "." HSPPP_TOSTRING(1) "." HSPPP_TOSTRING(0))
-#ifdef _DEBUG
-#pragma message("Build Type: Debug")
-#else
-#pragma message("Build Type: Release")
-#endif
-#ifdef _WIN64
-#pragma message("Platform: Windows x64")
-#else
-#pragma message("Platform: Windows x86")
-#endif
-#pragma message("C++ Standard: C++23")
-#pragma message("===============================================")
 
 import hsppp;
 
 // Static Library 内の WinMain を強制的にリンクさせるためのおまじない (MSVC用)
 // ユーザー側のリンカ設定で /ENTRY を指定しなくても動くようにする効果が期待できます
-#pragma comment(linker, "/include:WinMain")
+// x86 と x64 でシンボル名が異なるため、プラットフォームごとに指定
+#ifdef _M_IX86
+    #pragma comment(linker, "/include:_WinMain@16")
+#else
+    #pragma comment(linker, "/include:WinMain")
+#endif
 
 // ユーザーが UserApp.cpp で定義する関数(前方宣言)
 // extern "C" にするかは設計次第ですが、一旦 C++ リンクで進めます

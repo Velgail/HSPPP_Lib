@@ -364,7 +364,9 @@ FodyWeavers.xsd
 .claude/settings.local.json
 *.hs
 output.bmp
-.vscode/tasks.json
 
 # HSP reference files (not for distribution)
 HspHelp/
+
+# HspppLib specific
+dist/

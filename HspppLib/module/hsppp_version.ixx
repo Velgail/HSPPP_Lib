@@ -4,17 +4,12 @@
 // https://www.boost.org/LICENSE_1_0.txt
 // SPDX-License-Identifier: BSL-1.0
 
-// HspppLib/src/core/version.hpp
-// バージョン管理定義
-//
-// セマンティックバージョニング: MAJOR.MINOR.PATCH
-// - MAJOR: 後方互換性のない API 変更
-// - MINOR: 後方互換性のある機能追加
-// - PATCH: 後方互換性のあるバグ修正
+// HspppLib/module/hsppp_version.ixx
+// バージョン情報モジュールパーティション
 
-#pragma once
+export module hsppp:version;
 
-namespace hsppp {
+export namespace hsppp {
 
 // バージョン番号の定義
 constexpr int VERSION_MAJOR = 0;
@@ -113,5 +108,34 @@ constexpr const char* CXX_VERSION = "C++20";
 #else
 constexpr const char* CXX_VERSION = "C++??";
 #endif
+
+// バージョン情報取得関数
+struct version_info {
+    int major;
+    int minor;
+    int patch;
+    const char* string;
+    const char* build_type;
+    const char* platform;
+    const char* cxx_version;
+};
+
+// バージョン情報を取得
+inline version_info get_version() noexcept {
+    return {
+        VERSION_MAJOR,
+        VERSION_MINOR,
+        VERSION_PATCH,
+        VERSION_STRING,
+        BUILD_TYPE,
+        PLATFORM,
+        CXX_VERSION
+    };
+}
+
+// バージョン文字列を取得（簡易版）
+inline const char* version() noexcept {
+    return VERSION_STRING;
+}
 
 } // namespace hsppp

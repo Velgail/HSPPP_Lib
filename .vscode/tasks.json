@@ -1,0 +1,160 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "build-all",
+			"type": "shell",
+			"command": "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe",
+			"args": [
+				"HspppLib.slnx",
+				"/p:Configuration=Debug",
+				"/p:Platform=x64",
+				"/m",
+				"/verbosity:minimal"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared",
+				"showReuseMessage": false
+			},
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "build-debug",
+			"type": "shell",
+			"command": "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe",
+			"args": [
+				"HspppLib.slnx",
+				"/p:Configuration=Debug",
+				"/p:Platform=x64",
+				"/m"
+			],
+			"group": "build",
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared",
+				"showReuseMessage": false
+			},
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "build-release",
+			"type": "shell",
+			"command": "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe",
+			"args": [
+				"HspppLib.slnx",
+				"/p:Configuration=Release",
+				"/p:Platform=x64",
+				"/m"
+			],
+			"group": "build",
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared",
+				"showReuseMessage": false
+			},
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "clean",
+			"type": "shell",
+			"command": "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe",
+			"args": [
+				"HspppLib.slnx",
+				"/t:Clean",
+				"/p:Configuration=Debug",
+				"/p:Platform=x64"
+			],
+			"group": "build",
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared",
+				"showReuseMessage": false
+			}
+		},
+		{
+			"label": "rebuild-all",
+			"type": "shell",
+			"command": "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe",
+			"args": [
+				"HspppLib.slnx",
+				"/t:Rebuild",
+				"/p:Configuration=Debug",
+				"/p:Platform=x64",
+				"/m"
+			],
+			"group": "build",
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared",
+				"showReuseMessage": false
+			},
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "build-all-configurations",
+			"type": "shell",
+			"command": "powershell.exe",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				"& { $msbuild = 'C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe'; $configs = @(@{C='Debug';P='x86'},@{C='Debug';P='x64'},@{C='Release';P='x86'},@{C='Release';P='x64'}); foreach($cfg in $configs) { Write-Host \"Building $($cfg.P) - $($cfg.C)...\" -ForegroundColor Cyan; & $msbuild HspppLib.slnx /p:Configuration=$($cfg.C) /p:Platform=$($cfg.P) /m /verbosity:minimal; if($LASTEXITCODE -ne 0) { Write-Host \"Build failed for $($cfg.P) - $($cfg.C)\" -ForegroundColor Red; exit $LASTEXITCODE } } }"
+			],
+			"group": "build",
+			"problemMatcher": "$msCompile",
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared"
+			}
+		},
+		{
+			"label": "collect-artifacts",
+			"type": "shell",
+			"command": "powershell.exe",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				"${workspaceFolder}\\scripts\\collect-artifacts.ps1"
+			],
+			"group": "none",
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"focus": false,
+				"panel": "shared",
+				"showReuseMessage": false
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "build-and-collect",
+			"dependsOrder": "sequence",
+			"dependsOn": [
+				"build-all-configurations",
+				"collect-artifacts"
+			],
+			"group": "build",
+			"problemMatcher": []
+		}
+	]
+}

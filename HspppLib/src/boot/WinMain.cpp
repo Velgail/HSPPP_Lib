@@ -13,7 +13,12 @@ import hsppp;
 
 // Static Library 内の WinMain を強制的にリンクさせるためのおまじない (MSVC用)
 // ユーザー側のリンカ設定で /ENTRY を指定しなくても動くようにする効果が期待できます
-#pragma comment(linker, "/include:WinMain")
+// x86 と x64 でシンボル名が異なるため、プラットフォームごとに指定
+#ifdef _M_IX86
+    #pragma comment(linker, "/include:_WinMain@16")
+#else
+    #pragma comment(linker, "/include:WinMain")
+#endif
 
 // ユーザーが UserApp.cpp で定義する関数(前方宣言)
 // extern "C" にするかは設計次第ですが、一旦 C++ リンクで進めます

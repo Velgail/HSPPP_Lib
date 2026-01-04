@@ -518,6 +518,9 @@ private:
     
     // ウィンドウID（パフォーマンス最適化: O(N)検索を回避）
     int m_windowId;
+    
+    // 共通Present実装
+    void presentInternal(UINT syncInterval, UINT flags);
 
 public:
     HspWindow(int width, int height, std::string_view title, int windowId = 0);

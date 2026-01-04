@@ -1444,11 +1444,15 @@ bool HspWindow::createWindow(
 }
 
 void HspWindow::present() {
+    presentInternal(0, 0);  // VSync待機なし
+}
+
+void HspWindow::presentInternal(UINT syncInterval, UINT flags) {
     if (!m_pSwapChain || !m_pDeviceContext || !m_pTargetBitmap || !m_pBackBufferBitmap) {
         return;
     }
 
-    // オフスクリーンビットマップの内容をバックバッファにコピー（ドットバイドット、スケーリングなし）
+    // オフスクリーンビットマップの内容をバックバッファにコピー
     m_pDeviceContext->SetTarget(m_pBackBufferBitmap.Get());
     m_pDeviceContext->BeginDraw();
     
@@ -1485,55 +1489,15 @@ void HspWindow::present() {
 
     m_pDeviceContext->EndDraw();
 
-    // 画面に表示（垂直同期を待たない - redraw(1)での高速描画用）
-    m_pSwapChain->Present(0, 0);
+    // 画面に表示（syncInterval: 0=即座, 1=VSync同期）
+    m_pSwapChain->Present(syncInterval, flags);
 
     // 描画先をオフスクリーンビットマップに戻す
     m_pDeviceContext->SetTarget(m_pTargetBitmap.Get());
 }
 
 void HspWindow::presentVsync() {
-    if (!m_pSwapChain || !m_pDeviceContext || !m_pTargetBitmap || !m_pBackBufferBitmap) {
-        return;
-    }
-
-    // オフスクリーンビットマップの内容をバックバッファにコピー
-    m_pDeviceContext->SetTarget(m_pBackBufferBitmap.Get());
-    m_pDeviceContext->BeginDraw();
-    
-    m_pDeviceContext->Clear(D2D1::ColorF(0.0f, 0.0f, 0.0f, 1.0f));
-
-    int srcRight = (std::min)(m_scrollX + m_clientWidth, m_width);
-    int srcBottom = (std::min)(m_scrollY + m_clientHeight, m_height);
-    D2D1_RECT_F srcRect = D2D1::RectF(
-        static_cast<float>(m_scrollX),
-        static_cast<float>(m_scrollY),
-        static_cast<float>(srcRight),
-        static_cast<float>(srcBottom)
-    );
-    
-    D2D1_RECT_F destRect = D2D1::RectF(
-        0.0f,
-        0.0f,
-        static_cast<float>(srcRight - m_scrollX),
-        static_cast<float>(srcBottom - m_scrollY)
-    );
-
-    m_pDeviceContext->DrawBitmap(
-        m_pTargetBitmap.Get(),
-        destRect,
-        1.0f,
-        D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR,
-        srcRect
-    );
-
-    m_pDeviceContext->EndDraw();
-
-    // 画面に表示（VSync同期 - Present(1, 0) で垂直同期待機）
-    m_pSwapChain->Present(1, 0);
-
-    // 描画先をオフスクリーンビットマップに戻す
-    m_pDeviceContext->SetTarget(m_pTargetBitmap.Get());
+    presentInternal(1, 0);  // VSync同期
 }
 
 void HspWindow::endDrawAndPresent() {

@@ -337,6 +337,6 @@ gcopy(1, 0, 0, 200, 200);
 
 ## 次のステップ
 
-- [HSPからの移行ガイド](migration-from-hsp.md): HSP経験者向け
-- [APIリファレンス](../api/index.md): 全命令の詳細
-- [FAQ](../faq.md): よくある質問
+- [HSPからの移行ガイド](/HSPPP_Lib/guides/migration-from-hsp): HSP経験者向け
+- [APIリファレンス](/HSPPP_Lib/api/): 全命令の詳細
+- [FAQ](/HSPPP_Lib/faq): よくある質問

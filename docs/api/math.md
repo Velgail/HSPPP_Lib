@@ -465,5 +465,5 @@ void hspMain() {
 
 ## 参照
 
-- [描画 API](drawing.md)（grect, grotate での角度指定）
-- [文字列操作 API](string.md)（toInt, toDouble）
+- [描画 API](/HSPPP_Lib/api/drawing)（grect, grotate での角度指定）
+- [文字列操作 API](/HSPPP_Lib/api/string)（toInt, toDouble）

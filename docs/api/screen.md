@@ -9,14 +9,15 @@ title: 画面API
 
 ## 目次
 
-- [ウィンドウ作成](#ウィンドウ作成)
-- [画面制御](#画面制御)
-- [画面情報取得](#画面情報取得)
+- [ウィンドウ・画面制御](#ウィンドウ画面制御)
+- [画像操作](#画像操作)
+- [情報取得](#情報取得)
+- [Screen クラス（OOP版）](#screen-クラスoop版)
 - [定数](#定数)
 
 ---
 
-## ウィンドウ作成
+## ウィンドウ・画面制御
 
 ### screen
 
@@ -110,8 +111,6 @@ Screen bgscr(
 
 ---
 
-## 画面制御
-
 ### gsel
 
 描画先ウィンドウを変更します。
@@ -133,6 +132,85 @@ gsel(1);      // ウィンドウ1を描画先に（表示状態は変更しな�
 ```
 
 ---
+
+### width
+
+ウィンドウサイズと位置を設定します。
+
+```cpp
+void width(
+    OptInt clientW = {},   // クライアント幅
+    OptInt clientH = {},   // クライアント高さ
+    OptInt posX    = {},   // ウィンドウ位置X
+    OptInt posY    = {},   // ウィンドウ位置Y
+    OptInt option  = {}    // オプション
+);
+```
+
+---
+
+### title
+
+ウィンドウタイトルを設定します。
+
+```cpp
+void title(std::string_view str);
+```
+
+---
+
+### cls
+
+画面をクリアします。
+
+```cpp
+void cls(OptInt p1 = {});
+```
+
+| 値 | 色 |
+|----|----|
+| 0 | 白 |
+| 1 | 明るい灰色 |
+| 2 | 灰色 |
+| 3 | 暗い灰色 |
+| 4 | 黒 |
+
+---
+
+### redraw
+
+再描画制御を行います。
+
+```cpp
+void redraw(int p1 = 1);
+```
+
+| 値 | 説明 |
+|----|------|
+| 0 | 描画予約開始（オフスクリーン描画） |
+| 1 | 画面反映（Present） |
+
+**使用例:**
+
+```cpp
+redraw(0);        // 描画開始
+// ... 描画処理 ...
+redraw(1);        // 画面に反映
+```
+
+---
+
+### groll
+
+描画基点座標を設定します。
+
+```cpp
+void groll(int scrollX, int scrollY);
+```
+
+---
+
+## 画像操作
 
 ### gmode
 
@@ -201,84 +279,7 @@ void gzoom(
 
 ---
 
-### redraw
-
-再描画制御を行います。
-
-```cpp
-void redraw(int p1 = 1);
-```
-
-| 値 | 説明 |
-|----|------|
-| 0 | 描画予約開始（オフスクリーン描画） |
-| 1 | 画面反映（Present） |
-
-**使用例:**
-
-```cpp
-redraw(0);        // 描画開始
-// ... 描画処理 ...
-redraw(1);        // 画面に反映
-```
-
----
-
-### cls
-
-画面をクリアします。
-
-```cpp
-void cls(OptInt p1 = {});
-```
-
-| 値 | 色 |
-|----|----|
-| 0 | 白 |
-| 1 | 明るい灰色 |
-| 2 | 灰色 |
-| 3 | 暗い灰色 |
-| 4 | 黒 |
-
----
-
-### title
-
-ウィンドウタイトルを設定します。
-
-```cpp
-void title(std::string_view str);
-```
-
----
-
-### width
-
-ウィンドウサイズと位置を設定します。
-
-```cpp
-void width(
-    OptInt clientW = {},   // クライアント幅
-    OptInt clientH = {},   // クライアント高さ
-    OptInt posX    = {},   // ウィンドウ位置X
-    OptInt posY    = {},   // ウィンドウ位置Y
-    OptInt option  = {}    // オプション
-);
-```
-
----
-
-### groll
-
-描画基点座標を設定します。
-
-```cpp
-void groll(int scrollX, int scrollY);
-```
-
----
-
-## 画面情報取得
+## 情報取得
 
 ### ginfo
 
@@ -307,6 +308,7 @@ int ginfo(int type);
 | `ginfo_type_b` | 18 | 現在の描画色B |
 | `ginfo_type_dispx` | 20 | ディスプレイ幅 |
 | `ginfo_type_dispy` | 21 | ディスプレイ高さ |
+| `ginfo_type_fps` | 28 | モニター最大リフレッシュレート(Hz) |
 
 ### 便利関数
 
@@ -321,8 +323,37 @@ int ginfo_sizey();   // 画面サイズY
 int ginfo_r();       // 描画色R
 int ginfo_g();       // 描画色G
 int ginfo_b();       // 描画色B
+int ginfo_fps();     // モニター最大リフレッシュレート
 // ... 他多数
 ```
+
+---
+
+## Screen クラス（OOP版）
+
+`screen()`, `buffer()`, `bgscr()` が返す軽量ハンドルクラスです。メソッドチェーンに対応しています。
+
+```cpp
+auto win = screen({.width = 640, .height = 480});
+win.color(255, 0, 0)
+   .boxf(0, 0, 100, 100)
+   .pos(10, 10)
+   .mes("Hello!");
+```
+
+### 主要メンバ関数
+
+| メソッド | 説明 |
+|---------|------|
+| `id()` | ウィンドウIDを取得 |
+| `valid()` | 有効なハンドルか確認 |
+| `select()` | このScreenを描画先に設定（gsel相当） |
+| `show()` | ウィンドウを表示（gsel id, 1 相当） |
+| `hide()` | ウィンドウを非表示（gsel id, -1 相当） |
+| `activate()` | 最前面でアクティブ化（gsel id, 2 相当） |
+| `width()` / `height()` | サイズ取得 |
+
+描画関連メソッドは [描画 API](/HSPPP_Lib/api/drawing) を参照してください。
 
 ---
 
@@ -379,12 +410,12 @@ win.color(255, 0, 0)
 | `activate()` | 最前面でアクティブ化（gsel id, 2 相当） |
 | `width()` / `height()` | サイズ取得 |
 
-描画関連メソッドは [描画 API](drawing.md) を参照してください。
+描画関連メソッドは [描画 API](/HSPPP_Lib/api/drawing) を参照してください。
 
 ---
 
 ## 参照
 
-- [描画 API](drawing.md)
-- [入力 API](input.md)
-- [型定義](types.md)
+- [描画 API](/HSPPP_Lib/api/drawing)
+- [入力 API](/HSPPP_Lib/api/input)
+- [型定義](/HSPPP_Lib/api/types)

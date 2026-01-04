@@ -199,9 +199,46 @@ namespace hsppp {
             return currentSurface ? currentSurface->getWidth() : 0;
         case 27:  // 画面の初期化Yサイズ
             return currentSurface ? currentSurface->getHeight() : 0;
+        case 28:  // 画面リフレッシュレート
+            return get_framerate(location);
         default:
             return 0;
         }
+        });
+    }
+    
+    // ============================================================
+    // get_framerate - 画面リフレッシュレートを取得
+    // ============================================================
+    // マルチモニター環境では最大のリフレッシュレートを返す
+    int get_framerate(const std::source_location& location) {
+        return safe_call(location, [&]() -> int {
+            int maxRefreshRate = 60;  // デフォルト値
+            
+            // 全モニターを列挙してリフレッシュレートを取得
+            EnumDisplayMonitors(nullptr, nullptr, 
+                [](HMONITOR hMonitor, HDC, LPRECT, LPARAM lParam) -> BOOL {
+                    MONITORINFOEXW monitorInfo = {};
+                    monitorInfo.cbSize = sizeof(MONITORINFOEXW);
+                    
+                    if (GetMonitorInfoW(hMonitor, &monitorInfo)) {
+                        DEVMODEW devMode = {};
+                        devMode.dmSize = sizeof(DEVMODEW);
+                        
+                        if (EnumDisplaySettingsW(monitorInfo.szDevice, ENUM_CURRENT_SETTINGS, &devMode)) {
+                            int refreshRate = static_cast<int>(devMode.dmDisplayFrequency);
+                            int* pMaxRate = reinterpret_cast<int*>(lParam);
+                            if (refreshRate > *pMaxRate) {
+                                *pMaxRate = refreshRate;
+                            }
+                        }
+                    }
+                    return TRUE;  // 列挙を続行
+                }, 
+                reinterpret_cast<LPARAM>(&maxRefreshRate)
+            );
+            
+            return maxRefreshRate;
         });
     }
 
@@ -243,6 +280,10 @@ namespace hsppp {
 
     int ginfo_b(const std::source_location& location) {
         return ginfo(ginfo_type_b, location);
+    }
+    
+    int ginfo_fps(const std::source_location& location) {
+        return get_framerate(location);
     }
 
     // ============================================================

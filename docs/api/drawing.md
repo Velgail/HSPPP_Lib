@@ -535,6 +535,6 @@ for (int frame = 0; frame < 8; frame++) {
 
 ## 参照
 
-- [画面制御 API](screen.md)
-- [型定義](types.md)
-- [数学 API](math.md)（`deg2rad` など）
+- [画面制御 API](/HSPPP_Lib/api/screen)
+- [型定義](/HSPPP_Lib/api/types)
+- [数学 API](/HSPPP_Lib/api/math)（`deg2rad` など）

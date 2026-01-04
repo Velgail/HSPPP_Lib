@@ -72,7 +72,7 @@ namespace hsppp {
         });
     }
 
-    // 待機＆メッセージ処理 (HSP互換)
+    // 待機＆メッセージ処理 (HSP互換・高精度版)
     void await(int time_ms, const std::source_location& location) {
         safe_call(location, [&] {
             // パラメータチェック
@@ -80,24 +80,32 @@ namespace hsppp {
                 throw HspError(ERR_OUT_OF_RANGE, "awaitの待ち時間は0以上の値を指定してください", location);
             }
             
+            // 高精度タイマーの初期化
+            initHighResolutionTimer();
+            
             MSG msg;
-            DWORD currentTime = GetTickCount();
+            LARGE_INTEGER currentTime;
+            QueryPerformanceCounter(&currentTime);
 
-            // 初回呼び出し、または時刻が巻き戻った場合は現在時刻を基準にする
-            if (g_lastAwaitTime == 0 || currentTime < g_lastAwaitTime) {
+            // 初回呼び出しの場合は現在時刻を基準にする
+            if (g_lastAwaitTime.QuadPart == 0) {
                 g_lastAwaitTime = currentTime;
             }
 
-            // 前回からの経過時間を計算
-            DWORD elapsed = currentTime - g_lastAwaitTime;
+            // 前回からの経過時間を計算（ミリ秒）
+            double elapsedMs = perfCounterToMs(currentTime.QuadPart - g_lastAwaitTime.QuadPart);
 
             // 指定時間に満たない場合は待機
-            if (elapsed < (DWORD)time_ms) {
-                DWORD waitTime = time_ms - elapsed;
-                DWORD endTime = currentTime + waitTime;
+            if (elapsedMs < static_cast<double>(time_ms)) {
+                double waitTimeMs = static_cast<double>(time_ms) - elapsedMs;
+                LONGLONG targetTicks = g_lastAwaitTime.QuadPart + 
+                    (static_cast<LONGLONG>(time_ms) * g_perfFrequency.QuadPart / 1000);
 
                 // 待機中もメッセージを処理
-                while (GetTickCount() < endTime) {
+                while (true) {
+                    QueryPerformanceCounter(&currentTime);
+                    if (currentTime.QuadPart >= targetTicks) break;
+                    
                     // ペンディング中の割り込みを処理
                     if (processPendingInterrupt()) {
                         // 割り込みハンドラが呼ばれた
@@ -112,7 +120,11 @@ namespace hsppp {
                         DispatchMessage(&msg);
                     }
                     else {
-                        Sleep(1);
+                        // 残り時間が1ms以上ならSleep、そうでなければスピンウェイト
+                        double remainingMs = perfCounterToMs(targetTicks - currentTime.QuadPart);
+                        if (remainingMs > 1.5) {
+                            Sleep(1);
+                        }
                     }
                 }
             }
@@ -134,7 +146,57 @@ namespace hsppp {
             }
 
             // 次回のawaitのために現在時刻を記録
-            g_lastAwaitTime = GetTickCount();
+            QueryPerformanceCounter(&g_lastAwaitTime);
+        });
+    }
+    
+    // ============================================================
+    // vwait - VSync同期待機
+    // ============================================================
+    // 戻り値: 前回のvwait呼び出しからの経過時間（ミリ秒）
+    double vwait(const std::source_location& location) {
+        return safe_call(location, [&]() -> double {
+            // 高精度タイマーの初期化
+            initHighResolutionTimer();
+            
+            // 現在時刻を取得
+            LARGE_INTEGER currentTime;
+            QueryPerformanceCounter(&currentTime);
+            
+            // 前回からの経過時間を計算
+            double elapsedMs = 0.0;
+            if (g_lastVwaitTime.QuadPart != 0) {
+                elapsedMs = perfCounterToMs(currentTime.QuadPart - g_lastVwaitTime.QuadPart);
+            }
+            
+            // メッセージ処理（ペンディング分を処理）
+            MSG msg;
+            while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
+                if (processPendingInterrupt()) {
+                    // 割り込みハンドラが呼ばれた
+                }
+                if (msg.message == WM_QUIT) {
+                    g_shouldQuit = true;
+                    return elapsedMs;
+                }
+                TranslateMessage(&msg);
+                DispatchMessage(&msg);
+            }
+            
+            // 現在のウィンドウでVSync同期のPresent実行
+            auto currentSurface = getCurrentSurface();
+            if (currentSurface) {
+                using namespace internal;
+                auto pWindow = std::dynamic_pointer_cast<HspWindow>(currentSurface);
+                if (pWindow) {
+                    pWindow->presentVsync();
+                }
+            }
+            
+            // 次回のvwaitのために現在時刻を記録
+            QueryPerformanceCounter(&g_lastVwaitTime);
+            
+            return elapsedMs;
         });
     }
 

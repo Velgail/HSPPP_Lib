@@ -1,7 +1,7 @@
 # GitHub Pages 設定
 title: HSPPP Documentation
 description: HSP互換 C++23 ライブラリ
-theme: jekyll-theme-cayman
+
 
 # サイトURL設定
 baseurl: /HSPPP_Lib
@@ -28,9 +28,8 @@ kramdown:
   syntax_highlighter: rouge
   auto_ids: true
 
-# プラグイン
+# プラグイン (ローカル環境で未インストールのプラグインを無効化)
 plugins:
-  - jekyll-relative-links
   - jekyll-seo-tag
 
 # 相対リンク設定

@@ -364,5 +364,5 @@ void hspMain() {
 
 ## 参照
 
-- [割り込み API](interrupt.md)（await, stop）
-- [画面制御 API](screen.md)（動画表示先）
+- [割り込み API](/HSPPP_Lib/api/interrupt)（await, stop）
+- [画面制御 API](/HSPPP_Lib/api/screen)（動画表示先）

@@ -7,149 +7,264 @@ title: API リファレンス
 
 HSPPP の全 API リファレンスです。
 
-## 詳細リファレンス（カテゴリ別）
-
-各カテゴリの詳細なドキュメントは以下のページを参照してください：
-
-| カテゴリ | 説明 |
-|---------|------|
-| [画面制御](screen.md) | screen, buffer, gsel, gmode, gcopy, gzoom 等 |
-| [描画](drawing.md) | color, pos, mes, boxf, circle, line, gradf, grect, gsquare 等 |
-| [入力](input.md) | stick, getkey, mousex, mousey, mouse 等 |
-| [GUI](gui.md) | button, input, mesbox, chkbox, combox, listbox 等 |
-| [ファイル操作](file.md) | exist, bload, bsave, dialog, dirlist 等 |
-| [割り込み](interrupt.md) | onclick, onkey, onexit, onerror, stop, await, wait 等 |
-| [文字列操作](string.md) | strmid, instr, strrep, split, NotePad クラス等 |
-| [数学](math.md) | rnd, deg2rad, limit, イージング, 標準数学関数等 |
-| [メディア](media.md) | mmload, mmplay, mmstop, Media クラス等 |
-| [型定義](types.md) | OptInt, Screen, Cel, Quad, DialogResult 等 |
-
----
-
 ## クイックリファレンス（関数一覧）
 
 ### ウィンドウ・画面制御
 
 | 関数 | 説明 | 備考 |
 |------|------|------|
-| `screen` | ウィンドウの初期化 | HSP互換版とOOP版（ScreenParams）あり |
-| `buffer` | オフスクリーンバッファの作成 | HSP互換版とOOP版（BufferParams）あり |
-| `bgscr` | 枠なしウィンドウの初期化 | HSP互換版とOOP版（BgscrParams）あり |
-| `gsel` | 描画先の変更 | ウィンドウID指定 |
-| `width` | ウィンドウサイズの変更 | クライアントサイズ・位置設定 |
-| `title` | ウィンドウタイトルの設定 | `std::string_view` 受け取り |
-| `cls` | 画面クリア | mode: 0=白, 1=明灰, 2=灰, 3=暗灰, 4=黒 |
-| `redraw` | 再描画制御 | 0=開始, 1=終了 |
-| `groll` | スクロール位置設定 | 描画基点座標を設定 |
+| [`screen`](/HSPPP_Lib/api/screen#screen) | ウィンドウの初期化 | HSP互換版とOOP版（[Screen クラス](#screen-クラス)、ScreenParams）あり |
+| [`buffer`](/HSPPP_Lib/api/screen#buffer) | オフスクリーンバッファの作成 | HSP互換版とOOP版（[Screen クラス](#screen-クラス)、BufferParams）あり |
+| [`bgscr`](/HSPPP_Lib/api/screen#bgscr) | 枠なしウィンドウの初期化 | HSP互換版とOOP版（[Screen クラス](#screen-クラス)、BgscrParams）あり |
+| [`gsel`](/HSPPP_Lib/api/screen#gsel) | 描画先の変更 | ウィンドウID指定。OOP版は `Screen::select()` |
+| [`width`](/HSPPP_Lib/api/screen#width) | ウィンドウサイズの変更 | クライアントサイズ・位置設定。OOP版は `Screen::width()` / `height()` で取得 |
+| [`title`](/HSPPP_Lib/api/screen#title) | ウィンドウタイトルの設定 | `std::string_view` 受け取り |
+| [`cls`](/HSPPP_Lib/api/screen#cls) | 画面クリア | mode: 0=白, 1=明灰, 2=灰, 3=暗灰, 4=黒 |
+| [`redraw`](/HSPPP_Lib/api/screen#redraw) | 再描画制御 | 0=開始, 1=終了 |
+| [`groll`](/HSPPP_Lib/api/screen#groll) | スクロール位置設定 | 描画基点座標を設定 |
+
+**詳細:** [画面制御 API](/HSPPP_Lib/api/screen)
+
+---
 
 ### 描画
 
 | 関数 | 説明 | 備考 |
-|------|------|------|| `color` | 描画色の設定 | RGB (0-255) |
-| `pos` | 描画位置の設定 | カレントポジション設定 |
-| `line` | 直線の描画 | 終点座標、始点は省略可（カレントポジション） |
-| `boxf` | 矩形の塗りつぶし | 引数なしで画面全体 |
-| `circle` | 円・楕円の描画 | fillMode: 0=線, 1=塗りつぶし |
-| `pset` | 点の描画 | 1ドット描画 |
-| `pget` | 点の色取得 | 取得した色を選択色に設定 |
-| `mes` | テキストの描画 | sw: 1=改行なし, 2=影, 4=縁取り等 |
-| `print` | テキストの描画 | `mes` の別名 |
-| `gradf` | グラデーション矩形 | mode: 0=横, 1=縦 |
-| `grect` | 回転矩形 | 角度はラジアン |
+|------|------|------|
+| [`color`](/HSPPP_Lib/api/drawing#color) | 描画色の設定 | RGB (0-255) |
+| [`pos`](/HSPPP_Lib/api/drawing#pos) | 描画位置の設定 | カレントポジション設定 |
+| [`line`](/HSPPP_Lib/api/drawing#line) | 直線の描画 | 終点座標、始点は省略可（カレントポジション） |
+| [`boxf`](/HSPPP_Lib/api/drawing#boxf) | 矩形の塗りつぶし | 引数なしで画面全体 |
+| [`circle`](/HSPPP_Lib/api/drawing#circle) | 円・楕円の描画 | fillMode: 0=線, 1=塗りつぶし |
+| [`pset`](/HSPPP_Lib/api/drawing#pset) | 点の描画 | 1ドット描画 |
+| [`pget`](/HSPPP_Lib/api/drawing#pget) | 点の色取得 | 取得した色を選択色に設定 |
+| [`mes`](/HSPPP_Lib/api/drawing#mes--print) | テキストの描画 | sw: 1=改行なし, 2=影, 4=縁取り等 |
+| [`print`](/HSPPP_Lib/api/drawing#mes--print) | テキストの描画 | `mes` の別名 |
+| [`gradf`](/HSPPP_Lib/api/drawing#gradf) | グラデーション矩形 | mode: 0=横, 1=縦 |
+| [`grect`](/HSPPP_Lib/api/drawing#grect) | 回転矩形 | 角度はラジアン |
+
+**詳細:** [描画 API](/HSPPP_Lib/api/drawing)
+
+---
 
 ### 画像
 
 | 関数 | 説明 | 備考 |
-|------|------|------|| `picload` | 画像ファイルの読み込み | mode: 0=初期化, 1=重ねる, 2=黒初期化 |
-| `bmpsave` | BMPファイルに保存 | |
-| `gcopy` | 画像のコピー | サイズ省略時はgmode設定 |
-| `gzoom` | 拡大縮小コピー | mode: 0=高速, 1=高品質 |
-| `grotate` | 回転コピー | 角度はラジアン |
-| `gmode` | コピーモードの設定 | gmode_copy, gmode_and, gmode_alpha等 |
-| `gsquare` | 4頂点描画 | Quad/QuadUV/QuadColors使用 |
+|------|------|------|
+| [`picload`](/HSPPP_Lib/api/drawing#picload) | 画像ファイルの読み込み | mode: 0=初期化, 1=重ねる, 2=黒初期化 |
+| [`bmpsave`](/HSPPP_Lib/api/drawing#bmpsave) | BMPファイルに保存 | |
+| [`gcopy`](/HSPPP_Lib/api/screen#gcopy) | 画像のコピー | サイズ省略時はgmode設定 |
+| [`gzoom`](/HSPPP_Lib/api/screen#gzoom) | 拡大縮小コピー | mode: 0=高速, 1=高品質 |
+| [`grotate`](/HSPPP_Lib/api/drawing#grotate) | 回転コピー | 角度はラジアン |
+| [`gmode`](/HSPPP_Lib/api/screen#gmode) | コピーモードの設定 | gmode_copy, gmode_and, gmode_alpha等 |
+| [`gsquare`](/HSPPP_Lib/api/drawing#gsquare) | 4頂点描画 | Quad/QuadUV/QuadColors使用 |
+
+**詳細:** [画面制御 API](/HSPPP_Lib/api/screen), [描画 API](/HSPPP_Lib/api/drawing)
+
+---
 
 ### GUI コントロール
 
 | 関数 | 説明 | 備考 |
-|------|------|------|| `button` | ボタンの作成 | `std::function<int()>` コールバック |
-| `input` | 入力ボックスの作成 | **`shared_ptr<string>` のみ** |
-| `mesbox` | メッセージボックスの作成 | **`shared_ptr<string>` のみ** |
-| `chkbox` | チェックボックスの作成 | **`shared_ptr<int>` のみ** |
-| `combox` | コンボボックスの作成 | **`shared_ptr<int>` のみ** |
-| `listbox` | リストボックスの作成 | **`shared_ptr<int>` のみ** |
-| `objsize` | オブジェクトサイズの設定 | デフォルト64x24 |
-| `objmode` | オブジェクトモード設定 | フォント設定モード |
-| `objcolor` | オブジェクトカラー設定 | RGB (0-255) |
-| `objprm` | オブジェクトパラメータの変更 | 文字列または整数 |
-| `objenable` | オブジェクト有効/無効 | 0=無効, 1=有効 |
-| `objsel` | フォーカス設定 | オブジェクトIDを指定 |
-| `clrobj` | オブジェクトの削除 | 範囲指定可 |
+|------|------|------|
+| [`button`](/HSPPP_Lib/api/gui#button) | ボタンの作成 | `std::function<int()>` コールバック |
+| [`input`](/HSPPP_Lib/api/gui#input) | 入力ボックスの作成 | **`shared_ptr<string>` のみ** |
+| [`mesbox`](/HSPPP_Lib/api/gui#mesbox) | メッセージボックスの作成 | **`shared_ptr<string>` のみ** |
+| [`chkbox`](/HSPPP_Lib/api/gui#chkbox) | チェックボックスの作成 | **`shared_ptr<int>` のみ** |
+| [`combox`](/HSPPP_Lib/api/gui#combox) | コンボボックスの作成 | **`shared_ptr<int>` のみ** |
+| [`listbox`](/HSPPP_Lib/api/gui#listbox) | リストボックスの作成 | **`shared_ptr<int>` のみ** |
+| [`objsize`](/HSPPP_Lib/api/gui#objsize) | オブジェクトサイズの設定 | デフォルト64x24 |
+| [`objmode`](/HSPPP_Lib/api/gui#objmode) | オブジェクトモード設定 | フォント設定モード |
+| [`objcolor`](/HSPPP_Lib/api/gui#objcolor) | オブジェクトカラー設定 | RGB (0-255) |
+| [`objprm`](/HSPPP_Lib/api/gui#objprm) | オブジェクトパラメータの変更 | 文字列または整数 |
+| [`objenable`](/HSPPP_Lib/api/gui#objenable) | オブジェクト有効/無効 | 0=無効, 1=有効 |
+| [`objsel`](/HSPPP_Lib/api/gui#objsel) | フォーカス設定 | オブジェクトIDを指定 |
+| [`clrobj`](/HSPPP_Lib/api/gui#clrobj) | オブジェクトの削除 | 範囲指定可 |
+
+**詳細:** [GUI API](/HSPPP_Lib/api/gui)
+
+---
 
 ### 入力
 
 | 関数 | 説明 | 備考 |
-|------|------|------|| `stick` | キー状態の取得 | 戻り値: ビットフラグ |
-| `getkey` | 特定キーの状態取得 | 仮想キーコード指定 |
-| `mousex` | マウスX座標の取得 | ウィンドウ内座標 |
-| `mousey` | マウスY座標の取得 | ウィンドウ内座標 |
-| `mousew` | マウスホイール値の取得 | 移動量 |
-| `mouse` | マウスカーソル座標設定 | ディスプレイ座標 |
+|------|------|------|
+| [`stick`](/HSPPP_Lib/api/input#stick) | キー状態の取得 | 戻り値: ビットフラグ |
+| [`getkey`](/HSPPP_Lib/api/input#getkey) | 特定キーの状態取得 | 仮想キーコード指定 |
+| [`mousex`](/HSPPP_Lib/api/input#mousex) | マウスX座標の取得 | ウィンドウ内座標 |
+| [`mousey`](/HSPPP_Lib/api/input#mousey) | マウスY座標の取得 | ウィンドウ内座標 |
+| [`mousew`](/HSPPP_Lib/api/input#mousew) | マウスホイール値の取得 | 移動量 |
+| [`mouse`](/HSPPP_Lib/api/input#mouse) | マウスカーソル座標設定 | ディスプレイ座標 |
+
+**詳細:** [入力 API](/HSPPP_Lib/api/input)
+
+---
 
 ### 割り込み
 
 | 関数 | 説明 | 備考 |
-|------|------|------|| `onclick` | クリック割り込み | `InterruptHandler` または 0/1 |
-| `onkey` | キー割り込み | `InterruptHandler` または 0/1 |
-| `oncmd` | Windowsメッセージ割り込み | メッセージID指定 |
-| `onexit` | 終了割り込み | `InterruptHandler` または 0/1 |
-| `onerror` | エラー割り込み | `ErrorHandler` または 0/1 |
-| `iparam` | 割り込みパラメータ取得 | wparam相当 |
-| `lparam` | 割り込みパラメータ取得 | lparam相当 |
+|------|------|------|
+| [`onclick`](/HSPPP_Lib/api/interrupt#onclick) | クリック割り込み | `InterruptHandler` または 0/1 |
+| [`onkey`](/HSPPP_Lib/api/interrupt#onkey) | キー割り込み | `InterruptHandler` または 0/1 |
+| [`oncmd`](/HSPPP_Lib/api/interrupt#oncmd) | Windowsメッセージ割り込み | メッセージID指定 |
+| [`onexit`](/HSPPP_Lib/api/interrupt#onexit) | 終了割り込み | `InterruptHandler` または 0/1 |
+| [`onerror`](/HSPPP_Lib/api/interrupt#onerror) | エラー割り込み | `ErrorHandler` または 0/1 |
+| [`iparam`](/HSPPP_Lib/api/interrupt#iparam--wparam--lparam) | 割り込みパラメータ取得 | wparam相当 |
+| [`lparam`](/HSPPP_Lib/api/interrupt#iparam--wparam--lparam) | 割り込みパラメータ取得 | lparam相当 |
+
+**詳細:** [割り込み API](/HSPPP_Lib/api/interrupt)
+
+---
 
 ### 時間・待機
 
 | 関数 | 説明 | 備考 |
-|------|------|------|| `await` | 待機（CPU負荷あり） | ミリ秒指定 |
-| `wait` | 待機（CPU負荷軽） | 10ms単位 |
+|------|------|------|
+| [`await`](/HSPPP_Lib/api/interrupt#await) | 高精度待機（メッセージ処理並行） | QueryPerformanceCounter使用、マイクロ秒精度 |
+| [`vwait`](/HSPPP_Lib/api/interrupt#vwait) | VSync同期待機 | フレームドロップ検出可能、経過時間を返す |
 | `gettime` | 時間・日付取得 | 0=年, 1=月, ... 7=ミリ秒 |
+
+**詳細:** [割り込み API](/HSPPP_Lib/api/interrupt)
+
+---
 
 ### プログラム制御
 
 | 関数 | 説明 | 備考 |
-|------|------|------|| `end` | プログラム終了 | `[[noreturn]]` |
-| `stop` | 実行一時停止 | 割り込み待機 |
+|------|------|------|
+| [`end`](/HSPPP_Lib/api/interrupt#end) | プログラム終了 | `[[noreturn]]` |
+| [`stop`](/HSPPP_Lib/api/interrupt#stop) | 実行一時停止 | 割り込み待機 |
+
+**詳細:** [割り込み API](/HSPPP_Lib/api/interrupt)
+
+---
 
 ### ファイル
 
 | 関数 | 説明 | 備考 |
-|------|------|------|| `exist` | ファイル存在確認 | |
-| `bload` | バイナリ読み込み | `string&` または `vector<uint8_t>&` |
-| `bsave` | バイナリ保存 | `string&` または `vector<uint8_t>&` |
-| `noteload` | テキスト読み込み | |
-| `notesave` | テキスト保存 | |
-| `dirlist` | ディレクトリ一覧 | `vector<string>` を返す |
-| `dirinfo` | ディレクトリ情報 | dir_type_* 定数使用 |
+|------|------|------|
+| [`exist`](/HSPPP_Lib/api/file#exist) | ファイル存在確認 | |
+| [`bload`](/HSPPP_Lib/api/file#bload) | バイナリ読み込み | `string&` または `vector<uint8_t>&` |
+| [`bsave`](/HSPPP_Lib/api/file#bsave) | バイナリ保存 | `string&` または `vector<uint8_t>&` |
+| [`noteload`](/HSPPP_Lib/api/file#noteload) | テキスト読み込み | |
+| [`notesave`](/HSPPP_Lib/api/file#notesave) | テキスト保存 | |
+| [`dirlist`](/HSPPP_Lib/api/file#dirlist) | ディレクトリ一覧 | `vector<string>` を返す |
+| [`dirinfo`](/HSPPP_Lib/api/file#dirinfo) | ディレクトリ情報 | dir_type_* 定数使用 |
+
+**詳細:** [ファイル操作 API](/HSPPP_Lib/api/file)
+
+---
 
 ### ダイアログ
 
 | 関数 | 説明 | 備考 |
-|------|------|------|| `dialog` | ダイアログ表示 | `DialogResult` を返す |
+|------|------|------|
+| [`dialog`](/HSPPP_Lib/api/file#dialog) | ダイアログ表示 | `DialogResult` を返す |
+
+**詳細:** [ファイル操作 API](/HSPPP_Lib/api/file)
+
+---
 
 ### メディア
 
 | 関数 | 説明 | 備考 |
-|------|------|------|| `mmload` | メディアファイル読み込み | WAV/MP3/MP4等 |
-| `mmplay` | メディア再生 | |
-| `mmstop` | メディア停止 | -1で全停止 |
-| `mmvol` | 音量設定 | -1000〜0 |
-| `mmpan` | パン設定 | -1000〜1000 |
-| `mmstat` | メディア状態取得 | |
+|------|------|------|
+| [`mmload`](/HSPPP_Lib/api/media#mmload) | メディアファイル読み込み | WAV/MP3/MP4等 |
+| [`mmplay`](/HSPPP_Lib/api/media#mmplay) | メディア再生 | |
+| [`mmstop`](/HSPPP_Lib/api/media#mmstop) | メディア停止 | -1で全停止 |
+| [`mmvol`](/HSPPP_Lib/api/media#mmvol) | 音量設定 | -1000〜0 |
+| [`mmpan`](/HSPPP_Lib/api/media#mmpan) | パン設定 | -1000〜1000 |
+| [`mmstat`](/HSPPP_Lib/api/media#mmstat) | メディア状態取得 | |
+
+**詳細:** [メディア API](/HSPPP_Lib/api/media)
+
+---
 
 ### 情報取得
 
 | 関数 | 説明 | 備考 |
-|------|------|------|| `ginfo` | ウィンドウ情報取得 | ginfo_type_* 定数使用 |
-| `ginfo_*` | 個別情報取得関数 | ginfo_mx, ginfo_my, ginfo_sel 等 |
+|------|------|------|
+| [`ginfo`](/HSPPP_Lib/api/screen#ginfo) | ウィンドウ情報取得 | ginfo_type_* 定数使用 |
+| [`ginfo_mx`](/HSPPP_Lib/api/screen#便利関数) | マウスX座標取得 | `ginfo(ginfo_type_mx)` の別名 |
+| [`ginfo_my`](/HSPPP_Lib/api/screen#便利関数) | マウスY座標取得 | `ginfo(ginfo_type_my)` の別名 |
+| [`ginfo_sel`](/HSPPP_Lib/api/screen#便利関数) | 描画先ID取得 | `ginfo(ginfo_type_sel)` の別名 |
+| [`ginfo_sizex`](/HSPPP_Lib/api/screen#便利関数) | 画面幅取得 | `ginfo(ginfo_type_sizex)` の別名 |
+| [`ginfo_sizey`](/HSPPP_Lib/api/screen#便利関数) | 画面高さ取得 | `ginfo(ginfo_type_sizey)` の別名 |
+| [`ginfo_r`](/HSPPP_Lib/api/screen#便利関数) | 描画色R取得 | `ginfo(ginfo_type_r)` の別名 |
+| [`ginfo_g`](/HSPPP_Lib/api/screen#便利関数) | 描画色G取得 | `ginfo(ginfo_type_g)` の別名 |
+| [`ginfo_b`](/HSPPP_Lib/api/screen#便利関数) | 描画色B取得 | `ginfo(ginfo_type_b)` の別名 |
+| [`ginfo_fps`](/HSPPP_Lib/api/screen#便利関数) | リフレッシュレート取得 | `ginfo(ginfo_type_fps)` の別名 |
+
+**詳細:** [画面制御 API](/HSPPP_Lib/api/screen)
+
+---
+
+## OOP版 クラスリファレンス
+
+### Screen クラス
+
+`screen()`, `buffer()`, `bgscr()` が返す軽量ハンドルクラス。メソッドチェーンに対応。
+
+| メソッド | 説明 |
+|---------|------|
+| `id()` | ウィンドウIDを取得 |
+| `valid()` | 有効なハンドルか確認 |
+| `select()` | このScreenを描画先に設定（gsel相当） |
+| `show()` | ウィンドウを表示（gsel id, 1 相当） |
+| `hide()` | ウィンドウを非表示（gsel id, -1 相当） |
+| `activate()` | 最前面でアクティブ化（gsel id, 2 相当） |
+| `width()` / `height()` | サイズ取得 |
+| `color()` | 描画色設定（メソッドチェーン対応） |
+| `pos()` | 描画位置設定（メソッドチェーン対応） |
+| `line()`, `boxf()`, `circle()` 等 | 描画メソッド |
+
+**詳細:** [画面制御 API - Screen クラス](/HSPPP_Lib/api/screen#screen-クラスoop版)
+
+---
+
+### NotePad クラス
+
+メモリノートパッド（テキストバッファ）のOOP版クラス。
+
+| メソッド | 説明 |
+|---------|------|
+| `count()` | 行数取得 |
+| `empty()` | 空かどうか |
+| `size()` | 総バイト数 |
+| `get(index)` | 行取得 |
+| `add(text, index, overwrite)` | 行追加 |
+| `del(index)` | 行削除 |
+| `clear()` | 全クリア |
+| `find(search, mode, startIndex)` | 検索 |
+| `load(filename, maxSize)` | ファイル読み込み |
+| `save(filename)` | ファイル保存 |
+| `buffer()` | 内部バッファアクセス |
+
+**詳細:** [文字列操作 API - NotePad クラス](/HSPPP_Lib/api/string#notepadクラスoop版)
+
+---
+
+### Media クラス
+
+メディア再生のOOP版クラス。メソッドチェーンに対応。
+
+| メソッド | 説明 |
+|---------|------|
+| `load(filename)` | ファイル読み込み |
+| `unload()` | アンロード |
+| `play()` | 再生開始 |
+| `stop()` | 停止 |
+| `vol(v)` | 音量設定（メソッドチェーン対応） |
+| `pan(p)` | パン設定（メソッドチェーン対応） |
+| `loop(l)` | ループ設定（メソッドチェーン対応） |
+| `mode(m)` | 再生モード設定（メソッドチェーン対応） |
+| `target(screenId)` | 動画再生先指定 |
+| `stat()` | 状態取得 |
+| `playing()` | 再生中かどうか |
+| `loaded()` | 読み込み済みかどうか |
+| `id()` | メディアID取得 |
+
+**詳細:** [メディア API - Media クラス](/HSPPP_Lib/api/media#基本使用法)
 
 ---
 
@@ -157,7 +272,7 @@ HSPPP の全 API リファレンスです。
 
 ### ライフタイム安全性
 
-以下の関数は `shared_ptr` 版のみ提供しています（[FAQ](../faq.md#q-chkbox-に-int-を渡せないのはなぜですか) 参照）：
+以下の関数は `shared_ptr` 版のみ提供しています（[FAQ](/HSPPP_Lib/faq#q-chkbox-に-int-を渡せないのはなぜですか) 参照）：
 
 - `chkbox(label, std::shared_ptr<int>)`
 - `combox(std::shared_ptr<int>, expandY, items)`
@@ -192,7 +307,7 @@ win.color(255, 0, 0).boxf(0, 0, 100, 100);
 
 ## 型定義
 
-型定義の詳細は [型定義リファレンス](types.md) を参照してください。
+型定義の詳細は [型定義リファレンス](/HSPPP_Lib/api/types) を参照してください。
 
 ### 主要な型
 
@@ -212,6 +327,6 @@ win.color(255, 0, 0).boxf(0, 0, 100, 100);
 
 ## 参照
 
-- [FAQ](../faq.md)
-- [チュートリアル](../guides/tutorial.md)
-- [HSPからの移行ガイド](../guides/migration-from-hsp.md)
+- [FAQ](/HSPPP_Lib/faq)
+- [チュートリアル](/HSPPP_Lib/guides/tutorial)
+- [HSPからの移行ガイド](/HSPPP_Lib/guides/migration-from-hsp)

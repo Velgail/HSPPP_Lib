@@ -453,6 +453,6 @@ void hspMain() {
 
 ## 参照
 
-- [画面制御 API](screen.md)
-- [型定義](types.md)
-- [FAQ](../faq.md)（shared_ptr を使う理由）
+- [画面制御 API](/HSPPP_Lib/api/screen)
+- [型定義](/HSPPP_Lib/api/types)
+- [FAQ](/HSPPP_Lib/faq)（shared_ptr を使う理由）

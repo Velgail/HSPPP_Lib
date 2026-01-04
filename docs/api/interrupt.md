@@ -9,17 +9,13 @@ title: 割り込みAPI
 
 ## 目次
 
-- [割り込みハンドラ設定](#割り込みハンドラ設定)
-- [割り込み情報取得](#割り込み情報取得)
-- [プログラム制御](#プログラム制御)
+- [割り込みハンドラ](#割り込みハンドラ)
 - [時間・待機](#時間待機)
-- [エラー処理](#エラー処理)
-- [システムハンドル](#システムハンドル)
-- [メッセージ送信](#メッセージ送信)
+- [プログラム制御](#プログラム制御)
 
 ---
 
-## 割り込みハンドラ設定
+## 割り込みハンドラ
 
 ### onclick
 
@@ -131,8 +127,6 @@ onerror([](const HspErrorBase& e) { /* ... */ });
 
 ---
 
-## 割り込み情報取得
-
 ### iparam / wparam / lparam
 
 割り込み発生時のパラメータを取得します。
@@ -148,6 +142,84 @@ int lparam() noexcept;   // lparam相当
 ```cpp
 onkey([]() { /* ... */ });
 ```
+
+---
+
+## 時間・待機
+
+### await
+
+マイクロ秒精度の待機処理を行います（メッセージ処理並行）。
+
+```cpp
+void await(int time_ms);
+```
+
+**特徴:**
+- `QueryPerformanceCounter` を使用した高精度タイマー（マイクロ秒単位）
+- 待機中もWindows メッセージを処理
+- 割り込みハンドラも処理可能
+
+**パラメータ:**
+- `time_ms` : 待機時間（ミリ秒、0以上）
+
+**使用例:**
+
+```cpp
+// 16ms待機（約60FPS）
+await(16);
+
+// フレームレート制御
+int target_fps = 144;
+while (true) {
+    redraw(0);
+    // ... 描画処理 ...
+    redraw(1);
+    await(1000 / target_fps);
+}
+```
+
+---
+
+### vwait
+
+VSync同期待機を行います。フレームドロップ検出対応。
+
+```cpp
+double vwait();
+```
+
+**特徴:**
+- 画面のVSync信号に同期してPresent実行
+- 戻り値で前回からの経過時間を取得
+- フレームドロップ検出が可能
+
+**戻り値:**
+- 前回の `vwait()` 呼び出しからの経過時間（ミリ秒）
+
+**使用例:**
+
+```cpp
+int fps = ginfo_fps();  // 60 or 144 等
+double expected_ms = 1000.0 / fps;
+
+while (true) {
+    redraw(0);
+    // ... 描画処理 ...
+    redraw(1);
+    
+    double elapsed = vwait();
+    
+    // フレームドロップ検出
+    if (elapsed > expected_ms * 1.5) {
+        logmes("FPS DROPPED: " + str(static_cast<int>(elapsed)) + "ms");
+    }
+}
+```
+
+**注意:**
+- `vwait()` は `redraw(1)` と併用して使用してください
+- マルチモニター環境でも機能します
 
 ---
 
@@ -196,5 +268,5 @@ if (getkey(27)) { /* ... */ }
 
 ## 参照
 
-- [入力 API](input.md)
-- [型定義](types.md)（InterruptHandler, ErrorHandler）
+- [入力 API](/HSPPP_Lib/api/input)
+- [型定義](/HSPPP_Lib/api/types)（InterruptHandler, ErrorHandler）

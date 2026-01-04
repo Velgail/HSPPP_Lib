@@ -540,6 +540,7 @@ public:
 
     // 画面に転送
     void present();
+    void presentVsync();  // VSync同期版
     void endDrawAndPresent() override;
 
     // ゲッター

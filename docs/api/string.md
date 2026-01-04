@@ -589,5 +589,5 @@ using std::search;
 
 ## 参照
 
-- [ファイル操作 API](file.md)
-- [数学 API](math.md)（str, toInt, toDouble の数値版）
+- [ファイル操作 API](/HSPPP_Lib/api/file)
+- [数学 API](/HSPPP_Lib/api/math)（str, toInt, toDouble の数値版）

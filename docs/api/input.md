@@ -248,5 +248,5 @@ void hspMain() {
 
 ## 参照
 
-- [割り込み API](interrupt.md)（onclick, onkey）
-- [GUI API](gui.md)（button, input）
+- [割り込み API](/HSPPP_Lib/api/interrupt)（onclick, onkey）
+- [GUI API](/HSPPP_Lib/api/gui)（button, input）

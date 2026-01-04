@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `version.hpp` によるバージョン番号管理
   - `hsppp::get_version()` / `hsppp::version()` 関数
   - ビルド時のバージョン情報表示
+- 高精度タイミング機能
+  - `await()` の高精度化：QueryPerformanceCounter を使用（マイクロ秒単位）
+  - `vwait()` の新規追加：VSync 同期待機関数
+  - `ginfo_fps` 定数と `ginfo_fps()` 関数の実装：モニター最大リフレッシュレート取得
 
 ### Changed
 

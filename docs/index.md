@@ -42,17 +42,17 @@ void hspMain() {
 
 ### ガイド
 
-- [インストールガイド](guides/installation.md) - 環境構築とビルド方法
-- [チュートリアル](guides/tutorial.md) - 基本的な使い方を学ぶ
-- [HSPからの移行ガイド](guides/migration-from-hsp.md) - HSPユーザー向けの移行ガイド
+- [インストールガイド](/HSPPP_Lib/guides/installation) - 環境構築とビルド方法
+- [チュートリアル](/HSPPP_Lib/guides/tutorial) - 基本的な使い方を学ぶ
+- [HSPからの移行ガイド](/HSPPP_Lib/guides/migration-from-hsp) - HSPユーザー向けの移行ガイド
 
 ### リファレンス
 
-- [API リファレンス](api/index.md) - 全API一覧と詳細説明
+- [API リファレンス](/HSPPP_Lib/api/) - 全API一覧と詳細説明
 
 ### その他
 
-- [FAQ](faq.md) - よくある質問
+- [FAQ](/HSPPP_Lib/faq) - よくある質問
 
 ## 特徴
 

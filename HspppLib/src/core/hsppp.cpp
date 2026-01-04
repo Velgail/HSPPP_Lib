@@ -70,7 +70,25 @@ namespace {
 
     // システム状態
     bool g_shouldQuit = false;
-    DWORD g_lastAwaitTime = 0;
+    
+    // 高精度タイマー用
+    LARGE_INTEGER g_perfFrequency = {};     // パフォーマンスカウンタ周波数
+    LARGE_INTEGER g_lastAwaitTime = {};     // await用: 前回の呼び出し時刻
+    LARGE_INTEGER g_lastVwaitTime = {};     // vwait用: 前回の呼び出し時刻
+    bool g_timerInitialized = false;        // 初期化済みフラグ
+    
+    // 高精度タイマーの初期化
+    void initHighResolutionTimer() {
+        if (!g_timerInitialized) {
+            QueryPerformanceFrequency(&g_perfFrequency);
+            g_timerInitialized = true;
+        }
+    }
+    
+    // パフォーマンスカウンタをミリ秒に変換
+    double perfCounterToMs(LONGLONG ticks) {
+        return (static_cast<double>(ticks) * 1000.0) / static_cast<double>(g_perfFrequency.QuadPart);
+    }
 
     // マウスホイール状態
     int g_mouseWheelDelta = 0;

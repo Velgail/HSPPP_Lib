@@ -375,5 +375,5 @@ void loadConfig(int& volume, int& difficulty) {
 
 ## 参照
 
-- [文字列操作 API](string.md)（NotePad クラス）
-- [型定義](types.md)（DialogResult）
+- [文字列操作 API](/HSPPP_Lib/api/string)（NotePad クラス）
+- [型定義](/HSPPP_Lib/api/types)（DialogResult）

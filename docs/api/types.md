@@ -464,6 +464,6 @@ onerror([](const HspErrorBase& e) {
 
 ## 参照
 
-- [画面制御 API](screen.md)
-- [描画 API](drawing.md)
-- [割り込み API](interrupt.md)
+- [画面制御 API](/HSPPP_Lib/api/screen)
+- [描画 API](/HSPPP_Lib/api/drawing)
+- [割り込み API](/HSPPP_Lib/api/interrupt)

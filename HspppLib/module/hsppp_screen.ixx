@@ -113,8 +113,15 @@ export namespace hsppp {
     /// @param p1 0=描画予約(Offscreen), 1=画面反映(Present)
     void redraw(int p1 = 1, const std::source_location& location = std::source_location::current());
 
-    /// @brief 待機＆メッセージ処理 (HSP互換)
+    /// @brief 待機＆メッセージ処理 (HSP互換・高精度版)
+    /// @details QueryPerformanceCounterを使用した高精度タイマー実装
     void await(int time_ms, const std::source_location& location = std::source_location::current());
+    
+    /// @brief VSync同期待機
+    /// @return 前回のvwait呼び出しからの経過時間（ミリ秒）
+    /// @details 画面のVSync信号に同期して待機します。
+    ///          戻り値でフレームレートの乱れを検出できます。
+    double vwait(const std::source_location& location = std::source_location::current());
 
     /// @brief プログラム終了 (HSP互換)
     [[noreturn]] void end(int exitcode = 0, const std::source_location& location = std::source_location::current());
@@ -202,6 +209,7 @@ export namespace hsppp {
     inline constexpr int ginfo_type_newid     = 25;
     inline constexpr int ginfo_type_sx        = 26;
     inline constexpr int ginfo_type_sy        = 27;
+    inline constexpr int ginfo_type_fps       = 28;  // 画面リフレッシュレート（マルチモニター時は最大値）
 
     // ============================================================
     // ginfo関数
@@ -209,6 +217,10 @@ export namespace hsppp {
 
     /// @brief ウィンドウ関連情報を取得
     int ginfo(int type, const std::source_location& location = std::source_location::current());
+    
+    /// @brief 画面のリフレッシュレート（Hz）を取得
+    /// @details マルチモニター環境では接続されているモニターの中で最大のリフレッシュレートを返します
+    int get_framerate(const std::source_location& location = std::source_location::current());
 
     // ginfo_* マクロ/システム変数互換
     int ginfo_mx(const std::source_location& location = std::source_location::current());
@@ -239,6 +251,7 @@ export namespace hsppp {
     int ginfo_r(const std::source_location& location = std::source_location::current());
     int ginfo_g(const std::source_location& location = std::source_location::current());
     int ginfo_b(const std::source_location& location = std::source_location::current());
+    int ginfo_fps(const std::source_location& location = std::source_location::current());
 
     /// @brief 時間・日付を取得する
     /// @param type 取得するタイプ (0=年, 1=月, 2=曜日, 3=日, 4=時, 5=分, 6=秒, 7=ミリ秒)

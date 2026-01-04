@@ -42,6 +42,56 @@ namespace hsppp {
         return *this;
     }
 
+    double Screen::vwait(const std::source_location& location) {
+        return safe_call(location, [&]() -> double {
+            // 高精度タイマーの初期化
+            initHighResolutionTimer();
+            
+            // 現在時刻を取得
+            LARGE_INTEGER currentTime;
+            QueryPerformanceCounter(&currentTime);
+            
+            // 前回からの経過時間を計算
+            double elapsedMs = 0.0;
+            if (g_lastVwaitTime.QuadPart != 0) {
+                elapsedMs = perfCounterToMs(currentTime.QuadPart - g_lastVwaitTime.QuadPart);
+            }
+            
+            // メッセージ処理（ペンディング分を処理）
+            MSG msg;
+            while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
+                if (processPendingInterrupt()) {
+                    // 割り込みハンドラが呼ばれた
+                }
+                if (msg.message == WM_QUIT) {
+                    g_shouldQuit = true;
+                    return elapsedMs;
+                }
+                TranslateMessage(&msg);
+                DispatchMessage(&msg);
+            }
+            
+        // このウィンドウの描画バッファをフラッシュしてVSync同期Present
+        auto surface = getSurfaceById(m_id);
+        if (surface) {
+            // 描画中なら先にEndDraw
+            if (surface->isDrawing()) {
+                surface->endDraw();
+            }
+            
+            auto pWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
+            if (pWindow) {
+                pWindow->presentVsync();
+            }
+        }
+        
+        // 次回のvwaitのために現在時刻を記録
+        QueryPerformanceCounter(&g_lastVwaitTime);
+            
+            return elapsedMs;
+        });
+    }
+
     Screen& Screen::mes(std::string_view text, OptInt sw, const std::source_location& location) {
         safe_call(location, [&] {
             auto surface = getSurfaceById(m_id);

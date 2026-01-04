@@ -619,6 +619,11 @@ export namespace hsppp {
         /// @brief ウィンドウを最前面でアクティブ化（gsel id, 2 相当）
         Screen& activate(const std::source_location& location = std::source_location::current());
 
+        /// @brief VSync同期待機（OOP版）
+        /// @return 前回のvwait呼び出しからの経過時間（ミリ秒）
+        /// @details 描画バッファを自動的にフラッシュしてVSync同期Present
+        double vwait(const std::source_location& location = std::source_location::current());
+
         // ============================================================
         // Cel描画（OOP版・Screen側主体）
         // ============================================================

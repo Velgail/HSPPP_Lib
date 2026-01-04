@@ -151,53 +151,14 @@ namespace hsppp {
     }
     
     // ============================================================
-    // vwait - VSync同期待機
+    // vwait - VSync同期待機（グローバル版はOOP版を呼ぶ）
     // ============================================================
-    // 戻り値: 前回のvwait呼び出しからの経過時間（ミリ秒）
+    // 全ウィンドウの描画バッファをフラッシュしてからVSync同期
+    // 戻り値: 前回のvwait呼び出しからの経過時間(ミリ秒)
     double vwait(const std::source_location& location) {
-        return safe_call(location, [&]() -> double {
-            // 高精度タイマーの初期化
-            initHighResolutionTimer();
-            
-            // 現在時刻を取得
-            LARGE_INTEGER currentTime;
-            QueryPerformanceCounter(&currentTime);
-            
-            // 前回からの経過時間を計算
-            double elapsedMs = 0.0;
-            if (g_lastVwaitTime.QuadPart != 0) {
-                elapsedMs = perfCounterToMs(currentTime.QuadPart - g_lastVwaitTime.QuadPart);
-            }
-            
-            // メッセージ処理（ペンディング分を処理）
-            MSG msg;
-            while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
-                if (processPendingInterrupt()) {
-                    // 割り込みハンドラが呼ばれた
-                }
-                if (msg.message == WM_QUIT) {
-                    g_shouldQuit = true;
-                    return elapsedMs;
-                }
-                TranslateMessage(&msg);
-                DispatchMessage(&msg);
-            }
-            
-            // 現在のウィンドウでVSync同期のPresent実行
-            auto currentSurface = getCurrentSurface();
-            if (currentSurface) {
-                using namespace internal;
-                auto pWindow = std::dynamic_pointer_cast<HspWindow>(currentSurface);
-                if (pWindow) {
-                    pWindow->presentVsync();
-                }
-            }
-            
-            // 次回のvwaitのために現在時刻を記録
-            QueryPerformanceCounter(&g_lastVwaitTime);
-            
-            return elapsedMs;
-        });
+        // OOP版を呼び出す（現在のスクリーンID）
+        Screen screen(g_currentScreenId);
+        return screen.vwait(location);
     }
 
     // プログラム終了 (HSP互換)

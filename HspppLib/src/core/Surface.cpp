@@ -459,7 +459,7 @@ void HspSurface::mes(std::string_view text, int options) {
     bool nocr = (options & 1) != 0;        // mesopt_nocr: 改行しない
     bool shadow = (options & 2) != 0;      // mesopt_shadow: 影付き
     bool outline = (options & 4) != 0;     // mesopt_outline: 縁取り
-    bool light = (options & 8) != 0;       // mesopt_light: 簡易描画
+    [[maybe_unused]] bool light = (options & 8) != 0;       // mesopt_light: 簡易描画
     // bool gmode = (options & 16) != 0;   // mesopt_gmode: gmode反映（未実装）
 
     D2D1_RECT_F layoutRect = D2D1::RectF(

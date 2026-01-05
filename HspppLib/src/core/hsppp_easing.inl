@@ -158,7 +158,7 @@ namespace hsppp {
     // イージング関数の実装
     // ============================================================
 
-    void setease(double p1, double p2, OptInt p3, const std::source_location& location) {
+    void setease(double p1, double p2, OptInt p3, [[maybe_unused]] const std::source_location& location) {
         g_easeMin = p1;
         g_easeMax = p2;
         if (!p3.is_default()) {
@@ -166,7 +166,7 @@ namespace hsppp {
         }
     }
 
-    int getease(int p1, OptInt p2, const std::source_location& location) {
+    int getease(int p1, OptInt p2, [[maybe_unused]] const std::source_location& location) {
         int maxVal = p2.value_or(4096);
         if (maxVal <= 0) {
             return static_cast<int>(g_easeMin);
@@ -178,7 +178,7 @@ namespace hsppp {
         return static_cast<int>(result);
     }
 
-    double geteasef(double p1, OptDouble p2, const std::source_location& location) {
+    double geteasef(double p1, OptDouble p2, [[maybe_unused]] const std::source_location& location) {
         double maxVal = p2.value_or(1.0);
         if (maxVal <= 0.0) {
             return g_easeMin;
@@ -228,15 +228,15 @@ namespace hsppp {
         }
     }
 
-    void sortval(std::vector<int>& arr, OptInt order, const std::source_location& location) {
+    void sortval(std::vector<int>& arr, OptInt order, [[maybe_unused]] const std::source_location& location) {
         sortImpl(arr, order.value_or(0) == 1);
     }
 
-    void sortval(std::vector<double>& arr, OptInt order, const std::source_location& location) {
+    void sortval(std::vector<double>& arr, OptInt order, [[maybe_unused]] const std::source_location& location) {
         sortImpl(arr, order.value_or(0) == 1);
     }
 
-    void sortstr(std::vector<std::string>& arr, OptInt order, const std::source_location& location) {
+    void sortstr(std::vector<std::string>& arr, OptInt order, [[maybe_unused]] const std::source_location& location) {
         sortImpl(arr, order.value_or(0) == 1);
     }
 
@@ -281,7 +281,7 @@ namespace hsppp {
     // デバッグ出力の実装
     // ============================================================
 
-    void logmes(std::string_view message, const std::source_location& location) {
+    void logmes(std::string_view message, [[maybe_unused]] const std::source_location& location) {
         // UTF-8からワイド文字列への変換
         int wlen = MultiByteToWideChar(CP_UTF8, 0, message.data(), 
             static_cast<int>(message.size()), nullptr, 0);

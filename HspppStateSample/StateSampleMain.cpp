@@ -112,7 +112,7 @@ void hspMain() {
           color(100, 100, 100);
           boxf(170, 280, 470, 300);
           color(100, 200, 255);
-          boxf(170, 280, 170 + progress * 3, 300);
+          boxf(170, 280, 170 + static_cast<int>(progress * 3), 300);
           
           vwait();  // アニメーション画面: 60FPS
       });

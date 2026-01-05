@@ -101,7 +101,6 @@ namespace hsppp {
 
             // 指定時間に満たない場合は待機
             if (elapsedMs < static_cast<double>(time_ms)) {
-                double waitTimeMs = static_cast<double>(time_ms) - elapsedMs;
                 LONGLONG targetTicks = g_lastAwaitTime.QuadPart + 
                     (static_cast<LONGLONG>(time_ms) * g_perfFrequency.QuadPart / 1000);
 
@@ -179,7 +178,7 @@ namespace hsppp {
     }
 
     // プログラム終了 (HSP互換)
-    [[noreturn]] void end(int exitcode, const std::source_location& location) {
+    [[noreturn]] void end(int exitcode, [[maybe_unused]] const std::source_location& location) {
         // 描画中のサーフェスがあれば終了処理
         auto currentSurface = getCurrentSurface();
         if (currentSurface && currentSurface->isDrawing()) {

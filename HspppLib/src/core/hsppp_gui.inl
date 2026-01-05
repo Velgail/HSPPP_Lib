@@ -307,7 +307,6 @@ int listbox(std::shared_ptr<int> var, OptInt expandY, std::string_view items, co
         
         // Surface から objsize を取得
         int objW = surface->getObjSizeX();
-        int objH = surface->getObjSizeY();
         int objSpace = surface->getObjSpaceY();
         int height = expandY.value_or(100);
         

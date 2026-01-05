@@ -173,7 +173,7 @@ namespace hsppp {
     // ============================================================
 
     // 内部実装：バッファ作成の共通処理
-    static Screen createBufferInternal(int id, int width, int height, int mode) {
+    static Screen createBufferInternal(int id, int width, int height, [[maybe_unused]] int mode) {
         using namespace internal;
 
         // パラメータ範囲チェック

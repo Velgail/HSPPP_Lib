@@ -242,7 +242,7 @@ namespace hsppp::internal {
     void MediaManager_initialize();
     void MediaManager_shutdown();
 
-    void init_system(const std::source_location& location) {
+    void init_system([[maybe_unused]] const std::source_location& location) {
         // COM初期化
         CoInitialize(nullptr);
 
@@ -264,7 +264,7 @@ namespace hsppp::internal {
         MediaManager_initialize();
     }
 
-    void close_system(const std::source_location& location) {
+    void close_system([[maybe_unused]] const std::source_location& location) {
         // マルチメディアマネージャーの終了
         MediaManager_shutdown();
 

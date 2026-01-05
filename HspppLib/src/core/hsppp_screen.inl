@@ -71,6 +71,11 @@ namespace hsppp {
                 DispatchMessage(&msg);
             }
             
+            // メッセージ処理中に終了フラグが立った場合は早期リターン
+            if (g_shouldQuit) {
+                return elapsedMs;
+            }
+            
         // このウィンドウの描画バッファをフラッシュしてVSync同期Present
         auto surface = getSurfaceById(m_id);
         if (surface) {

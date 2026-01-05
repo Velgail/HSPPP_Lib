@@ -132,13 +132,25 @@ namespace hsppp {
     // ============================================================
     // stop - プログラム実行を一時停止
     // ============================================================
+    // StateMachine コンテキスト内では遷移予約を検出して早期リターン
 
     void stop(const std::source_location& location) {
         safe_call(location, [&] {
             MSG msg;
+            
+            // StateMachine コンテキストを取得（遷移チェック用）
+            auto* sm_context = detail::get_current_statemachine();
 
             // 割り込みが発生するまでメッセージループ
             while (!g_shouldQuit) {
+                // StateMachine コンテキストがある場合、遷移予約をチェック
+                if (sm_context) {
+                    if (sm_context->should_transition() || !sm_context->is_running()) {
+                        // 遷移が予約されている、またはステートマシン終了
+                        return;
+                    }
+                }
+                
                 // ペンディング中の割り込みを処理
                 if (processPendingInterrupt()) {
                     return;  // 割り込みハンドラが呼ばれたら戻る

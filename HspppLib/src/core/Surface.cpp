@@ -1490,10 +1490,20 @@ void HspWindow::presentInternal(UINT syncInterval, UINT flags) {
     m_pDeviceContext->EndDraw();
 
     // 画面に表示（syncInterval: 0=即座, 1=VSync同期）
-    m_pSwapChain->Present(syncInterval, flags);
+    // VSync待機中にウィンドウが破棄される可能性があるため、HRESULTをチェック
+    if (m_pSwapChain) {
+        HRESULT hr = m_pSwapChain->Present(syncInterval, flags);
+        // エラーが返った場合（ウィンドウ破棄等）は無視して継続
+        // DXGI_ERROR_INVALID_CALL、DXGI_ERROR_DEVICE_RESETなど
+        if (FAILED(hr)) {
+            // VSync待機完了後のエラーなので、静かに無視
+        }
+    }
 
     // 描画先をオフスクリーンビットマップに戻す
-    m_pDeviceContext->SetTarget(m_pTargetBitmap.Get());
+    if (m_pDeviceContext && m_pTargetBitmap) {
+        m_pDeviceContext->SetTarget(m_pTargetBitmap.Get());
+    }
 }
 
 void HspWindow::presentVsync() {

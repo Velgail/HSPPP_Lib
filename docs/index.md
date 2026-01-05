@@ -40,11 +40,19 @@ void hspMain() {
 
 ## ドキュメント
 
-### ガイド
+### クイックスタートガイド
 
 - [インストールガイド](/HSPPP_Lib/guides/installation) - 環境構築とビルド方法
 - [チュートリアル](/HSPPP_Lib/guides/tutorial) - 基本的な使い方を学ぶ
-- [HSPからの移行ガイド](/HSPPP_Lib/guides/migration-from-hsp) - HSPユーザー向けの移行ガイド
+
+### アーキテクチャ・パターンガイド
+
+- [ステートパターンガイド](/HSPPP_Lib/guides/state-pattern) - ゲームフロー・UI遷移の設計パターン
+- [HSP goto 移行ガイド](/HSPPP_Lib/guides/hsp-goto-migration) - HSPの `*label` / `goto` をステートマシンに移行
+
+### HSPユーザー向けガイド
+
+- [HSPからの移行ガイド](/HSPPP_Lib/guides/migration-from-hsp) - HSPと C++ の構文・概念の対応表
 
 ### リファレンス
 

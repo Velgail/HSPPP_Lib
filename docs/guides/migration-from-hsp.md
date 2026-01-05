@@ -347,6 +347,81 @@ void hspMain() {
 
 ---
 
+## goto / gosub の置き換え
+
+HSPの `goto` と `gosub` を C++ で実装する方法は、複雑さによって異なります。
+
+### Simple goto: 単純な制御フロー
+
+複数の画面遷移を含むゲームやアプリケーションでは、**ステートマシン**を使用します。
+
+```hsp
+; HSP例
+*title
+    mes "Title"
+    if key & 32 : goto *game
+
+*game
+    mes "Playing"
+    if key & 128 : goto *title
+```
+
+```cpp
+// HSPPP推奨: StateMachine を使用
+enum class Screen { Title, Game };
+auto sm = StateMachine<Screen>();
+
+sm.state(Screen::Title)
+  .on_update([&](auto& sm) {
+      mes("Title");
+      if (getkey(' ')) sm.jump(Screen::Game);
+  });
+
+sm.state(Screen::Game)
+  .on_update([&](auto& sm) {
+      mes("Playing");
+      if (getkey(VK_ESCAPE)) sm.jump(Screen::Title);
+  });
+
+sm.jump(Screen::Title);
+while (sm.run()) await(16);
+```
+
+詳細は [HSP goto 移行ガイド](/HSPPP_Lib/guides/hsp-goto-migration) を参照してください。
+
+### gosub: サブルーチン呼び出し
+
+`gosub` は単純に関数に置き換えます。
+
+```hsp
+; HSP例
+*main
+    gosub *draw_bg
+    gosub *draw_player
+
+*draw_bg
+    boxf 0, 0, 640, 480
+    return
+```
+
+```cpp
+// HSPPP: 関数に置き換え
+void draw_bg() {
+    boxf(0, 0, 640, 480);
+}
+
+void draw_player() {
+    // ...
+}
+
+void hspMain() {
+    draw_bg();
+    draw_player();
+}
+```
+
+---
+
 ## チェックリスト
 
 移行時に確認するポイント：
@@ -354,7 +429,15 @@ void hspMain() {
 - [ ] `void hspMain()` を定義したか（`main()` ではない）
 - [ ] 変数はすべて型を指定して宣言したか
 - [ ] 行末に `;` を付けたか
-- [ ] `goto`/`gosub` を関数に置き換えたか
+- [ ] `goto` を ステートマシン（`sm.jump()`）に置き換えたか
+- [ ] `gosub` を関数呼び出しに置き換えたか
 - [ ] `chkbox`/`combox`/`listbox` は `shared_ptr` を使用しているか
 - [ ] ローカル変数を GUI コールバックで使用していないか
 - [ ] メインループは `while (true)` + `await()` + `break` で終了するか
+
+---
+
+## 関連項目
+
+- [ステートパターンガイド](/HSPPP_Lib/guides/state-pattern) - ステートマシンの設計パターン
+- [HSP goto 移行ガイド](/HSPPP_Lib/guides/hsp-goto-migration) - goto の具体的な移行例

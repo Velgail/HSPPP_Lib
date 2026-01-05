@@ -143,10 +143,12 @@ A: 完全な互換性はありませんが、多くの命令は同じ名前・�
 
 ### Q: HSP の `goto`/`gosub` は使えますか？
 
-A: **使えません。** C++ の関数を使用してください。
+A: **使えません。** C++ の関数またはステートマシンを使用してください。
 
 - `gosub` → 関数呼び出しで代替
-- `goto` → C++ では不要（関数・ループ・条件分岐で構造化）
+- `goto` → ステートマシン（複雑な遷移）または関数・ループ・条件分岐で代替
+
+**例1: 単純な gosub（関数呼び出し）**
 
 ```cpp
 // gosub *draw → 関数呼び出し
@@ -161,6 +163,27 @@ void hspMain() {
     stop();
 }
 ```
+
+**例2: 複雑な goto（ステートマシン）**
+
+複数の画面遷移が必要な場合は、ステートマシンを使用します：
+
+```cpp
+enum class Screen { Title, Game, Result };
+auto sm = StateMachine<Screen>();
+
+sm.state(Screen::Title)
+  .on_update([&](auto& sm) {
+      if (getkey(' ')) sm.jump(Screen::Game);
+  });
+
+sm.jump(Screen::Title);
+while (sm.run()) await(16);
+```
+
+詳細は以下を参照してください：
+- [ステートパターンガイド](/HSPPP_Lib/guides/state-pattern)
+- [HSP goto 移行ガイド](/HSPPP_Lib/guides/hsp-goto-migration)
 
 ### Q: HSP の `dim`/`sdim` に相当するものは？
 

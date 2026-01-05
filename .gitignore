@@ -370,3 +370,5 @@ HspHelp/
 
 # HspppLib specific
 dist/
+.design/
+HspppStateSample/state_graph.dot

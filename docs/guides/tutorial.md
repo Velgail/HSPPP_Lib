@@ -337,6 +337,18 @@ gcopy(1, 0, 0, 200, 200);
 
 ## 次のステップ
 
-- [HSPからの移行ガイド](/HSPPP_Lib/guides/migration-from-hsp): HSP経験者向け
+### ゲーム・アプリケーション開発
+
+複数の画面（タイトル、ゲーム本編、リザルトなど）を管理する必要がある場合は、ステートマシンを使用します：
+
+- [ステートパターンガイド](/HSPPP_Lib/guides/state-pattern) - 画面遷移・ゲームフロー設計の基本パターン
+- [HSP goto 移行ガイド](/HSPPP_Lib/guides/hsp-goto-migration) - HSPの `*label` / `goto` をステートマシンに移行する具体例
+
+### 基本構文の理解
+
+- [HSPからの移行ガイド](/HSPPP_Lib/guides/migration-from-hsp): HSP経験者向けの構文対応表
+
+### リファレンス
+
 - [APIリファレンス](/HSPPP_Lib/api/): 全命令の詳細
 - [FAQ](/HSPPP_Lib/faq): よくある質問

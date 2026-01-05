@@ -479,8 +479,57 @@ int font(
 **使用例:**
 
 ```cpp
-font("MS Gothic", 24, 1);      // MSゴシック 24pt 太字
-font("Arial", 16, 2 + 16);     // Arial 16pt 斜体+アンチエイリアス
+// HSP互換: font msgothic, 24 → font(msgothic, 24)
+font(msgothic, 24, 1);         // MSゴシック 24pt 太字
+font(meiryo, 16, 2 + 16);      // メイリオ 16pt 斜体+アンチエイリアス
+font("Arial", 20);             // 直接指定も可能
+```
+
+**フォント名定数:**
+
+HSPと同じように簡潔にフォントを指定できる定数が用意されています。
+
+```cpp
+// 日本語フォント
+msgothic      // MSゴシック
+msmincho      // MS明朝
+mspgothic     // MSPゴシック
+mspmincho     // MSP明朝
+meiryo        // メイリオ
+meiryoui      // メイリオUI
+yugothic      // 遊ゴシック
+yugothicui    // 遊ゴシックUI
+yumincho      // 遊明朝
+bizudgothic   // BIZ UDゴシック
+bizudmincho   // BIZ UD明朝
+
+// 欧文フォント
+arial         // Arial
+timesnewroman // Times New Roman
+couriernew    // Courier New
+verdana       // Verdana
+tahoma        // Tahoma
+consolas      // Consolas
+```
+
+**HSP移行例:**
+
+```hsp
+; HSP
+font msgothic, 16
+mes "こんにちは"
+
+font "Meiryo UI", 20, 1
+mes "太字のメイリオUI"
+```
+
+```cpp
+// HSPPP
+font(msgothic, 16);
+mes("こんにちは");
+
+font(meiryoui, 20, 1);
+mes("太字のメイリオUI");
 ```
 
 ---

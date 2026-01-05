@@ -89,9 +89,6 @@
     <ClInclude Include="src\core\hsppp_screen.inl">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="src\core\hsppp_statemachine.inl">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
     <ClInclude Include="src\core\hsppp_string.inl">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>

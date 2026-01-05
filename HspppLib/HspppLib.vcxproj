@@ -185,7 +185,6 @@
     <ClInclude Include="src\core\hsppp_math.inl" />
     <ClInclude Include="src\core\hsppp_media.inl" />
     <ClInclude Include="src\core\hsppp_screen.inl" />
-    <ClInclude Include="src\core\hsppp_statemachine.inl" />
     <ClInclude Include="src\core\hsppp_string.inl" />
     <ClInclude Include="src\core\hsppp_system.inl" />
   </ItemGroup>

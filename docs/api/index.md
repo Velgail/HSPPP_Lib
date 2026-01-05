@@ -276,6 +276,43 @@ HSPPP の全 API リファレンスです。
 |------|------|----------|
 | [`vwait`](/HSPPP_Lib/api/interrupt#vwait) | VSync同期待機（フレームドロップ検出） | 時間・待機 |
 
+**詳細:** [割り込み API](/HSPPP_Lib/api/interrupt)
+
+---
+
+#### ステートマシン
+
+| クラス/メソッド | 説明 |
+|----------------|------|
+| [`StateMachine<T>`](/HSPPP_Lib/api/statemachine) | enum class ベースのステートマシン |
+| [`state()`](/HSPPP_Lib/api/statemachine#state) | ステート定義（Builder パターン） |
+| [`on_enter()`](/HSPPP_Lib/api/statemachine#on_enter) | ステート初回実行時のコールバック |
+| [`on_update()`](/HSPPP_Lib/api/statemachine#on_update) | 毎フレーム実行されるコールバック |
+| [`on_exit()`](/HSPPP_Lib/api/statemachine#on_exit) | ステート終了時のコールバック |
+| [`jump()`](/HSPPP_Lib/api/statemachine#jump) | 状態遷移（HSP `goto` 相当） |
+| [`defer_jump()`](/HSPPP_Lib/api/statemachine#defer_jump) | 状態遷移予約 |
+| [`run()`](/HSPPP_Lib/api/statemachine#run) | メインループ実行 |
+| [`quit()`](/HSPPP_Lib/api/statemachine#基本メソッド) | ループ終了 |
+| [`current_state()`](/HSPPP_Lib/api/statemachine#current_state) | 現在のステート取得 |
+| [`previous_state()`](/HSPPP_Lib/api/statemachine#previous_state) | 前回のステート取得 |
+| [`frame_count()`](/HSPPP_Lib/api/statemachine#frame_count) | 総フレーム数取得 |
+| [`state_frame_count()`](/HSPPP_Lib/api/statemachine#state_frame_count) | ステート滞在フレーム数 |
+| [`set_unrestricted_transitions()`](/HSPPP_Lib/api/statemachine#set_unrestricted_transitions) | All-to-All遷移の有効/無効 |
+| [`allow_transition()`](/HSPPP_Lib/api/statemachine#allow_transition) | 特定遷移を許可 |
+| [`deny_transition()`](/HSPPP_Lib/api/statemachine#deny_transition) | 特定遷移を禁止 |
+| [`enable_history()`](/HSPPP_Lib/api/statemachine#enable_history) | 履歴記録を有効化 |
+| [`back()`](/HSPPP_Lib/api/statemachine#back) | 前のステートに戻る |
+| [`set_timer()`](/HSPPP_Lib/api/statemachine#set_timer) | 指定ミリ秒後に自動遷移 |
+| [`cancel_timer()`](/HSPPP_Lib/api/statemachine#cancel_timer) | タイマーキャンセル |
+| [`enable_debug_log()`](/HSPPP_Lib/api/statemachine#enable_debug_log) | デバッグログ有効化 |
+| [`export_graph()`](/HSPPP_Lib/api/statemachine#export_graph) | Graphviz出力 |
+
+**詳細:** [ステートマシン API](/HSPPP_Lib/api/statemachine)
+
+**関連ガイド:**
+- [ステートパターンガイド](/HSPPP_Lib/guides/state-pattern) - 設計パターンと実装例
+- [HSP goto 移行ガイド](/HSPPP_Lib/guides/hsp-goto-migration) - HSPからの移行方法
+
 **備考:**
 - 各関数の詳細は該当カテゴリのページを参照してください
 

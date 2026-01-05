@@ -319,8 +319,8 @@ void hspMain() {
     // while ループでゲームループを実装
     while (true) {
         redraw(0);
-        color(255, 255, 255);
-        cls();
+        color(0, 0, 0);
+        boxf();
         
         color(255, 0, 0);
         circle(x - 20, y - 20, x + 20, y + 20, 1);
@@ -347,6 +347,88 @@ void hspMain() {
 
 ---
 
+## goto / gosub の置き換え
+
+HSPの `goto` と `gosub` を C++ で実装する方法は、複雑さによって異なります。
+
+### Simple goto: 単純な制御フロー
+
+複数の画面遷移を含むゲームやアプリケーションでは、**ステートマシン**を使用します。
+
+```hsp
+; HSP例
+*title
+    mes "Title"
+    if key & 32 : goto *game
+
+*game
+    mes "Playing"
+    if key & 128 : goto *title
+```
+
+```cpp
+// HSPPP推奨: StateMachine を使用
+enum class Screen { Title, Game };
+auto sm = StateMachine<Screen>();
+
+sm.state(Screen::Title)
+  .on_update([&](auto& sm) {
+      mes("Title");
+      if (getkey(' ')) sm.jump(Screen::Game);
+  });
+
+sm.state(Screen::Game)
+  .on_update([&](auto& sm) {
+      color(0, 0, 0);
+      boxf();
+      mes("Playing");
+      if (getkey(VK_ESCAPE)) sm.jump(Screen::Title);
+      await(16);
+  });
+
+sm.jump(Screen::Title);
+sm.run();
+```
+
+詳細は [HSP goto 移行ガイド](/HSPPP_Lib/guides/hsp-goto-migration) を参照してください。
+
+### gosub: サブルーチン呼び出し
+
+`gosub` は**単純に関数に置き換えます**。**ステートマシンは不要です。**
+
+```hsp
+; HSP例
+*main
+    gosub *draw_bg
+    gosub *draw_player
+
+*draw_bg
+    boxf 0, 0, 640, 480
+    return
+
+*draw_player
+    // ...
+```
+
+```cpp
+// HSPPP: 関数に置き換え（ステートマシン不要）
+void draw_bg() {
+    boxf(0, 0, 640, 480);
+}
+
+void draw_player() {
+    // ...
+}
+
+void hspMain() {
+    // 直接呼び出すだけ
+    draw_bg();
+    draw_player();
+}
+```
+
+---
+
 ## チェックリスト
 
 移行時に確認するポイント：
@@ -354,7 +436,15 @@ void hspMain() {
 - [ ] `void hspMain()` を定義したか（`main()` ではない）
 - [ ] 変数はすべて型を指定して宣言したか
 - [ ] 行末に `;` を付けたか
-- [ ] `goto`/`gosub` を関数に置き換えたか
+- [ ] `goto` を ステートマシン（`sm.jump()`）に置き換えたか
+- [ ] `gosub` を関数呼び出しに置き換えたか
 - [ ] `chkbox`/`combox`/`listbox` は `shared_ptr` を使用しているか
 - [ ] ローカル変数を GUI コールバックで使用していないか
 - [ ] メインループは `while (true)` + `await()` + `break` で終了するか
+
+---
+
+## 関連項目
+
+- [ステートパターンガイド](/HSPPP_Lib/guides/state-pattern) - ステートマシンの設計パターン
+- [HSP goto 移行ガイド](/HSPPP_Lib/guides/hsp-goto-migration) - goto の具体的な移行例

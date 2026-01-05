@@ -73,12 +73,16 @@ namespace hsppp {
     }
 
     // 待機＆メッセージ処理 (HSP互換・高精度版)
+    // StateMachine コンテキスト内では遷移予約を検出して早期リターン
     void await(int time_ms, const std::source_location& location) {
         safe_call(location, [&] {
             // パラメータチェック
             if (time_ms < 0) {
                 throw HspError(ERR_OUT_OF_RANGE, "awaitの待ち時間は0以上の値を指定してください", location);
             }
+            
+            // StateMachine コンテキストを取得（遷移チェック用）
+            auto* sm_context = detail::get_current_statemachine();
             
             // 高精度タイマーの初期化
             initHighResolutionTimer();
@@ -103,6 +107,13 @@ namespace hsppp {
 
                 // 待機中もメッセージを処理
                 while (true) {
+                    // StateMachine コンテキストがある場合、遷移予約をチェック
+                    if (sm_context && sm_context->should_transition()) {
+                        // 遷移が予約されているので早期リターン
+                        QueryPerformanceCounter(&g_lastAwaitTime);
+                        return;
+                    }
+                    
                     QueryPerformanceCounter(&currentTime);
                     if (currentTime.QuadPart >= targetTicks) break;
                     
@@ -131,6 +142,12 @@ namespace hsppp {
             else {
                 // すでに指定時間を超過している場合もメッセージ処理だけ行う
                 while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
+                    // StateMachine コンテキストがある場合、遷移予約をチェック
+                    if (sm_context && sm_context->should_transition()) {
+                        QueryPerformanceCounter(&g_lastAwaitTime);
+                        return;
+                    }
+                    
                     // ペンディング中の割り込みを処理
                     if (processPendingInterrupt()) {
                         // 割り込みハンドラが呼ばれた

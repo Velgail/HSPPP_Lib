@@ -115,9 +115,9 @@ LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
             // ウィンドウは閉じず、ハンドラ内でend()が呼ばれるまで待機
             return 0;
         }
-        // onexitが未定義の場合は、ウィンドウを閉じてアプリケーションを終了
-        DestroyWindow(hwnd);
-        hsppp::end(0);
+        // onexitが未定義の場合は、先にend()でリソースをクリーンアップしてからウィンドウを破棄
+        // これによりVSync待機中のPresent()との競合を回避
+        hsppp::end(0);  // この中でDestroyWindowも呼ばれる（ExitProcessで終了）
         return 0;
     }
 

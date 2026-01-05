@@ -25,4 +25,5 @@ export import :string;
 export import :file;
 export import :interrupt;
 export import :media;
+export import :statemachine;
 export import :version;

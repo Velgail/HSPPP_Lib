@@ -84,8 +84,8 @@ void hspMain() {
     
     while (true) {
         redraw(0);
-        color(255, 255, 255);
-        cls();
+        color(0, 0, 0);
+        boxf();
         
         color(255, 0, 0);
         circle(x - 20, y - 20, x + 20, y + 20, 1);

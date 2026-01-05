@@ -1,4 +1,4 @@
-// Source: https://github.com/Velgail/HspppLib
+﻿// Source: https://github.com/Velgail/HspppLib
 // Distributed under the Boost Software License, Version 1.0.
 // See accompanying file LICENSE or copy at
 // https://www.boost.org/LICENSE_1_0.txt
@@ -82,6 +82,25 @@ export namespace hsppp {
     // ============================================================
     // フォント設定
     // ============================================================
+
+    // フォント名定数（HSP互換: font msgothic, 16 → font(msgothic, 16)）
+    inline constexpr std::string_view msgothic      = "MS Gothic";       ///< MSゴシック
+    inline constexpr std::string_view msmincho      = "MS Mincho";       ///< MS明朝
+    inline constexpr std::string_view mspgothic     = "MS PGothic";      ///< MSPゴシック
+    inline constexpr std::string_view mspmincho     = "MS PMincho";      ///< MSP明朝
+    inline constexpr std::string_view meiryo        = "Meiryo";          ///< メイリオ
+    inline constexpr std::string_view meiryoui      = "Meiryo UI";       ///< メイリオUI
+    inline constexpr std::string_view yugothic      = "Yu Gothic";       ///< 遊ゴシック
+    inline constexpr std::string_view yugothicui    = "Yu Gothic UI";    ///< 遊ゴシックUI
+    inline constexpr std::string_view yumincho      = "Yu Mincho";       ///< 遊明朝
+    inline constexpr std::string_view bizudgothic   = "BIZ UDGothic";    ///< BIZ UDゴシック
+    inline constexpr std::string_view bizudmincho   = "BIZ UDMincho";    ///< BIZ UD明朝
+    inline constexpr std::string_view arial         = "Arial";           ///< Arial
+    inline constexpr std::string_view timesnewroman = "Times New Roman"; ///< Times New Roman
+    inline constexpr std::string_view couriernew    = "Courier New";     ///< Courier New
+    inline constexpr std::string_view verdana       = "Verdana";         ///< Verdana
+    inline constexpr std::string_view tahoma        = "Tahoma";          ///< Tahoma
+    inline constexpr std::string_view consolas      = "Consolas";        ///< Consolas
 
     /// @brief フォントを設定
     int font(std::string_view fontName, OptInt size = {}, OptInt style = {}, OptInt decorationWidth = {}, const std::source_location& location = std::source_location::current());

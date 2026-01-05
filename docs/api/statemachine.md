@@ -104,6 +104,33 @@ sm.run();  // quit()まで実行
 
 ---
 
+### start
+
+初期ステートを設定してメインループを実行します。
+
+```cpp
+void start(StateType initial_state);
+```
+
+| パラメータ | 説明 |
+|-----------|------|
+| `initial_state` | 開始するステート |
+
+`jump()` と `run()` を一度に行う便利メソッドです。
+
+**使用例:**
+
+```cpp
+// jump + run の代わり
+sm.start(Screen::Title);
+
+// 上記は以下と同じ
+// sm.jump(Screen::Title);
+// sm.run();
+```
+
+---
+
 ### quit
 
 メインループを終了します。

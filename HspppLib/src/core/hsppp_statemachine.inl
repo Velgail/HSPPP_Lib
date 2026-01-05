@@ -208,6 +208,14 @@ void StateMachine<StateType>::quit()
     running_ = false;
 }
 
+template<typename StateType>
+    requires std::is_enum_v<StateType>
+void StateMachine<StateType>::start(StateType initial_state)
+{
+    jump(initial_state);
+    run();
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // StateMachine 実装 - 状態クエリ
 // ═══════════════════════════════════════════════════════════════════
@@ -461,7 +469,14 @@ void StateMachine<StateType>::debug_log(const std::string& message)
     if (debug_enabled_) {
         // Windows APIを使用してデバッグ出力
         std::string output = "[StateMachine] " + message + "\n";
-        OutputDebugStringA(output.c_str());
+        
+        // UTF-8からUTF-16へ変換
+        int wide_len = MultiByteToWideChar(CP_UTF8, 0, output.c_str(), -1, nullptr, 0);
+        if (wide_len > 0) {
+            std::wstring wide_output(wide_len, L'\0');
+            MultiByteToWideChar(CP_UTF8, 0, output.c_str(), -1, wide_output.data(), wide_len);
+            OutputDebugStringW(wide_output.c_str());
+        }
     }
 }
 

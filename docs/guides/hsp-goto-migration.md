@@ -98,6 +98,7 @@ void hspMain() {
           if (getkey(' ')) {
               sm.jump(Screen::Game);
           }
+          await(16);
       });
     
     // *game
@@ -113,6 +114,7 @@ void hspMain() {
           if (getkey(VK_ESCAPE)) {
               sm.jump(Screen::Result);
           }
+          await(16);
       });
     
     // *result

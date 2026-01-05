@@ -239,6 +239,17 @@ public:
     /// @endcode
     void run();
     
+    /// @brief 初期ステートを設定してメインループを実行
+    /// 
+    /// jump() と run() を一度に行う便利メソッド。
+    /// 
+    /// @param initial_state 開始するステート
+    /// 
+    /// @code
+    /// sm.start(Screen::Title);  // jump + run の代わり
+    /// @endcode
+    void start(StateType initial_state);
+    
     /// @brief メインループを終了
     void quit();
     

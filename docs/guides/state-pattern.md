@@ -121,6 +121,7 @@ void hspMain() {
           if (getkey('Q')) {
               sm.quit();
           }
+          await(16);
       });
     
     // ═══════════════════════════════════════════
@@ -141,6 +142,7 @@ void hspMain() {
           if (getkey(VK_ESCAPE)) {
               sm.jump(GameScreen::Result);
           }
+          await(16);
       });
     
     // ═══════════════════════════════════════════
@@ -156,6 +158,7 @@ void hspMain() {
           if (getkey('R')) sm.jump(GameScreen::Game);
           if (getkey('T')) sm.jump(GameScreen::Title);
           if (getkey('Q')) sm.quit();
+          await(16);
       });
     
     sm.start(GameScreen::Title, 60);

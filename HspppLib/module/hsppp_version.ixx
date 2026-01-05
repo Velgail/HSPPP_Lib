@@ -14,7 +14,7 @@ export namespace hsppp {
 // バージョン番号の定義
 constexpr int VERSION_MAJOR = 0;
 constexpr int VERSION_MINOR = 1;
-constexpr int VERSION_PATCH = 0;
+constexpr int VERSION_PATCH = 1;
 
 // constexpr 整数→文字列変換ヘルパー
 namespace detail {

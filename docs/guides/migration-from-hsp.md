@@ -319,8 +319,8 @@ void hspMain() {
     // while ループでゲームループを実装
     while (true) {
         redraw(0);
-        color(255, 255, 255);
-        cls();
+        color(0, 0, 0);
+        boxf();
         
         color(255, 0, 0);
         circle(x - 20, y - 20, x + 20, y + 20, 1);
@@ -379,19 +379,22 @@ sm.state(Screen::Title)
 
 sm.state(Screen::Game)
   .on_update([&](auto& sm) {
+      color(0, 0, 0);
+      boxf();
       mes("Playing");
       if (getkey(VK_ESCAPE)) sm.jump(Screen::Title);
+      await(16);
   });
 
 sm.jump(Screen::Title);
-while (sm.run()) await(16);
+sm.run();
 ```
 
 詳細は [HSP goto 移行ガイド](/HSPPP_Lib/guides/hsp-goto-migration) を参照してください。
 
 ### gosub: サブルーチン呼び出し
 
-`gosub` は単純に関数に置き換えます。
+`gosub` は**単純に関数に置き換えます**。**ステートマシンは不要です。**
 
 ```hsp
 ; HSP例
@@ -402,10 +405,13 @@ while (sm.run()) await(16);
 *draw_bg
     boxf 0, 0, 640, 480
     return
+
+*draw_player
+    // ...
 ```
 
 ```cpp
-// HSPPP: 関数に置き換え
+// HSPPP: 関数に置き換え（ステートマシン不要）
 void draw_bg() {
     boxf(0, 0, 640, 480);
 }
@@ -415,6 +421,7 @@ void draw_player() {
 }
 
 void hspMain() {
+    // 直接呼び出すだけ
     draw_bg();
     draw_player();
 }

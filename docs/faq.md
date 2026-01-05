@@ -174,11 +174,15 @@ auto sm = StateMachine<Screen>();
 
 sm.state(Screen::Title)
   .on_update([&](auto& sm) {
+      color(0, 0, 0);
+      boxf();
+      mes("Press SPACE");
       if (getkey(' ')) sm.jump(Screen::Game);
+      await(16);
   });
 
 sm.jump(Screen::Title);
-while (sm.run()) await(16);
+sm.run();
 ```
 
 詳細は以下を参照してください：

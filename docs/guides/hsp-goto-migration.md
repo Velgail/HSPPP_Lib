@@ -88,8 +88,8 @@ void hspMain() {
     sm.state(Screen::Title)
       .on_update([&](auto& sm) {
           redraw(0);
-          color(255, 255, 255);
-          cls();
+          color(0, 0, 0);
+          boxf();
           pos(200, 200);
           mes("Press SPACE to Start");
           redraw(1);
@@ -105,7 +105,7 @@ void hspMain() {
       .on_update([&](auto& sm) {
           redraw(0);
           color(0, 0, 0);
-          cls();
+          boxf();
           mes("Playing...");
           redraw(1);
           
@@ -119,8 +119,8 @@ void hspMain() {
     sm.state(Screen::Result)
       .on_update([&](auto& sm) {
           redraw(0);
-          color(255, 255, 255);
-          cls();
+          color(0, 0, 0);
+          boxf();
           mes("Game Over");
           redraw(1);
           
@@ -128,13 +128,12 @@ void hspMain() {
           if (getkey(' ')) {
               sm.jump(Screen::Game);
           }
+          await(16);
       });
     
     // ステップ3: メインループ
     sm.jump(Screen::Title);
-    while (sm.run()) {
-        await(16);  // 自分で待機を書く
-    }
+    sm.run();
 }
 ```
 
@@ -178,7 +177,8 @@ void hspMain() {
     // ✅ ボタンは on_enter で作成、on_exit で削除
     sm.state(Screen::Title)
       .on_enter([&]() {
-          cls();
+          color(0, 0, 0);
+          boxf();
           mes("Main Menu");
           
           button("Start Game", [&]() {
@@ -196,7 +196,8 @@ void hspMain() {
     
     sm.state(Screen::Game)
       .on_enter([&]() {
-          cls();
+          color(0, 0, 0);
+          boxf();
           mes("Playing...");
           
           button("Back to Title", [&]() {
@@ -209,9 +210,7 @@ void hspMain() {
       });
     
     sm.jump(Screen::Title);
-    while (sm.run()) {
-        await(16);
-    }
+    sm.run();
 }
 ```
 
@@ -282,7 +281,8 @@ void hspMain() {
     
     sm.state(Screen::Title)
       .on_update([&](auto& sm) {  // [&] でキャプチャ
-          cls();
+          color(0, 0, 0);
+          boxf();
           mes("High Score: " + std::to_string(score));
           
           if (getkey(' ')) {
@@ -295,7 +295,8 @@ void hspMain() {
           score = 0;  // 初期化
       })
       .on_update([&](auto& sm) {
-          cls();
+          color(0, 0, 0);
+          boxf();
           mes("Score: " + std::to_string(score));
           circle(player_x, player_y, player_x+10, player_y+10);
           
@@ -311,85 +312,24 @@ void hspMain() {
     
     sm.state(Screen::Result)
       .on_update([&](auto& sm) {
-          cls();
+          color(0, 0, 0);
+          boxf();
           mes("Final Score: " + std::to_string(score));
           
           if (getkey(' ')) {
               sm.jump(Screen::Game);
           }
+          await(16);
       });
     
     sm.jump(Screen::Title);
-    while (sm.run()) {
-        await(16);
-    }
+    sm.run();
 }
 ```
 
 ---
 
-## パターン4: gosub の代替
-
-### HSP
-
-```hsp
-*main
-    gosub *draw_background
-    gosub *draw_player
-    
-    stick key
-    if key & 128 : end
-    
-    await 16
-    goto *main
-
-*draw_background
-    color 0, 0, 0 : boxf
-    return
-
-*draw_player
-    color 255, 0, 0 : circle 100, 100, 120, 120
-    return
-```
-
-### HSPPP
-
-```cpp
-// gosub → 関数に置き換え
-void draw_background() {
-    color(0, 0, 0);
-    boxf(0, 0, 640, 480);
-}
-
-void draw_player() {
-    color(255, 0, 0);
-    circle(100, 100, 120, 120);
-}
-
-void hspMain() {
-    enum class State { Main };
-    auto sm = StateMachine<State>();
-    
-    sm.state(State::Main)
-      .on_update([](auto& sm) {
-          draw_background();  // 関数呼び出し
-          draw_player();
-          
-          if (getkey(VK_ESCAPE)) {
-              sm.quit();
-          }
-      });
-    
-    sm.jump(State::Main);
-    while (sm.run()) {
-        await(16);
-    }
-}
-```
-
----
-
-## パターン5: 複雑な遷移フロー
+## パターン4: 複雑な遷移フロー
 
 ### HSP
 
@@ -448,7 +388,8 @@ void hspMain() {
     // スプラッシュ
     sm.state(GameFlow::Splash)
       .on_enter([&]() {
-          cls();
+          color(0, 0, 0);
+          boxf();
           mes("Loading...");
           sm.set_timer(GameFlow::Title, 1666);  // 約1.7秒後に自動遷移
       });
@@ -456,7 +397,8 @@ void hspMain() {
     // タイトル
     sm.state(GameFlow::Title)
       .on_enter([&]() {
-          cls();
+          color(0, 0, 0);
+          boxf();
           mes("Title");
           button("Character Select", [&]() {
               sm.jump(GameFlow::CharSelect);
@@ -474,7 +416,8 @@ void hspMain() {
     // キャラ選択
     sm.state(GameFlow::CharSelect)
       .on_enter([&]() {
-          cls();
+          color(0, 0, 0);
+          boxf();
           mes("Select Character");
           button("Character 1", [&]() {
               sm.jump(GameFlow::Game);
@@ -523,9 +466,7 @@ void hspMain() {
       });
     
     sm.jump(GameFlow::Splash);
-    while (sm.run()) {
-        await(16);
-    }
+    sm.run();
 }
 ```
 
@@ -552,24 +493,23 @@ void hspMain() {
 
 - [ ] HSPのグローバル変数 → hspMainのローカル変数 + `[&]` キャプチャ
 
-### ステップ5: gosub を関数に置き換え
-
-- [ ] `gosub *sub` → 関数呼び出しに変換
-- [ ] `return` → 削除（関数の終わりで自動的に戻る）
-
 ---
 
 ## よくある質問
 
 ### Q: await 16 はどこに書けば？
 
-**A:** メインループ内に自分で書きます。
+**A:** `on_update` 内で自分で書きます。
 
 ```cpp
+sm.state(Screen::Title)
+  .on_update([](auto& sm) {
+      // 処理
+      await(16);  // 60 FPS = 約16ms/frame
+  });
+
 sm.jump(Screen::Title);
-while (sm.run()) {
-    await(16);  // 60 FPS = 約16ms/frame
-}
+sm.run();
 ```
 
 ### Q: goto より面倒では？
@@ -589,7 +529,7 @@ while (sm.run()) {
 |------|-----|-------|
 | ラベル定義 | `*title` | `enum class Screen { Title }` |
 | ジャンプ | `goto *title` | `sm.jump(Screen::Title)` |
-| ループ | `await 16 : goto *title` | `while (sm.run()) await(16);` |
+| ループ | `await 16 : goto *title` | `sm.run()` + `on_update` 内で `await(16)` |
 | タイポチェック | コンパイル時 ✅ | コンパイル時 ✅ |
 | GUI管理 | 手動 | 自動（on_enter/exit） |
 

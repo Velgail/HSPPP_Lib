@@ -50,9 +50,7 @@ sm.state(Screen::Title)
   .on_exit([]() { clrobj(); });
 
 sm.jump(Screen::Title);  // 初期ステート
-while (sm.run()) {
-    await(16);  // 約60FPS
-}
+sm.run();  // quit()まで実行
 ```
 
 ---
@@ -86,24 +84,22 @@ sm.state(Screen::Title)
 
 ### run
 
-1フレーム分の更新を実行します。
+メインループを実行します。
 
 ```cpp
-bool run();
+void run();
 ```
 
-**戻り値:** 継続する場合 `true`、終了する場合 `false`
+**戻り値:** なし（`quit()` が呼ばれるまでブロック）
 
-現在のステートの `on_update` コールバックを実行し、遷移処理を行います。`quit()` が呼ばれると `false` を返します。
+内部で `while` ループを持ち、各ステートの `on_update` コールバックを実行します。`on_update` 内で `await()` や `stop()` を使用してフレーム制御を行います。`quit()` が呼ばれるまでこの関数から戻りません。
 
 **使用例:**
 
 ```cpp
 sm.jump(Screen::Title);  // 初期ステート設定
-
-while (sm.run()) {
-    await(16);  // 自分で待機を制御
-}
+sm.run();  // quit()まで実行
+// ここには quit() されるまで到達しない
 ```
 
 ---
@@ -135,6 +131,8 @@ GUIオブジェクトの作成、リソースのロードなど、重い初期�
 ```cpp
 sm.state(Screen::Menu)
   .on_enter([]() {
+      color(0, 0, 0);
+      boxf();
       button("Start", []() { /* ... */ });
       button("Quit", []() { /* ... */ });
   });
@@ -157,9 +155,11 @@ StateBuilder& on_update(std::function<void(StateMachine&)> callback);
 ```cpp
 sm.state(Screen::Game)
   .on_update([&](auto& sm) {
-      cls();
+      color(0, 0, 0);
+      boxf();
       mes("Playing...");
       if (getkey(VK_ESCAPE)) sm.jump(Screen::Result);
+      await(16);  // フレーム制御
   });
 ```
 
@@ -261,9 +261,13 @@ int state_frame_count() const;
 ```cpp
 sm.state(Screen::Splash)
   .on_update([&](auto& sm) {
+      color(0, 0, 0);
+      boxf();
+      mes("Loading...");
       if (sm.state_frame_count() > 120) {  // 2秒経過
           sm.jump(Screen::Title);
       }
+      await(16);
   });
 ```
 
@@ -311,6 +315,8 @@ void deny_transition(StateType from, StateType to);
 sm.set_unrestricted_transitions(false);
 sm.allow_transition(Screen::Title, Screen::Game);
 sm.allow_transition(Screen::Game, Screen::Result);
+sm.jump(Screen::Title);
+sm.run();
 ```
 
 ---
@@ -346,7 +352,9 @@ sm.enable_history(5);
 
 sm.state(Screen::Option)
   .on_update([&](auto& sm) {
+      mes("Options");
       if (getkey(VK_ESCAPE)) sm.back();
+      await(16);
   });
 ```
 
@@ -372,7 +380,13 @@ void set_timer(StateType target_state, int milliseconds);
 ```cpp
 sm.state(Screen::Splash)
   .on_enter([&]() {
+      color(0, 0, 0);
+      boxf();
+      mes("Welcome!");
       sm.set_timer(Screen::Title, 2000);  // 2秒後に自動遷移
+  })
+  .on_update([](auto& sm) {
+      await(16);
   });
 ```
 

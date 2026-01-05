@@ -291,7 +291,7 @@ HSPPP の全 API リファレンスです。
 | [`on_exit()`](/HSPPP_Lib/api/statemachine#on_exit) | ステート終了時のコールバック |
 | [`jump()`](/HSPPP_Lib/api/statemachine#jump) | 状態遷移（HSP `goto` 相当） |
 | [`defer_jump()`](/HSPPP_Lib/api/statemachine#defer_jump) | 状態遷移予約 |
-| [`run()`](/HSPPP_Lib/api/statemachine#run) | 1フレーム実行 |
+| [`run()`](/HSPPP_Lib/api/statemachine#run) | メインループ実行 |
 | [`quit()`](/HSPPP_Lib/api/statemachine#基本メソッド) | ループ終了 |
 | [`current_state()`](/HSPPP_Lib/api/statemachine#current_state) | 現在のステート取得 |
 | [`previous_state()`](/HSPPP_Lib/api/statemachine#previous_state) | 前回のステート取得 |

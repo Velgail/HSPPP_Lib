@@ -74,15 +74,14 @@ sm.state(Screen::Title)
   })
   .on_update([&](auto& sm) {
       // ✅ 毎フレーム: 軽い処理
+      await(16);
   })
   .on_exit([]() {
       // ✅ 離脱時: 後始末
   });
 
 sm.jump(Screen::Title);
-while (sm.run()) {
-    await(16);
-}
+sm.run();
 ```
 
 ---
@@ -110,7 +109,8 @@ void hspMain() {
     // ═══════════════════════════════════════════
     sm.state(GameScreen::Title)
       .on_update([&](auto& sm) {
-          cls();
+          color(0, 0, 0);
+          boxf();
           color(255, 255, 255);
           pos(200, 200);
           mes("Press SPACE to Start");
@@ -131,7 +131,8 @@ void hspMain() {
           score = 0;  // 初期化
       })
       .on_update([&](auto& sm) {
-          cls();
+          color(0, 0, 0);
+          boxf();
           mes("Score: " + std::to_string(score));
           
           // ゲームロジック
@@ -147,7 +148,8 @@ void hspMain() {
     // ═══════════════════════════════════════════
     sm.state(GameScreen::Result)
       .on_update([&](auto& sm) {
-          cls();
+          color(0, 0, 0);
+          boxf();
           mes("Final Score: " + std::to_string(score));
           mes("R: Retry  T: Title  Q: Quit");
           
@@ -222,7 +224,8 @@ void hspMain() {
     // ═══════════════════════════════════════════
     sm.state(Screen::Menu)
       .on_enter([&]() {
-          cls();
+          color(0, 0, 0);
+          boxf();
           pos(200, 100);
           mes("Main Menu");
           
@@ -255,7 +258,8 @@ void hspMain() {
     // ═══════════════════════════════════════════
     sm.state(Screen::Settings)
       .on_enter([&]() {
-          cls();
+          color(0, 0, 0);
+          boxf();
           mes("Settings");
           
           // スライダーやチェックボックス作成
@@ -279,9 +283,7 @@ void hspMain() {
     sm.enable_history(5);  // 履歴機能を有効化
     
     sm.jump(Screen::Menu);
-    while (sm.run()) {
-        await(16);
-    }
+    sm.run();
 }
 ```
 
@@ -309,7 +311,8 @@ void hspMain() {
     sm.state(GameState::Playing)
       .on_update([&](auto& sm) {
           // ゲームロジック
-          cls();
+          color(0, 0, 0);
+          boxf();
           circle(player_x - 10, player_y - 10, player_x + 10, player_y + 10);
           mes("Score: " + std::to_string(score));
           
@@ -334,7 +337,7 @@ void hspMain() {
       })
       .on_update([&](auto& sm) {
           // ゲーム画面はそのまま
-          color(0, 0, 0, 128);  // 半透明
+          color(0, 0, 0);
           boxf(0, 0, 640, 480);
           
           color(255, 255, 255);
@@ -346,12 +349,11 @@ void hspMain() {
           if (getkey('P')) {
               sm.jump(GameState::Playing);
           }
+          await(16);
       });
     
     sm.jump(GameState::Playing);
-    while (sm.run()) {
-        await(16);
-    }
+    sm.run();
 }
 ```
 
@@ -405,12 +407,11 @@ void hspMain() {
               sm.jump(GameFlow::CharSelect);  // ✅ OK
               // sm.jump(GameFlow::Game);  // ❌ 実行時エラー
           }
+          await(16);
       });
     
     sm.jump(GameFlow::Splash);
-    while (sm.run()) {
-        await(16);
-    }
+    sm.run();
 }
 ```
 

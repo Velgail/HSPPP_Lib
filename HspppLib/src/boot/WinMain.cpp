@@ -25,7 +25,10 @@ import hsppp;
 extern void hspMain();
 
 // アプリケーションのエントリーポイント
-int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nCmdShow) {
+int WINAPI WinMain([[maybe_unused]] _In_ HINSTANCE hInstance, 
+                   [[maybe_unused]] _In_opt_ HINSTANCE hPrevInstance, 
+                   [[maybe_unused]] _In_ LPSTR lpCmdLine, 
+                   [[maybe_unused]] _In_ int nCmdShow) {
     // 1. HSPPPエンジンの初期化
     // (COM, Direct2D Factory, ウィンドウクラス登録など)
     hsppp::internal::init_system();

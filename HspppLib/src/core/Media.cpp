@@ -67,7 +67,7 @@ Media& Media::operator=(Media&& other) noexcept = default;
 // ============================================================
 // ファイル操作
 // ============================================================
-bool Media::load(std::string_view filename, const std::source_location& location) {
+bool Media::load(std::string_view filename, [[maybe_unused]] const std::source_location& location) {
     // MediaManagerは例外を投げない設計なので、try-catchは不要
     m_impl->m_filename = std::string(filename);
     
@@ -98,13 +98,13 @@ void Media::unload() {
 // ============================================================
 // 再生制御
 // ============================================================
-bool Media::play(const std::source_location& location) {
+bool Media::play([[maybe_unused]] const std::source_location& location) {
     // MediaManagerは例外を投げない設計なので、try-catchは不要
     if (!m_impl->m_loaded) return false;
     return internal::MediaManager::getInstance().mmplay(m_impl->m_bufferId);
 }
 
-void Media::stop(const std::source_location& location) {
+void Media::stop([[maybe_unused]] const std::source_location& location) {
     // MediaManagerは例外を投げない設計なので、try-catchは不要
     if (m_impl->m_loaded) {
         internal::MediaManager::getInstance().mmstop(m_impl->m_bufferId);
@@ -114,7 +114,7 @@ void Media::stop(const std::source_location& location) {
 // ============================================================
 // 設定（メソッドチェーン）
 // ============================================================
-Media& Media::vol(int v, const std::source_location& location) {
+Media& Media::vol(int v, [[maybe_unused]] const std::source_location& location) {
     // MediaManagerは例外を投げない設計なので、try-catchは不要
     m_impl->m_vol = v;
     if (m_impl->m_loaded) {
@@ -123,7 +123,7 @@ Media& Media::vol(int v, const std::source_location& location) {
     return *this;
 }
 
-Media& Media::pan(int p, const std::source_location& location) {
+Media& Media::pan(int p, [[maybe_unused]] const std::source_location& location) {
     // MediaManagerは例外を投げない設計なので、try-catchは不要
     m_impl->m_pan = p;
     if (m_impl->m_loaded) {
@@ -132,7 +132,7 @@ Media& Media::pan(int p, const std::source_location& location) {
     return *this;
 }
 
-Media& Media::loop(bool l, const std::source_location& location) {
+Media& Media::loop(bool l, [[maybe_unused]] const std::source_location& location) {
     m_impl->m_loop = l;
     if (l) {
         m_impl->m_mode = 1;
@@ -142,13 +142,13 @@ Media& Media::loop(bool l, const std::source_location& location) {
     return *this;
 }
 
-Media& Media::mode(int m, const std::source_location& location) {
+Media& Media::mode(int m, [[maybe_unused]] const std::source_location& location) {
     m_impl->m_mode = m;
     m_impl->m_loop = (m == 1);
     return *this;
 }
 
-Media& Media::target(int screenId, const std::source_location& location) {
+Media& Media::target(int screenId, [[maybe_unused]] const std::source_location& location) {
     m_impl->m_targetWindow = internal::getWindowHwndById(screenId);
     return *this;
 }

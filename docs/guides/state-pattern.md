@@ -459,6 +459,264 @@ void hspMain() {
 
 ---
 
+## パターン6: 複数ファイルに分割したシーン管理
+
+大規模プロジェクトでは、各ステートを別ファイルに分割することで保守性が向上します。
+
+### ファイル構成例
+
+```
+MyProject/
+├── main.cpp              // エントリーポイント
+├── Scenes/
+│   ├── SceneCommon.h     // 共通定義
+│   ├── TitleScene.cpp    // タイトルシーン
+│   ├── GameScene.cpp     // ゲームシーン
+│   └── ResultScene.cpp   // リザルトシーン
+```
+
+### SceneCommon.h - 共通定義
+
+```cpp
+// Scenes/SceneCommon.h
+#pragma once
+import hsppp;
+
+// シーン列挙型
+enum class Scene {
+    Title,
+    Game,
+    Result
+};
+
+// ステートマシン型の別名
+using SceneManager = hsppp::StateMachine<Scene>;
+
+// 各シーンの登録関数（前方宣言）
+void registerTitleScene(SceneManager& sm);
+void registerGameScene(SceneManager& sm);
+void registerResultScene(SceneManager& sm);
+```
+
+### TitleScene.cpp - タイトルシーン
+
+```cpp
+// Scenes/TitleScene.cpp
+#include "SceneCommon.h"
+import <string>;
+using namespace hsppp;
+
+void registerTitleScene(SceneManager& sm) {
+    sm.state(Scene::Title)
+      .on_enter([]() {
+          // タイトル画面の初期化
+          color(0, 0, 0);
+          boxf();
+          
+          button("Start Game", []() {
+              // ボタンから直接遷移はできないため、
+              // on_update でフラグチェック
+          });
+          button("Quit", []() {
+              end();
+          });
+      })
+      .on_update([&](auto& sm) {
+          // 描画更新
+          color(255, 255, 255);
+          pos(200, 100);
+          mes("My Game Title");
+          
+          // キーボード入力でもシーン遷移可能
+          if (getkey(' ')) {
+              sm.jump(Scene::Game);
+          }
+          
+          await(16);
+      })
+      .on_exit([]() {
+          // GUIオブジェクトをクリア
+          clrobj();
+      });
+}
+```
+
+### GameScene.cpp - ゲームシーン
+
+```cpp
+// Scenes/GameScene.cpp
+#include "SceneCommon.h"
+import <format>;
+using namespace hsppp;
+
+void registerGameScene(SceneManager& sm) {
+    // ゲーム固有の状態（スタティックで保持）
+    static int score = 0;
+    static int player_x = 320;
+    static int player_y = 240;
+    
+    sm.state(Scene::Game)
+      .on_enter([]() {
+          // ゲーム開始時の初期化
+          score = 0;
+          player_x = 320;
+          player_y = 240;
+      })
+      .on_update([&](auto& sm) {
+          // 入力処理
+          if (getkey(VK_LEFT))  player_x -= 5;
+          if (getkey(VK_RIGHT)) player_x += 5;
+          if (getkey(VK_UP))    player_y -= 5;
+          if (getkey(VK_DOWN))  player_y += 5;
+          
+          // ゲームロジック
+          score += rnd(10);
+          
+          // 描画
+          color(0, 0, 0);
+          boxf();
+          color(255, 255, 255);
+          pos(10, 10);
+          mes(std::format("Score: {}", score));
+          
+          color(255, 0, 0);
+          boxf(player_x - 10, player_y - 10, player_x + 10, player_y + 10);
+          
+          // リザルトへ遷移
+          if (getkey(VK_ESCAPE)) {
+              sm.jump(Scene::Result);
+          }
+          
+          await(16);
+      })
+      .on_exit([]() {
+          // ゲーム終了処理
+      });
+}
+```
+
+### ResultScene.cpp - リザルトシーン
+
+```cpp
+// Scenes/ResultScene.cpp
+#include "SceneCommon.h"
+import <format>;
+using namespace hsppp;
+
+void registerResultScene(SceneManager& sm) {
+    sm.state(Scene::Result)
+      .on_enter([]() {
+          color(0, 0, 0);
+          boxf();
+          
+          button("Retry", []() {
+              // on_updateでフラグチェック
+          });
+          button("Title", []() {
+              // on_updateでフラグチェック
+          });
+      })
+      .on_update([&](auto& sm) {
+          color(255, 255, 255);
+          pos(200, 200);
+          mes("Game Over");
+          
+          // キーボード入力
+          if (getkey('R')) sm.jump(Scene::Game);
+          if (getkey('T')) sm.jump(Scene::Title);
+          if (getkey('Q')) sm.quit();
+          
+          await(16);
+      })
+      .on_exit([]() {
+          clrobj();
+      });
+}
+```
+
+### main.cpp - エントリーポイント
+
+```cpp
+// main.cpp
+import hsppp;
+#include "Scenes/SceneCommon.h"
+using namespace hsppp;
+
+void hspMain() {
+    auto sm = SceneManager();
+    
+    // 各シーンを登録
+    registerTitleScene(sm);
+    registerGameScene(sm);
+    registerResultScene(sm);
+    
+    // 初期シーンから開始
+    sm.start(Scene::Title);
+}
+```
+
+### 分割のメリット
+
+1. **保守性向上**
+   - 各シーンが独立したファイルで管理
+   - 変更の影響範囲が明確
+
+2. **チーム開発に有利**
+   - 複数人で異なるシーンを同時編集可能
+   - コンフリクトが起きにくい
+
+3. **コード再利用**
+   - 共通処理をヘルパー関数として分離しやすい
+
+4. **コンパイル時間短縮**
+   - 変更したファイルのみ再コンパイル
+
+### 共有データの扱い方
+
+シーン間で共有するデータ（スコア、プレイヤー情報など）は以下の方法で管理：
+
+**方法1: グローバル変数（シンプル）**
+
+```cpp
+// SceneCommon.h
+inline int g_score = 0;
+inline std::string g_player_name;
+```
+
+**方法2: 構造体でまとめる（推奨）**
+
+```cpp
+// SceneCommon.h
+struct GameData {
+    int score = 0;
+    int high_score = 0;
+    std::string player_name;
+    int player_level = 1;
+};
+
+inline GameData g_gameData;
+```
+
+**方法3: ラムダキャプチャ（main.cpp内）**
+
+```cpp
+// main.cpp
+void hspMain() {
+    auto sm = SceneManager();
+    
+    // 共有データ
+    GameData data;
+    
+    // データを各シーンに渡す
+    sm.state(Scene::Game)
+      .on_update([&data, &sm]() {
+          data.score += 10;
+      });
+}
+```
+
+---
+
 ## ベストプラクティス
 
 ### ✅ DO: やるべきこと

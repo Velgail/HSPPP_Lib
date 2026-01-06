@@ -108,11 +108,11 @@ void hspMain() {
           mes("Loading...");
           
           // ローディングバー風の演出
-          double progress = (sm.state_frame_count() * 100) / 120;
+          double progress = (sm.state_frame_count() * 100.0) / 120;
           color(100, 100, 100);
           boxf(170, 280, 470, 300);
           color(100, 200, 255);
-          boxf(170, 280, 170 + progress * 3, 300);
+          boxf(170, 280, 170 + static_cast<int>(progress * 3), 300);
           
           vwait();  // アニメーション画面: 60FPS
       });

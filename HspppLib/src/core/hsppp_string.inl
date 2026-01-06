@@ -237,7 +237,7 @@ namespace hsppp {
         return "";
     }
 
-    NotePad& NotePad::add(std::string_view text, int index, int overwrite, const std::source_location& location) {
+    NotePad& NotePad::add(std::string_view text, int index, int overwrite, [[maybe_unused]] const std::source_location& location) {
         size_t lineCount = count();
 
         // 末尾追加
@@ -280,7 +280,7 @@ namespace hsppp {
         return *this;
     }
 
-    NotePad& NotePad::del(size_t index, const std::source_location& location) {
+    NotePad& NotePad::del(size_t index, [[maybe_unused]] const std::source_location& location) {
         if (m_buffer.empty()) return *this;
 
         size_t lineCount = count();

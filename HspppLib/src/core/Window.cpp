@@ -118,7 +118,7 @@ LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
         // onexitが未定義の場合は、先にend()でリソースをクリーンアップしてからウィンドウを破棄
         // これによりVSync待機中のPresent()との競合を回避
         hsppp::end(0);  // この中でDestroyWindowも呼ばれる（ExitProcessで終了）
-        return 0;
+        // end(0)内でExitProcessが呼ばれるため、ここには到達しない
     }
 
     case WM_PAINT:
@@ -224,7 +224,6 @@ LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
     case WM_COMMAND:
     {
         WORD notifyCode = HIWORD(wParam);
-        WORD controlId = LOWORD(wParam);
         HWND hwndControl = reinterpret_cast<HWND>(lParam);
         
         // ObjectManagerからオブジェクトを検索してコールバックを実行

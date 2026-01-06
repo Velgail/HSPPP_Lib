@@ -1,4 +1,4 @@
-// Source: https://github.com/Velgail/HspppLib
+﻿// Source: https://github.com/Velgail/HspppLib
 // Distributed under the Boost Software License, Version 1.0.
 // See accompanying file LICENSE or copy at
 // https://www.boost.org/LICENSE_1_0.txt
@@ -10,7 +10,6 @@
 // ═══════════════════════════════════════════════════════════════════
 
 #include "DemoState.h"
-#include <memory>
 import hsppp;
 using namespace hsppp;
 
@@ -253,7 +252,7 @@ void drawGUIDemo(Screen& win) {
 // GUIデモのアクション処理
 // ═══════════════════════════════════════════════════════════════════
 
-void processGUIAction(Screen& win) {
+void processGUIAction([[maybe_unused]] Screen& win) {
     // Cキー: オブジェクトをクリア
     if (getkey('C')) {
         clearGUIObjects();

@@ -304,7 +304,7 @@ namespace hsppp {
     // ============================================================
     // font - フォント設定（HSP互換）
     // ============================================================
-    int font(std::string_view fontName, OptInt size, OptInt style, OptInt decorationWidth, const std::source_location& location) {
+    int font(std::string_view fontName, OptInt size, OptInt style, [[maybe_unused]] OptInt decorationWidth, const std::source_location& location) {
         return safe_call(location, [&] {
             auto currentSurface = getCurrentSurface();
             if (!currentSurface) return -1;

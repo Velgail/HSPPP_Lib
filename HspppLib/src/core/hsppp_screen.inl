@@ -535,7 +535,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::gsquare(int srcId, const Quad& dst, const std::source_location& location) {
+    Screen& Screen::gsquare([[maybe_unused]] int srcId, const Quad& dst, const std::source_location& location) {
         safe_call(location, [&] {
             auto surface = getSurfaceById(m_id);
             if (!surface) return;
@@ -548,7 +548,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::gsquare(int srcId, const Quad& dst, const QuadUV& src, const std::source_location& location) {
+    Screen& Screen::gsquare([[maybe_unused]] int srcId, const Quad& dst, const QuadUV& src, const std::source_location& location) {
         safe_call(location, [&] {
             auto surface = getSurfaceById(m_id);
             if (!surface) return;
@@ -571,7 +571,7 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::gsquare(int srcId, const Quad& dst, const QuadColors& colors, const std::source_location& location) {
+    Screen& Screen::gsquare([[maybe_unused]] int srcId, const Quad& dst, const QuadColors& colors, const std::source_location& location) {
         safe_call(location, [&] {
             auto surface = getSurfaceById(m_id);
             if (!surface) return;
@@ -934,7 +934,7 @@ namespace hsppp {
         });
     }
 
-    int Screen::input(std::shared_ptr<std::string> var, int maxLength, int mode, const std::source_location& location) {
+    int Screen::input(std::shared_ptr<std::string> var, int maxLength, [[maybe_unused]] int mode, const std::source_location& location) {
         return safe_call(location, [&]() -> int {
             auto surface = getSurfaceById(m_id);
             if (!surface) return -1;

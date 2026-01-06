@@ -117,15 +117,15 @@ namespace hsppp {
         return g_interruptParams;
     }
 
-    int iparam(const std::source_location& location) noexcept {
+    int iparam([[maybe_unused]] const std::source_location& location) noexcept {
         return g_interruptParams.iparam;
     }
 
-    int wparam(const std::source_location& location) noexcept {
+    int wparam([[maybe_unused]] const std::source_location& location) noexcept {
         return g_interruptParams.wparam;
     }
 
-    int lparam(const std::source_location& location) noexcept {
+    int lparam([[maybe_unused]] const std::source_location& location) noexcept {
         return g_interruptParams.lparam;
     }
 
@@ -182,7 +182,7 @@ namespace hsppp {
         });
     }
 
-    void onclick(int enable, const std::source_location& location) noexcept {
+    void onclick(int enable, [[maybe_unused]] const std::source_location& location) noexcept {
         g_onclickHandler.enabled = (enable != 0);
     }
 
@@ -207,7 +207,7 @@ namespace hsppp {
         });
     }
 
-    void oncmd(int enable, const std::source_location& location) noexcept {
+    void oncmd(int enable, [[maybe_unused]] const std::source_location& location) noexcept {
         g_oncmdGlobalEnabled = (enable != 0);
     }
 
@@ -222,7 +222,7 @@ namespace hsppp {
         });
     }
 
-    void onerror(int enable, const std::source_location& location) noexcept {
+    void onerror(int enable, [[maybe_unused]] const std::source_location& location) noexcept {
         g_onerrorHandler.enabled = (enable != 0);
     }
 
@@ -237,7 +237,7 @@ namespace hsppp {
         });
     }
 
-    void onexit(int enable, const std::source_location& location) noexcept {
+    void onexit(int enable, [[maybe_unused]] const std::source_location& location) noexcept {
         g_onexitHandler.enabled = (enable != 0);
     }
 
@@ -252,7 +252,7 @@ namespace hsppp {
         });
     }
 
-    void onkey(int enable, const std::source_location& location) noexcept {
+    void onkey(int enable, [[maybe_unused]] const std::source_location& location) noexcept {
         g_onkeyHandler.enabled = (enable != 0);
     }
 
@@ -289,7 +289,7 @@ namespace hsppp {
 namespace hsppp::internal {
 
     // クリック割り込みをトリガー
-    void triggerOnClick(int windowId, int buttonId, WPARAM wp, LPARAM lp) {
+    void triggerOnClick(int windowId, int buttonId, [[maybe_unused]] WPARAM wp, LPARAM lp) {
         if (g_onclickHandler.enabled && g_onclickHandler.handler) {
             setPendingInterrupt(PendingInterruptType::OnClick, 
                                buttonId,    // iparam: ボタンID
@@ -299,7 +299,7 @@ namespace hsppp::internal {
     }
 
     // キー割り込みをトリガー
-    void triggerOnKey(int windowId, int charCode, WPARAM wp, LPARAM lp) {
+    void triggerOnKey(int windowId, int charCode, [[maybe_unused]] WPARAM wp, LPARAM lp) {
         if (g_onkeyHandler.enabled && g_onkeyHandler.handler) {
             setPendingInterrupt(PendingInterruptType::OnKey, 
                                charCode,    // iparam: キーコード
@@ -309,7 +309,7 @@ namespace hsppp::internal {
     }
 
     // Windowsメッセージ割り込みをトリガー
-    bool triggerOnCmd(int windowId, int messageId, WPARAM wp, LPARAM lp, int& returnValue) {
+    bool triggerOnCmd(int windowId, int messageId, [[maybe_unused]] WPARAM wp, LPARAM lp, int& returnValue) {
         if (!g_oncmdGlobalEnabled) return false;
 
         auto it = g_oncmdHandlers.find(messageId);
@@ -348,7 +348,7 @@ namespace hsppp::internal {
 
     // HspErrorBase派生例外を処理（メインループから呼び出し）
     // HspError（致命的）とHspWeakError（復帰可能）の両方を同じように表示して終了
-    void handleHspError(const hsppp::HspErrorBase& error, const std::source_location& location) {
+    void handleHspError(const hsppp::HspErrorBase& error, [[maybe_unused]] const std::source_location& location) {
         if (g_onerrorHandler.enabled && g_onerrorHandler.handler) {
             // onerrorハンドラが設定されている場合
             g_onerrorHandler.handler(error);

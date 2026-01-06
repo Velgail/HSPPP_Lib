@@ -108,7 +108,7 @@ void hspMain() {
           mes("Loading...");
           
           // ローディングバー風の演出
-          double progress = (sm.state_frame_count() * 100) / 120;
+          double progress = (sm.state_frame_count() * 100.0) / 120;
           color(100, 100, 100);
           boxf(170, 280, 470, 300);
           color(100, 200, 255);

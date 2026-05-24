@@ -39,6 +39,9 @@
     <ClCompile Include="module\hsppp_statemachine.ixx">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="module\hsppp_repository.ixx">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
     <ClCompile Include="module\hsppp_types.ixx">
       <Filter>ソース ファイル</Filter>
     </ClCompile>

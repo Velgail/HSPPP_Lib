@@ -18,7 +18,7 @@
 //   sm.state(Screen::Title).on_update([&](auto& sm) {
 //       if (getkey(' ')) sm.jump(Screen::Game);
 //   });
-//   sm.start(Screen::Title);   // = jump + run(16)
+//   sm.start(Screen::Title);   // = jump + run()   ※ run() は dispatch only（内部で await を呼ばない / design-TICKET-008 §7.1）
 //
 // 設計根拠:
 //   .github/agents/sprints/current/artifacts/design-TICKET-002.md

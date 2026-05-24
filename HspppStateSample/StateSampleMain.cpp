@@ -24,14 +24,14 @@
 //
 //   旧構成:
 //     - StateSampleMain.cpp       … StateMachine デモ + グローバル変数 g_score 等
-//     - NewStateSampleMain.cpp    … Repository / state<T>() / tick() デモ
-//     - TestNewFeatures.cpp       … Repository / is_transitioning / state<T>() の手動テスト
+//     - NewStateSampleMain.cpp    … Repository / state<T>() / tick() デモ（削除済）
+//     - 旧手動テスト群             … HspppTest プロジェクトへ移管（StateVarsRuntimeTest 等）
 //
-//   旧 NewStateSampleMain.cpp / TestNewFeatures.cpp は
-//   `hsppp::GameServices::register_repository<>()` を呼んでおり、これは
-//   `hsppp_repository.ixx::RepositoryRegistration` のデフォルト ctor 削除と
-//   `unordered_map::operator[]` の組合せに起因する C2280 を踏むため、現状ビルド不能
-//   （test-TICKET-006.md §6.1 / build-config.md §4.1）。
+//   旧 NewStateSampleMain.cpp 等は
+//   `hsppp::GameServices::register_repository<>()` を呼んでおり、これは過去 BLOCKER として
+//   build-config.md §4.1 に記録されていた C2280 を踏む経路だった。HEAD `3878e17` 以降の
+//   検証では `register_repository<>()` を直接呼ぶサンプルが除去されたため当該 BLOCKER は
+//   解消相当（test-TICKET-009.md / test-TICKET-010.md §8）。
 //
 //   そこで本サンプルは案③（PM 採用、TICKET-005 / MSG-011→MSG-012）に従い、
 //   `register_repository<>()` を呼ばず、StateScope + state_vars + SaveData だけで
@@ -40,8 +40,10 @@
 //     - 旧グローバル g_score / g_targetX 等   → State::Game の StateScope ローカル
 //     - 旧グローバル g_highScore               → State::Title の StateScope ローカル + savedata 永続
 //     - 旧 Repository<PlayerProfile>           → StateScope に bind した Serializable 型
-//     - 旧 NewStateSample のサブステートマシン  → 本サンプルでは省略（attach_child 系は別 Sprint で例示予定）
-//     - 旧 TestNewFeatures.cpp の手動テスト     → HspppTest プロジェクト（TICKET-006 範囲）へ移管済
+//     - 旧 NewStateSample のサブステートマシン  → 本サンプルでは省略
+//       （新 API では `attach_child` 系を撤去し、サブ SM は親 on_update 内で明示的に
+//        `child.step()` を呼ぶ規約に変更された / design-TICKET-008 §7.3 / §11.1）。
+//     - 旧 NewStateSample 系の手動テスト        → HspppTest プロジェクト（TICKET-006 / TICKET-009 範囲）へ移管済
 //
 // ═══════════════════════════════════════════════════════════════════════════
 

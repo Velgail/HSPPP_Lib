@@ -1,4 +1,4 @@
-﻿param([string]$OutputDir = "dist")
+﻿param([string]$OutputDir = "dist/HspppLib")
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RootDir = Split-Path -Parent $ScriptDir

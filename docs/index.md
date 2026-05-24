@@ -49,6 +49,9 @@ void hspMain() {
 
 - [ステートパターンガイド](/HSPPP_Lib/guides/state-pattern) - ゲームフロー・UI遷移の設計パターン
 - [HSP goto 移行ガイド](/HSPPP_Lib/guides/hsp-goto-migration) - HSPの `*label` / `goto` をステートマシンに移行
+- [データ共有ガイド](/HSPPP_Lib/guides/data-sharing) - **NEW** StateMachine でのデータ共有パターン（ローカル変数、state<T>()、Repository<T>）
+- [StateScope / state_vars / SaveData API](/HSPPP_Lib/api/state-vars-savedata) - **NEW** ステート別変数とバイナリ・セーブ／ロード（design-TICKET-002 §7.2/§7.3）
+- [Repository API](/HSPPP_Lib/api/repository) - **NEW** 永続データ管理（GameServices / Repository&lt;T&gt;）
 
 ### HSPユーザー向けガイド
 

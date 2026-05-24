@@ -372,3 +372,6 @@ HspHelp/
 dist/
 .design/
 HspppStateSample/state_graph.dot
+
+.sprint/
+.github/agents

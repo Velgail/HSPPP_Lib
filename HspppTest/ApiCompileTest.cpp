@@ -1311,51 +1311,74 @@ namespace compile_test {
 namespace hsppp_test {
 
     /// @brief すべてのコンパイルテストを実行
-    /// @return テストが成功したら true
+    /// @return テストが成功したら true（本関数は常に true）
+    ///
+    /// TICKET-009 (案 α / test-TICKET-006.md §11.1 / §11.3) によりリファクタ:
+    ///
+    /// 旧実装は `compile_test::test_*()` を **実行時に呼び出して**
+    /// 「クラッシュしないこと」を確認していたが、`noteload("note_test.txt")`
+    /// (L100) / `picload("test.bmp")` (L342) / `gcopy()` (L424) など実ファイル
+    /// やセットアップ済みサーフェスを要求する副作用 API が、起動環境に依存して
+    /// HSP Error 12 / 14 を発し、`HspppTest.exe` のプロセス進行をダイアログで
+    /// 停止させていた（pre-existing ハーネス債務 = TR-8）。
+    ///
+    /// `compile_test::test_*` は非テンプレート・名前付き名前空間の自由関数で
+    /// あり、定義が本翻訳単位に存在する時点でコンパイラが本体をコンパイルし、
+    /// **すべての API シグネチャ整合性は本ファイルのビルド成功をもって保証**
+    /// される。本関数では `static constexpr` な関数ポインタ配列で各テスト関数
+    /// を ODR-use することで意図 (＝コンパイルテスト) を明示化しつつ、
+    /// **実行時呼び出しは一切行わない**。これにより副作用 API のランタイム
+    /// 実行は完全に消滅し、`[1] Compile Tests` ブロックは Error ダイアログ
+    /// なしで完走する（後続 `[2] Runtime Tests` / `[3] StateVars/SaveData
+    /// Runtime Tests` ブロックへの到達を保証）。
+    ///
+    /// dummy リソースファイル (note_test.txt / test.bmp 等) は本実装では
+    /// 不要であり、test-data ディレクトリ化も不要（TICKET-009 受入条件 7
+    /// 項目目: 「dummy ファイルは検証用一時残置物として削除可、リポジトリ
+    /// への恒久追加・vcxproj 登録不要」と判断）。
     bool run_compile_tests() {
-        // コンパイルが通った時点で成功
-        // 実行時はクラッシュしないことを確認
+        using FpVoid   = void(*)();
+        using FpScreen = void(*)(Screen&);
 
-        compile_test::test_types_and_constants();
-        compile_test::test_param_structs();
-        compile_test::test_note_functions();
-        compile_test::test_sendmsg_and_sysval();
+        // 引数なしテスト関数群（API シグネチャ コンパイル時検証用 ODR-use）
+        [[maybe_unused]] static constexpr FpVoid void_fps[] = {
+            &compile_test::test_types_and_constants,
+            &compile_test::test_param_structs,
+            &compile_test::test_note_functions,
+            &compile_test::test_sendmsg_and_sysval,
+            &compile_test::test_oop_functions,
+            &compile_test::test_hsp_compat_functions,
+            &compile_test::test_global_drawing_functions,
+            &compile_test::test_image_functions,
+            &compile_test::test_cel_class,
+            &compile_test::test_window_control_functions,
+            &compile_test::test_control_functions,
+            &compile_test::test_font_window_functions,
+            &compile_test::test_end_function_signature,
+            &compile_test::test_input_functions,
+            &compile_test::test_interrupt_functions,
+            &compile_test::test_math_functions,
+            &compile_test::test_easing_functions,
+            &compile_test::test_sort_functions,
+            &compile_test::test_debug_functions,
+            &compile_test::test_conversion_functions,
+            &compile_test::test_color_functions,
+            &compile_test::test_string_functions,
+            &compile_test::test_math_constants,
+            &compile_test::test_cpp_stdlib_exports,
+            &compile_test::test_sysinfo_functions,
+            &compile_test::test_dirinfo_functions,
+            &compile_test::test_file_functions,
+            &compile_test::test_gui_object_functions,
+            &compile_test::test_multimedia_functions,
+        };
 
-        // 実際にウィンドウを作成してテスト
-        auto testScreen = screen({.width = 100, .height = 100, .mode = screen_hide});
-        if (testScreen.valid()) {
-            compile_test::test_screen_class(testScreen);
-            compile_test::test_screen_input_functions(testScreen);
-            compile_test::test_screen_interrupt_functions(testScreen);
-        }
-
-        // 残りのテスト（ウィンドウ作成を伴うもの）
-        // compile_test::test_oop_functions();      // 多数のウィンドウを作成
-        // compile_test::test_hsp_compat_functions(); // 多数のウィンドウを作成
-
-        compile_test::test_global_drawing_functions();
-        compile_test::test_image_functions();
-        compile_test::test_cel_class();
-        compile_test::test_window_control_functions();
-        compile_test::test_control_functions();
-        compile_test::test_font_window_functions();
-        compile_test::test_input_functions();
-        compile_test::test_interrupt_functions();
-        compile_test::test_math_functions();
-        compile_test::test_easing_functions();
-        compile_test::test_sort_functions();
-        compile_test::test_debug_functions();
-        compile_test::test_conversion_functions();
-        compile_test::test_color_functions();
-        compile_test::test_string_functions();
-        compile_test::test_math_constants();
-        compile_test::test_cpp_stdlib_exports();
-        compile_test::test_sysinfo_functions();
-        compile_test::test_dirinfo_functions();
-        compile_test::test_file_functions();
-        compile_test::test_gui_object_functions();
-        compile_test::test_multimedia_functions();
-        // compile_test::test_end_function_signature(); // end()は呼ばない
+        // Screen& を引数に取るテスト関数群（同上）
+        [[maybe_unused]] static constexpr FpScreen screen_fps[] = {
+            &compile_test::test_screen_class,
+            &compile_test::test_screen_input_functions,
+            &compile_test::test_screen_interrupt_functions,
+        };
 
         return true;
     }

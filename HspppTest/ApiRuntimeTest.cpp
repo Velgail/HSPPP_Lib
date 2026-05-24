@@ -18,14 +18,21 @@ namespace hsppp_test {
     // テスト結果を追跡
     static int s_testsPassed = 0;
     static int s_testsFailed = 0;
+    static int s_testsRun    = 0;
+    static int s_firstFailedIndex = -1;
+    static const char* s_firstFailedName = nullptr;
 
     // 簡易テストマクロ的な関数
     inline void check(bool condition, const char* testName) {
+        ++s_testsRun;
         if (condition) {
             s_testsPassed++;
         } else {
             s_testsFailed++;
-            // デバッグ出力（OutputDebugStringA は Windows.h が必要なので省略）
+            if (s_firstFailedIndex < 0) {
+                s_firstFailedIndex = s_testsRun;
+                s_firstFailedName  = testName;
+            }
         }
     }
 
@@ -424,7 +431,11 @@ namespace hsppp_test {
         
         // 開始位置指定（HSP仕様: 結果はp2を起点とした相対位置）
         check(instr("ABCABC", 3, "ABC") == 0, "instr with offset - relative position");
-        check(instr("ABCABC", 1, "BC") == 1, "instr with offset - found at relative 1");
+        // "ABCABC" の offset=1 から探索すると "BC" は絶対位置 1 にあるが、
+        // p2 起点の相対位置では 0。HSP 仕様(結果はp2を起点とした相対位置) および
+        // 実装 hsppp_string.inl L478 (return pos - p2) と整合。
+        // ※ 旧期待値 == 1 は TICKET-009 以前のハーネスブロックで顕在化していなかった既存バグ。
+        check(instr("ABCABC", 1, "BC") == 0, "instr with offset - found at relative 0");
         check(instr("ABCDEF", 2, "CD") == 0, "instr exact match at offset");
         check(instr("ABCDEF", 10, "AB") == -1, "instr offset beyond string");
         check(instr("ABCDEF", -1, "AB") == -1, "instr negative offset");
@@ -483,6 +494,9 @@ namespace hsppp_test {
     int run_runtime_tests() {
         s_testsPassed = 0;
         s_testsFailed = 0;
+        s_testsRun    = 0;
+        s_firstFailedIndex = -1;
+        s_firstFailedName  = nullptr;
 
         test_screen_creation();
         test_buffer_creation();
@@ -509,5 +523,8 @@ namespace hsppp_test {
     int get_passed_count() {
         return s_testsPassed;
     }
+
+    int get_first_failed_index() { return s_firstFailedIndex; }
+    const char* get_first_failed_name() { return s_firstFailedName ? s_firstFailedName : ""; }
 
 }  // namespace hsppp_test

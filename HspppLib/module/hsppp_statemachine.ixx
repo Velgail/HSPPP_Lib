@@ -10,7 +10,7 @@
 // ═══════════════════════════════════════════════════════════════════
 //
 // HSPの *label / goto を型安全に再現する後継ステートマシンライブラリ。
-// 本体クラスは StateGraph<T>、旧名 StateMachine<T> は alias として残存。
+// 本体クラスは StateGraph<T>。
 //
 // 使用例:
 //   enum class Screen { Title, Game, Result };
@@ -140,8 +140,6 @@ private:
 /// @brief 型安全な後継ステートマシン
 ///
 /// HSP の *label / goto を enum class ベースで再現する後継 API。
-/// 旧名 StateMachine<T> は本ファイル末尾で alias として残存
-/// （design-TICKET-002.md §12.4 互換戦略）。
 ///
 /// @tparam StateType ステートを表す enum class 型
 template<typename StateType>
@@ -197,10 +195,6 @@ public:
     /// @brief 状態遷移（HSP goto 相当）
     void jump(StateType target_state);
 
-    /// @brief 状態遷移を予約（jump と同等／互換用）
-    [[deprecated("use jump (design §7.1 / §18 Q-3)")]]
-    void defer_jump(StateType target_state);
-
     /// @brief 遷移ルールを追加（厳格モード用）
     void allow_transition(StateType from, StateType to);
 
@@ -255,10 +249,6 @@ public:
 
     /// @brief グローバルフレームカウンタ（HSP cnt 相当）
     [[nodiscard]] int frame_count() const noexcept;
-
-    /// @brief 現在のステートに滞在しているフレーム数
-    [[deprecated("use state_elapsed_ms() (design §7.1 / §18 Q-3)")]]
-    [[nodiscard]] int state_frame_count() const noexcept;
 
     /// @brief 現在のステートに滞在している経過時間 (ms)
     [[nodiscard]] int state_elapsed_ms() const noexcept;
@@ -352,7 +342,6 @@ private:
     std::map<StateType, std::shared_ptr<void>> local_data_storage_;
 
     int global_frame_count_ = 0;
-    int state_frame_count_ = 0;
     std::chrono::steady_clock::time_point state_enter_time_{};
     bool running_ = true;
     bool unrestricted_transitions_ = true;
@@ -438,15 +427,6 @@ private:
     StateType state_;
     std::shared_ptr<LocalDataType> local_data_;
 };
-
-// ═══════════════════════════════════════════════════════════════════
-// 互換 alias（design §12.4 / §15 C5）
-// 本 Sprint 中は無印、次 Sprint で [[deprecated]] 付与（design §18 Q-2）
-// ═══════════════════════════════════════════════════════════════════
-
-template<typename StateType>
-    requires std::is_enum_v<StateType>
-using StateMachine = StateGraph<StateType>;
 
 }  // namespace hsppp
 
@@ -575,13 +555,6 @@ void StateGraph<StateType>::jump(StateType target_state)
 
 template<typename StateType>
     requires std::is_enum_v<StateType>
-void StateGraph<StateType>::defer_jump(StateType target_state)
-{
-    next_state_ = target_state;
-}
-
-template<typename StateType>
-    requires std::is_enum_v<StateType>
 void StateGraph<StateType>::allow_transition(StateType from, StateType to)
 {
     allowed_transitions_.insert(std::make_pair(from, to));
@@ -667,7 +640,6 @@ void StateGraph<StateType>::step_once()
     if (!state_data.entered) {
         state_data.entered = true;
         state_enter_time_ = std::chrono::steady_clock::now();
-        state_frame_count_ = 0;
         debug_log(std::format("Enter state: {}", state_to_string(current_state_.value())));
         if (state_data.on_enter) {
             state_data.on_enter();
@@ -681,7 +653,6 @@ void StateGraph<StateType>::step_once()
 
     // フレームカウンタ更新
     global_frame_count_++;
-    state_frame_count_++;
 }
 
 template<typename StateType>
@@ -779,13 +750,6 @@ template<typename StateType>
 int StateGraph<StateType>::frame_count() const noexcept
 {
     return global_frame_count_;
-}
-
-template<typename StateType>
-    requires std::is_enum_v<StateType>
-int StateGraph<StateType>::state_frame_count() const noexcept
-{
-    return state_frame_count_;
 }
 
 template<typename StateType>
@@ -1062,7 +1026,6 @@ void StateGraph<StateType>::perform_transition(StateType new_state)
 
     previous_state_ = current_state_;
     current_state_ = new_state;
-    state_frame_count_ = 0;
     state_enter_time_ = std::chrono::steady_clock::now();
 
     auto it = states_.find(new_state);

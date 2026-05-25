@@ -170,8 +170,7 @@ void hspMain() {
     title("HSPPP StateGraph + StateScope + SaveData サンプル");
 
     // ────────────────────────────────────────────────
-    // StateGraph 構築（旧 StateMachine alias で残置されているが、新サンプルでは
-    // 後継名 StateGraph<T> を明示利用する）
+    // StateGraph 構築
     // ────────────────────────────────────────────────
     StateGraph<GameScreen> sm;
     sm.enable_debug_log(true);
@@ -391,7 +390,6 @@ void hspMain() {
           color(20, 20, 40);
           boxf();
 
-          // 残り時間（state_elapsed_ms() は ms 単位。旧 state_frame_count はdeprecated）
           const int elapsed_ms = sm.state_elapsed_ms();
           int remaining = (30000 - elapsed_ms) / 1000;
           if (remaining < 0) remaining = 0;

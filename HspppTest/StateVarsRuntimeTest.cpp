@@ -7,7 +7,7 @@
 // HspppTest/StateVarsRuntimeTest.cpp
 // HSPPP hsppp:state_vars / hsppp:savedata runtime verification
 //
-// Observation IDs (review-TICKET-004.md Section 7):
+// Observation IDs:
 //   1. StateScope::bind idempotent (re-bind returns existing slot, ignores args)
 //   2. snapshot -> restore roundtrip across multiple states and types
 //   3. partial restore (keys absent from snapshot keep current value)
@@ -15,11 +15,6 @@
 //   5. StateScope::restore type_tag mismatch -> HspError(ERR_TYPE_MISMATCH)
 //   6. release / release_all_for / release_all then try_get == nullptr
 //   7. non-Serializable bind -> enumerate() reports serializable=false
-//
-// Design references:
-//   .github/agents/sprints/current/artifacts/review-TICKET-004.md Section 7
-//   .github/agents/sprints/current/tickets/TICKET-006.md Section 5
-//   .github/agents/sprints/current/artifacts/design-TICKET-002.md 7.2 / 7.3 / 17
 //
 // Coding rules (CLAUDE.md): import hsppp only, no #include, no assert,
 //                            no ANSI APIs, no exception swallowing.

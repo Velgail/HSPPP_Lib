@@ -1313,7 +1313,7 @@ namespace hsppp_test {
     /// @brief すべてのコンパイルテストを実行
     /// @return テストが成功したら true（本関数は常に true）
     ///
-    /// TICKET-009 (案 α / test-TICKET-006.md §11.1 / §11.3) によりリファクタ:
+    /// リファクタ:
     ///
     /// 旧実装は `compile_test::test_*()` を **実行時に呼び出して**
     /// 「クラッシュしないこと」を確認していたが、`noteload("note_test.txt")`
@@ -1333,9 +1333,7 @@ namespace hsppp_test {
     /// Runtime Tests` ブロックへの到達を保証）。
     ///
     /// dummy リソースファイル (note_test.txt / test.bmp 等) は本実装では
-    /// 不要であり、test-data ディレクトリ化も不要（TICKET-009 受入条件 7
-    /// 項目目: 「dummy ファイルは検証用一時残置物として削除可、リポジトリ
-    /// への恒久追加・vcxproj 登録不要」と判断）。
+    /// 不要であり、test-data ディレクトリ化も不要。
     bool run_compile_tests() {
         using FpVoid   = void(*)();
         using FpScreen = void(*)(Screen&);

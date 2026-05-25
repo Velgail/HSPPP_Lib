@@ -18,10 +18,9 @@
 //   sm.state(Screen::Title).on_update([&](auto& sm) {
 //       if (getkey(' ')) sm.jump(Screen::Game);
 //   });
-//   sm.start(Screen::Title);   // = jump + run()   ※ run() は dispatch only（内部で await を呼ばない / design-TICKET-008 §7.1）
+//   sm.start(Screen::Title);   // = jump + run()   ※ run() は dispatch only（内部で await を呼ばない）
 //
 // 設計根拠:
-//   .github/agents/sprints/current/artifacts/design-TICKET-002.md
 //   §6, §7.1, §8.1, §12.1, §13(L1,L2,L6,L7), §15(F2,F6,C4,C5), §17(Risk-1,3,4)
 
 module;
@@ -73,8 +72,7 @@ class StateBuilderWithLocal;
 ///
 /// グローバル関数 (await/stop/vwait) が StateGraph コンテキストを
 /// 検出するために使用されるほか、サブ SM をベース型経由で
-/// `step()` / `tick()` 呼出するためにも利用される
-/// （design-TICKET-008.md §7.3 / Q-2 PM 判断）。
+/// `step()` / `tick()` 呼出するためにも利用される。
 class StateMachineBase {
 public:
     virtual ~StateMachineBase() = default;
@@ -89,7 +87,7 @@ public:
     [[nodiscard]] virtual bool is_transitioning() const = 0;
 
     /// @brief 1 ステップ分だけ更新（親 on_update 内からサブ SM を駆動する用途）
-    /// @note design-TICKET-008.md §7.3: 親 on_update 内で `child.step()` を
+    /// @note 親 on_update 内で `child.step()` を
     ///       明示呼出する規約。`step()` は本メソッド `tick()` への inline 委譲。
     virtual void tick() = 0;
 };
@@ -152,7 +150,7 @@ public:
 
     using EnterCallback  = std::function<void()>;
     /// @brief on_update コールバック型
-    /// @note design-TICKET-008.md §7.2: on_update 1 回の呼出はユーザーが
+    /// @note on_update 1 回の呼出はユーザーが
     ///       そのステートに与えた `repeat`-`loop` の 1 iteration を意味する。
     ///       return すれば同ステートの on_update が再呼出される。
     ///       `jump()` してから return すれば次ステートへ遷移する。
@@ -210,7 +208,7 @@ public:
 
     /// @brief メインループを実行（dispatch only）
     ///
-    /// design-TICKET-008.md §7.1 / §12.1: 内部は `while (running_) { tick(); }` のみで、
+    /// 内部は `while (running_) { tick(); }` のみで、
     /// `await` / `Sleep` / `vwait` を一切呼ばない。フレームペーシングは
     /// ユーザーが on_update 内で `await(ms)` 等を明示的に書く契約。
     /// @throws HspError jump() も current_state も無いまま呼ばれた場合（design §12.1 / §7.1）。
@@ -220,12 +218,12 @@ public:
     void start(StateType initial_state);
 
     /// @brief 1 ステップ分だけ更新（手動駆動・サブ SM 駆動用）
-    /// @note design-TICKET-008.md §7.3: 親 on_update 内から
+    /// @note 親 on_update 内から
     ///       `child.step()` を明示呼出することでサブ SM を進行させる。
     ///       `step()` は本メソッドへの inline 委譲（同義）。
     void tick() override;
 
-    /// @brief `tick()` の推奨 alias（design-TICKET-008.md §12.1 / §7.3）
+    /// @brief `tick()` の推奨 alias
     /// @note 親 on_update 内でサブ SM を駆動する用途では `step()` を推奨。
     ///       `tick()` は後方互換のため維持。
     void step();
@@ -281,13 +279,11 @@ public:
     /// @details paused 状態のタイマーは perform_transition による自動 cancel から
     ///          保護される。Pause UI のように state を跨いで継続したいケースで使用する。
     ///          ユーザー明示の cancel_timer() は paused でも無条件で wipe する。
-    ///          (design-TICKET-010 §5.1 / §7)
     void pause_timer();
 
     /// @brief タイマーを再開
     /// @details pause_timer() で保持された timer を再開する。state を跨いで保持
     ///          された場合は、復帰先 state の on_enter で呼ぶのが推奨。
-    ///          (design-TICKET-010 §5.2 / §7)
     void resume_timer();
 
     // ====================================================
@@ -646,7 +642,7 @@ void StateGraph<StateType>::step_once()
         }
     }
 
-    // on_update 実行（design-TICKET-008.md §7.2: named repeat-loop の 1 iteration）
+    // on_update 実行
     if (state_data.on_update) {
         state_data.on_update(*this);
     }
@@ -675,7 +671,7 @@ void StateGraph<StateType>::run()
         }
     }
 
-    // design-TICKET-008.md §7.1 / §12.1: dispatch only。
+    // dispatch only。
     // フレームペーシング（await / stop / vwait）はユーザーが on_update 内で明示。
     while (running_) {
         step_once();
@@ -703,7 +699,7 @@ template<typename StateType>
     requires std::is_enum_v<StateType>
 void StateGraph<StateType>::step()
 {
-    // design-TICKET-008.md §12.1: step() は tick() への委譲（推奨 alias）
+    // step() は tick() への委譲（推奨 alias）
     tick();
 }
 
@@ -1035,7 +1031,7 @@ void StateGraph<StateType>::perform_transition(StateType new_state)
 
     // 遷移完了時にタイマーをキャンセル。
     // ただし pause_timer() で明示的に「state を跨いで保持」する
-    // 意思表示がされている場合は保持する（design-TICKET-010 §5.1）。
+    // 意思表示がされている場合は保持する。
     // ユーザー明示の cancel_timer() は paused でも無条件 wipe する
     // ためのエスケープハッチとして従来通り機能する（§5.3）。
     if (!timer_.paused) {

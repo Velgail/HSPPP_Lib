@@ -20,7 +20,7 @@
 //   HSP:   bsave/bload  → HSPPP: SaveWriter::finalize() + bsave / bload + SaveReader
 //
 // ─────────────────────────────────────────────────────────────────────────
-// このサンプルが旧 3 ファイル併存（TICKET-005 整理対象）を統合した経緯:
+// このサンプルが旧 3 ファイル併存を統合した経緯:
 //
 //   旧構成:
 //     - StateSampleMain.cpp       … StateMachine デモ + グローバル変数 g_score 等
@@ -31,9 +31,9 @@
 //   `hsppp::GameServices::register_repository<>()` を呼んでおり、これは過去 BLOCKER として
 //   build-config.md §4.1 に記録されていた C2280 を踏む経路だった。HEAD `3878e17` 以降の
 //   検証では `register_repository<>()` を直接呼ぶサンプルが除去されたため当該 BLOCKER は
-//   解消相当（test-TICKET-009.md / test-TICKET-010.md §8）。
+//   解消相当。
 //
-//   そこで本サンプルは案③（PM 採用、TICKET-005 / MSG-011→MSG-012）に従い、
+//   そこで本サンプルは、
 //   `register_repository<>()` を呼ばず、StateScope + state_vars + SaveData だけで
 //   旧 3 ファイル相当のデモ要素を 1 本に統合した。具体的な対応:
 //
@@ -42,8 +42,8 @@
 //     - 旧 Repository<PlayerProfile>           → StateScope に bind した Serializable 型
 //     - 旧 NewStateSample のサブステートマシン  → 本サンプルでは省略
 //       （新 API では `attach_child` 系を撤去し、サブ SM は親 on_update 内で明示的に
-//        `child.step()` を呼ぶ規約に変更された / design-TICKET-008 §7.3 / §11.1）。
-//     - 旧 NewStateSample 系の手動テスト        → HspppTest プロジェクト（TICKET-006 / TICKET-009 範囲）へ移管済
+//        `child.step()` を呼ぶ規約に変更された）。
+//     - 旧 NewStateSample 系の手動テスト        → HspppTest プロジェクトへ移管済
 //
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -369,8 +369,7 @@ void hspMain() {
           //   - Pause→Game 復帰時は、Game→Pause 遷移時に呼ばれた pause_timer()
           //     によって perform_transition の自動 cancel から保護された
           //     タイマーが残っているため、resume_timer() で再開するだけでよい
-          //     （set_timer を呼ぶと accumulated_ms が 0 リセットされてしまう。
-          //      review-TICKET-005 §5 R-2 / design-TICKET-010 §5.2）。
+          //     （set_timer を呼ぶと accumulated_ms が 0 リセットされてしまう）。
           // on_enter 実行時点では perform_transition により previous_state_ は
           // 旧 state に確定済なので、previous_state() == Pause で
           // Pause→Game 復帰を判定可能。
@@ -379,7 +378,6 @@ void hspMain() {
               sm.set_timer(GameScreen::GameOver, 30000);
           } else {
               // Pause→Game 復帰: pause_timer() で保持されたタイマーを再開
-              // (design-TICKET-010 §5.2)
               sm.resume_timer();
           }
       })
@@ -444,7 +442,7 @@ void hspMain() {
           pos(220, 250);
           button("ゲームに戻る", [&]() {
               // Pause→Game 復帰の resume_timer() は、復帰先 Game の on_enter
-              // (`prev == Pause` 分岐) 内で行う（design-TICKET-010 §5.2）。
+              // (`prev == Pause` 分岐) 内で行う。
               // ここでは jump のみ。pause_timer() で保持されたタイマーは
               // perform_transition の auto-cancel から保護されるため、
               // jump 後の Game on_enter で resume するだけで継続できる。
@@ -480,7 +478,7 @@ void hspMain() {
       .on_exit([&]() {
           clrobj();
           font(msgothic, 16);
-          // タイマー再開はボタンハンドラ側で行う（review-TICKET-005 §5 R-1）。
+          // タイマー再開はボタンハンドラ側で行う。
           // ここでは UI 後始末のみ。タイトル戻り経路では既に cancel_timer 済。
       });
 

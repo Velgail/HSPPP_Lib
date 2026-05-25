@@ -27,7 +27,6 @@
 // version mismatch・type_tag mismatch・key 不在は HspError もしくは std::out_of_range。
 //
 // 設計根拠:
-//   .github/agents/sprints/current/artifacts/design-TICKET-002.md
 //   §7.3, §8.3, §12.3, §13(L5), §15(F5, C6), §17(Risk-5)
 
 export module hsppp:savedata;
@@ -53,7 +52,7 @@ import <vector>;
 export namespace hsppp {
 
 // ═══════════════════════════════════════════════════════════════════
-// バージョン定数（design §7.3 / §15 C6: 本 Sprint 中は固定）
+// バージョン定数
 // ═══════════════════════════════════════════════════════════════════
 
 inline constexpr std::uint32_t kSaveFormatVersion = 1;

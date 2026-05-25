@@ -21,13 +21,13 @@ namespace hsppp_test {
     int get_failed_count();
     int get_passed_count();
 
-    // StateVarsRuntimeTest.cpp（TICKET-006 案④ / review-TICKET-004 §7 観点 1-7）
+    // StateVarsRuntimeTest.cpp（state_vars / savedata ランタイム検証）
     int run_state_vars_tests();
     int get_state_vars_failed_count();
     int get_state_vars_passed_count();
     int get_state_vars_last_failed_id();
 
-    // ApiRuntimeTest.cpp 拡張診断（TICKET-009）
+    // ApiRuntimeTest.cpp 拡張診断
     int get_first_failed_index();
     const char* get_first_failed_name();
 }
@@ -80,7 +80,7 @@ void hspMain() {
     resultWin.color(0, 0, 0);
     y += 10;
 
-    // state_vars / savedata ランタイムテスト（TICKET-006 案④）
+    // state_vars / savedata ランタイムテスト
     printLine("[3] StateVars/SaveData Runtime Tests");
     int svPassed = hsppp_test::run_state_vars_tests();
     int svFailed = hsppp_test::get_state_vars_failed_count();
@@ -138,7 +138,7 @@ void hspMain() {
     printLine("Press any key or close window to exit...");
 
     // ─────────────────────────────────────────────────────────────────
-    // TICKET-009: ハーネス健全化の一環としてテスト結果を text file へ
+    // ハーネス健全化の一環としてテスト結果を text file へ
     // 永続化する（GUI を観測できない CI / 自動テスト環境向け診断出力）。
     // 副作用 API は使わず std::ofstream で書く（ANSI API 禁止規約遵守）。
     // 出力先: 実行時 CWD 直下 "hsppp_test_result.txt"

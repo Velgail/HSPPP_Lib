@@ -434,7 +434,7 @@ namespace hsppp_test {
         // "ABCABC" の offset=1 から探索すると "BC" は絶対位置 1 にあるが、
         // p2 起点の相対位置では 0。HSP 仕様(結果はp2を起点とした相対位置) および
         // 実装 hsppp_string.inl L478 (return pos - p2) と整合。
-        // ※ 旧期待値 == 1 は TICKET-009 以前のハーネスブロックで顕在化していなかった既存バグ。
+        // ※ 旧期待値 == 1 はハーネスブロックで顕在化していなかった既存バグ。
         check(instr("ABCABC", 1, "BC") == 0, "instr with offset - found at relative 0");
         check(instr("ABCDEF", 2, "CD") == 0, "instr exact match at offset");
         check(instr("ABCDEF", 10, "AB") == -1, "instr offset beyond string");

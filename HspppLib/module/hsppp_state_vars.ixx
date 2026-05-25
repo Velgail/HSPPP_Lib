@@ -20,7 +20,6 @@
 //     非対応型は enumerate() で serializable=false が立つ。
 //
 // 設計根拠:
-//   .github/agents/sprints/current/artifacts/design-TICKET-002.md
 //   §6, §7.2, §8.2, §12.2, §13(L3-b, L4-b), §15(F3, F5, C4), §17(Risk-2, 6)
 
 export module hsppp:state_vars;

@@ -66,7 +66,7 @@ enum class Screen {
     Result
 };
 
-auto sm = StateMachine<Screen>();
+auto sm = StateGraph<Screen>();
 
 sm.state(Screen::Title)
   .on_enter([]() {
@@ -101,7 +101,7 @@ enum class GameScreen {
 };
 
 void hspMain() {
-    auto sm = StateMachine<GameScreen>();
+    auto sm = StateGraph<GameScreen>();
     int score = 0;
     
     // ═══════════════════════════════════════════
@@ -216,7 +216,7 @@ enum class Screen {
 };
 
 void hspMain() {
-    auto sm = StateMachine<Screen>();
+    auto sm = StateGraph<Screen>();
     
     // 設定値（ステート間で共有）
     auto volume = std::make_shared<int>(50);
@@ -302,7 +302,7 @@ enum class GameState {
 };
 
 void hspMain() {
-    auto sm = StateMachine<GameState>();
+    auto sm = StateGraph<GameState>();
     
     int score = 0;
     int player_x = 320;
@@ -382,7 +382,7 @@ enum class GameFlow {
 };
 
 void hspMain() {
-    auto sm = StateMachine<GameFlow>();
+    auto sm = StateGraph<GameFlow>();
     
     // 厳格モードを有効化
     sm.set_unrestricted_transitions(false);
@@ -443,9 +443,9 @@ enum class InGameState {
 };
 
 void hspMain() {
-    auto main_sm = StateMachine<MainState>();
-    auto frontend_sm = StateMachine<FrontendState>();
-    auto ingame_sm = StateMachine<InGameState>();
+    auto main_sm = StateGraph<MainState>();
+    auto frontend_sm = StateGraph<FrontendState>();
+    auto ingame_sm = StateGraph<InGameState>();
     
     main_sm.state(MainState::Frontend)
       .on_update([&](auto& sm) {
@@ -490,7 +490,7 @@ enum class Scene {
 };
 
 // ステートマシン型の別名
-using SceneManager = hsppp::StateMachine<Scene>;
+using SceneManager = hsppp::StateGraph<Scene>;
 
 // 各シーンの登録関数（前方宣言）
 void registerTitleScene(SceneManager& sm);

@@ -46,11 +46,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - HspppStateSample を新 API（StateGraph + StateScope）に全面移行（旧 `NewStateSampleMain.cpp` / `TestNewFeatures.cpp` は除去）
 
 ### Deprecated
-- `state_frame_count()` — `state_elapsed_ms()` を使用してください（ms 統一）
-- `defer_jump()` — `jump()` を使用してください（dispatcher が return 後に遷移処理するため意味論的差なし）
 
 ### Removed
-- `attach_child()` / `detach_child()` — サブ SM は親 `on_update` 内で明示的に `child.step()` を呼ぶ規約へ変更（design-TICKET-008 §11.1）
+- `defer_jump(StateType)` — `jump()` と意味論的差がなく実用価値がないため削除。`jump()` を使用してください
+- `state_frame_count()` — ms 統一方針に基づき削除。`state_elapsed_ms()` を使用してください
+- `state_frame_count_` private メンバ — `state_frame_count()` 削除に伴うデッドコードとして同時削除
+- `StateMachine<T>` alias（`using StateMachine = StateGraph<StateType>`）— 削除済み。代替: `StateGraph<T>` を直接使用してください
+- `attach_child()` / `detach_child()` — サブ SM は親 `on_update` 内で明示的に `child.step()` を呼ぶ規約へ変更
 - `run()` の `target_ms` 引数および `run()` 内部の `await(target_ms)` 呼出（ユーザーが `on_update` 内でフレーム制御を書く責務に統一）
 
 ### Fixed

@@ -20,12 +20,12 @@ HSP の `*label` / `goto` を型安全に実装するステートマシンライ
 
 ## 概要
 
-### StateMachine クラス
+### StateGraph クラス
 
 ```cpp
 template<typename StateType>
     requires std::is_enum_v<StateType>
-class StateMachine;
+class StateGraph;
 ```
 
 enum class ベースの型安全なステートマシン。HSP の `*label` / `goto` と同等のコンパイル時チェックを提供します。
@@ -42,7 +42,7 @@ enum class ベースの型安全なステートマシン。HSP の `*label` / `g
 ```cpp
 enum class Screen { Title, Game, Result };
 
-auto sm = StateMachine<Screen>();
+auto sm = StateGraph<Screen>();
 
 sm.state(Screen::Title)
   .on_enter([]() { button("Start", []() { /* ... */ }); })
@@ -181,10 +181,10 @@ sm.state(Screen::Menu)
 毎フレーム実行されるコールバックを設定します。
 
 ```cpp
-StateBuilder& on_update(std::function<void(StateMachine&)> callback);
+StateBuilder& on_update(std::function<void(StateGraph&)> callback);
 ```
 
-入力チェック、画面描画など、軽い処理に使用します。コールバックは `StateMachine&` を受け取ります。
+入力チェック、画面描画など、軽い処理に使用します。コールバックは `StateGraph&` を受け取ります。
 
 **使用例:**
 
@@ -240,19 +240,6 @@ void jump(StateType target_state);
 
 ---
 
-### defer_jump
-
-> ⚠️ **Deprecated** — `jump()` と同義です。新規コードでは `jump()` を使用してください。
-
-```cpp
-[[deprecated("use jump")]]
-void defer_jump(StateType target_state);
-```
-
-歴史的経緯で残されている alias です。dispatcher は `on_update` から return された直後に予約遷移を処理するため、`jump()` と `defer_jump()` の意味論的差はありません。
-
----
-
 ### on_update の契約（重要）
 
 `on_update` は **「名前付き repeat-loop の 1 iteration」** として定義されます。
@@ -293,19 +280,6 @@ StateType previous_state() const;
 ```cpp
 int frame_count() const;
 ```
-
----
-
-### state_frame_count
-
-> ⚠️ **Deprecated** — `state_elapsed_ms()` を使用してください（ms 統一方針）。
-
-```cpp
-[[deprecated("use state_elapsed_ms()")]]
-int state_frame_count() const;
-```
-
-現在のステートに滞在しているフレーム数を取得します。
 
 ---
 
@@ -455,7 +429,7 @@ enum class BattlePhase { Start, PlayerTurn, EnemyTurn, End };
 sm.state(Scene::Battle)
   .on_update([&](auto& sm) {
       // ✅ サブ SM を作成して明示的に step() する
-      static StateMachine<BattlePhase> battle;
+      static StateGraph<BattlePhase> battle;
       static bool initialized = false;
       if (!initialized) {
           battle.state(BattlePhase::Start).on_update([](auto& b) {
@@ -662,8 +636,8 @@ void enable_debug_log(bool enabled = true);
 **出力例:**
 
 ```
-[StateMachine] Enter state: Title
-[StateMachine] Transition: Title -> Game (frame: 120)
+[StateGraph] Enter state: Title
+[StateGraph] Transition: Title -> Game (frame: 120)
 ```
 
 ---

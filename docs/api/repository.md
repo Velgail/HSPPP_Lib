@@ -5,24 +5,24 @@ title: Repository API
 
 # Repository API
 
-永続データを型安全に管理するリポジトリパターンの実装です。
+永続データを型安�Eに管琁E��るリポジトリパターンの実裁E��す、E
 
-## 概要
+## 概要E
 
-`Repository<T>` と `GameServices` は、グローバル変数の代わりに使用する永続データ管理システムです。
+`Repository<T>` と `GameServices` は、グローバル変数の代わりに使用する永続データ管琁E��スチE��です、E
 
 ### 主な特徴
 
-- ✅ **型安全**: 各データ型ごとに独立したストレージ
-- ✅ **グローバルアクセス**: どこからでもアクセス可能
-- ✅ **シングルトン**: 型ごとに1つのインスタンス
-- ✅ **簡潔な構文**: `services().data<T>()`
+- ✁E**型安�E**: 吁E��ータ型ごとに独立したストレージ
+- ✁E**グローバルアクセス**: どこからでもアクセス可能
+- ✁E**シングルトン**: 型ごとに1つのインスタンス
+- ✁E**簡潔な構文**: `services().data<T>()`
 
 ---
 
 ## Repository<T>
 
-### 基本的な使い方
+### 基本皁E��使ぁE��
 
 ```cpp
 import hsppp;
@@ -35,7 +35,7 @@ struct PlayerData {
 };
 
 void hspMain() {
-    // データにアクセス
+    // チE�Eタにアクセス
     auto& player = services().data<PlayerData>();
     
     player.hp -= 10;
@@ -45,21 +45,21 @@ void hspMain() {
 }
 ```
 
-### メソッド
+### メソチE��
 
 #### `static Repository<T>& instance()`
 
-シングルトンインスタンスを取得します。
+シングルトンインスタンスを取得します、E
 
 ```cpp
 auto& repo = Repository<PlayerData>::instance();
 ```
 
-通常は `services().repo<T>()` または `services().data<T>()` を使用します。
+通常は `services().repo<T>()` また�E `services().data<T>()` を使用します、E
 
 #### `T& get()` / `const T& get() const`
 
-データの参照を取得します。
+チE�Eタの参�Eを取得します、E
 
 ```cpp
 auto& data = repo.get();
@@ -68,7 +68,7 @@ data.hp = 100;
 
 #### `void set(const T& value)` / `void set(T&& value)`
 
-データを設定します。
+チE�Eタを設定します、E
 
 ```cpp
 PlayerData new_data;
@@ -81,7 +81,7 @@ repo.set(PlayerData{});
 
 #### `void reset()`
 
-データをデフォルト値にリセットします。
+チE�Eタをデフォルト値にリセチE��します、E
 
 ```cpp
 repo.reset();  // PlayerData{} と同じ
@@ -91,31 +91,31 @@ repo.reset();  // PlayerData{} と同じ
 
 ## GameServices
 
-### 基本的な使い方
+### 基本皁E��使ぁE��
 
 ```cpp
-// データに直接アクセス
+// チE�Eタに直接アクセス
 auto& player = services().data<PlayerData>();
 
 // リポジトリにアクセス
 auto& repo = services().repo<PlayerData>();
 ```
 
-### メソッド
+### メソチE��
 
 #### `static GameServices& instance()`
 
-シングルトンインスタンスを取得します。
+シングルトンインスタンスを取得します、E
 
 ```cpp
 auto& svc = GameServices::instance();
 ```
 
-通常は `services()` ショートカットを使用します。
+通常は `services()` ショートカチE��を使用します、E
 
 #### `template<typename T> Repository<T>& repo()`
 
-指定した型のリポジトリを取得します。
+持E��した型のリポジトリを取得します、E
 
 ```cpp
 auto& repo = services().repo<PlayerData>();
@@ -123,7 +123,7 @@ auto& repo = services().repo<PlayerData>();
 
 #### `template<typename T> T& data()`
 
-リポジトリのデータに直接アクセスします。
+リポジトリのチE�Eタに直接アクセスします、E
 
 ```cpp
 auto& player = services().data<PlayerData>();
@@ -132,13 +132,13 @@ player.hp -= 10;
 
 #### `template<typename T, typename Tag = GlobalTag> void register_repository()`
 
-リポジトリを登録します（`reset_all()` で一括リセット可能にする）。
+リポジトリを登録します！Ereset_all()` で一括リセチE��可能にする�E�、E
 
 ```cpp
-services().register_repository<PlayerData>();  // 既定は GlobalTag
+services().register_repository<PlayerData>();  // 既定�E GlobalTag
 services().register_repository<GameProgress>();
 
-// タグを指定して登録（任意の型でOK）
+// タグを指定して登録�E�任意�E型でOK�E�E
 services().register_repository<PlayerData, StateTag>();
 
 // ユーザー定義タグも使用可能
@@ -148,30 +148,30 @@ services().register_repository<PlayerData, SaveSlot1Tag>();
 
 #### `void reset_all()`
 
-登録されたすべてのリポジトリをリセットします。
+登録されたすべてのリポジトリをリセチE��します、E
 
 ```cpp
-// ゲーム開始時に全データをリセット
+// ゲーム開始時に全チE�EタをリセチE��
 services().reset_all();
 ```
 
 ---
 
-## services() ヘルパー関数
+## services() ヘルパ�E関数
 
-`GameServices::instance()` のショートカットです。
+`GameServices::instance()` のショートカチE��です、E
 
 ```cpp
-// この2つは同じ
+// こ�E2つは同じ
 auto& data1 = GameServices::instance().data<PlayerData>();
 auto& data2 = services().data<PlayerData>();
 ```
 
 ---
 
-## 実践例
+## 実践侁E
 
-### 複数のデータ型を管理
+### 褁E��のチE�Eタ型を管琁E
 
 ```cpp
 struct PlayerProfile {
@@ -189,31 +189,31 @@ void hspMain() {
     services().register_repository<PlayerProfile, StateTag>();
     services().register_repository<GameSettings, GlobalTag>();
     
-    // データにアクセス
+    // チE�Eタにアクセス
     auto& profile = services().data<PlayerProfile>();
     auto& settings = services().data<GameSettings>();
     
     profile.high_score = 1000;
     settings.volume = 0.5f;
     
-    // 全リセット
+    // 全リセチE��
     services().reset_all();
     
     logmes(strf("High Score: %d", profile.high_score));  // 0
 }
 ```
 
-### StateMachine との組み合わせ
+### StateMachine との絁E��合わぁE
 
 ```cpp
 enum class Scene { Title, Game, Result };
 
 void hspMain() {
-    StateMachine<Scene> sm;
+    StateGraph<Scene> sm;
     
     sm.state(Scene::Game)
       .on_update([](auto& sm) {
-          // ✅ キャプチャ不要でアクセス
+          // ✁Eキャプチャ不要でアクセス
           auto& profile = services().data<PlayerProfile>();
           
           while (!sm.is_transitioning()) {
@@ -230,11 +230,11 @@ void hspMain() {
 
 ---
 
-## ベストプラクティス
+## ベスト�EラクチE��ス
 
-### ✅ 推奨
+### ✁E推奨
 
-1. **構造体でデータをグループ化**
+1. **構造体でチE�Eタをグループ化**
    ```cpp
    struct PlayerData {
        int hp;
@@ -243,7 +243,7 @@ void hspMain() {
    };
    ```
 
-2. **デフォルト値を設定**
+2. **チE��ォルト値を設宁E*
    ```cpp
    struct GameSettings {
        int difficulty = 1;
@@ -253,19 +253,19 @@ void hspMain() {
 
 3. **services() を使用**
    ```cpp
-   auto& data = services().data<PlayerData>();  // ✅
-   auto& data = Repository<PlayerData>::instance().get();  // ❌ 冗長
+   auto& data = services().data<PlayerData>();  // ✁E
+   auto& data = Repository<PlayerData>::instance().get();  // ❁E冗長
    ```
 
-### ⚠️ 注意点
+### ⚠�E�E注意点
 
-1. **グローバル変数と同等**: テスタビリティは低い
-2. **型ごとに1つ**: 同じ型で複数のインスタンスは作れない
-3. **スレッド安全性なし**: マルチスレッドでは使用不可
+1. **グローバル変数と同筁E*: チE��タビリチE��は低い
+2. **型ごとに1つ**: 同じ型で褁E��のインスタンスは作れなぁE
+3. **スレチE��安�E性なぁE*: マルチスレチE��では使用不可
 
 ---
 
-## 関連項目
+## 関連頁E��
 
-- [StateMachine API](statemachine.html) - ステートマシンとの連携
-- [Data Sharing Guide](../guides/data-sharing.html) - データ共有のベストプラクティス
+- [StateMachine API](statemachine.html) - スチE�Eト�Eシンとの連携
+- [Data Sharing Guide](../guides/data-sharing.html) - チE�Eタ共有�Eベスト�EラクチE��ス

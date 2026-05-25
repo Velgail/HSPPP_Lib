@@ -3,27 +3,27 @@ layout: default
 title: Data Sharing Guide
 ---
 
-# データ共有ガイド
+# チE�Eタ共有ガイチE
 
-StateMachine でデータを共有する2つのパターンと使い分け方法。
+StateMachine でチE�Eタを�E有すめEつのパターンと使ぁE�Eけ方法、E
 
 ---
 
 ## 2つのパターン
 
-### 1. シンプルパターン（ローカル変数）
+### 1. シンプルパターン�E�ローカル変数�E�E
 
-`on_update` 内でループを書く場合、普通のローカル変数で十分です。
+`on_update` 冁E��ループを書く場合、普通�Eローカル変数で十�Eです、E
 
 ```cpp
 enum class Scene { Title, Game };
 
 void hspMain() {
-    StateMachine<Scene> sm;
+    StateGraph<Scene> sm;
     
     sm.state(Scene::Game)
       .on_update([](auto& sm) {
-          // ✅ ローカル変数でOK
+          // ✁Eローカル変数でOK
           int score = 0;
           int lives = 3;
           
@@ -46,19 +46,19 @@ void hspMain() {
 }
 ```
 
-**メリット**:
-- ✅ シンプル
-- ✅ 追加コード不要
-- ✅ スコープが明確
+**メリチE��**:
+- ✁Eシンプル
+- ✁E追加コード不要E
+- ✁Eスコープが明確
 
-**デメリット**:
-- ❌ `on_enter` と `on_exit` では使えない
+**チE��リチE��**:
+- ❁E`on_enter` と `on_exit` では使えなぁE
 
 ---
 
-### 2. 構造化パターン（state<T>()）
+### 2. 構造化パターン�E�Etate<T>()�E�E
 
-`on_enter`, `on_update`, `on_exit` でデータを共有したい場合に使います。
+`on_enter`, `on_update`, `on_exit` でチE�Eタを�E有したい場合に使ぁE��す、E
 
 ```cpp
 struct GameSceneData {
@@ -68,11 +68,11 @@ struct GameSceneData {
 };
 
 void hspMain() {
-    StateMachine<Scene> sm;
+    StateGraph<Scene> sm;
     
     sm.state<GameSceneData>(Scene::Game)
       .on_enter([](auto& sm, GameSceneData& data) {
-          // ✅ 初期化
+          // ✁E初期匁E
           data.score = 0;
           data.lives = 3;
           data.stage = 1;
@@ -93,7 +93,7 @@ void hspMain() {
           }
       })
       .on_exit([](auto& sm, GameSceneData& data) {
-          // ✅ 終了処理（ハイスコア保存など）
+          // ✁E終亁E�E琁E��ハイスコア保存など�E�E
           auto& profile = services().data<PlayerProfile>();
           if (data.score > profile.high_score) {
               profile.high_score = data.score;
@@ -104,19 +104,19 @@ void hspMain() {
 }
 ```
 
-**メリット**:
-- ✅ `on_enter` / `on_exit` でも使える
-- ✅ データがまとまっている
-- ✅ 自動的にクリーンアップされる
+**メリチE��**:
+- ✁E`on_enter` / `on_exit` でも使える
+- ✁EチE�EタがまとまってぁE��
+- ✁E自動的にクリーンアチE�EされめE
 
-**デメリット**:
-- ❌ 構造体の定義が必要
+**チE��リチE��**:
+- ❁E構造体�E定義が忁E��E
 
 ---
 
 ## 永続データ: Repository<T>
 
-シーンをまたいで保持したいデータには `Repository<T>` を使います。
+シーンをまたいで保持したぁE��ータには `Repository<T>` を使ぁE��す、E
 
 ```cpp
 struct PlayerProfile {
@@ -125,11 +125,11 @@ struct PlayerProfile {
 };
 
 void hspMain() {
-    StateMachine<Scene> sm;
+    StateGraph<Scene> sm;
     
     sm.state(Scene::Game)
       .on_update([](auto& sm) {
-          // ✅ どのシーンからでもアクセス可能
+          // ✁Eどのシーンからでもアクセス可能
           auto& profile = services().data<PlayerProfile>();
           
           int score = 0;
@@ -147,7 +147,7 @@ void hspMain() {
     
     sm.state(Scene::Result)
       .on_update([](auto& sm) {
-          // ✅ 別のシーンでも同じデータにアクセス
+          // ✁E別のシーンでも同じデータにアクセス
           auto& profile = services().data<PlayerProfile>();
           
           mes(strf("High Score: %d", profile.high_score));
@@ -169,33 +169,33 @@ void hspMain() {
 
 ### Repository<T> vs グローバル変数
 
-`Repository<T>` は「型安全なグローバル変数」ですが、いくつかの利点があります：
+`Repository<T>` は「型安�Eなグローバル変数」ですが、いくつか�E利点があります！E
 
 | 特徴 | グローバル変数 | Repository<T> |
 |------|--------------|--------------|
-| **型安全性** | ❌ 名前の衝突が起きる | ✅ 型ごとに独立 |
-| **名前空間** | ❌ グローバル名前空間を汚染 | ✅ 型名で管理 |
-| **リセット** | ❌ 手動で初期化が必要 | ✅ reset_all() で一括初期化 |
-| **可視性** | ❌ どこからでも暗黙的にアクセス | ✅ services().data<T>() で明示的 |
-| **テスト** | ❌ 状態のクリアが面倒 | ✅ register/reset でクリア可能 |
+| **型安�E性** | ❁E名前の衝突が起きる | ✁E型ごとに独竁E|
+| **名前空閁E* | ❁Eグローバル名前空間を汚染 | ✁E型名で管琁E|
+| **リセチE��** | ❁E手動で初期化が忁E��E| ✁Ereset_all() で一括初期匁E|
+| **可視性** | ❁Eどこからでも暗黙的にアクセス | ✁Eservices().data<T>() で明示皁E|
+| **チE��チE* | ❁E状態�Eクリアが面倁E| ✁Eregister/reset でクリア可能 |
 
-**例：グローバル変数の問題**
+**例：グローバル変数の問顁E*
 
 ```cpp
-// ❌ グローバル変数：名前の衝突が起きる
-int score = 0;          // ゲームのスコア？
-int score_multiplier;   // これも score？
-int high_score;         // 似た名前が増える...
+// ❁Eグローバル変数�E�名前�E衝突が起きる
+int score = 0;          // ゲームのスコア�E�E
+int score_multiplier;   // これめEscore�E�E
+int high_score;         // 似た名前が増えめE..
 
 void game_scene() {
     score += 10;  // どのスコアかわかりにくい
 }
 ```
 
-**Repository<T> の解決策**
+**Repository<T> の解決筁E*
 
 ```cpp
-// ✅ Repository: 型でグループ化
+// ✁ERepository: 型でグループ化
 struct GameState {
     int score = 0;
     int multiplier = 1;
@@ -216,73 +216,73 @@ void game_scene() {
 }
 ```
 
-### 注意点：それでもグローバルステート
+### 注意点�E�それでもグローバルスチE�EチE
 
-**Repository<T> は万能ではありません**：
+**Repository<T> は丁E�Eではありません**�E�E
 
-1. **結局グローバル**: 内部的にはシングルトンなので、グローバル変数と同じ問題を抱える
-2. **テスタビリティ**: 依存性注入 (DI) を使ったほうがテストしやすい
-3. **スレッドセーフではない**: マルチスレッドでは使用不可
-4. **暗黙的な依存関係**: どの関数がどのデータを使うか、コードから見えにくい
+1. **結局グローバル**: 冁E��皁E��はシングルトンなので、グローバル変数と同じ問題を抱える
+2. **チE��タビリチE��**: 依存性注入 (DI) を使ったほぁE��チE��トしめE��ぁE
+3. **スレチE��セーフではなぁE*: マルチスレチE��では使用不可
+4. **暗黙的な依存関俁E*: どの関数がどのチE�Eタを使ぁE��、コードから見えにくい
 
-**推奨される使い方**：
+**推奨される使ぁE��**�E�E
 
 ```cpp
-// ✅ ゲームのトップレベルで使う（HSPのグローバル変数の代わり）
+// ✁Eゲームのトップレベルで使ぁE��ESPのグローバル変数の代わり�E�E
 void hspMain() {
     auto& settings = services().data<GameSettings>();
     settings.volume = 0.8f;
     
-    StateMachine<Scene> sm;
+    StateGraph<Scene> sm;
     // ...
 }
 
-// ⚠️ 深い関数から使うのは避ける（依存関係が見えにくくなる）
+// ⚠�E�E深ぁE��数から使ぁE�Eは避ける�E�依存関係が見えにくくなる！E
 void deep_function() {
     auto& settings = services().data<GameSettings>();  // ここで突然出てくると混乱
     // ...
 }
 ```
 
-**いつグローバル変数を使うべきか**：
+**ぁE��グローバル変数を使ぁE��きか**�E�E
 
 | ケース | グローバル変数 | Repository<T> |
 |--------|--------------|--------------|
-| **HSPから移植** | ❌ | ✅ Repository で置き換え |
-| **設定データ** | ❌ | ✅ Repository 推奨 |
-| **セーブデータ** | ❌ | ✅ Repository 推奨 |
-| **一時的なフラグ** | ✅ ローカル変数で | ❌ 不要 |
-| **大規模プロジェクト** | ❌ | ⚠️ DI を検討 |
+| **HSPから移椁E* | ❁E| ✁ERepository で置き換ぁE|
+| **設定データ** | ❁E| ✁ERepository 推奨 |
+| **セーブデータ** | ❁E| ✁ERepository 推奨 |
+| **一時的なフラグ** | ✁Eローカル変数で | ❁E不要E|
+| **大規模プロジェクチE* | ❁E| ⚠�E�EDI を検訁E|
 
 ---
 
-## 使い分けチャート
+## 使ぁE�EけチャーチE
 
 ```
-データを共有したい？
-│
-├─ シーンをまたぐ？
-│  └─ YES → Repository<T>
-│
-└─ 同じシーン内だけ？
-   │
-   ├─ on_enter / on_exit で使う？
-   │  └─ YES → state<T>()
-   │
-   └─ on_update 内だけ？
-      └─ YES → ローカル変数
+チE�Eタを�E有したい�E�E
+━E
+├─ シーンをまたぐ�E�E
+━E └─ YES ↁERepository<T>
+━E
+└─ 同じシーン冁E��け！E
+   ━E
+   ├─ on_enter / on_exit で使ぁE��E
+   ━E └─ YES ↁEstate<T>()
+   ━E
+   └─ on_update 冁E��け！E
+      └─ YES ↁEローカル変数
 ```
 
 ---
 
-## パターン別の実例
+## パターン別の実侁E
 
-### 例1: タイトル画面（シンプル）
+### 侁E: タイトル画面�E�シンプル�E�E
 
 ```cpp
 sm.state(Scene::Title)
   .on_update([](auto& sm) {
-      int selected = 0;  // ✅ ローカル変数で十分
+      int selected = 0;  // ✁Eローカル変数で十�E
       
       while (!sm.is_transitioning()) {
           mes("1. Start Game");
@@ -301,7 +301,7 @@ sm.state(Scene::Title)
   });
 ```
 
-### 例2: ゲームシーン（構造化）
+### 侁E: ゲームシーン�E�構造化！E
 
 ```cpp
 struct GameSceneData {
@@ -312,16 +312,16 @@ struct GameSceneData {
 
 sm.state<GameSceneData>(Scene::Game)
   .on_enter([](auto& sm, GameSceneData& data) {
-      // ステージ開始時の初期化
+      // スチE�Eジ開始時の初期匁E
       data.score = 0;
       data.boss_defeated = false;
   })
   .on_update([](auto& sm, GameSceneData& data) {
       while (!sm.is_transitioning()) {
-          // ゲームロジック
+          // ゲームロジチE��
           data.score += 10;
           
-          // ボス撃破判定
+          // ボス撁E��判宁E
           if (/* boss HP == 0 */) {
               data.boss_defeated = true;
               data.stage++;
@@ -331,7 +331,7 @@ sm.state<GameSceneData>(Scene::Game)
       }
   })
   .on_exit([](auto& sm, GameSceneData& data) {
-      // スコアを保存
+      // スコアを保孁E
       auto& profile = services().data<PlayerProfile>();
       if (data.score > profile.high_score) {
           profile.high_score = data.score;
@@ -339,7 +339,7 @@ sm.state<GameSceneData>(Scene::Game)
   });
 ```
 
-### 例3: プレイヤープロファイル（永続）
+### 侁E: プレイヤープロファイル�E�永続！E
 
 ```cpp
 struct PlayerProfile {
@@ -350,10 +350,10 @@ struct PlayerProfile {
 };
 
 void hspMain() {
-    // ✅ 登録してリセット可能にする
+    // ✁E登録してリセチE��可能にする
     services().register_repository<PlayerProfile>();
     
-    StateMachine<Scene> sm;
+    StateGraph<Scene> sm;
     
     sm.state(Scene::Game)
       .on_update([](auto& sm) {
@@ -373,7 +373,7 @@ void hspMain() {
       .on_update([](auto& sm) {
           auto& profile = services().data<PlayerProfile>();
           
-          // ✅ 同じデータにアクセス
+          // ✁E同じチE�Eタにアクセス
           mes(strf("Gold: %d", profile.gold));
           await(16);
       });
@@ -384,9 +384,9 @@ void hspMain() {
 
 ---
 
-## サブステートマシン: tick()
+## サブスチE�Eト�Eシン: tick()
 
-メインステートマシン内でサブステートマシンを使う場合、`tick()` を使います。
+メインスチE�Eト�Eシン冁E��サブスチE�Eト�Eシンを使ぁE��合、`tick()` を使ぁE��す、E
 
 ```cpp
 enum class BattlePhase { Start, PlayerTurn, EnemyTurn, End };
@@ -399,8 +399,8 @@ struct BattleData {
 
 sm.state(Scene::Battle)
   .on_update([](auto& sm) {
-      // ✅ サブステートマシンを作成
-      StateMachine<BattlePhase> battle;
+      // ✁EサブスチE�Eト�Eシンを作�E
+      StateGraph<BattlePhase> battle;
       
       battle.state<BattleData>(BattlePhase::Start)
         .on_enter([](auto& sm, BattleData& data) {
@@ -445,11 +445,11 @@ sm.state(Scene::Battle)
       
       battle.start(BattlePhase::Start);
       
-      // ✅ tick() で1フレームずつ更新（ブロックしない）
+      // ✁Etick() で1フレームずつ更新�E�ブロチE��しなぁE��E
       while (!sm.is_transitioning()) {
           battle.tick();
           
-          // バトル終了チェック
+          // バトル終亁E��ェチE��
           if (!battle.is_running()) {
               sm.jump(Scene::Result);
           }
@@ -459,27 +459,27 @@ sm.state(Scene::Battle)
   });
 ```
 
-**ポイント**:
-- `tick()` は1フレームだけ実行してすぐ戻る
-- `run()` と違ってブロックしない
+**ポインチE*:
+- `tick()` は1フレームだけ実行してすぐ戻めE
+- `run()` と違ってブロチE��しなぁE
 - メインループで `battle.tick()` を呼ぶ
-- `is_running()` でサブステートが終了したか確認
+- `is_running()` でサブスチE�Eトが終亁E��たか確誁E
 
 ---
 
-## is_transitioning() の使い方
+## is_transitioning() の使ぁE��
 
-`is_running()` は「ステートマシンが動いているか」ですが、  
-`is_transitioning()` は「`jump()` が呼ばれてステート遷移中か」を示します。
+`is_running()` は「スチE�Eト�Eシンが動ぁE��ぁE��か」ですが、E 
+`is_transitioning()` は「`jump()` が呼ばれてスチE�Eト�E移中か」を示します、E
 
 ```cpp
 sm.state(Scene::Game)
   .on_update([](auto& sm) {
-      while (!sm.is_transitioning()) {  // ✅ 遷移が呼ばれるまでループ
-          // ゲームロジック
+      while (!sm.is_transitioning()) {  // ✁E遷移が呼ばれるまでルーチE
+          // ゲームロジチE��
           
           if (stick(256)) {  // ESC
-              sm.jump(Scene::Title);  // ← これが呼ばれると is_transitioning() == true
+              sm.jump(Scene::Title);  // ↁEこれが呼ばれると is_transitioning() == true
           }
           
           await(16);
@@ -487,28 +487,28 @@ sm.state(Scene::Game)
   });
 ```
 
-**使い分け**:
-- `is_running()`: ステートマシン全体が動いているか（メインループ用）
-- `is_transitioning()`: ステート遷移が始まったか（`on_update` 内のループ用）
+**使ぁE�EぁE*:
+- `is_running()`: スチE�Eト�Eシン全体が動いてぁE��か（メインループ用�E�E
+- `is_transitioning()`: スチE�Eト�E移が始まったか�E�Eon_update` 冁E�Eループ用�E�E
 
 ---
 
-## まとめ
+## まとめE
 
-| パターン | 用途 | ライフサイクル |
+| パターン | 用送E| ライフサイクル |
 |---------|------|--------------|
-| **ローカル変数** | `on_update` 内だけで使う | ループの間だけ |
-| **state<T>()** | `on_enter/update/exit` で共有 | ステートの間だけ |
-| **Repository<T>** | シーンをまたいで永続 | アプリ全体 |
+| **ローカル変数** | `on_update` 冁E��けで使ぁE| ループ�E間だぁE|
+| **state<T>()** | `on_enter/update/exit` で共朁E| スチE�Eト�E間だぁE|
+| **Repository<T>** | シーンをまたいで永綁E| アプリ全佁E|
 
 **推奨フロー**:
-1. まずローカル変数で書く
-2. `on_enter`/`on_exit` が必要なら `state<T>()` に変更
-3. シーンをまたぐデータは `Repository<T>` に移動
+1. まずローカル変数で書ぁE
+2. `on_enter`/`on_exit` が忁E��なめE`state<T>()` に変更
+3. シーンをまたぐチE�Eタは `Repository<T>` に移勁E
 
 ---
 
-## 関連項目
+## 関連頁E��
 
 - [Repository API](../api/repository.html) - Repository<T> の詳細
 - [StateMachine API](../api/statemachine.html) - tick(), is_transitioning() の詳細

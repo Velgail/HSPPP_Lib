@@ -8,7 +8,7 @@
 
 > **「HSP の人が気づかないうちにモダンなアプリを作れている」状態を実現する**
 
-HSP ユーザーは `*label` と `goto` でシーン遷移を書いてきた。HspppLib はその感覚を `StateMachine<Scene>` として型安全に提供している。ここからさらに進化させるとき、「C++ らしく書き直す」のではなく「HSP の書き心地を保ちながら、裏側でモダンな設計が動いている」構造を目指す。
+HSP ユーザーは `*label` と `goto` でシーン遷移を書いてきた。HspppLib はその感覚を `StateGraph<Scene>` として型安全に提供している。ここからさらに進化させるとき、「C++ らしく書き直す」のではなく「HSP の書き心地を保ちながら、裏側でモダンな設計が動いている」構造を目指す。
 
 本提言は **調査で確認したコード上の事実のみ**を根拠とし、5章構成で方向性を示す。
 
@@ -22,7 +22,7 @@ HSP ユーザーは `*label` と `goto` でシーン遷移を書いてきた。H
 
 | 機能 | 現状 | コード箇所 |
 |------|------|-----------|
-| `defer_jump()` | `jump()` と**完全に同一** | `hsppp_statemachine.ixx` L679-683 |
+| `defer_jump()` | **SPRINT-002 TICKET-001 にて削除済み**（`jump()` と同一のまま削除） | — |
 | 複数タイマー | `timer_target_` が `std::optional<StateType>`（1つのみ） | 内部データ構造 |
 | ガード条件付き遷移 | `allow_transition()` は無条件許可/禁止のみ | `allowed_transitions_` |
 | 並列ステート | `current_state_` が `std::optional<StateType>` 1つのみ | 内部データ構造 |
@@ -31,9 +31,13 @@ HSP ユーザーは `*label` と `goto` でシーン遷移を書いてきた。H
 
 ### 1.2 `defer_jump()` の修正方針
 
-**結論: 「現フレームの on_update 完了後に遷移する」セマンティクスを実装する**
+> ⚠️ **本セクションは非適用**: `defer_jump()` は SPRINT-002 TICKET-001 にて削除済みです。
+> `[[deprecated]]` 属性付きであったが意味論的差がなく実用価値がなかったため、`jump()` に一本化されました。
+> 以下は削除前の提言内容であり、将来の実装計画として参照する必要はありません。
 
-現在 `defer_jump()` は `jump()` と同一（`next_state_ = target_state` のみ）。この関数が存在する意義は、`on_enter` 内で遷移予約をしたときに「今の on_enter が完了してから遷移する」ことを明示するためであった。現状の実装ではその保証がない。
+~~**結論: 「現フレームの on_update 完了後に遷移する」セマンティクスを実装する**~~
+
+~~現在 `defer_jump()` は `jump()` と同一（`next_state_ = target_state` のみ）。この関数が存在する意義は、`on_enter` 内で遷移予約をしたときに「今の on_enter が完了してから遷移する」ことを明示するためであった。現状の実装ではその保証がない。~~
 
 **修正設計**：
 
@@ -147,7 +151,7 @@ void update_timer() {
 // 現状でも書ける。これを「公式推奨パターン」として文書化する
 sm.state(Scene::Battle)
   .on_update([](auto& sm) {
-      StateMachine<BattlePhase> sub;
+      StateGraph<BattlePhase> sub;
       // sub.state(...) を定義
       sub.jump(BattlePhase::Start);
       while (!sm.is_transitioning()) {
@@ -194,7 +198,7 @@ void pop_state() { back(); }  // エイリアス
 
 | 機能 | 優先度 | 理由 |
 |------|--------|------|
-| `defer_jump()` の真の実装 | 高 | API が宣言されているのに未実装は嘘をついている状態 |
+| ~~`defer_jump()` の真の実装~~ | ~~高~~ | **SPRINT-002 TICKET-001 にて削除済み** |
 | 複数タイマー | 高 | ゲームでは「BGM フェード2秒 + シーン切替3秒」等が当然必要 |
 | `allow_transition_if()` ガード条件 | 中 | 宣言的な遷移ルール管理の完成 |
 | LocalData 自動リセットオプション | 中 | ステート再入時の意図しないデータ残留バグの回避 |
@@ -545,10 +549,10 @@ HSP ユーザーが直接触れる公開 API は従来通り例外方式を維�
 **結論: 積極的に活用する。既存の `requires std::is_enum_v<StateType>` を拡張**
 
 ```cpp
-// 現状（hsppp_statemachine.ixx L53）
+// 現状（hsppp_statemachine.ixx）
 template<typename StateType>
     requires std::is_enum_v<StateType>
-class StateMachine;
+class StateGraph;
 
 // 拡張案（イベント型の制約）
 template<typename EventType>
@@ -556,7 +560,7 @@ concept HspEvent = std::is_enum_v<EventType>;
 
 template<typename StateType, typename EventType = void>
     requires std::is_enum_v<StateType> && (std::is_void_v<EventType> || HspEvent<EventType>)
-class StateMachine;
+class StateGraph;
 
 // LocalData の制約（デフォルト構築可能であること）
 template<typename LocalData>
@@ -697,7 +701,7 @@ sm.allow_transition(Scene::Title, Scene::Game);  // 遷移ルールは別行で�
 
 | 作業 | 影響 | 実装コスト |
 |------|------|-----------|
-| `defer_jump()` の真の実装（遅延遷移） | API の正直化 | 小（内部フラグ追加のみ） |
+| ~~`defer_jump()` の真の実装（遅延遷移）~~ | **SPRINT-002 TICKET-001 にて削除済み** | — |
 | `vwait()` への `should_transition()` チェック追加 | 非一貫性解消 | 極小（3行追加） |
 | 複数タイマー（`timers_` を `vector` 化） | ゲームの実用性向上 | 小〜中 |
 

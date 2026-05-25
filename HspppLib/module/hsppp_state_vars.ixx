@@ -48,6 +48,10 @@ import <vector>;
 
 export namespace hsppp {
 
+template <typename TState>
+    requires std::is_enum_v<TState>
+class StateScope;
+
 // ═══════════════════════════════════════════════════════════════════
 // StateVarEntry（design §7.2 / §10 未決の確定形）
 // ═══════════════════════════════════════════════════════════════════
@@ -61,6 +65,28 @@ struct StateVarEntry {
     std::string   type_tag;       ///< L::type_tag()。非 Serializable 型では空文字
     bool          serializable;   ///< Serializable<L> を満たすか
     std::int64_t  state_index;    ///< static_cast<underlying>(TState) の値
+};
+
+/// @brief StateScope の参照専用 view
+template <typename TState>
+    requires std::is_enum_v<TState>
+class StateScopeReadView {
+public:
+    explicit StateScopeReadView(const StateScope<TState>& scope) noexcept;
+
+    template <typename L>
+    [[nodiscard]] const L& get(TState s) const;
+
+    template <typename L>
+    [[nodiscard]] const L* try_get(TState s) const noexcept;
+
+    template <typename L>
+    [[nodiscard]] bool contains(TState s) const noexcept;
+
+    [[nodiscard]] std::vector<StateVarEntry> enumerate() const;
+
+private:
+    const StateScope<TState>* scope_ = nullptr;
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -92,6 +118,9 @@ public:
     /// @brief 紐付け対象の StateGraph
     [[nodiscard]] StateGraph<TState>& state_graph() noexcept { return *sm_; }
     [[nodiscard]] const StateGraph<TState>& state_graph() const noexcept { return *sm_; }
+
+    /// @brief 参照専用 view を取得
+    [[nodiscard]] StateScopeReadView<TState> read_view() const noexcept;
 
     // ====================================================
     // bind / get / try_get
@@ -149,6 +178,21 @@ public:
         if (!p) {
             throw std::out_of_range(
                 std::format("StateScope::get: type mismatch for state_index={}, requested='{}'",
+                            static_cast<std::int64_t>(static_cast<Underlying>(s)),
+                            typeid(L).name()));
+        }
+        return *p;
+    }
+
+    /// @brief 登録済みステート別変数を const 参照で取得
+    /// @throws std::out_of_range 未登録または型不一致
+    template <typename L>
+    [[nodiscard]] const L& get(TState s) const
+    {
+        const L* p = try_get<L>(s);
+        if (!p) {
+            throw std::out_of_range(
+                std::format("StateScope::get: no const variable for state_index={}, type='{}'",
                             static_cast<std::int64_t>(static_cast<Underlying>(s)),
                             typeid(L).name()));
         }
@@ -320,6 +364,50 @@ private:
     StateGraph<TState>*                          sm_ = nullptr;
     std::unordered_map<Key, Slot, KeyHash>       storage_;
 };
+
+template <typename TState>
+    requires std::is_enum_v<TState>
+StateScopeReadView<TState> StateScope<TState>::read_view() const noexcept
+{
+    return StateScopeReadView<TState>(*this);
+}
+
+template <typename TState>
+    requires std::is_enum_v<TState>
+StateScopeReadView<TState>::StateScopeReadView(const StateScope<TState>& scope) noexcept
+    : scope_(&scope)
+{}
+
+template <typename TState>
+    requires std::is_enum_v<TState>
+template <typename L>
+const L& StateScopeReadView<TState>::get(TState s) const
+{
+    return scope_->template get<L>(s);
+}
+
+template <typename TState>
+    requires std::is_enum_v<TState>
+template <typename L>
+const L* StateScopeReadView<TState>::try_get(TState s) const noexcept
+{
+    return scope_->template try_get<L>(s);
+}
+
+template <typename TState>
+    requires std::is_enum_v<TState>
+template <typename L>
+bool StateScopeReadView<TState>::contains(TState s) const noexcept
+{
+    return scope_->template contains<L>(s);
+}
+
+template <typename TState>
+    requires std::is_enum_v<TState>
+std::vector<StateVarEntry> StateScopeReadView<TState>::enumerate() const
+{
+    return scope_->enumerate();
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // state_vars 利便関数（design §7.2 末尾 / HSPPP 流儀 小文字グローバル）

@@ -43,10 +43,15 @@ import <string_view>;
 import <type_traits>;
 import <format>;
 import <chrono>;
-import <fstream>;
 import <memory>;
 import <unordered_map>;
 import <limits>;
+import <thread>;
+import <stop_token>;
+import <atomic>;
+import <exception>;
+import <mutex>;
+import <vector>;
 
 export namespace hsppp {
 
@@ -99,11 +104,189 @@ public:
 namespace detail {
     /// @brief 現在のStateMachineコンテキスト（スレッドローカル）
     inline thread_local StateMachineBase* current_statemachine = nullptr;
+    inline thread_local const std::stop_token* current_submachine_stop_token = nullptr;
+    inline std::atomic_bool async_submachine_graphics_owned = false;
 
     /// @brief 現在のStateMachineを取得
     inline StateMachineBase* get_current_statemachine() noexcept {
         return current_statemachine;
     }
+}
+
+/// @brief 非同期サブステートマシンの描画ポリシー
+enum class SubMachineGraphicsPolicy {
+    none,
+    exclusive
+};
+
+/// @brief 非同期サブステートマシンの実行オプション
+struct AsyncSubMachineOptions {
+    int idle_wait_ms = 1;
+    SubMachineGraphicsPolicy graphics = SubMachineGraphicsPolicy::none;
+};
+
+/// @brief 現在のサブステートマシンに停止要求が出ているかを取得
+[[nodiscard]] inline bool submachine_stop_requested() noexcept {
+    const auto* token = detail::current_submachine_stop_token;
+    return token != nullptr && token->stop_requested();
+}
+
+namespace detail {
+    class SubMachineStopTokenScope {
+    public:
+        explicit SubMachineStopTokenScope(const std::stop_token& token) noexcept
+            : prev_(current_submachine_stop_token)
+        {
+            current_submachine_stop_token = &token;
+        }
+
+        ~SubMachineStopTokenScope() noexcept {
+            current_submachine_stop_token = prev_;
+        }
+
+        SubMachineStopTokenScope(const SubMachineStopTokenScope&) = delete;
+        SubMachineStopTokenScope& operator=(const SubMachineStopTokenScope&) = delete;
+        SubMachineStopTokenScope(SubMachineStopTokenScope&&) = delete;
+        SubMachineStopTokenScope& operator=(SubMachineStopTokenScope&&) = delete;
+
+    private:
+        const std::stop_token* prev_;
+    };
+
+    class AsyncSubMachineTaskBase {
+    public:
+        virtual ~AsyncSubMachineTaskBase() = default;
+        virtual void request_stop() noexcept = 0;
+        virtual void join() noexcept = 0;
+        [[nodiscard]] virtual bool joinable() const noexcept = 0;
+        [[nodiscard]] virtual bool has_exception() const noexcept = 0;
+        virtual void rethrow_exception_if_any() = 0;
+    };
+
+    template <typename ChildState>
+        requires std::is_enum_v<ChildState>
+    class AsyncSubMachineTask final : public AsyncSubMachineTaskBase {
+    public:
+        template <typename Configure>
+        AsyncSubMachineTask(
+            ChildState initial_state,
+            Configure&& configure,
+            AsyncSubMachineOptions options)
+            : options_(options)
+        {
+            acquire_graphics_owner_();
+            try {
+                thread_ = std::jthread(
+                    [this,
+                     initial_state,
+                     configure_fn = std::forward<Configure>(configure)]
+                    (std::stop_token token) mutable {
+                        run_thread_(token, initial_state, std::move(configure_fn));
+                    });
+            }
+            catch (const std::exception& ex) {
+                release_graphics_owner_();
+                throw HspError(ERR_INTERNAL, ex);
+            }
+        }
+
+        ~AsyncSubMachineTask() override {
+            request_stop();
+            join();
+        }
+
+        AsyncSubMachineTask(const AsyncSubMachineTask&) = delete;
+        AsyncSubMachineTask& operator=(const AsyncSubMachineTask&) = delete;
+        AsyncSubMachineTask(AsyncSubMachineTask&&) = delete;
+        AsyncSubMachineTask& operator=(AsyncSubMachineTask&&) = delete;
+
+        void request_stop() noexcept override {
+            thread_.request_stop();
+        }
+
+        void join() noexcept override {
+            if (thread_.joinable()) {
+                thread_.join();
+            }
+        }
+
+        [[nodiscard]] bool joinable() const noexcept override {
+            return thread_.joinable();
+        }
+
+        [[nodiscard]] bool has_exception() const noexcept override {
+            std::scoped_lock lock(exception_mutex_);
+            return exception_ != nullptr;
+        }
+
+        void rethrow_exception_if_any() override {
+            std::exception_ptr stored;
+            {
+                std::scoped_lock lock(exception_mutex_);
+                stored = exception_;
+            }
+            if (stored) {
+                std::rethrow_exception(stored);
+            }
+        }
+
+    private:
+        template <typename Configure>
+        void run_thread_(
+            const std::stop_token& token,
+            ChildState initial_state,
+            Configure&& configure)
+        {
+            SubMachineStopTokenScope stop_scope(token);
+            try {
+                StateGraph<ChildState> child;
+                std::forward<Configure>(configure)(child);
+                child.jump(initial_state);
+                while (!token.stop_requested() && child.is_running()) {
+                    child.step();
+                    if (options_.idle_wait_ms > 0 && !token.stop_requested()) {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(options_.idle_wait_ms));
+                    }
+                }
+            }
+            catch (const HspError&) {
+                store_current_exception_();
+            }
+            catch (const std::exception&) {
+                store_current_exception_();
+            }
+            release_graphics_owner_();
+        }
+
+        void store_current_exception_() noexcept {
+            std::scoped_lock lock(exception_mutex_);
+            exception_ = std::current_exception();
+        }
+
+        void acquire_graphics_owner_() {
+            if (options_.graphics != SubMachineGraphicsPolicy::exclusive) {
+                return;
+            }
+            bool expected = false;
+            if (!async_submachine_graphics_owned.compare_exchange_strong(expected, true)) {
+                throw HspError(ERR_INTERNAL, "Async submachine graphics owner is already active");
+            }
+            owns_graphics_ = true;
+        }
+
+        void release_graphics_owner_() noexcept {
+            if (owns_graphics_) {
+                async_submachine_graphics_owned.store(false);
+                owns_graphics_ = false;
+            }
+        }
+
+        AsyncSubMachineOptions options_{};
+        std::jthread thread_;
+        mutable std::mutex exception_mutex_;
+        std::exception_ptr exception_;
+        bool owns_graphics_ = false;
+    };
 }
 
 /// @brief RAIIによる StateGraph コンテキスト管理
@@ -232,6 +415,33 @@ public:
     void quit();
 
     // ====================================================
+    // 非同期サブステートマシン制御
+    // ====================================================
+
+    /// @brief 現在の親ステートに紐づくサブステートマシンを別 thread で開始
+    template <typename ChildState, typename Configure>
+        requires std::is_enum_v<ChildState>
+    void start_submachine(
+        ChildState initial_state,
+        Configure&& configure,
+        AsyncSubMachineOptions options = {});
+
+    /// @brief 現在の親ステートに紐づくサブステートマシンへ停止要求を送る
+    void request_stop_submachines() noexcept;
+
+    /// @brief 現在の親ステートに紐づくサブステートマシンを join する
+    void join_submachines();
+
+    /// @brief 現在の親ステートに紐づくサブステートマシンへ停止要求を送り join する
+    void stop_submachines() noexcept;
+
+    /// @brief 現在の親ステートに紐づくサブステートマシン内で保存された例外を再送出する
+    void rethrow_submachine_exceptions();
+
+    /// @brief 登録中のサブステートマシン数を取得
+    [[nodiscard]] std::size_t submachine_count() const noexcept;
+
+    // ====================================================
     // 状態クエリ（design §7.1: optional 化）
     // ====================================================
 
@@ -354,6 +564,9 @@ private:
     // タイマー機能（design §7.1: pause 引き継ぎ対応）
     TimerState timer_{};
 
+    // 非同期サブステートマシン（親ステートごとの所有 registry）
+    std::map<StateType, std::vector<std::unique_ptr<detail::AsyncSubMachineTaskBase>>> submachines_;
+
     // デバッグ機能
     bool debug_enabled_ = false;
     std::set<std::pair<StateType, StateType>> transition_graph_;
@@ -372,6 +585,11 @@ private:
     void update_timer();
     void process_pending_transition();
     void step_once();   // 1 フレーム分の本体処理（tick / run 共通）
+    void request_stop_submachines_for_(StateType state) noexcept;
+    void join_submachines_for_(StateType state) noexcept;
+    void rethrow_submachine_exceptions_for_(StateType state);
+    void stop_submachines_for_(StateType state) noexcept;
+    [[nodiscard]] std::size_t submachine_count_for_(StateType state) const noexcept;
 
     friend class StateBuilder<StateType>;
     template<typename, typename> friend class StateBuilderWithLocal;
@@ -711,6 +929,82 @@ void StateGraph<StateType>::quit()
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// StateGraph 実装 - 非同期サブステートマシン制御
+// ═══════════════════════════════════════════════════════════════════
+
+template<typename StateType>
+    requires std::is_enum_v<StateType>
+template <typename ChildState, typename Configure>
+    requires std::is_enum_v<ChildState>
+void StateGraph<StateType>::start_submachine(
+    ChildState initial_state,
+    Configure&& configure,
+    AsyncSubMachineOptions options)
+{
+    if (!current_state_.has_value()) {
+        throw HspError(ERR_INTERNAL, "start_submachine() requires an active parent state");
+    }
+
+    auto task = std::make_unique<detail::AsyncSubMachineTask<ChildState>>(
+        initial_state,
+        std::forward<Configure>(configure),
+        options);
+    submachines_[current_state_.value()].push_back(std::move(task));
+}
+
+template<typename StateType>
+    requires std::is_enum_v<StateType>
+void StateGraph<StateType>::request_stop_submachines() noexcept
+{
+    if (!current_state_.has_value()) {
+        return;
+    }
+    request_stop_submachines_for_(current_state_.value());
+}
+
+template<typename StateType>
+    requires std::is_enum_v<StateType>
+void StateGraph<StateType>::join_submachines()
+{
+    if (!current_state_.has_value()) {
+        return;
+    }
+    join_submachines_for_(current_state_.value());
+}
+
+template<typename StateType>
+    requires std::is_enum_v<StateType>
+void StateGraph<StateType>::stop_submachines() noexcept
+{
+    if (!current_state_.has_value()) {
+        return;
+    }
+    stop_submachines_for_(current_state_.value());
+}
+
+template<typename StateType>
+    requires std::is_enum_v<StateType>
+void StateGraph<StateType>::rethrow_submachine_exceptions()
+{
+    if (!current_state_.has_value()) {
+        return;
+    }
+    rethrow_submachine_exceptions_for_(current_state_.value());
+}
+
+template<typename StateType>
+    requires std::is_enum_v<StateType>
+std::size_t StateGraph<StateType>::submachine_count() const noexcept
+{
+    std::size_t count = 0;
+    for (const auto& [state, tasks] : submachines_) {
+        (void)state;
+        count += tasks.size();
+    }
+    return count;
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // StateGraph 実装 - 状態クエリ
 // ═══════════════════════════════════════════════════════════════════
 
@@ -888,25 +1182,49 @@ template<typename StateType>
     requires std::is_enum_v<StateType>
 void StateGraph<StateType>::export_graph(const std::string& filename)
 {
-    std::ofstream ofs(filename);
-    if (!ofs) {
-        // design §12.1 L7: 失敗系は HspError 化
+    std::string dot;
+    dot += "digraph StateMachine {\n";
+    dot += "    rankdir=LR;\n";
+    dot += "    node [shape=box, style=rounded];\n";
+
+    for (const auto& [state, _] : states_) {
+        dot += std::format("    \"{}\";\n", state_to_string(state));
+    }
+    for (const auto& [from, to] : transition_graph_) {
+        dot += std::format("    \"{}\" -> \"{}\";\n",
+            state_to_string(from), state_to_string(to));
+    }
+    dot += "}\n";
+
+    int wide_len = MultiByteToWideChar(CP_UTF8, 0, filename.c_str(), -1, nullptr, 0);
+    if (wide_len <= 0) {
+        throw HspError(ERR_FILE_IO,
+            std::format("Failed to convert file path to UTF-16: {}", filename));
+    }
+    std::wstring wide_filename(static_cast<std::size_t>(wide_len), L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, filename.c_str(), -1, wide_filename.data(), wide_len);
+
+    HANDLE file = CreateFileW(
+        wide_filename.c_str(),
+        GENERIC_WRITE,
+        0,
+        nullptr,
+        CREATE_ALWAYS,
+        FILE_ATTRIBUTE_NORMAL,
+        nullptr);
+    if (file == INVALID_HANDLE_VALUE) {
         throw HspError(ERR_FILE_IO,
             std::format("Failed to open file: {}", filename));
     }
 
-    ofs << "digraph StateMachine {\n";
-    ofs << "    rankdir=LR;\n";
-    ofs << "    node [shape=box, style=rounded];\n";
-
-    for (const auto& [state, _] : states_) {
-        ofs << std::format("    \"{}\";\n", state_to_string(state));
+    DWORD written = 0;
+    const DWORD size = static_cast<DWORD>(dot.size());
+    const BOOL ok = WriteFile(file, dot.data(), size, &written, nullptr);
+    CloseHandle(file);
+    if (!ok || written != size) {
+        throw HspError(ERR_FILE_IO,
+            std::format("Failed to write file: {}", filename));
     }
-    for (const auto& [from, to] : transition_graph_) {
-        ofs << std::format("    \"{}\" -> \"{}\";\n",
-            state_to_string(from), state_to_string(to));
-    }
-    ofs << "}\n";
 
     debug_log(std::format("Graph exported to: {}", filename));
 }
@@ -995,9 +1313,73 @@ void StateGraph<StateType>::debug_log(const std::string& message) const
 
 template<typename StateType>
     requires std::is_enum_v<StateType>
+void StateGraph<StateType>::request_stop_submachines_for_(StateType state) noexcept
+{
+    auto it = submachines_.find(state);
+    if (it == submachines_.end()) {
+        return;
+    }
+    for (auto& task : it->second) {
+        task->request_stop();
+    }
+}
+
+template<typename StateType>
+    requires std::is_enum_v<StateType>
+void StateGraph<StateType>::join_submachines_for_(StateType state) noexcept
+{
+    auto it = submachines_.find(state);
+    if (it == submachines_.end()) {
+        return;
+    }
+    for (auto& task : it->second) {
+        task->join();
+    }
+}
+
+template<typename StateType>
+    requires std::is_enum_v<StateType>
+void StateGraph<StateType>::rethrow_submachine_exceptions_for_(StateType state)
+{
+    auto it = submachines_.find(state);
+    if (it == submachines_.end()) {
+        return;
+    }
+    for (auto& task : it->second) {
+        task->rethrow_exception_if_any();
+    }
+}
+
+template<typename StateType>
+    requires std::is_enum_v<StateType>
+void StateGraph<StateType>::stop_submachines_for_(StateType state) noexcept
+{
+    request_stop_submachines_for_(state);
+    join_submachines_for_(state);
+}
+
+template<typename StateType>
+    requires std::is_enum_v<StateType>
+std::size_t StateGraph<StateType>::submachine_count_for_(StateType state) const noexcept
+{
+    auto it = submachines_.find(state);
+    if (it == submachines_.end()) {
+        return 0;
+    }
+    return it->second.size();
+}
+
+template<typename StateType>
+    requires std::is_enum_v<StateType>
 void StateGraph<StateType>::perform_transition(StateType new_state)
 {
     if (current_state_.has_value()) {
+        const StateType leaving_state = current_state_.value();
+        request_stop_submachines_for_(leaving_state);
+        join_submachines_for_(leaving_state);
+        rethrow_submachine_exceptions_for_(leaving_state);
+        submachines_.erase(leaving_state);
+
         auto it = states_.find(current_state_.value());
         if (it != states_.end() && it->second.on_exit) {
             it->second.on_exit();

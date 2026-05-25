@@ -40,9 +40,9 @@
 //     - 旧グローバル g_score / g_targetX 等   → State::Game の StateScope ローカル
 //     - 旧グローバル g_highScore               → State::Title の StateScope ローカル + savedata 永続
 //     - 旧 Repository<PlayerProfile>           → StateScope に bind した Serializable 型
-//     - 旧 NewStateSample のサブステートマシン  → 本サンプルでは省略
-//       （新 API では `attach_child` 系を撤去し、サブ SM は親 on_update 内で明示的に
-//        `child.step()` を呼ぶ規約に変更された）。
+//     - 旧 NewStateSample のサブステートマシン  → 非同期サブステートマシン例として
+//       Game ステートに統合。子側は描画せず、StateScopeReadView から高スコアを
+//       const 参照するだけのバックグラウンド処理に限定する。
 //     - 旧 NewStateSample 系の手動テスト        → HspppTest プロジェクトへ移管済
 //
 // ═══════════════════════════════════════════════════════════════════════════
@@ -54,13 +54,16 @@ constexpr int KEY_LBUTTON = 1;
 
 import hsppp;
 
+import <atomic>;
 import <cstddef>;
 import <cstdint>;
 import <cstring>;
 import <exception>;
+import <functional>;
 import <span>;
 import <string>;
 import <string_view>;
+import <thread>;
 import <vector>;
 
 using namespace hsppp;
@@ -77,6 +80,11 @@ enum class GameScreen {
     Pause,
     GameOver,
     Result
+};
+
+enum class AsyncWorkerPhase {
+    ObserveParameters,
+    WaitForStop
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -136,6 +144,30 @@ struct GameSceneData {
     bool         active       = false;
 };
 
+struct AsyncSubMachineMonitor {
+    std::atomic<bool> launched = false;
+    std::atomic<bool> stop_requested_seen = false;
+    std::atomic<bool> stopped_after_game_leave = false;
+    std::atomic<std::int32_t> observed_high_score = 0;
+    std::atomic<std::int32_t> main_thread_marker = 0;
+    std::atomic<std::int32_t> child_thread_marker = 0;
+    std::atomic<std::int32_t> ticks = 0;
+
+    void reset_for_game() noexcept {
+        launched.store(false, std::memory_order_relaxed);
+        stop_requested_seen.store(false, std::memory_order_relaxed);
+        stopped_after_game_leave.store(false, std::memory_order_relaxed);
+        observed_high_score.store(0, std::memory_order_relaxed);
+        child_thread_marker.store(0, std::memory_order_relaxed);
+        ticks.store(0, std::memory_order_relaxed);
+    }
+};
+
+static std::int32_t thread_marker() noexcept {
+    return static_cast<std::int32_t>(
+        std::hash<std::thread::id>{}(std::this_thread::get_id()) % 1000000u);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // セーブファイル I/O ヘルパー
 // ═══════════════════════════════════════════════════════════════════════════
@@ -175,6 +207,8 @@ void hspMain() {
     StateGraph<GameScreen> sm;
     sm.enable_debug_log(true);
     sm.enable_history(5);
+    AsyncSubMachineMonitor async_monitor;
+    async_monitor.main_thread_marker.store(thread_marker(), std::memory_order_relaxed);
 
     sm.set_state_name(GameScreen::Splash,    "Splash");
     sm.set_state_name(GameScreen::Title,     "Title");
@@ -364,6 +398,38 @@ void hspMain() {
               gd.target_radius = 30;
               gd.active = true;
           }
+          async_monitor.reset_for_game();
+          async_monitor.main_thread_marker.store(thread_marker(), std::memory_order_relaxed);
+
+          // 子側は描画しない設定で別 thread 起動する。
+          // 共有データは read_view 経由で PlayerProfile を const 参照するだけにする。
+          auto params = scope.read_view();
+          AsyncSubMachineOptions async_options{};
+          async_options.idle_wait_ms = 5;
+          async_options.graphics = SubMachineGraphicsPolicy::none;
+          sm.start_submachine<AsyncWorkerPhase>(
+              AsyncWorkerPhase::ObserveParameters,
+              [params, &async_monitor](StateGraph<AsyncWorkerPhase>& worker) {
+                  worker.state(AsyncWorkerPhase::ObserveParameters)
+                    .on_enter([params, &async_monitor, &worker]() {
+                        const auto& p = params.get<PlayerProfile>(GameScreen::Title);
+                        async_monitor.observed_high_score.store(p.high_score, std::memory_order_relaxed);
+                        async_monitor.child_thread_marker.store(thread_marker(), std::memory_order_relaxed);
+                        async_monitor.launched.store(true, std::memory_order_relaxed);
+                        worker.jump(AsyncWorkerPhase::WaitForStop);
+                    });
+
+                  worker.state(AsyncWorkerPhase::WaitForStop)
+                    .on_update([&async_monitor](StateGraph<AsyncWorkerPhase>& worker_sm) {
+                        async_monitor.ticks.fetch_add(1, std::memory_order_relaxed);
+                        if (submachine_stop_requested()) {
+                            async_monitor.stop_requested_seen.store(true, std::memory_order_relaxed);
+                            worker_sm.quit();
+                        }
+                    });
+              },
+              async_options);
+
           // 30 秒で GameOver へ自動遷移。
           //   - 初回 Game エントリ（Title→Game）では set_timer を呼ぶ。
           //   - Pause→Game 復帰時は、Game→Pause 遷移時に呼ばれた pause_timer()
@@ -382,6 +448,7 @@ void hspMain() {
           }
       })
       .on_update([&](StateGraph<GameScreen>&) {
+          sm.rethrow_submachine_exceptions();
           auto& gd = scope.get<GameSceneData>(GameScreen::Game);
 
           redraw(0);
@@ -397,6 +464,15 @@ void hspMain() {
           mes(strf("スコア: %d", gd.score));
           pos(520, 20);
           mes(strf("残り: %d秒", remaining));
+          pos(20, 44);
+          mes(strf("非同期サブSM: ticks=%d / active=%d",
+                   async_monitor.ticks.load(std::memory_order_relaxed),
+                   static_cast<int>(sm.submachine_count())));
+          pos(20, 68);
+          mes(strf("main=%d child=%d high_score(ref)=%d",
+                   async_monitor.main_thread_marker.load(std::memory_order_relaxed),
+                   async_monitor.child_thread_marker.load(std::memory_order_relaxed),
+                   async_monitor.observed_high_score.load(std::memory_order_relaxed)));
 
           color(255, 80, 80);
           circle(gd.target_x - gd.target_radius, gd.target_y - gd.target_radius,
@@ -427,6 +503,7 @@ void hspMain() {
           await(16);
       })
       .on_exit([&]() {
+          async_monitor.stopped_after_game_leave.store(true, std::memory_order_relaxed);
           auto* gd = scope.try_get<GameSceneData>(GameScreen::Game);
           if (gd) {
               gd->active = false;
@@ -471,6 +548,14 @@ void hspMain() {
               pos(220, 200);
               mes(strf("現在のスコア: %d", gd->score));
           }
+          pos(160, 225);
+          mes(strf("Game離脱後の非同期サブSM数: %d", static_cast<int>(sm.submachine_count())));
+          pos(160, 250);
+          mes(strf("Game on_exit到達後の停止回収: %s",
+                   async_monitor.stopped_after_game_leave.load(std::memory_order_relaxed) ? "yes" : "no"));
+          pos(160, 275);
+          mes(strf("子thread ticks最終値: %d",
+                   async_monitor.ticks.load(std::memory_order_relaxed)));
 
           redraw(1);
           await(16);

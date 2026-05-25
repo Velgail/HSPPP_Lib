@@ -1303,6 +1303,104 @@ namespace compile_test {
         [[maybe_unused]] int s5 = mmstat(0, 16);  // 再生中フラグ
     }
 
+    // ============================================================
+    // 非同期サブステートマシン API のテスト
+    // ============================================================
+    enum class AsyncCompileParentState {
+        Title,
+        Game,
+        Pause,
+    };
+
+    enum class AsyncCompileChildState {
+        Observe,
+        Wait,
+    };
+
+    struct AsyncCompileSharedData {
+        int value = 0;
+    };
+
+    template <typename TView>
+    concept AsyncCompileReadViewHasBind = requires(TView& view) {
+        view.template bind<AsyncCompileSharedData>(AsyncCompileParentState::Title);
+    };
+
+    template <typename TView>
+    concept AsyncCompileReadViewHasRelease = requires(TView& view) {
+        view.template release<AsyncCompileSharedData>(AsyncCompileParentState::Title);
+    };
+
+    template <typename TView>
+    concept AsyncCompileReadViewHasReleaseAllFor = requires(TView& view) {
+        view.release_all_for(AsyncCompileParentState::Title);
+    };
+
+    template <typename TView>
+    concept AsyncCompileReadViewHasReleaseAll = requires(TView& view) {
+        view.release_all();
+    };
+
+    template <typename TView>
+    concept AsyncCompileReadViewAllowsPayloadMutation = requires(TView& view) {
+        view.template get<AsyncCompileSharedData>(AsyncCompileParentState::Title).value = 0;
+    };
+
+    void test_async_submachine_functions() {
+        StateGraph<AsyncCompileParentState> parent;
+        StateScope<AsyncCompileParentState> scope(parent);
+        scope.bind<AsyncCompileSharedData>(AsyncCompileParentState::Title).value = 42;
+
+        auto read_only = scope.read_view();
+        [[maybe_unused]] const AsyncCompileSharedData& data =
+            read_only.get<AsyncCompileSharedData>(AsyncCompileParentState::Title);
+        [[maybe_unused]] const AsyncCompileSharedData* maybe_data =
+            read_only.try_get<AsyncCompileSharedData>(AsyncCompileParentState::Title);
+        [[maybe_unused]] bool has_data =
+            read_only.contains<AsyncCompileSharedData>(AsyncCompileParentState::Title);
+        [[maybe_unused]] auto entries = read_only.enumerate();
+
+        static_assert(!AsyncCompileReadViewHasBind<decltype(read_only)>);
+        static_assert(!AsyncCompileReadViewHasRelease<decltype(read_only)>);
+        static_assert(!AsyncCompileReadViewHasReleaseAllFor<decltype(read_only)>);
+        static_assert(!AsyncCompileReadViewHasReleaseAll<decltype(read_only)>);
+        static_assert(!AsyncCompileReadViewAllowsPayloadMutation<decltype(read_only)>);
+
+        parent.state(AsyncCompileParentState::Game)
+          .on_enter([&]() {
+              AsyncSubMachineOptions options{};
+              options.idle_wait_ms = 1;
+              options.graphics = SubMachineGraphicsPolicy::none;
+
+              parent.start_submachine<AsyncCompileChildState>(
+                  AsyncCompileChildState::Observe,
+                  [read_only](StateGraph<AsyncCompileChildState>& child) {
+                      child.state(AsyncCompileChildState::Observe)
+                        .on_enter([read_only, &child]() {
+                            [[maybe_unused]] const auto& shared =
+                                read_only.get<AsyncCompileSharedData>(AsyncCompileParentState::Title);
+                            child.jump(AsyncCompileChildState::Wait);
+                        });
+
+                      child.state(AsyncCompileChildState::Wait)
+                        .on_update([](StateGraph<AsyncCompileChildState>& child_sm) {
+                            if (submachine_stop_requested()) {
+                                child_sm.quit();
+                            }
+                        });
+                  },
+                  options);
+
+              [[maybe_unused]] std::size_t active = parent.submachine_count();
+              parent.request_stop_submachines();
+              parent.join_submachines();
+              parent.stop_submachines();
+              parent.rethrow_submachine_exceptions();
+          });
+
+        parent.state(AsyncCompileParentState::Pause);
+    }
+
 }  // namespace compile_test
 
 // ============================================================
@@ -1369,6 +1467,7 @@ namespace hsppp_test {
             &compile_test::test_file_functions,
             &compile_test::test_gui_object_functions,
             &compile_test::test_multimedia_functions,
+            &compile_test::test_async_submachine_functions,
         };
 
         // Screen& を引数に取るテスト関数群（同上）

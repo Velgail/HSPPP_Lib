@@ -15,6 +15,7 @@
 //   5. StateScope::restore type_tag mismatch -> HspError(ERR_TYPE_MISMATCH)
 //   6. release / release_all_for / release_all then try_get == nullptr
 //   7. non-Serializable bind -> enumerate() reports serializable=false
+//   8. StateScopeReadView exposes const-only accessors and no mutation API
 //
 // Coding rules (CLAUDE.md): import hsppp only, no #include, no assert,
 //                            no ANSI APIs, no exception swallowing.
@@ -141,6 +142,31 @@ namespace hsppp_test {
     static_assert(hsppp::Serializable<PauseCursor>,    "PauseCursor must satisfy Serializable");
     static_assert(hsppp::Serializable<PlayerScoreV2>,  "PlayerScoreV2 must satisfy Serializable");
     static_assert(!hsppp::Serializable<OpaqueHandle>,  "OpaqueHandle must NOT satisfy Serializable");
+
+    template <typename TView>
+    concept StateVarsReadViewHasBind = requires(TView& view) {
+        view.template bind<PlayerScore>(TestState::Title);
+    };
+
+    template <typename TView>
+    concept StateVarsReadViewHasRelease = requires(TView& view) {
+        view.template release<PlayerScore>(TestState::Title);
+    };
+
+    template <typename TView>
+    concept StateVarsReadViewHasReleaseAllFor = requires(TView& view) {
+        view.release_all_for(TestState::Title);
+    };
+
+    template <typename TView>
+    concept StateVarsReadViewHasReleaseAll = requires(TView& view) {
+        view.release_all();
+    };
+
+    template <typename TView>
+    concept StateVarsReadViewAllowsPayloadMutation = requires(TView& view) {
+        view.template get<PlayerScore>(TestState::Title).score = 0;
+    };
 
     // -----------------------------------------------------------
     // Observation 1: bind idempotent
@@ -434,6 +460,30 @@ namespace hsppp_test {
     }
 
     // -----------------------------------------------------------
+    // Observation 8: StateScopeReadView read-only API surface
+    // -----------------------------------------------------------
+    static void sv_test_read_view_read_only_surface() {
+        hsppp::StateGraph<TestState> sm;
+        hsppp::StateScope<TestState> scope(sm);
+
+        scope.bind<PlayerScore>(TestState::Title, 12, 34);
+        auto view = scope.read_view();
+
+        static_assert(!StateVarsReadViewHasBind<decltype(view)>);
+        static_assert(!StateVarsReadViewHasRelease<decltype(view)>);
+        static_assert(!StateVarsReadViewHasReleaseAllFor<decltype(view)>);
+        static_assert(!StateVarsReadViewHasReleaseAll<decltype(view)>);
+        static_assert(!StateVarsReadViewAllowsPayloadMutation<decltype(view)>);
+
+        const auto& score = view.get<PlayerScore>(TestState::Title);
+        sv_check(score.score == 12, 8);
+        sv_check(score.hp == 34, 8);
+        sv_check(view.try_get<PlayerScore>(TestState::Title) == &score, 8);
+        sv_check(view.contains<PlayerScore>(TestState::Title), 8);
+        sv_check(view.enumerate().size() == 1u, 8);
+    }
+
+    // -----------------------------------------------------------
     // Entry points
     // -----------------------------------------------------------
     int run_state_vars_tests() {
@@ -448,6 +498,7 @@ namespace hsppp_test {
         sv_test_scope_restore_type_tag_mismatch(); // 5
         sv_test_release_family();                  // 6
         sv_test_non_serializable_enumerate();      // 7
+        sv_test_read_view_read_only_surface();     // 8
 
         return s_svPassed;
     }

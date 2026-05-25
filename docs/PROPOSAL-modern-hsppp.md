@@ -1,10 +1,6 @@
 # モダン HspppLib 設計提言
 
-**作成日**: 2026-03-02T22:31:46+0900  
-**対象**: HspppLib — C++23 (MSVC) / Direct2D / Windows  
-**根拠**: TICKET-000 コード調査（`hsppp_statemachine.ixx` 1204行 / `hsppp_drawing.inl` / `hsppp_repository.ixx` / サンプルコード群）
 
----
 
 ## はじめに
 
@@ -14,7 +10,7 @@
 
 HSP ユーザーは `*label` と `goto` でシーン遷移を書いてきた。HspppLib はその感覚を `StateMachine<Scene>` として型安全に提供している。ここからさらに進化させるとき、「C++ らしく書き直す」のではなく「HSP の書き心地を保ちながら、裏側でモダンな設計が動いている」構造を目指す。
 
-本提言は **TICKET-000 の調査で確認したコード上の事実のみ**を根拠とし、5章構成で方向性を示す。
+本提言は **調査で確認したコード上の事実のみ**を根拠とし、5章構成で方向性を示す。
 
 ---
 
@@ -22,7 +18,7 @@ HSP ユーザーは `*label` と `goto` でシーン遷移を書いてきた。H
 
 ### 1.1 現状の正直な評価
 
-TICKET-000 調査で確認された事実：
+調査で確認された事実：
 
 | 機能 | 現状 | コード箇所 |
 |------|------|-----------|
@@ -108,7 +104,7 @@ bool check_transition_allowed(StateType from, StateType to) {
 
 **結論: `timer_target_` を `std::vector<TimerEntry>` に変更する**
 
-現状 `timer_target_` は `std::optional<StateType>` 1つのみ。`set_timer()` を2回呼ぶと前のタイマーが上書きされる（TICKET-000 制約確認済み）。
+現状 `timer_target_` は `std::optional<StateType>` 1つのみ。`set_timer()` を2回呼ぶと前のタイマーが上書きされる（制約確認済み）。
 
 ```cpp
 // 内部構造の変更
@@ -143,7 +139,7 @@ void update_timer() {
 
 **結論: `tick()` での明示的合成パターンを「公式推奨パターン」として正式化する。組み込みサポートは不要**
 
-TICKET-000 で確認した通り、`current_state_` は `std::optional<StateType>` 1つ。並列ステートを組み込むには内部設計の大幅変更が必要となる。
+確認した通り、`current_state_` は `std::optional<StateType>` 1つ。並列ステートを組み込むには内部設計の大幅変更が必要となる。
 
 しかし `NewStateSampleMain.cpp` の Battle ステートを見ると、`tick()` パターンで十分な表現力があることが確認できる：
 
@@ -221,7 +217,7 @@ void pop_state() { back(); }  // エイリアス
 
 **結論: `vwait()` に `should_transition()` チェックを追加する（小規模変更）**
 
-TICKET-000 で確認した事実：
+確認した事実：
 
 ```
 await(ms):  SM コンテキスト取得 → should_transition() が true なら即リターン ✅
@@ -295,7 +291,7 @@ void await_until(std::function<bool()> pred, int timeout_ms = -1) {
 **事実の確認**：
 - MSVC は Visual Studio 2022 17.9 以降で `std::generator` を実装済み（C++23 機能）
 - `std::generator` は `<generator>` ヘッダで使用可能
-- HspppLib は既に C++23 named modules を使用（`TICKET-000` 技術スタック確認済み）
+- HspppLib は既に C++23 named modules を使用（技術スタック確認済み）
 
 **コルーチン化の可能性**：
 
@@ -323,7 +319,7 @@ sm.state(Scene::Game)
 
 1. **`await()` との統合が複雑**: `co_yield` から戻るタイミングと `await()` の VSync/SM連携を統合するには `std::generator` の実行モデルを変更する必要がある
 2. **ユーザーの習熟コストが高い**: HSP ユーザーに `co_yield` を説明するコストは「モダンな設計を気づかないうちに使っている」という目標に反する
-3. **既存 `while(!is_transitioning())` パターンの習得コストは低い**: TICKET-000 のサンプルコードを見ると、このパターンは数行であり、説明コストが低い
+3. **既存 `while(!is_transitioning())` パターンの習得コストは低い**: サンプルコードを見ると、このパターンは数行であり、説明コストが低い
 
 **代替案（推奨）**: `while(!sm.is_transitioning())` は HSP の `repeat ... loop` に近い発想であり、HSP ユーザーに説明しやすい。`await_until()` の追加（§2.2）でボイラープレートをさらに削減できる。
 
@@ -335,7 +331,7 @@ sm.state(Scene::Game)
 
 物理演算を含むゲームでは「描画は可変、物理は固定60Hz」の分離が必要になる。現状の HspppLib は VSync/`await()` 依存であり固定タイムステップ機能はない。
 
-しかし TICKET-000 のターゲットは「Direct2D + Windows GUI/Game」であり、物理演算エンジンの統合は現時点のスコープ外。ユーザーが必要なら：
+しかし本提言のターゲットは「Direct2D + Windows GUI/Game」であり、物理演算エンジンの統合は現時点のスコープ外。ユーザーが必要なら：
 
 ```cpp
 // ユーザーが自分で書ける固定タイムステップ
@@ -362,7 +358,7 @@ while (!sm.is_transitioning()) {
 
 **結論: `std::jthread` や非同期タスクキューの採用は見送る**
 
-シングルスレッドブロッキング設計（TICKET-000 確認済み）は Direct2D の「描画はメインスレッドのみ」という制約に整合している。バックグラウンドでのデータ読み込みなど限定的な用途には、ユーザーが `std::jthread` を直接使えばよい。HspppLib の責務はゲームループの管理であり、汎用スレッド管理ライブラリではない。
+シングルスレッドブロッキング設計（確認済み）は Direct2D の「描画はメインスレッドのみ」という制約に整合している。バックグラウンドでのデータ読み込みなど限定的な用途には、ユーザーが `std::jthread` を直接使えばよい。HspppLib の責務はゲームループの管理であり、汎用スレッド管理ライブラリではない。
 
 ---
 
@@ -372,7 +368,7 @@ while (!sm.is_transitioning()) {
 
 **結論: `reset_all()` にタグフィルタリングを実装する**
 
-TICKET-000 で確認した事実：`reset_all()` は `registered_repositories_` に登録された全リポジトリをタグを無視して一括リセットする。`struct GlobalTag` と `struct StateTag` は識別子として存在するが、`reset_all()` ではフィルタリングに使われていない。
+確認した事実：`reset_all()` は `registered_repositories_` に登録された全リポジトリをタグを無視して一括リセットする。`struct GlobalTag` と `struct StateTag` は識別子として存在するが、`reset_all()` ではフィルタリングに使われていない。
 
 **修正設計**：
 
@@ -653,7 +649,7 @@ CONCEPT.md で定義された「Pragmatic Hybrid」を技術的に言い換え�
 
 **絶対に壊さない API**:
 
-TICKET-000 のサンプルコード（`StateSampleMain.cpp` / `NewStateSampleMain.cpp`）が変更なしでコンパイル・実行できることを後方互換の基準とする。
+サンプルコード（`StateSampleMain.cpp` / `NewStateSampleMain.cpp`）が変更なしでコンパイル・実行できることを後方互換の基準とする。
 
 - `sm.state(x).on_enter(f).on_update(f).on_exit(f)` のシグネチャを変更しない
 - `sm.jump()` / `sm.back()` / `sm.start()` / `sm.run()` / `sm.tick()` を維持
@@ -733,4 +729,4 @@ sm.allow_transition(Scene::Title, Scene::Game);  // 遷移ルールは別行で�
 
 ---
 
-*本提言は TICKET-000 コード調査（2026-03-02T22:20:07+0900）を唯一の事実的根拠とする。*
+*本提言はコード調査（2026-03-02T22:20:07+0900）を唯一の事実的根拠とする.*

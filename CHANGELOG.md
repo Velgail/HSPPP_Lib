@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `pause_timer()` / `resume_timer()` の意味論を「次の遷移を跨いでタイマー状態を保持する明示的意思表示」として確立
   - `perform_transition` 内の自動 `cancel_timer()` は paused タイマーを skip（明示 `cancel_timer()` は意思表示を上書き、二層契約）
 - 変数パッケージ
-  - `StateScope<TState>` / `state_vars` ショートカット — ステート別変数の bind / get / release（idempotent）
+  - `StateScope<TState>` / `state_vars` ショートカット — ステート別変数の bind / get / release（冪等）
   - `Repository<T>` / `GameServices` / `services()` — シングルトン型永続データ管理
   - `register_repository<T, Tag>()` / `reset_all()` — タグ別一括リセット
 - セーブデータ

@@ -96,7 +96,7 @@ void run();
 
 **重要 — `run()` は dispatch only:**
 
-- `run()` 自身は `await()` / `Sleep()` などの待機を **一切呼びません**（design-TICKET-008 §7.1）。
+- `run()` 自身は `await()` / `Sleep()` などの待機を **一切呼びません**。
 - フレーム制御（`await(16)` 等）は **必ず `on_update` 内でユーザーが書く** こと。書かなければ busy loop になります（ライブラリは警告も出しません）。
 - これは HSP の「`stop` で待ち、`await` で間を空ける」感覚を温存するための明示的な責務分担です。
 
@@ -242,7 +242,7 @@ void jump(StateType target_state);
 
 ### defer_jump
 
-> ⚠️ **Deprecated**（design-TICKET-008 §7.1）— `jump()` と同義です。新規コードでは `jump()` を使用してください。
+> ⚠️ **Deprecated** — `jump()` と同義です。新規コードでは `jump()` を使用してください。
 
 ```cpp
 [[deprecated("use jump")]]
@@ -255,7 +255,7 @@ void defer_jump(StateType target_state);
 
 ### on_update の契約（重要）
 
-`on_update` は **「名前付き repeat-loop の 1 iteration」** として定義されます（design-TICKET-008 §7.2）。
+`on_update` は **「名前付き repeat-loop の 1 iteration」** として定義されます。
 
 - `on_update` から `return` すると、dispatcher は **遷移予約があれば exit→enter→次ステートの on_update**、なければ **同じステートの on_update を再度呼び出します**（= repeat の継続）。
 - 利用者は `while (!sm.is_transitioning()) { ... }` を**書かなくてもよい**（return すれば同じ効果）。書いてもよい（ステート内で完結する待機を組みたい場合）。
@@ -298,7 +298,7 @@ int frame_count() const;
 
 ### state_frame_count
 
-> ⚠️ **Deprecated** — `state_elapsed_ms()` を使用してください（design-TICKET-002 §7.1 / TICKET-008 §18 Q-3、ms 統一方針）。
+> ⚠️ **Deprecated** — `state_elapsed_ms()` を使用してください（ms 統一方針）。
 
 ```cpp
 [[deprecated("use state_elapsed_ms()")]]
@@ -443,11 +443,11 @@ void step();   // 推奨名（HSPPP 流儀の小文字、サブ SM 用）
 
 **戻り値:** なし
 
-`run()` と違い、`tick()` / `step()` は **1 iteration だけ実行してすぐ戻ります**。`step()` が推奨名で、`tick()` は等価な後方互換 alias です（design-TICKET-008 §7.1）。
+`run()` と違い、`tick()` / `step()` は **1 iteration だけ実行してすぐ戻ります**。`step()` が推奨名で、`tick()` は等価な後方互換 alias です。
 
 **サブステートマシン駆動の規約変更（重要）:**
 
-旧 API にあった `attach_child()` / `detach_child()` は **撤去されました**（design-TICKET-008 §11.1）。サブ SM が必要な場合は、親 SM の `on_update` 内で **明示的に `child.step()` を呼ぶ** のが正規パターンです。
+旧 API にあった `attach_child()` / `detach_child()` は **撤去されました**。サブ SM が必要な場合は、親 SM の `on_update` 内で **明示的に `child.step()` を呼ぶ** のが正規パターンです。
 
 ```cpp
 enum class BattlePhase { Start, PlayerTurn, EnemyTurn, End };
@@ -603,7 +603,7 @@ sm.state(Screen::Splash)
 void cancel_timer();
 ```
 
-`pause_timer()` で paused 状態のタイマーも **明示 `cancel_timer()` は上書き破棄** します（design-TICKET-010 §5.3 / design-TICKET-008 §18 Q4「二層契約」）。
+`pause_timer()` で paused 状態のタイマーも **明示 `cancel_timer()` は上書き破棄** します（「二層契約」）。
 
 ---
 
@@ -616,7 +616,7 @@ void pause_timer();
 void resume_timer();
 ```
 
-**意味論（design-TICKET-010 §5.1 で確立）:**
+**意味論で確立:**
 
 - `pause_timer()` は単に「カウントを止める」だけでなく、**「次の状態遷移を跨いでタイマー状態を保持する明示的意思表示」** を表します。
 - これに伴い、`perform_transition()` 内の自動 `cancel_timer()` は **paused 中のタイマーに限り skip** されます（一方、明示の `cancel_timer()` は意思表示を上書きして破棄）。
@@ -645,7 +645,7 @@ sm.state(GameScreen::Game)
   });
 ```
 
-> ⚠️ 旧実装（〜TICKET-009）では `perform_transition` が無条件で `cancel_timer()` を呼んでいたため、`Pause → Game` 復帰後にタイマーが永久失効していました（TR-6）。TICKET-010 で API 内部契約を整え、サンプル側を `Game::on_enter` で `resume_timer()` を呼ぶ形に整理しています。詳細は `design-TICKET-010.md` §5 / §7。
+> ⚠️ 旧実装では `perform_transition` が無条件で `cancel_timer()` を呼んでいたため、`Pause → Game` 復帰後にタイマーが永久失効していました（TR-6）。API 側で内部契約を整え、サンプル側を `Game::on_enter` で `resume_timer()` を呼ぶ形に整理しています。詳細は設計文書の該当箇所を参照してください。
 
 ---
 

@@ -7,10 +7,7 @@ title: StateScope / state_vars / SaveData API
 
 ステート別変数（**StateScope** / `state_vars`）と、バイナリ・セーブ／ロード（**SaveWriter** / **SaveReader** / `Serializable`）の API リファレンス。
 
-新 State Machine（design-TICKET-008 / design-TICKET-010）と組み合わせて、HSP の「ステートに紐づくグローバル変数」感覚を C++ 側で型安全に再現するためのモジュールです。
-
-> **モジュール:** `import hsppp;`（内部 partition: `:state_vars` / `:savedata`）
-> **設計根拠:** `design-TICKET-002.md` §7.2 / §7.3、`design-TICKET-008.md` §11.1、`design-TICKET-010.md` §5
+State Machineと組み合わせて、HSP の「ステートに紐づくグローバル変数」感覚を C++ 側で型安全に再現するためのモジュールです。
 
 ---
 
@@ -32,7 +29,7 @@ title: StateScope / state_vars / SaveData API
 
 `StateScope<TState>` は **「ステートごとの変数バインディング」** を担当するクラスです。`StateGraph<TState>` に対して弱参照（ポインタ）を持ち、`(TState, std::type_index)` をキーとして任意型の値を `std::any` で保持します。
 
-- 同じキーで `bind()` を再呼出した場合は **idempotent**（既存スロットを返却し、引数は無視）。
+- 同じキーで `bind()` を再呼出した場合は **冪等**（既存スロットを返却し、引数は無視）。
 - 値型が `Serializable` を満たす場合のみ `snapshot()` / `restore()` の対象になる（非 Serializable 型は黙ってスキップされる）。
 - StateMachine 本体は StateScope を知らない（一方向依存）。
 
@@ -52,7 +49,7 @@ public:
 
 | メソッド | 説明 |
 |---------|------|
-| `L& bind(TState s, Args&&... args)` | 変数を登録（既存があれば idempotent に返却） |
+| `L& bind(TState s, Args&&... args)` | 変数を登録（既存があれば 冪等 に返却） |
 | `L& get(TState s)` | 取得。未登録 / 型不一致は `std::out_of_range` を throw |
 | `L* try_get(TState s) noexcept` | 取得（無ければ `nullptr`） |
 | `bool contains(TState s) const noexcept` | 存在チェック |
@@ -81,7 +78,7 @@ void hspMain() {
     StateGraph<Scene> sm;
     StateScope<Scene>  scope(sm);
 
-    // Game ステートに GameLocal を bind（idempotent）
+    // Game ステートに GameLocal を bind（冪等）
     auto& game = scope.bind<GameLocal>(Scene::Game);
     game.score = 0;
 
@@ -97,7 +94,7 @@ void hspMain() {
 }
 ```
 
-> **ヒント:** `bind()` を `on_enter` 内で呼んでも安全です（idempotent なので再入で重複初期化されない）。
+> **ヒント:** `bind()` を `on_enter` 内で呼んでも安全です（冪等 なので再入で重複初期化されない）。
 
 ---
 

@@ -252,6 +252,72 @@ namespace hsppp {
     }
 
     // ============================================================
+    // anchor_pos / anchor_box / boxf(AnchorRect) - アンカー基準レイアウト
+    // ============================================================
+
+    namespace anchor_detail {
+        // 現在のサーフェスバッファサイズ (= 論理 px) に対し、anchorH の基準 X を返す
+        inline int baseX_for(int bufferW, int anchorH) noexcept {
+            switch (anchorH) {
+                case ah_left:   return 0;
+                case ah_center: return bufferW / 2;
+                case ah_right:  return bufferW;
+                default:        return 0;
+            }
+        }
+        inline int baseY_for(int bufferH, int anchorV) noexcept {
+            switch (anchorV) {
+                case av_top:    return 0;
+                case av_middle: return bufferH / 2;
+                case av_bottom: return bufferH;
+                default:        return 0;
+            }
+        }
+    }
+
+    void anchor_pos(int anchorH, int anchorV, int offsetX, int offsetY,
+                    const std::source_location& location) {
+        safe_call(location, [&] {
+            auto currentSurface = getCurrentSurface();
+            if (!currentSurface) return;
+            const int bw = currentSurface->getWidth();
+            const int bh = currentSurface->getHeight();
+            const int x  = anchor_detail::baseX_for(bw, anchorH) + offsetX;
+            const int y  = anchor_detail::baseY_for(bh, anchorV) + offsetY;
+            currentSurface->pos(x, y);
+        });
+    }
+
+    void anchor_box(int anchorH, int anchorV, int offsetX, int offsetY, int w, int h,
+                    const std::source_location& location) {
+        safe_call(location, [&] {
+            auto currentSurface = getCurrentSurface();
+            if (!currentSurface) return;
+            const int bw = currentSurface->getWidth();
+            const int bh = currentSurface->getHeight();
+            // AnchorRect::resolve と同じ解決ロジック（矩形の対応する辺を基準点に合わせる）
+            AnchorRect r{};
+            r.h_anchor = static_cast<AnchorH>(anchorH);
+            r.v_anchor = static_cast<AnchorV>(anchorV);
+            r.offset_x = offsetX;
+            r.offset_y = offsetY;
+            r.width    = w;
+            r.height   = h;
+            const RectI rc = r.resolve(bw, bh);
+            currentSurface->boxf(rc.x1, rc.y1, rc.x2, rc.y2);
+        });
+    }
+
+    void boxf(const AnchorRect& rect, const std::source_location& location) {
+        safe_call(location, [&] {
+            auto currentSurface = getCurrentSurface();
+            if (!currentSurface) return;
+            const RectI rc = rect.resolve(currentSurface->getWidth(), currentSurface->getHeight());
+            currentSurface->boxf(rc.x1, rc.y1, rc.x2, rc.y2);
+        });
+    }
+
+    // ============================================================
     // line - 直線を描画（HSP互換）
     // ============================================================
     void line(OptInt x2, OptInt y2, OptInt x1, OptInt y1, const std::source_location& location) {

@@ -127,6 +127,58 @@ namespace hsppp {
         return *this;
     }
 
+    Screen& Screen::anchor_pos(int anchorH, int anchorV, int offsetX, int offsetY,
+                               const std::source_location& location) {
+        safe_call(location, [&] {
+            auto surface = getSurfaceById(m_id);
+            if (!surface) return;
+            const int bw = surface->getWidth();
+            const int bh = surface->getHeight();
+            int baseX = 0;
+            switch (anchorH) {
+                case ah_left:   baseX = 0;       break;
+                case ah_center: baseX = bw / 2;  break;
+                case ah_right:  baseX = bw;      break;
+            }
+            int baseY = 0;
+            switch (anchorV) {
+                case av_top:    baseY = 0;       break;
+                case av_middle: baseY = bh / 2;  break;
+                case av_bottom: baseY = bh;      break;
+            }
+            surface->pos(baseX + offsetX, baseY + offsetY);
+        });
+        return *this;
+    }
+
+    Screen& Screen::anchor_box(int anchorH, int anchorV, int offsetX, int offsetY, int w, int h,
+                               const std::source_location& location) {
+        safe_call(location, [&] {
+            auto surface = getSurfaceById(m_id);
+            if (!surface) return;
+            AnchorRect r{};
+            r.h_anchor = static_cast<AnchorH>(anchorH);
+            r.v_anchor = static_cast<AnchorV>(anchorV);
+            r.offset_x = offsetX;
+            r.offset_y = offsetY;
+            r.width    = w;
+            r.height   = h;
+            const RectI rc = r.resolve(surface->getWidth(), surface->getHeight());
+            surface->boxf(rc.x1, rc.y1, rc.x2, rc.y2);
+        });
+        return *this;
+    }
+
+    Screen& Screen::boxf(const AnchorRect& rect, const std::source_location& location) {
+        safe_call(location, [&] {
+            auto surface = getSurfaceById(m_id);
+            if (!surface) return;
+            const RectI rc = rect.resolve(surface->getWidth(), surface->getHeight());
+            surface->boxf(rc.x1, rc.y1, rc.x2, rc.y2);
+        });
+        return *this;
+    }
+
     Screen& Screen::cls(int mode, const std::source_location& location) {
         safe_call(location, [&] {
             auto surface = getSurfaceById(m_id);

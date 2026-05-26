@@ -674,6 +674,137 @@ namespace hsppp_test {
     }
 
     // ============================================================
+    // anchor_pos / anchor_box / boxf(AnchorRect) - アンカー基準レイアウト
+    // ============================================================
+    bool test_anchor_layout() {
+        bool allPassed = true;
+
+        // --- (1) AnchorRect::resolve 単体: アスペクト比違いでも相対位置が保たれる ---
+        // 右下から内側 10px に 50x30 の矩形を置くケース
+        AnchorRect r{
+            .h_anchor = ah_right,
+            .v_anchor = av_bottom,
+            .offset_x = -10,
+            .offset_y = -10,
+            .width    = 50,
+            .height   = 30,
+        };
+
+        // 4:3 (640x480)
+        RectI rc43 = r.resolve(640, 480);
+        check(rc43.x2 == 640 - 10 && rc43.y2 == 480 - 10,
+              "AnchorRect resolve 4:3 right-bottom edge anchored");
+        check(rc43.width() == 50 && rc43.height() == 30,
+              "AnchorRect resolve 4:3 preserves width/height");
+
+        // 21:9 (2520x1080) — アスペクト比が変わっても右下からの距離は同一
+        RectI rc219 = r.resolve(2520, 1080);
+        check(rc219.x2 == 2520 - 10 && rc219.y2 == 1080 - 10,
+              "AnchorRect resolve 21:9 right-bottom edge anchored");
+        check(rc219.width() == 50 && rc219.height() == 30,
+              "AnchorRect resolve 21:9 preserves size");
+
+        // 左上アンカー
+        AnchorRect rLT{
+            .h_anchor = ah_left, .v_anchor = av_top,
+            .offset_x = 5, .offset_y = 7,
+            .width = 40, .height = 20,
+        };
+        RectI rcLT = rLT.resolve(800, 600);
+        check(rcLT.x1 == 5 && rcLT.y1 == 7,
+              "AnchorRect resolve left-top offset");
+
+        // 中央アンカー（中心が画面中心）
+        AnchorRect rC{
+            .h_anchor = ah_center, .v_anchor = av_middle,
+            .offset_x = 0, .offset_y = 0,
+            .width = 100, .height = 60,
+        };
+        RectI rcC = rC.resolve(800, 600);
+        check(rcC.x1 == 800/2 - 50 && rcC.y1 == 600/2 - 30,
+              "AnchorRect resolve center anchor centers the box");
+        check(rcC.x2 - rcC.x1 == 100 && rcC.y2 - rcC.y1 == 60,
+              "AnchorRect resolve center preserves size");
+
+        // --- (2) Screen 経由で API がクラッシュせず動作することを確認 ---
+        {
+            auto scr = screen({.width = 400, .height = 300, .mode = screen_hide});
+            check(scr.valid(), "anchor: screen created");
+
+            scr.redraw(0);
+            scr.color(0, 0, 0);
+            (void)scr.boxf();
+
+            // HSP 互換命令: 右下から内側 10px に anchor_pos
+            scr.color(255, 0, 0);
+            scr.anchor_pos(ah_right, av_bottom, -10, -10);
+
+            // HSP 互換命令: 右下に 50x30 の矩形
+            scr.anchor_box(ah_right, av_bottom, 0, 0, 50, 30);
+
+            // OOP: AnchorRect で左上に 20x20
+            scr.boxf(AnchorRect{
+                .h_anchor = ah_left, .v_anchor = av_top,
+                .offset_x = 0, .offset_y = 0,
+                .width = 20, .height = 20,
+            });
+
+            scr.redraw(1);
+            check(true, "Screen anchor_pos/anchor_box/boxf(AnchorRect) run without crash");
+            allPassed &= scr.valid();
+        }
+
+        // --- (3) グローバル命令版（HSP 互換）も動くか ---
+        {
+            (void)screen(96, 400, 300, screen_hide);
+            gsel(96);
+            redraw(0);
+            color(255, 255, 255);
+            (void)boxf();
+            color(0, 0, 255);
+            anchor_pos(ah_center, av_middle, 0, 0);
+            anchor_box(ah_left, av_bottom, 5, -25, 30, 20);
+            boxf(AnchorRect{
+                .h_anchor = ah_right, .v_anchor = av_top,
+                .offset_x = -25, .offset_y = 5,
+                .width = 20, .height = 20,
+            });
+            redraw(1);
+            check(true, "global anchor_pos/anchor_box/boxf(AnchorRect) run without crash");
+        }
+
+        // --- (4) 描画結果検証: 4:3 と 16:9 で「右下から内側 10px」が一致した相対挙動になる ---
+        // バッファ (buffer) を使い、pget で塗り色を検証する。
+        auto verifyRightBottom = [&](int id, int w, int h, const char* label) {
+            (void)screen(id, w, h, screen_hide);
+            gsel(id);
+            redraw(0);
+            color(255, 255, 255);
+            (void)boxf();
+            color(200, 50, 75);
+            // 右下を起点に 10x10 の塗り (offsetX=-10, offsetY=-10, w=10, h=10)
+            anchor_box(ah_right, av_bottom, -10, -10, 10, 10);
+            redraw(1);
+
+            // anchor_box(ah_right, av_bottom, -10, -10, 10, 10) は
+            //   AnchorRect 解決: baseX = bufferW - width(10) = w-10, x1 = w-10 + (-10) = w-20
+            //   → 塗り範囲は (w-20, h-20) ~ (w-10, h-10)
+            // 範囲内 (w-15, h-15) は塗られているはず
+            pget(w - 15, h - 15);
+            const int r = ginfo(16);
+            const int g = ginfo(17);
+            const int b = ginfo(18);
+            check(r == 200 && g == 50 && b == 75,
+                  label);
+        };
+        verifyRightBottom(91, 400, 300, "anchor 4:3 right-bottom interior pixel colored");
+        verifyRightBottom(92, 640, 360, "anchor 16:9 right-bottom interior pixel colored");
+        verifyRightBottom(93, 840, 360, "anchor 21:9 right-bottom interior pixel colored");
+
+        return allPassed;
+    }
+
+    // ============================================================
     // 公開テスト関数
     // ============================================================
 
@@ -700,6 +831,7 @@ namespace hsppp_test {
         test_note_and_sendmsg();
         test_async_submachine_runtime();
         test_dpi_changed_target_bitmap_rebind();
+        test_anchor_layout();
 
         return s_testsPassed;
     }

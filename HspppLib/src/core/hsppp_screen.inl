@@ -180,8 +180,12 @@ namespace hsppp {
             if (!surface) return 0;
 
             // HspWindowの場合は現在のクライアントサイズを返す
+            // 仮想画面 ON 時は論理サイズ（バッファサイズ）を返す。
             auto pWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
             if (pWindow) {
+                if (pWindow->isVirtualEnabled()) {
+                    return pWindow->getWidth();
+                }
                 int w, h;
                 pWindow->getCurrentClientSize(w, h);
                 return w;
@@ -197,8 +201,12 @@ namespace hsppp {
             if (!surface) return 0;
 
             // HspWindowの場合は現在のクライアントサイズを返す
+            // 仮想画面 ON 時は論理サイズ（バッファサイズ）を返す。
             auto pWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
             if (pWindow) {
+                if (pWindow->isVirtualEnabled()) {
+                    return pWindow->getHeight();
+                }
                 int w, h;
                 pWindow->getCurrentClientSize(w, h);
                 return h;
@@ -416,6 +424,9 @@ namespace hsppp {
 
         if (pWindow && pWindow->getHwnd()) {
             ScreenToClient(pWindow->getHwnd(), &pt);
+            int lx = 0, ly = 0;
+            pWindow->physToLogical(static_cast<int>(pt.x), static_cast<int>(pt.y), lx, ly);
+            return lx;
         }
 
         return pt.x;
@@ -430,6 +441,9 @@ namespace hsppp {
 
         if (pWindow && pWindow->getHwnd()) {
             ScreenToClient(pWindow->getHwnd(), &pt);
+            int lx = 0, ly = 0;
+            pWindow->physToLogical(static_cast<int>(pt.x), static_cast<int>(pt.y), lx, ly);
+            return ly;
         }
 
         return pt.y;

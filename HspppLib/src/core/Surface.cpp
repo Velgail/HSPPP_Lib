@@ -22,6 +22,7 @@ module;
 #include <string_view>
 #include <cstring>
 #include <algorithm>
+#include <cmath>
 
 #include "Internal.h"
 
@@ -1292,8 +1293,14 @@ HspWindow::HspWindow(int width, int height, std::string_view title, int windowId
     : HspSurface(width, height)
     , m_pSwapChain(nullptr)
     , m_title(Utf8ToWide(title))
-    , m_clientWidth(width)      // 初期値はバッファサイズと同じ
+    , m_clientWidth(width)      // 初期値はバッファサイズと同じ（initialize() で物理 px に再確定）
     , m_clientHeight(height)
+    , m_currentDpi(96)          // HiDPI: createWindow / initialize 後に実 DPI で更新
+    , m_physClientW(width)
+    , m_physClientH(height)
+    , m_virtualEnabled(false)
+    , m_virtualScreenInterp(D2D1_BITMAP_INTERPOLATION_MODE_LINEAR)
+    , m_letterboxColor(D2D1::ColorF(0.0f, 0.0f, 0.0f, 1.0f))
     , m_hwnd(nullptr)
     , m_scrollX(0)
     , m_scrollY(0)
@@ -1313,6 +1320,32 @@ bool HspWindow::initialize() {
 
     HRESULT hr;
 
+    // HiDPI: ウィンドウ作成後に実際の DPI と物理クライアントサイズを取得し、
+    // SwapChain は物理 px ベースで初期化する（PerMonitorV2 で「ぼけない」描画の前提）
+    if (m_hwnd) {
+        using FnGetDpi = UINT(WINAPI*)(HWND);
+        HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
+        auto pGetDpi = hUser32
+            ? reinterpret_cast<FnGetDpi>(GetProcAddress(hUser32, "GetDpiForWindow"))
+            : nullptr;
+        if (pGetDpi) {
+            UINT dpi = pGetDpi(m_hwnd);
+            if (dpi != 0) m_currentDpi = dpi;
+        }
+
+        RECT rcClient = {};
+        if (GetClientRect(m_hwnd, &rcClient)) {
+            int physW = rcClient.right - rcClient.left;
+            int physH = rcClient.bottom - rcClient.top;
+            if (physW > 0 && physH > 0) {
+                m_physClientW = physW;
+                m_physClientH = physH;
+                m_clientWidth = physW;
+                m_clientHeight = physH;
+            }
+        }
+    }
+
     // スワップチェーンの作成
     ComPtr<IDXGIAdapter> pAdapter;
     hr = deviceMgr.getDxgiDevice()->GetAdapter(pAdapter.GetAddressOf());
@@ -1323,8 +1356,11 @@ bool HspWindow::initialize() {
     if (FAILED(hr)) return false;
 
     DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
-    swapChainDesc.Width = m_width;
-    swapChainDesc.Height = m_height;
+    // HiDPI: SwapChain は「物理クライアント px」基準で作成する。
+    // 仮想画面 OFF 時は m_physClientW/H と m_width/m_height は通常一致するが、
+    // OS 側の DPI 仮想化（Unaware fallback）等でズレ得るため物理 px を優先する。
+    swapChainDesc.Width = static_cast<UINT>(m_physClientW);
+    swapChainDesc.Height = static_cast<UINT>(m_physClientH);
     swapChainDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
     swapChainDesc.Stereo = FALSE;
     swapChainDesc.SampleDesc.Count = 1;
@@ -1418,8 +1454,28 @@ bool HspWindow::createWindow(
     int clientWidth,
     int clientHeight
 ) {
+    // HiDPI 対応: ユーザー指定の clientWidth/Height は「物理 px」として扱う
+    // （PerMonitorV2 では HSP 仕様の数値をそのまま物理 px とみなす）。
+    // 主モニタ DPI に基づいて非クライアント枠を計算する。AdjustWindowRectExForDpi が
+    // 利用できない環境（Windows 10 1607 未満）では従来 API へ fallback する。
     RECT rect = { 0, 0, clientWidth, clientHeight };
-    AdjustWindowRectEx(&rect, style, FALSE, exStyle);
+    {
+        using FnAdjForDpi = BOOL(WINAPI*)(LPRECT, DWORD, BOOL, DWORD, UINT);
+        using FnGetDpiSys = UINT(WINAPI*)();
+        HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
+        auto pAdjForDpi = hUser32
+            ? reinterpret_cast<FnAdjForDpi>(GetProcAddress(hUser32, "AdjustWindowRectExForDpi"))
+            : nullptr;
+        auto pGetDpiSys = hUser32
+            ? reinterpret_cast<FnGetDpiSys>(GetProcAddress(hUser32, "GetDpiForSystem"))
+            : nullptr;
+        UINT dpi = pGetDpiSys ? pGetDpiSys() : 96;
+        if (pAdjForDpi && dpi != 0) {
+            pAdjForDpi(&rect, style, FALSE, exStyle, dpi);
+        } else {
+            AdjustWindowRectEx(&rect, style, FALSE, exStyle);
+        }
+    }
     int windowWidth = rect.right - rect.left;
     int windowHeight = rect.bottom - rect.top;
 
@@ -1455,37 +1511,72 @@ void HspWindow::presentInternal(UINT syncInterval, UINT flags) {
     // オフスクリーンビットマップの内容をバックバッファにコピー
     m_pDeviceContext->SetTarget(m_pBackBufferBitmap.Get());
     m_pDeviceContext->BeginDraw();
-    
-    // 背景をクリア（バッファサイズがクライアントサイズより大きい場合の余白対策）
-    m_pDeviceContext->Clear(D2D1::ColorF(0.0f, 0.0f, 0.0f, 1.0f));
 
-    // ソース領域（grollで指定されたオフセットから、クライアントサイズ分）
-    // ただし、バッファの範囲を超えないようにクランプ
-    int srcRight = (std::min)(m_scrollX + m_clientWidth, m_width);
-    int srcBottom = (std::min)(m_scrollY + m_clientHeight, m_height);
-    D2D1_RECT_F srcRect = D2D1::RectF(
-        static_cast<float>(m_scrollX),
-        static_cast<float>(m_scrollY),
-        static_cast<float>(srcRight),
-        static_cast<float>(srcBottom)
-    );
-    
-    // 描画先領域（同じサイズでドットバイドットコピー）
-    D2D1_RECT_F destRect = D2D1::RectF(
-        0.0f,
-        0.0f,
-        static_cast<float>(srcRight - m_scrollX),
-        static_cast<float>(srcBottom - m_scrollY)
-    );
+    if (m_virtualEnabled) {
+        // === 仮想画面: 論理→物理 アスペクト維持 uniform スケール ===
+        // レターボックス／ピラーボックスを letterboxColor で塗り潰す。
+        m_pDeviceContext->Clear(m_letterboxColor);
 
-    // ドットバイドットでコピー（補間なし）
-    m_pDeviceContext->DrawBitmap(
-        m_pTargetBitmap.Get(),
-        destRect,
-        1.0f,
-        D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR,
-        srcRect
-    );
+        VirtualMapping vm = computeVirtualMapping();
+
+        // ソース領域: 論理バッファ全体（groll の scroll を加味）
+        int srcRight = (std::min)(m_scrollX + m_width,  m_width);
+        int srcBottom = (std::min)(m_scrollY + m_height, m_height);
+        D2D1_RECT_F srcRect = D2D1::RectF(
+            static_cast<float>(m_scrollX),
+            static_cast<float>(m_scrollY),
+            static_cast<float>(srcRight),
+            static_cast<float>(srcBottom)
+        );
+
+        // 描画先: 物理クライアント上の中央寄せ uniform スケール矩形
+        D2D1_RECT_F destRect = D2D1::RectF(
+            vm.offsetX,
+            vm.offsetY,
+            vm.offsetX + vm.destW,
+            vm.offsetY + vm.destH
+        );
+
+        m_pDeviceContext->DrawBitmap(
+            m_pTargetBitmap.Get(),
+            destRect,
+            1.0f,
+            m_virtualScreenInterp,
+            srcRect
+        );
+    } else {
+        // === 既存挙動: ドットバイドット（後方互換 100%） ===
+        // 背景をクリア（バッファサイズがクライアントサイズより大きい場合の余白対策）
+        m_pDeviceContext->Clear(D2D1::ColorF(0.0f, 0.0f, 0.0f, 1.0f));
+
+        // ソース領域（grollで指定されたオフセットから、クライアントサイズ分）
+        // ただし、バッファの範囲を超えないようにクランプ
+        int srcRight = (std::min)(m_scrollX + m_clientWidth, m_width);
+        int srcBottom = (std::min)(m_scrollY + m_clientHeight, m_height);
+        D2D1_RECT_F srcRect = D2D1::RectF(
+            static_cast<float>(m_scrollX),
+            static_cast<float>(m_scrollY),
+            static_cast<float>(srcRight),
+            static_cast<float>(srcBottom)
+        );
+
+        // 描画先領域（同じサイズでドットバイドットコピー）
+        D2D1_RECT_F destRect = D2D1::RectF(
+            0.0f,
+            0.0f,
+            static_cast<float>(srcRight - m_scrollX),
+            static_cast<float>(srcBottom - m_scrollY)
+        );
+
+        // ドットバイドットでコピー（補間なし）
+        m_pDeviceContext->DrawBitmap(
+            m_pTargetBitmap.Get(),
+            destRect,
+            1.0f,
+            D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR,
+            srcRect
+        );
+    }
 
     m_pDeviceContext->EndDraw();
 
@@ -1528,9 +1619,20 @@ void HspWindow::setTitle(std::string_view title) {
 void HspWindow::setClientSize(int clientW, int clientH) {
     if (!m_hwnd) return;
 
-    // クライアントサイズはバッファサイズ以下にクランプ（HSP仕様）
-    clientW = (std::min)(clientW, m_width);
-    clientH = (std::min)(clientH, m_height);
+    // HiDPI 対応: clientW/H はユーザー指定の物理 px。
+    // 仮想画面 OFF 時のみ HSP 仕様に従いバッファサイズでクランプする。
+    // バッファサイズ（m_width/m_height）は論理 px なので、現在の DPI に応じて物理 px に換算して比較する。
+    // 仮想画面 ON 時はクライアントを論理サイズと独立に任意拡縮するため上限クランプを行わない。
+    if (!m_virtualEnabled) {
+        int maxPhysW = m_width;
+        int maxPhysH = m_height;
+        if (m_currentDpi != 96 && m_currentDpi != 0) {
+            maxPhysW = MulDiv(m_width, m_currentDpi, 96);
+            maxPhysH = MulDiv(m_height, m_currentDpi, 96);
+        }
+        clientW = (std::min)(clientW, maxPhysW);
+        clientH = (std::min)(clientH, maxPhysH);
+    }
     if (clientW < 1) clientW = 1;
     if (clientH < 1) clientH = 1;
 
@@ -1538,9 +1640,20 @@ void HspWindow::setClientSize(int clientW, int clientH) {
     DWORD style = static_cast<DWORD>(GetWindowLongPtr(m_hwnd, GWL_STYLE));
     DWORD exStyle = static_cast<DWORD>(GetWindowLongPtr(m_hwnd, GWL_EXSTYLE));
 
-    // クライアントサイズからウィンドウサイズを計算
+    // クライアントサイズからウィンドウサイズを計算（DPI 対応版を優先）
     RECT rect = { 0, 0, clientW, clientH };
-    AdjustWindowRectEx(&rect, style, FALSE, exStyle);
+    {
+        using FnAdjForDpi = BOOL(WINAPI*)(LPRECT, DWORD, BOOL, DWORD, UINT);
+        HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
+        auto pAdjForDpi = hUser32
+            ? reinterpret_cast<FnAdjForDpi>(GetProcAddress(hUser32, "AdjustWindowRectExForDpi"))
+            : nullptr;
+        if (pAdjForDpi && m_currentDpi != 0) {
+            pAdjForDpi(&rect, style, FALSE, exStyle, m_currentDpi);
+        } else {
+            AdjustWindowRectEx(&rect, style, FALSE, exStyle);
+        }
+    }
     int windowWidth = rect.right - rect.left;
     int windowHeight = rect.bottom - rect.top;
 
@@ -1552,6 +1665,8 @@ void HspWindow::setClientSize(int clientW, int clientH) {
     if (resizeSwapChain(clientW, clientH)) {
         m_clientWidth = clientW;
         m_clientHeight = clientH;
+        m_physClientW = clientW;
+        m_physClientH = clientH;
     }
 }
 
@@ -1563,13 +1678,23 @@ void HspWindow::setScroll(int x, int y) {
 }
 
 void HspWindow::onSize(int newWidth, int newHeight) {
-    // ウィンドウサイズ変更時の処理
+    // ウィンドウサイズ変更時の処理（WM_SIZE の lParam は物理 px）
     if (newWidth < 1) newWidth = 1;
     if (newHeight < 1) newHeight = 1;
-    
-    // HSP仕様：クライアントサイズはバッファサイズ（m_width, m_height）以下にクランプ
-    newWidth = (std::min)(newWidth, m_width);
-    newHeight = (std::min)(newHeight, m_height);
+
+    // HSP仕様：仮想画面 OFF 時はクライアントサイズをバッファサイズ（m_width, m_height）以下にクランプ。
+    // HiDPI 対応: バッファサイズは論理 px なので、現在の DPI に応じて物理 px に換算してクランプする。
+    // 仮想画面 ON 時は論理→物理 自動拡縮するため、ユーザーリサイズによる任意の物理サイズを許容する。
+    if (!m_virtualEnabled) {
+        int maxPhysW = m_width;
+        int maxPhysH = m_height;
+        if (m_currentDpi != 96 && m_currentDpi != 0) {
+            maxPhysW = MulDiv(m_width, m_currentDpi, 96);
+            maxPhysH = MulDiv(m_height, m_currentDpi, 96);
+        }
+        newWidth = (std::min)(newWidth, maxPhysW);
+        newHeight = (std::min)(newHeight, maxPhysH);
+    }
 
     // スワップチェーンをリサイズ（描画中の場合は一旦終了）
     bool wasDrawing = m_isDrawing;
@@ -1580,9 +1705,59 @@ void HspWindow::onSize(int newWidth, int newHeight) {
     if (resizeSwapChain(newWidth, newHeight)) {
         m_clientWidth = newWidth;
         m_clientHeight = newHeight;
+        m_physClientW = newWidth;
+        m_physClientH = newHeight;
     }
 
     // 描画を再開
+    if (wasDrawing) {
+        beginDraw();
+    }
+}
+
+void HspWindow::onDpiChanged(UINT newDpi, const RECT* suggested) {
+    // PerMonitorV2 の WM_DPICHANGED ハンドリング
+    // 1. OS 提案矩形に従ってウィンドウを移動・リサイズ
+    // 2. 新しい物理クライアントサイズで SwapChain を再構築
+    // 3. m_pTargetBitmap（論理バッファ）はサイズ変更しない
+    if (!m_hwnd) return;
+    if (newDpi == 0) newDpi = 96;
+
+    m_currentDpi = newDpi;
+
+    if (suggested) {
+        SetWindowPos(
+            m_hwnd,
+            nullptr,
+            suggested->left,
+            suggested->top,
+            suggested->right - suggested->left,
+            suggested->bottom - suggested->top,
+            SWP_NOZORDER | SWP_NOACTIVATE
+        );
+    }
+
+    // 新しい物理クライアントサイズを取得
+    RECT rcClient = {};
+    if (!GetClientRect(m_hwnd, &rcClient)) return;
+    int newPhysW = rcClient.right - rcClient.left;
+    int newPhysH = rcClient.bottom - rcClient.top;
+    if (newPhysW < 1) newPhysW = 1;
+    if (newPhysH < 1) newPhysH = 1;
+
+    // 描画中なら一旦終了して SwapChain を作り直す
+    bool wasDrawing = m_isDrawing;
+    if (wasDrawing) {
+        endDraw();
+    }
+
+    if (resizeSwapChain(newPhysW, newPhysH)) {
+        m_clientWidth = newPhysW;
+        m_clientHeight = newPhysH;
+        m_physClientW = newPhysW;
+        m_physClientH = newPhysH;
+    }
+
     if (wasDrawing) {
         beginDraw();
     }
@@ -1638,6 +1813,67 @@ void HspWindow::getCurrentClientSize(int& outWidth, int& outHeight) const {
     // メンバ変数から取得（実際のウィンドウサイズではなく、HSPの論理クライアントサイズ）
     outWidth = m_clientWidth;
     outHeight = m_clientHeight;
+}
+
+// ========== 仮想画面 (Virtual Screen) 関連実装 ==========
+
+HspWindow::VirtualMapping HspWindow::computeVirtualMapping() const {
+    VirtualMapping vm{};
+    int logW  = (m_width  > 0) ? m_width  : 1;
+    int logH  = (m_height > 0) ? m_height : 1;
+    int physW = (m_physClientW > 0) ? m_physClientW : 1;
+    int physH = (m_physClientH > 0) ? m_physClientH : 1;
+
+    float sx = static_cast<float>(physW) / static_cast<float>(logW);
+    float sy = static_cast<float>(physH) / static_cast<float>(logH);
+    float s  = (sx < sy) ? sx : sy;
+    if (s <= 0.0f) s = 1.0f;
+
+    vm.scale   = s;
+    vm.destW   = static_cast<float>(logW) * s;
+    vm.destH   = static_cast<float>(logH) * s;
+    vm.offsetX = (static_cast<float>(physW) - vm.destW) * 0.5f;
+    vm.offsetY = (static_cast<float>(physH) - vm.destH) * 0.5f;
+    return vm;
+}
+
+void HspWindow::setVirtualScreenEnabled(bool enabled) {
+    m_virtualEnabled = enabled;
+}
+
+void HspWindow::setVirtualInterpolation(D2D1_BITMAP_INTERPOLATION_MODE mode) {
+    m_virtualScreenInterp = mode;
+}
+
+void HspWindow::physToLogical(int physX, int physY, int& outLogX, int& outLogY) const {
+    if (!m_virtualEnabled) {
+        outLogX = physX;
+        outLogY = physY;
+        return;
+    }
+    VirtualMapping vm = computeVirtualMapping();
+    if (vm.scale <= 0.0f) {
+        outLogX = physX;
+        outLogY = physY;
+        return;
+    }
+    float lx = (static_cast<float>(physX) - vm.offsetX) / vm.scale;
+    float ly = (static_cast<float>(physY) - vm.offsetY) / vm.scale;
+    outLogX = static_cast<int>(std::floor(lx));
+    outLogY = static_cast<int>(std::floor(ly));
+}
+
+void HspWindow::logicalToPhys(int logX, int logY, int& outPhysX, int& outPhysY) const {
+    if (!m_virtualEnabled) {
+        outPhysX = logX;
+        outPhysY = logY;
+        return;
+    }
+    VirtualMapping vm = computeVirtualMapping();
+    float px = vm.offsetX + static_cast<float>(logX) * vm.scale;
+    float py = vm.offsetY + static_cast<float>(logY) * vm.scale;
+    outPhysX = static_cast<int>(std::floor(px));
+    outPhysY = static_cast<int>(std::floor(py));
 }
 
 // ========== HspSurface フォント関連実装 ==========

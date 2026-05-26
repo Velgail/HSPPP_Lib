@@ -130,16 +130,26 @@ namespace hsppp {
             auto pWindow = currentSurface ? std::dynamic_pointer_cast<HspWindow>(currentSurface) : nullptr;
 
             // 現在のクライアント座標を取得（省略時用）
+            // 物理クライアント px → 論理 px に変換する。
             POINT pt;
             GetCursorPos(&pt);
             if (pWindow && pWindow->getHwnd()) {
                 ScreenToClient(pWindow->getHwnd(), &pt);
             }
-            if (x.is_default()) p1 = pt.x;
-            if (y.is_default()) p2 = pt.y;
+            int curLogX = pt.x;
+            int curLogY = pt.y;
+            if (pWindow) {
+                pWindow->physToLogical(static_cast<int>(pt.x), static_cast<int>(pt.y), curLogX, curLogY);
+            }
+            if (x.is_default()) p1 = curLogX;
+            if (y.is_default()) p2 = curLogY;
 
-            // クライアント座標をスクリーン座標に変換
-            POINT screenPt = { p1, p2 };
+            // クライアント論理座標 → 物理 px → スクリーン座標
+            int physX = p1, physY = p2;
+            if (pWindow) {
+                pWindow->logicalToPhys(p1, p2, physX, physY);
+            }
+            POINT screenPt = { physX, physY };
             if (pWindow && pWindow->getHwnd()) {
                 ClientToScreen(pWindow->getHwnd(), &screenPt);
             }
@@ -186,12 +196,15 @@ namespace hsppp {
             POINT pt;
             GetCursorPos(&pt);
 
-            // ウィンドウがあればクライアント座標に変換
+            // ウィンドウがあればクライアント座標 (物理 px) → 論理 px に変換
             if (pWindow && pWindow->getHwnd()) {
                 ScreenToClient(pWindow->getHwnd(), &pt);
+                int lx = 0, ly = 0;
+                pWindow->physToLogical(static_cast<int>(pt.x), static_cast<int>(pt.y), lx, ly);
+                return lx;
             }
 
-            return pt.x;
+            return static_cast<int>(pt.x);
         });
     }
 
@@ -208,12 +221,15 @@ namespace hsppp {
             POINT pt;
             GetCursorPos(&pt);
 
-            // ウィンドウがあればクライアント座標に変換
+            // ウィンドウがあればクライアント座標 (物理 px) → 論理 px に変換
             if (pWindow && pWindow->getHwnd()) {
                 ScreenToClient(pWindow->getHwnd(), &pt);
+                int lx = 0, ly = 0;
+                pWindow->physToLogical(static_cast<int>(pt.x), static_cast<int>(pt.y), lx, ly);
+                return ly;
             }
 
-            return pt.y;
+            return static_cast<int>(pt.y);
         });
     }
 

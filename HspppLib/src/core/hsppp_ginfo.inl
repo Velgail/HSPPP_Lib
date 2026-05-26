@@ -25,16 +25,28 @@ namespace hsppp {
         auto pWindow = currentSurface ? std::dynamic_pointer_cast<HspWindow>(currentSurface) : nullptr;
         
         switch (type) {
-        case 0:  // スクリーン上のマウスカーソルX座標
+        case 0:  // マウスカーソルX座標（HSP仕様: ウィンドウクライアント領域内の論理座標）
         {
             POINT pt;
             GetCursorPos(&pt);
+            if (pWindow && pWindow->getHwnd()) {
+                ScreenToClient(pWindow->getHwnd(), &pt);
+                int lx = 0, ly = 0;
+                pWindow->physToLogical(static_cast<int>(pt.x), static_cast<int>(pt.y), lx, ly);
+                return lx;
+            }
             return static_cast<int>(pt.x);
         }
-        case 1:  // スクリーン上のマウスカーソルY座標
+        case 1:  // マウスカーソルY座標（HSP仕様: ウィンドウクライアント領域内の論理座標）
         {
             POINT pt;
             GetCursorPos(&pt);
+            if (pWindow && pWindow->getHwnd()) {
+                ScreenToClient(pWindow->getHwnd(), &pt);
+                int lx = 0, ly = 0;
+                pWindow->physToLogical(static_cast<int>(pt.x), static_cast<int>(pt.y), lx, ly);
+                return ly;
+            }
             return static_cast<int>(pt.y);
         }
         case 2:  // アクティブなウィンドウID
@@ -129,8 +141,11 @@ namespace hsppp {
             }
             return currentSurface ? currentSurface->getHeight() : 0;
         }
-        case 12:  // クライアント領域Xサイズ
+        case 12:  // クライアント領域Xサイズ（仮想画面 ON 時は論理 px）
         {
+            if (pWindow && pWindow->isVirtualEnabled()) {
+                return pWindow->getWidth();
+            }
             if (pWindow && pWindow->getHwnd()) {
                 RECT rect;
                 GetClientRect(pWindow->getHwnd(), &rect);
@@ -138,8 +153,11 @@ namespace hsppp {
             }
             return currentSurface ? currentSurface->getWidth() : 0;
         }
-        case 13:  // クライアント領域Yサイズ
+        case 13:  // クライアント領域Yサイズ（仮想画面 ON 時は論理 px）
         {
+            if (pWindow && pWindow->isVirtualEnabled()) {
+                return pWindow->getHeight();
+            }
             if (pWindow && pWindow->getHwnd()) {
                 RECT rect;
                 GetClientRect(pWindow->getHwnd(), &rect);
@@ -396,11 +414,14 @@ namespace hsppp {
                 int newH = (p2 >= 0) ? p2 : (clientRect.bottom - clientRect.top);
                 
                 // screen/buffer/bgscrの初期化サイズを超えないようにクランプ
-                int maxW = pWindow->getWidth();
-                int maxH = pWindow->getHeight();
-                if (newW > maxW) newW = maxW;
-                if (newH > maxH) newH = maxH;
-                
+                // 仮想画面 ON 時は論理→物理 拡縮するため、物理クライアントサイズを論理に縛らない。
+                if (!pWindow->isVirtualEnabled()) {
+                    int maxW = pWindow->getWidth();
+                    int maxH = pWindow->getHeight();
+                    if (newW > maxW) newW = maxW;
+                    if (newH > maxH) newH = maxH;
+                }
+
                 pWindow->setClientSize(newW, newH);
             }
 
@@ -436,6 +457,35 @@ namespace hsppp {
             if (!pWindow) return;
 
             pWindow->setScroll(scrollX, scrollY);
+        });
+    }
+
+    // ============================================================
+    // vscalemode - 仮想画面の補間モード設定
+    // ============================================================
+    void vscalemode(int mode, const std::source_location& location) {
+        safe_call(location, [&] {
+            using namespace internal;
+
+            auto currentSurface = getCurrentSurface();
+            if (!currentSurface) return;
+
+            auto pWindow = std::dynamic_pointer_cast<HspWindow>(currentSurface);
+            if (!pWindow) return;
+
+            D2D1_BITMAP_INTERPOLATION_MODE d2dMode = D2D1_BITMAP_INTERPOLATION_MODE_LINEAR;
+            switch (mode) {
+                case vscale_nearest: d2dMode = D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR; break;
+                case vscale_linear:  d2dMode = D2D1_BITMAP_INTERPOLATION_MODE_LINEAR; break;
+                case vscale_aniso:
+                    // D2D1 IDeviceContext::DrawBitmap は ANISOTROPIC 互換相当として
+                    // 高品質補間モード (linear) を採用する。専用の異方性フィルタは未提供。
+                    d2dMode = D2D1_BITMAP_INTERPOLATION_MODE_LINEAR;
+                    break;
+                default:
+                    throw HspError(ERR_OUT_OF_RANGE, "vscalemodeのmodeはvscale_nearest/linear/anisoのいずれかを指定してください", location);
+            }
+            pWindow->setVirtualInterpolation(d2dMode);
         });
     }
 

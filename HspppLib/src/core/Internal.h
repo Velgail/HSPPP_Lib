@@ -507,8 +507,25 @@ private:
     std::wstring m_title;
     
     // クライアントサイズ（実際のウィンドウ表示サイズ、m_width/m_height以下）
+    // HiDPI 対応後は「物理クライアント px」を表す
     int m_clientWidth;
     int m_clientHeight;
+
+    // === HiDPI 追加（physical client px は m_clientWidth/Height と同義） ===
+    // 仮想画面導入後、m_clientWidth/Height は物理クライアント px のままに保ち、
+    // バッファサイズ（m_width/m_height）は論理 px として扱う。
+    UINT m_currentDpi;       // 現在のウィンドウ DPI（96 = 100%）
+    int  m_physClientW;      // 物理クライアント幅（= m_clientWidth に追従）
+    int  m_physClientH;      // 物理クライアント高さ（= m_clientHeight に追従）
+
+    // === 仮想画面（論理→物理 自動拡縮）追加 ===
+    // 有効時、m_pTargetBitmap (論理サイズ m_width×m_height) を present() の
+    // DrawBitmap で物理クライアント (m_physClientW×m_physClientH) へアスペクト
+    // 維持の uniform スケールで転送する。レターボックス/ピラーボックスは
+    // m_letterboxColor で塗り潰す。
+    bool m_virtualEnabled;
+    D2D1_BITMAP_INTERPOLATION_MODE m_virtualScreenInterp;
+    D2D1_COLOR_F m_letterboxColor;
 
     UniqueHwnd m_hwnd;
     
@@ -521,6 +538,16 @@ private:
     
     // 共通Present実装
     void presentInternal(UINT syncInterval, UINT flags);
+
+    // 仮想画面有効時の論理→物理 変換パラメータ
+    struct VirtualMapping {
+        float scale;
+        float offsetX;
+        float offsetY;
+        float destW;
+        float destH;
+    };
+    VirtualMapping computeVirtualMapping() const;
 
 public:
     HspWindow(int width, int height, std::string_view title, int windowId = 0);
@@ -573,6 +600,29 @@ public:
     
     // WM_SIZE処理（ウィンドウリサイズ時の処理）
     void onSize(int newWidth, int newHeight);
+
+    // WM_DPICHANGED 処理（DPI 変更時の再構築）
+    // suggested は OS が提案する新しいウィンドウ矩形（lParam）。
+    // PerMonitorV2 の作法に従い SetWindowPos → GetClientRect → SwapChain 再構築する。
+    void onDpiChanged(UINT newDpi, const RECT* suggested);
+
+    // 現在のウィンドウ DPI を取得（96 = 100%）
+    UINT getCurrentDpi() const { return m_currentDpi; }
+
+    // === 仮想画面（論理→物理 自動拡縮）API ===
+    bool isVirtualEnabled() const { return m_virtualEnabled; }
+    void setVirtualScreenEnabled(bool enabled);
+    void setVirtualInterpolation(D2D1_BITMAP_INTERPOLATION_MODE mode);
+    D2D1_BITMAP_INTERPOLATION_MODE getVirtualInterpolation() const { return m_virtualScreenInterp; }
+
+    // 物理クライアント px → 論理 px 逆変換
+    // 仮想画面 OFF 時は単位変換（恒等）。マウス座標 ginfo_mx/my / mousex / mousey 等で使用。
+    void physToLogical(int physX, int physY, int& outLogX, int& outLogY) const;
+    // 論理 px → 物理クライアント px 正方向変換（mouse 命令の SetCursorPos 用）
+    void logicalToPhys(int logX, int logY, int& outPhysX, int& outPhysY) const;
+    // 現在の物理クライアントサイズ
+    int getPhysClientWidth() const { return m_physClientW; }
+    int getPhysClientHeight() const { return m_physClientH; }
     
 private:
     // スワップチェーンをリサイズ（内部用）

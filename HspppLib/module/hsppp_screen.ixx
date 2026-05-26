@@ -170,6 +170,12 @@ export namespace hsppp {
     /// @brief グラフィック面の描画基点座標を設定
     void groll(int scrollX, int scrollY, const std::source_location& location = std::source_location::current());
 
+    /// @brief 仮想画面の補間モードを設定
+    /// @param mode vscale_nearest / vscale_linear / vscale_aniso のいずれか
+    /// @details 仮想画面有効時に論理→物理の拡縮で使われる D2D 補間モード。
+    ///          仮想画面 OFF 時の呼び出しは状態を保持するのみで描画には影響しない。
+    void vscalemode(int mode, const std::source_location& location = std::source_location::current());
+
     /// @brief 指定時間だけ実行を中断する
     /// @param time 待ち時間 (10ms単位、デフォルト: 100=1秒)
     void wait(OptInt time = {}, const std::source_location& location = std::source_location::current());

@@ -150,7 +150,16 @@ export namespace hsppp {
     inline constexpr int screen_frame     = 16;   // 深い縁のあるウィンドウ
     inline constexpr int screen_offscreen = 32;   // 描画先として初期化 (HSP3Dish/HGIMG4)
     inline constexpr int screen_usergcopy = 64;   // 描画用シェーダー (HGIMG4)
+    inline constexpr int screen_mode_virtual = 128; // 仮想画面（論理→物理 自動拡縮）。
+                                                    // 既存ビット 64 (screen_usergcopy) との衝突回避のため 0x80 を選定。
     inline constexpr int screen_fullscreen = 256; // フルスクリーン (bgscr用)
+
+    // ============================================================
+    // 仮想画面の補間モード（vscalemode 用）
+    // ============================================================
+    inline constexpr int vscale_nearest = 0;  // ニアレストネイバー（ピクセルアート向け）
+    inline constexpr int vscale_linear  = 1;  // バイリニア（既定）
+    inline constexpr int vscale_aniso   = 2;  // 異方性（高品質・高負荷）
 
 
     // ============================================================
@@ -161,14 +170,15 @@ export namespace hsppp {
     /// @details 多くのパラメータを指定する場合に使用
     /// @example screen({.width = 800, .height = 600});
     struct ScreenParams {
-        int width    = 640;     ///< 画面サイズX
-        int height   = 480;     ///< 画面サイズY
+        int width    = 640;     ///< 画面サイズX（仮想画面 ON 時は論理 px）
+        int height   = 480;     ///< 画面サイズY（仮想画面 ON 時は論理 px）
         int mode     = 0;       ///< 画面モード (screen_* フラグの組み合わせ)
         int pos_x    = -1;      ///< ウィンドウ位置X (-1=システム規定)
         int pos_y    = -1;      ///< ウィンドウ位置Y (-1=システム規定)
-        int client_w = 0;       ///< クライアントサイズX (0=widthと同じ)
-        int client_h = 0;       ///< クライアントサイズY (0=heightと同じ)
+        int client_w = 0;       ///< クライアントサイズX (0=widthと同じ。物理 px)
+        int client_h = 0;       ///< クライアントサイズY (0=heightと同じ。物理 px)
         std::string_view title = "HSPPP Window";  ///< ウィンドウタイトル (HSP拡張)
+        bool virtual_resolution = false; ///< true で仮想画面（論理→物理 自動拡縮）を有効化
     };
 
     /// @brief buffer命令のパラメータ構造体
@@ -180,14 +190,15 @@ export namespace hsppp {
 
     /// @brief bgscr命令のパラメータ構造体
     struct BgscrParams {
-        int width    = 640;     ///< 画面サイズX
-        int height   = 480;     ///< 画面サイズY
+        int width    = 640;     ///< 画面サイズX（仮想画面 ON 時は論理 px）
+        int height   = 480;     ///< 画面サイズY（仮想画面 ON 時は論理 px）
         int mode     = 0;       ///< 画面モード (0=フルカラー, 2=非表示)
         int pos_x    = -1;      ///< ウィンドウ位置X (-1=システム規定)
         int pos_y    = -1;      ///< ウィンドウ位置Y (-1=システム規定)
-        int client_w = 0;       ///< クライアントサイズX (0=widthと同じ)
-        int client_h = 0;       ///< クライアントサイズY (0=heightと同じ)
+        int client_w = 0;       ///< クライアントサイズX (0=widthと同じ。物理 px)
+        int client_h = 0;       ///< クライアントサイズY (0=heightと同じ。物理 px)
         std::string_view title = "HSPPP Window";
+        bool virtual_resolution = false; ///< true で仮想画面（論理→物理 自動拡縮）を有効化
     };
 
 

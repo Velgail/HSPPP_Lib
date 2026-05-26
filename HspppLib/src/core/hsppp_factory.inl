@@ -24,7 +24,8 @@ namespace hsppp {
         int pos_y,
         int client_w,
         int client_h,
-        std::string_view title
+        std::string_view title,
+        bool virtualResolution
     ) {
         using namespace internal;
 
@@ -99,6 +100,12 @@ namespace hsppp {
             return Screen{};  // 無効なScreenを返す
         }
 
+        // 仮想画面（論理→物理 自動拡縮）有効化
+        // initialize() の後で行う必要がある（m_physClientW/H が確定するため）
+        if (virtualResolution) {
+            window->setVirtualScreenEnabled(true);
+        }
+
         // Surfaceマップに追加
         g_surfaces[id] = window;
 
@@ -130,7 +137,8 @@ namespace hsppp {
                 params.pos_y,
                 params.client_w,
                 params.client_h,
-                params.title
+                params.title,
+                params.virtual_resolution
             );
         });
     }
@@ -154,16 +162,19 @@ namespace hsppp {
         const std::source_location& location
     ) {
         return safe_call(location, [&] {
+            int modeVal = mode.value_or(0);
+            bool virtualRes = (modeVal & screen_mode_virtual) != 0;
             return createWindowInternal(
                 id,
                 width.value_or(640),
                 height.value_or(480),
-                mode.value_or(0),
+                modeVal,
                 pos_x.value_or(-1),
                 pos_y.value_or(-1),
                 client_w.value_or(0),
                 client_h.value_or(0),
-                title
+                title,
+                virtualRes
             );
         });
     }
@@ -248,7 +259,8 @@ namespace hsppp {
         int pos_x,
         int pos_y,
         int client_w,
-        int client_h
+        int client_h,
+        bool virtualResolution
     ) {
         using namespace internal;
 
@@ -303,6 +315,11 @@ namespace hsppp {
             return Screen{};
         }
 
+        // 仮想画面（論理→物理 自動拡縮）有効化
+        if (virtualResolution) {
+            window->setVirtualScreenEnabled(true);
+        }
+
         // Surfaceマップに追加
         g_surfaces[id] = window;
 
@@ -332,7 +349,8 @@ namespace hsppp {
                 params.pos_x,
                 params.pos_y,
                 params.client_w,
-                params.client_h
+                params.client_h,
+                params.virtual_resolution
             );
         });
     }
@@ -346,15 +364,18 @@ namespace hsppp {
     Screen bgscr(int id, OptInt width, OptInt height, OptInt mode,
                  OptInt pos_x, OptInt pos_y, OptInt client_w, OptInt client_h, const std::source_location& location) {
         return safe_call(location, [&] {
+            int modeVal = mode.value_or(0);
+            bool virtualRes = (modeVal & screen_mode_virtual) != 0;
             return createBgscrInternal(
                 id,
                 width.value_or(640),
                 height.value_or(480),
-                mode.value_or(0),
+                modeVal,
                 pos_x.value_or(-1),
                 pos_y.value_or(-1),
                 client_w.value_or(0),
-                client_h.value_or(0)
+                client_h.value_or(0),
+                virtualRes
             );
         });
     }

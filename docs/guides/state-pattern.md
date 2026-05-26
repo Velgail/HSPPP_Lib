@@ -167,7 +167,68 @@ void hspMain() {
 
 ---
 
-## パターン2: GUIオブジェクトの効率的管理
+## パターン2: 非同期サブステートマシン
+
+親ステートの処理とは別スレッドで、描画を伴わない補助処理を進めたい場合は `start_submachine()` を使います。サブステートマシンは親ステートに紐づくため、親が別ステートへ遷移すると停止要求と join によって回収されます。
+
+```cpp
+enum class Scene { Game, Pause };
+enum class WorkerPhase { Observe, WaitForStop };
+
+void hspMain() {
+    StateGraph<Scene> sm;
+
+    sm.state(Scene::Game)
+      .on_enter([&] {
+          AsyncSubMachineOptions options{};
+          options.graphics = SubMachineGraphicsPolicy::none;  // 子側は描画しない
+          options.idle_wait_ms = 5;
+
+          sm.start_submachine<WorkerPhase>(
+              WorkerPhase::Observe,
+              [](StateGraph<WorkerPhase>& worker) {
+                  worker.state(WorkerPhase::Observe)
+                    .on_update([](auto& worker_sm) {
+                        // AI、ロード監視、計算などの短い補助処理
+                        worker_sm.jump(WorkerPhase::WaitForStop);
+                    });
+
+                  worker.state(WorkerPhase::WaitForStop)
+                    .on_update([](auto& worker_sm) {
+                        if (submachine_stop_requested()) {
+                            worker_sm.quit();
+                            return;
+                        }
+                    });
+              },
+              options);
+      })
+      .on_update([&](auto& sm) {
+          sm.rethrow_submachine_exceptions();
+
+          if (getkey(VK_ESCAPE)) {
+              sm.jump(Scene::Pause);  // Game 離脱時に子が停止・回収される
+          }
+          await(16);
+      });
+
+    sm.start(Scene::Game);
+}
+```
+
+### 使うときの約束
+
+- サブステートマシンは簡単に書けますが、実行スレッドは親とは別です。親 `StateGraph` を子スレッドから直接操作しないでください。
+- 子側では描画・UI・ウィンドウ操作をしない構成を推奨します。描画する場合も同時に 1 つだけにしてください。
+- 停止は協調キャンセルです。子側は `submachine_stop_requested()` を見て `quit()` してください。
+- 子側の `on_update` は短時間で戻る処理にしてください。長くブロックすると親ステート離脱時の join も待たされます。
+- 共有データは `StateScope::read_view()` などの参照専用 API で渡してください。
+
+サンプル実装は `HspppStateSample/StateSampleMain.cpp` を参照してください。
+
+---
+
+## パターン3: GUIオブジェクトの効率的管理
 
 ### 問題: 毎フレーム作り直すと重い
 
@@ -292,7 +353,7 @@ void hspMain() {
 
 ---
 
-## パターン3: ポーズ機能の実装
+## パターン4: ポーズ機能の実装
 
 ```cpp
 enum class GameState {
@@ -362,7 +423,7 @@ void hspMain() {
 
 ---
 
-## パターン4: 遷移制約（上級者向け）
+## パターン5: 遷移制約（上級者向け）
 
 ### いつ使う？
 
@@ -420,7 +481,7 @@ void hspMain() {
 
 ---
 
-## パターン5: 階層的な状態管理
+## パターン6: 階層的な状態管理
 
 ### サブステートの実装（応用編）
 
@@ -459,7 +520,7 @@ void hspMain() {
 
 ---
 
-## パターン6: 複数ファイルに分割したシーン管理
+## パターン7: 複数ファイルに分割したシーン管理
 
 大規模プロジェクトでは、各ステートを別ファイルに分割することで保守性が向上します。
 

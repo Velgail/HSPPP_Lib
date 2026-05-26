@@ -15,6 +15,7 @@ HSP の `*label` / `goto` を型安全に実装するステートマシンライ
 - [状態遷移](#状態遷移)
 - [状態クエリ](#状態クエリ)
 - [高度な機能](#高度な機能)
+- [非同期サブステートマシン](#非同期サブステートマシン)
 
 ---
 
@@ -449,6 +450,128 @@ sm.state(Scene::Battle)
 **run() との違い:**
 - `run()`: `quit()` が呼ばれるまでループ（メインループ用）
 - `step()` / `tick()`: 1 iteration だけ実行してすぐ戻る（サブ SM 用 / 任意の手動ティック）
+
+---
+
+### 非同期サブステートマシン
+
+サブステートマシンを親ステートに紐づけて別スレッドで実行できます。用途は「親ステートの処理から独立して進む、描画を伴わない補助処理」です。メインステートマシン全体を非同期化する API ではありません。
+
+#### 描画ポリシーとオプション
+
+```cpp
+enum class SubMachineGraphicsPolicy {
+    none,
+    exclusive
+};
+
+struct AsyncSubMachineOptions {
+    int idle_wait_ms = 1;
+    SubMachineGraphicsPolicy graphics = SubMachineGraphicsPolicy::none;
+};
+```
+
+| 項目 | 説明 |
+|------|------|
+| `idle_wait_ms` | 子 `step()` の間隔。`0` の場合は待機しません。 |
+| `graphics = none` | 既定。サブステートマシン内で描画・UI・ウィンドウ操作を行わない前提です。 |
+| `graphics = exclusive` | 描画を行うサブステートマシンをプロセス内で 1 つだけ許可します。2 つ目の取得は `HspError` になります。 |
+
+> **重要:** サブステートマシンでは、描画処理をしない構成を推奨します。描画が必要な場合も、同時に描画するサブステートマシンは 1 つだけにしてください。
+
+#### 親 `StateGraph` 側 API
+
+```cpp
+template <typename ChildState, typename Configure>
+    requires std::is_enum_v<ChildState>
+void start_submachine(
+    ChildState initial_state,
+    Configure&& configure,
+    AsyncSubMachineOptions options = {});
+
+void request_stop_submachines() noexcept;
+void join_submachines();
+void stop_submachines() noexcept;
+void rethrow_submachine_exceptions();
+std::size_t submachine_count() const noexcept;
+```
+
+| API | 説明 |
+|-----|------|
+| `start_submachine()` | 現在の親ステートに紐づく子 `StateGraph` を別スレッドで開始します。親ステートが未開始の場合は `HspError` になります。 |
+| `request_stop_submachines()` | 現在の親ステート配下の全サブステートマシンに停止要求を送ります。 |
+| `join_submachines()` | 現在の親ステート配下のサブステートマシン終了を待ちます。 |
+| `stop_submachines()` | 停止要求と join をまとめて行います。 |
+| `rethrow_submachine_exceptions()` | 子スレッドで保存された例外を親スレッド側で再送出します。親 `on_update` などで定期的に呼んでください。 |
+| `submachine_count()` | 登録中のサブステートマシン数を返します。 |
+
+親ステートから別ステートへ遷移すると、離脱する親ステートに紐づくサブステートマシンへ停止要求が送られ、join 後に registry から回収されます。
+
+#### サブステートマシン側の停止確認
+
+```cpp
+bool submachine_stop_requested() noexcept;
+```
+
+サブステートマシンのスレッド内で停止要求を確認するための関数です。`true` になったら、子ステートマシン側で `quit()` するなどして速やかに終了してください。
+
+停止は協調キャンセルです。実行中の 1 回の `on_update` を OS レベルで強制中断するものではないため、長時間ブロックする処理はサブステートマシンの `on_update` に書かないでください。
+
+#### 使用例
+
+```cpp
+enum class Scene { Game, Pause };
+enum class WorkerPhase { Observe, WaitForStop };
+
+StateGraph<Scene> sm;
+
+sm.state(Scene::Game)
+  .on_enter([&] {
+      AsyncSubMachineOptions options{};
+      options.idle_wait_ms = 5;
+      options.graphics = SubMachineGraphicsPolicy::none;
+
+      sm.start_submachine<WorkerPhase>(
+          WorkerPhase::Observe,
+          [](StateGraph<WorkerPhase>& worker) {
+              worker.state(WorkerPhase::Observe)
+                .on_update([](auto& worker_sm) {
+                    // 描画しない補助処理
+                    worker_sm.jump(WorkerPhase::WaitForStop);
+                });
+
+              worker.state(WorkerPhase::WaitForStop)
+                .on_update([](auto& worker_sm) {
+                    if (submachine_stop_requested()) {
+                        worker_sm.quit();
+                        return;
+                    }
+                    // 短時間で戻る処理だけを書く
+                });
+          },
+          options);
+  })
+  .on_update([&](auto& sm) {
+      sm.rethrow_submachine_exceptions();
+
+      if (getkey(VK_ESCAPE)) {
+          sm.jump(Scene::Pause);
+      }
+      await(16);
+  });
+```
+
+#### マルチスレッド利用時の注意点
+
+- サブステートマシンから親 `StateGraph` を直接操作しないでください。
+- 親ステート離脱時に停止要求が送られますが、子側は `submachine_stop_requested()` を確認して自分で終了する必要があります。
+- 子側の `on_update` は短時間で戻るようにしてください。長時間ブロックすると親の join も待たされます。
+- 共有データは参照専用 view などを使い、子スレッド稼働中に親スレッドから同じ object を書き換えないでください。
+- 子スレッドで発生した例外は `rethrow_submachine_exceptions()` で親側へ伝播させてください。
+
+#### サンプル
+
+`HspppStateSample/StateSampleMain.cpp` に、`SubMachineGraphicsPolicy::none`、`StateScope::read_view()`、`submachine_stop_requested()` を組み合わせた非同期サブステートマシン例があります。
 
 ---
 

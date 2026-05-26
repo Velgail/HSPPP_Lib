@@ -1,37 +1,37 @@
 ---
 layout: default
-title: HSPからの移行ガイチE
+title: HSPからの移行ガイド
 ---
 
-# HSP からの移行ガイチE
+# HSP からの移行ガイド
 
-HSP (Hot Soup Processor) から HSPPP への移行方法を解説します、E
+HSP (Hot Soup Processor) から HSPPP への移行方法を解説します。
 
 ## 目次
 
-- [基本皁E��違い](#基本皁E��違い)
+- [基本的な違い](#基本的な違い)
 - [変数](#変数)
-- [斁E���E](#斁E���E)
+- [文字列](#文字列)
 - [制御構文](#制御構文)
 - [GUI コントロール](#gui-コントロール)
-- [移行例](#移行侁E
+- [移行例](#移行例)
 
 ---
 
-## 基本皁E��違い
+## 基本的な違い
 
-| 頁E�� | HSP | HSPPP (C++) |
+| 項目 | HSP | HSPPP (C++) |
 |------|-----|-------------|
-| エントリポインチE| なし（�E動実行！E| `void hspMain()` |
-| 変数宣言 | 不要E| 忁E��E|
-| 行末 | 改衁E| `;` |
-| 斁E���E | `"..."` また�E `'...'` | `"..."` のみ |
-| コメンチE| `//` また�E `;` | `//` また�E `/* */` |
+| エントリポイント | なし（自動実行） | `void hspMain()` |
+| 変数宣言 | 不要 | 必須 |
+| 行末 | 改行 | `;` |
+| 文字列 | `"..."` または `'...'` | `"..."` のみ |
+| コメント | `//` または `;` | `//` または `/* */` |
 | ラベル | `*label` | 関数/ラムダ |
-| goto/gosub | サポ�EチE| 非推奨�E�関数を使用�E�E|
+| goto/gosub | サポート | 非推奨（関数を使用） |
 | stop | 実行停止 | `hspMain()` から `return` |
 
-<!-- 根拠: CONCEPT.md の「ユーザーへの移行ガイド」セクション、E-->
+<!-- 根拠: CONCEPT.md の「ユーザーへの移行ガイド」セクション。 -->
 
 ---
 
@@ -55,21 +55,21 @@ std::string s = "Hello";
 std::vector<int> arr(10);
 ```
 
-### 注愁E ローカル変数とグローバル変数
+### 注意: ローカル変数とグローバル変数
 
-HSP では変数はすべてグローバルですが、C++ では関数冁E��宣言した変数はローカル変数となり、E��数を抜けると破棁E��れます、E
+HSP では変数はすべてグローバルですが、C++ では関数内で宣言した変数はローカル変数となり、関数を抜けると破棄されます。
 
 ```cpp
-// ❁E危険: ローカル変数
+// 危険: ローカル変数
 void setup() {
     int count = 0;
-    button("Click", [&count]() {  // count はすでに破棁E��れてぁE���E�E
+    button("Click", [&count]() {  // count はすでに破棄されている
         count++;
         return 0;
     });
 }
 
-// ✁E安�E: グローバル変数また�Estatic
+// 安全: グローバル変数または static
 int count = 0;  // グローバル
 void setup() {
     button("Click", []() {
@@ -79,11 +79,11 @@ void setup() {
 }
 ```
 
-<!-- 根拠: C++ のスコープ規則、ESP との根本皁E��違い、E-->
+<!-- 根拠: C++ のスコープ規則。HSP との根本的な違い。 -->
 
 ---
 
-## 斁E���E
+## 文字列
 
 ### HSP
 
@@ -99,26 +99,26 @@ b = instr(s, 0, "World")
 ```cpp
 std::string s = "Hello";
 s += " World";
-int a = s.length();  // また�E strlen(s)
+int a = s.length();  // または strlen(s)
 int b = instr(s, 0, "World");
 ```
 
-### 斁E���E操作�E対応表
+### 文字列操作の対応表
 
 | HSP | HSPPP |
 |-----|-------|
-| `strlen(s)` | `s.length()` また�E `strlen(s)` |
-| `strmid(s, p, n)` | `s.substr(p, n)` また�E `strmid(s, p, n)` |
+| `strlen(s)` | `s.length()` または `strlen(s)` |
+| `strmid(s, p, n)` | `s.substr(p, n)` または `strmid(s, p, n)` |
 | `instr(s, p, t)` | `instr(s, p, t)` |
 | `s + t` | `s + t` |
 
-<!-- 根拠: CONCEPT.md の「文字�E処琁E��セクション、ESP 便利命令は std::string に対するラチE��ー関数として提供、E-->
+<!-- 根拠: CONCEPT.md の「文字列処理」セクション。HSP 便利命令は std::string に対するラッパー関数として提供。 -->
 
 ---
 
 ## 制御構文
 
-### if 斁E
+### if 文
 
 ```hsp
 ; HSP
@@ -138,7 +138,7 @@ if (a > 10) {
 }
 ```
 
-### ルーチE
+### ループ
 
 ```hsp
 ; HSP
@@ -154,9 +154,9 @@ for (int cnt = 0; cnt < 10; cnt++) {
 }
 ```
 
-### goto/gosub ↁE関数
+### goto/gosub → 関数
 
-HSPPP では `goto` / `gosub` の代わりに C++ の関数を使用します、E
+HSPPP では `goto` / `gosub` の代わりに C++ の関数を使用します。
 
 ```hsp
 ; HSP
@@ -179,11 +179,11 @@ void draw() {
 void hspMain() {
     screen(0, 640, 480);
     draw();
-    stop();  // 割り込みを征E��E
+    stop();  // 割り込みを待機
 }
 ```
 
-<!-- 根拠: CONCEPT.md の「ラベルジャンプ�E卒業」、E-->
+<!-- 根拠: CONCEPT.md の「ラベルジャンプは卒業」。 -->
 
 ---
 
@@ -191,7 +191,7 @@ void hspMain() {
 
 ### 重要な違い: ライフタイム
 
-HSP では変数がグローバルなので、GUI コントロールに変数を渡しても問題ありませんでした、ESPPP では、一部の GUI コントロールは `shared_ptr` を使用する忁E��があります、E
+HSP では変数がグローバルなので、GUI コントロールに変数を渡しても問題ありませんでした。HSPPP では、一部の GUI コントロールは `shared_ptr` を使用する必要があります。
 
 ### ボタン
 
@@ -213,9 +213,9 @@ button("Click", []() {
 });
 ```
 
-<!-- 根拠: hsppp.ixx で button は std::function<int()> を受け取る、E-->
+<!-- 根拠: hsppp.ixx で button は std::function<int()> を受け取る。 -->
 
-### 入力�EチE��ス
+### 入力ボックス
 
 ```hsp
 ; HSP
@@ -224,14 +224,14 @@ input s, 200, 24
 ```
 
 ```cpp
-// HSPPP (shared_ptr版�Eみ提侁E
+// HSPPP (shared_ptr 版のみ提供)
 auto s = std::make_shared<std::string>("");
 input(s, 200, 24);
 ```
 
-<!-- 根拠: hsppp_file.ixx で input は shared_ptr<std::string> 版�Eみ提供。ライフタイム安�E性のため、E-->
+<!-- 根拠: hsppp_file.ixx で input は shared_ptr<std::string> 版のみ提供。ライフタイム安全性のため。 -->
 
-### チェチE��ボックス
+### チェックボックス
 
 ```hsp
 ; HSP
@@ -240,19 +240,19 @@ chkbox "Enable", chk
 ```
 
 ```cpp
-// HSPPP (shared_ptr 忁E��E
+// HSPPP (shared_ptr 必須)
 auto chk = std::make_shared<int>(0);
 chkbox("Enable", chk);
 
-// 値の取征E
+// 値の取得
 if (*chk) {
     mes("Enabled");
 }
 ```
 
-<!-- 根拠: hsppp.ixx で chkbox は shared_ptr<int> 版�Eみ提供。int& 版�E安�E性のため提供してぁE��ぁE��E-->
+<!-- 根拠: hsppp.ixx で chkbox は shared_ptr<int> 版のみ提供。int& 版は安全性のため提供していない。 -->
 
-### コンボ�EチE��ス / リスト�EチE��ス
+### コンボボックス / リストボックス
 
 ```hsp
 ; HSP
@@ -261,19 +261,19 @@ combox sel, 100, "A\nB\nC"
 ```
 
 ```cpp
-// HSPPP (shared_ptr 忁E��E
+// HSPPP (shared_ptr 必須)
 auto sel = std::make_shared<int>(0);
 combox(sel, 100, "A\nB\nC");
 
-// 選択値の取征E
+// 選択値の取得
 mes("Selected: " + std::to_string(*sel));
 ```
 
-<!-- 根拠: combox, listbox めEchkbox と同様、shared_ptr<int> 版�Eみ提供、E-->
+<!-- 根拠: combox, listbox も chkbox と同様、shared_ptr<int> 版のみ提供。 -->
 
 ---
 
-## 移行侁E
+## 移行例
 
 ### HSP の典型的なプログラム
 
@@ -303,7 +303,7 @@ x = 320 : y = 240
     goto *main
 ```
 
-### HSPPP への移衁E
+### HSPPP への移行
 
 ```cpp
 // HSPPP
@@ -316,7 +316,7 @@ void hspMain() {
     screen(0, 640, 480);
     title("Sample");
     
-    // while ループでゲームループを実裁E
+    // while ループでゲームループを実装
     while (true) {
         redraw(0);
         color(0, 0, 0);
@@ -333,30 +333,28 @@ void hspMain() {
         if (key & 2) y -= 5;
         if (key & 8) y += 5;
         
-        // ESCで終亁E
+        // ESCで終了
         if (key & 128) break;
         
         await(16);
     }
-    
-    return 0;
 }
 ```
 
-<!-- 根拠: UserApp.cpp の hspMain() 実裁E��ターン、ESP の goto *main ループ�E C++ の while (true) + break で表現、E-->
+<!-- 根拠: UserApp.cpp の hspMain() 実装パターン。HSP の goto *main ループは C++ の while (true) + break で表現。 -->
 
 ---
 
-## goto / gosub の置き換ぁE
+## goto / gosub の置き換え
 
-HSPの `goto` と `gosub` めEC++ で実裁E��る方法�E、褁E��さによって異なります、E
+HSP の `goto` と `gosub` を C++ で実装する方法は、複雑さによって異なります。
 
 ### Simple goto: 単純な制御フロー
 
-褁E��の画面遷移を含むゲームめE��プリケーションでは、E*スチE�Eト�Eシン**を使用します、E
+複数の画面遷移を含むゲームやアプリケーションでは、**ステートマシン**を使用します。
 
 ```hsp
-; HSP侁E
+; HSP例
 *title
     mes "Title"
     if key & 32 : goto *game
@@ -367,7 +365,7 @@ HSPの `goto` と `gosub` めEC++ で実裁E��る方法�E、褁E��さによっ�
 ```
 
 ```cpp
-// HSPPP推奨: StateMachine を使用
+// HSPPP推奨: StateGraph を使用
 enum class Screen { Title, Game };
 auto sm = StateGraph<Screen>();
 
@@ -390,14 +388,14 @@ sm.jump(Screen::Title);
 sm.run();
 ```
 
-詳細は [HSP goto 移行ガイド](/HSPPP_Lib/guides/hsp-goto-migration) を参照してください、E
+詳細は [HSP goto 移行ガイド](/HSPPP_Lib/guides/hsp-goto-migration) を参照してください。
 
-### gosub: サブルーチン呼び出ぁE
+### gosub: サブルーチン呼び出し
 
-`gosub` は**単純に関数に置き換えまぁE*、E*スチE�Eト�Eシンは不要です、E*
+`gosub` は**単純に関数に置き換えます**。**ステートマシンは不要です。**
 
 ```hsp
-; HSP侁E
+; HSP例
 *main
     gosub *draw_bg
     gosub *draw_player
@@ -411,7 +409,7 @@ sm.run();
 ```
 
 ```cpp
-// HSPPP: 関数に置き換え（スチE�Eト�Eシン不要E��E
+// HSPPP: 関数に置き換え（ステートマシン不要）
 void draw_bg() {
     boxf(0, 0, 640, 480);
 }
@@ -421,7 +419,7 @@ void draw_player() {
 }
 
 void hspMain() {
-    // 直接呼び出すだぁE
+    // 直接呼び出すだけ
     draw_bg();
     draw_player();
 }
@@ -429,22 +427,22 @@ void hspMain() {
 
 ---
 
-## チェチE��リスチE
+## チェックリスト
 
-移行時に確認する�Eイント！E
+移行時に確認するポイント：
 
-- [ ] `void hspMain()` を定義したか！Emain()` ではなぁE��E
-- [ ] 変数はすべて型を持E��して宣言したぁE
+- [ ] `void hspMain()` を定義したか（`main()` ではない）
+- [ ] 変数はすべて型を指定して宣言したか
 - [ ] 行末に `;` を付けたか
-- [ ] `goto` めEスチE�Eト�Eシン�E�Esm.jump()`�E�に置き換えたぁE
-- [ ] `gosub` を関数呼び出しに置き換えたぁE
-- [ ] `chkbox`/`combox`/`listbox` は `shared_ptr` を使用してぁE��ぁE
-- [ ] ローカル変数めEGUI コールバックで使用してぁE��ぁE��
-- [ ] メインループ�E `while (true)` + `await()` + `break` で終亁E��るか
+- [ ] `goto` をステートマシン（`sm.jump()`）に置き換えたか
+- [ ] `gosub` を関数呼び出しに置き換えたか
+- [ ] `chkbox`/`combox`/`listbox` は `shared_ptr` を使用しているか
+- [ ] ローカル変数を GUI コールバックで使用していないか
+- [ ] メインループは `while (true)` + `await()` + `break` で終了するか
 
 ---
 
-## 関連頁E��
+## 関連項目
 
-- [スチE�Eトパターンガイド](/HSPPP_Lib/guides/state-pattern) - スチE�Eト�Eシンの設計パターン
-- [HSP goto 移行ガイド](/HSPPP_Lib/guides/hsp-goto-migration) - goto の具体的な移行侁E
+- [ステートパターンガイド](/HSPPP_Lib/guides/state-pattern) - ステートマシンの設計パターン
+- [HSP goto 移行ガイド](/HSPPP_Lib/guides/hsp-goto-migration) - goto の具体的な移行例

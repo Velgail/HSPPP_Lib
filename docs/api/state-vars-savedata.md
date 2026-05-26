@@ -14,6 +14,7 @@ State Machineと組み合わせて、HSP の「ステートに紐づくグロー
 ## 目次
 
 - [StateScope&lt;TState&gt;](#statescopetstate)
+- [StateScopeReadView&lt;TState&gt;](#statescopereadviewtstate)
 - [state_vars ショートカット](#state_vars-ショートカット)
 - [Serializable concept](#serializable-concept)
 - [SaveWriter](#savewriter)
@@ -51,7 +52,10 @@ public:
 |---------|------|
 | `L& bind(TState s, Args&&... args)` | 変数を登録（既存があれば 冪等 に返却） |
 | `L& get(TState s)` | 取得。未登録 / 型不一致は `std::out_of_range` を throw |
+| `const L& get(TState s) const` | const な `StateScope` から参照専用で取得 |
 | `L* try_get(TState s) noexcept` | 取得（無ければ `nullptr`） |
+| `const L* try_get(TState s) const noexcept` | const な `StateScope` から参照専用で取得（無ければ `nullptr`） |
+| `StateScopeReadView<TState> read_view() const noexcept` | 参照専用 view を取得 |
 | `bool contains(TState s) const noexcept` | 存在チェック |
 | `void release(TState s) noexcept` | 単一型を破棄 |
 | `void release_all_for(TState s) noexcept` | 指定ステートに紐付く全変数を破棄 |
@@ -95,6 +99,74 @@ void hspMain() {
 ```
 
 > **ヒント:** `bind()` を `on_enter` 内で呼んでも安全です（冪等 なので再入で重複初期化されない）。
+
+---
+
+## StateScopeReadView&lt;TState&gt;
+
+`StateScopeReadView<TState>` は、`StateScope<TState>` に登録された値を参照専用で読むための view です。非同期サブステートマシンなど、別スレッド側へ共有データを渡す場合は、可変参照ではなく `read_view()` で取得した view を渡してください。
+
+```cpp
+template <typename TState>
+class StateScopeReadView {
+public:
+    template <typename L>
+    const L& get(TState s) const;
+
+    template <typename L>
+    const L* try_get(TState s) const noexcept;
+
+    template <typename L>
+    bool contains(TState s) const noexcept;
+
+    std::vector<StateVarEntry> enumerate() const;
+};
+
+template <typename TState>
+class StateScope {
+public:
+    StateScopeReadView<TState> read_view() const noexcept;
+};
+```
+
+### 非同期サブステートマシンへの共有例
+
+```cpp
+enum class Scene { Title, Game };
+enum class WorkerPhase { ReadProfile, WaitForStop };
+
+struct PlayerProfile {
+    int high_score = 0;
+};
+
+StateGraph<Scene> sm;
+StateScope<Scene> scope(sm);
+
+auto& profile = scope.bind<PlayerProfile>(Scene::Title);
+profile.high_score = 12000;
+
+sm.state(Scene::Game)
+  .on_enter([&] {
+      auto params = scope.read_view();
+
+      sm.start_submachine<WorkerPhase>(
+          WorkerPhase::ReadProfile,
+          [params](StateGraph<WorkerPhase>& worker) {
+              worker.state(WorkerPhase::ReadProfile)
+                .on_enter([params]() {
+                    const auto& p = params.get<PlayerProfile>(Scene::Title);
+                    (void)p.high_score;  // 参照だけ
+                });
+          });
+  });
+```
+
+### 注意点
+
+- `StateScopeReadView` からは `const L&` / `const L*` だけを取得できます。`bind()`、`release()`、可変 `get()` は提供しません。
+- `const` 参照は「書き換え API を露出しない」ための仕組みであり、データ競合を完全に防ぐ同期機構ではありません。
+- サブステートマシン稼働中に親スレッドが同じ object を書き換えないでください。
+- 書き換えが必要な共有データは、型側で `std::atomic` や mutex 等の同期を持たせてください。
 
 ---
 

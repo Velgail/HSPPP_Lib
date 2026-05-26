@@ -104,12 +104,12 @@ public:
     template<typename T, typename Tag = GlobalTag>
     void register_repository() {
         auto type_id = std::type_index(typeid(T));
-        if (registrations_.find(type_id) == registrations_.end()) {
-            registrations_[type_id] = RepositoryRegistration{
+        registrations_.insert_or_assign(
+            type_id,
+            RepositoryRegistration{
                 []() { Repository<T>::instance().reset(); },
                 std::type_index(typeid(Tag))
-            };
-        }
+            });
     }
     
     /// @brief 登録されたすべてのリポジトリをリセット

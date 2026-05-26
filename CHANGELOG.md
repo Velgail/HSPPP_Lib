@@ -36,13 +36,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `docs/api/state-vars-savedata.md`（NEW）
   - `docs/api/repository.md`（NEW）
   - `docs/guides/data-sharing.md`（NEW）
-  - `docs/PROPOSAL-modern-hsppp.md`（設計提言ドラフト、TICKET-000 由来）
-- サンプル統合: `HspppStateSample/StateSampleMain.cpp` を StateGraph + StateScope + state_vars + SaveWriter/Reader + bsave/bload で 1 本に統合（TICKET-005、案③ `register_repository` 呼出除去）
-- テスト: `HspppTest/StateVarsRuntimeTest.cpp` 追加（TICKET-006 案④ ランタイム検証拡張）
+  - `docs/PROPOSAL-modern-hsppp.md`（設計提言ドラフト）
+- サンプル統合: `HspppStateSample/StateSampleMain.cpp` を StateGraph + StateScope + state_vars + SaveWriter/Reader + bsave/bload で 1 本に統合
+- テスト: `HspppTest/StateVarsRuntimeTest.cpp` 追加（ランタイム検証拡張）
 
 ### Changed
-- `run()` のシグネチャを `void run(int target_ms = 16)` から **`void run()`** に変更（破壊的変更、design-TICKET-008 §7.1）
-- `tick()` を撤回せず維持し、`step()` を等価な推奨 alias として追加（design-TICKET-008 §7.1）
+- `run()` のシグネチャを `void run(int target_ms = 16)` から **`void run()`** に変更（破壊的変更）
+- `tick()` を撤回せず維持し、`step()` を等価な推奨 alias として追加
 - HspppStateSample を新 API（StateGraph + StateScope）に全面移行（旧 `NewStateSampleMain.cpp` / `TestNewFeatures.cpp` は除去）
 
 ### Deprecated
@@ -56,9 +56,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `run()` の `target_ms` 引数および `run()` 内部の `await(target_ms)` 呼出（ユーザーが `on_update` 内でフレーム制御を書く責務に統一）
 
 ### Fixed
-- TR-6: `Pause → Game` 復帰後の GameOver タイマー永久失効を修正（`perform_transition` 内の自動 `cancel_timer()` が paused タイマーを破棄していた問題、design-TICKET-010）
-- TR-8: HspppTest の `ApiCompileTest` 副作用 API リソース供給漏れ解消（関数ポインタ ODR-use 化、案 α、TICKET-009）
-- `register_repository` の C2280（`RepositoryRegistration` のデフォルトコンストラクタ削除との衝突）相当の経路を、サンプル側から呼出除去することで実用上解消（TICKET-005 案③ / build-config §4.1 解消相当、HEAD `3878e17` 以降で再現なし）
+- `Pause → Game` 復帰後の GameOver タイマー永久失効を修正（`perform_transition` 内の自動 `cancel_timer()` が paused タイマーを破棄していた問題）
+- HspppTest の `ApiCompileTest` 副作用 API リソース供給漏れ解消（関数ポインタ ODR-use 化）
+- `register_repository` の C2280（`RepositoryRegistration` のデフォルトコンストラクタ削除との衝突）相当の経路を、サンプル側から呼出除去することで実用上解消
 
 ### Security
 

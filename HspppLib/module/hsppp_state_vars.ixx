@@ -15,7 +15,7 @@
 //
 // ライフサイクル契約（design §7.2）:
 //   - 既定: ステート離脱後も破棄しない（永続）。release() 明示破棄のみ。
-//   - bind は同じキーに対し idempotent（既存返却）。
+//   - bind は同じキーに対し冪等（既存返却）。
 //   - snapshot は Serializable<L> 概念を満たす型のみ対象。
 //     非対応型は enumerate() で serializable=false が立つ。
 //
@@ -99,7 +99,7 @@ private:
 /// StateScope を知らない（一方向依存：design §6）。
 ///
 /// 内部ストレージは (TState, std::type_index) → Slot の unordered_map。
-/// 同一キーで bind を再呼出した場合は **idempotent**（既存スロットを返却）。
+/// 同一キーで bind を再呼出した場合は **冪等**（既存スロットを返却）。
 template <typename TState>
     requires std::is_enum_v<TState>
 class StateScope {
@@ -126,14 +126,14 @@ public:
     // bind / get / try_get
     // ====================================================
 
-    /// @brief ステート別変数を登録（既存があれば idempotent に返却）
+    /// @brief ステート別変数を登録（既存があれば冪等に返却）
     /// @tparam L 変数型。Serializable<L> 満足時のみ snapshot 対象。
     template <typename L, typename... Args>
     L& bind(TState s, Args&&... args)
     {
         const Key key{ s, std::type_index(typeid(L)) };
         if (auto it = storage_.find(key); it != storage_.end()) {
-            // idempotent: 既存値を返す（args は無視。design §7.2「同キー再呼出は既存返却」）
+            // 冪等: 既存値を返す（args は無視。design §7.2「同キー再呼出は既存返却」）
             return std::any_cast<L&>(it->second.value);
         }
         Slot slot;
@@ -333,7 +333,12 @@ private:
             const auto a = static_cast<std::size_t>(
                 std::hash<Underlying>{}(static_cast<Underlying>(k.first)));
             const auto b = k.second.hash_code();
-            return a ^ (b + 0x9e3779b97f4a7c15ULL + (a << 6) + (a >> 2));
+            if constexpr (sizeof(std::size_t) >= 8) {
+                return a ^ (b + static_cast<std::size_t>(0x9e3779b97f4a7c15ULL) + (a << 6) + (a >> 2));
+            }
+            else {
+                return a ^ (b + static_cast<std::size_t>(0x9e3779b9UL) + (a << 6) + (a >> 2));
+            }
         }
     };
 

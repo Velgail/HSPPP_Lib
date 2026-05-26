@@ -34,6 +34,7 @@ import :types;
 import :interrupt;   // HspError / ERR_INTERNAL
 
 import <functional>;
+import <fstream>;
 import <map>;
 import <set>;
 import <deque>;
@@ -54,6 +55,33 @@ import <mutex>;
 import <vector>;
 
 export namespace hsppp {
+
+namespace detail {
+
+void write_dot_file(const std::string& filename, const std::string& contents)
+{
+    int wide_len = MultiByteToWideChar(CP_UTF8, 0, filename.c_str(), -1, nullptr, 0);
+    if (wide_len <= 0) {
+        throw HspError(ERR_FILE_IO,
+            std::format("Failed to convert file path to UTF-16: {}", filename));
+    }
+    std::wstring wide_filename(static_cast<std::size_t>(wide_len), L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, filename.c_str(), -1, wide_filename.data(), wide_len);
+
+    std::ofstream file(wide_filename, std::ios::binary | std::ios::trunc);
+    if (!file) {
+        throw HspError(ERR_FILE_IO,
+            std::format("Failed to open file: {}", filename));
+    }
+
+    file.write(contents.data(), static_cast<std::streamsize>(contents.size()));
+    if (!file) {
+        throw HspError(ERR_FILE_IO,
+            std::format("Failed to write file: {}", filename));
+    }
+}
+
+} // namespace detail
 
 // ═══════════════════════════════════════════════════════════════════
 // 前方宣言
@@ -1196,35 +1224,7 @@ void StateGraph<StateType>::export_graph(const std::string& filename)
     }
     dot += "}\n";
 
-    int wide_len = MultiByteToWideChar(CP_UTF8, 0, filename.c_str(), -1, nullptr, 0);
-    if (wide_len <= 0) {
-        throw HspError(ERR_FILE_IO,
-            std::format("Failed to convert file path to UTF-16: {}", filename));
-    }
-    std::wstring wide_filename(static_cast<std::size_t>(wide_len), L'\0');
-    MultiByteToWideChar(CP_UTF8, 0, filename.c_str(), -1, wide_filename.data(), wide_len);
-
-    HANDLE file = CreateFileW(
-        wide_filename.c_str(),
-        GENERIC_WRITE,
-        0,
-        nullptr,
-        CREATE_ALWAYS,
-        FILE_ATTRIBUTE_NORMAL,
-        nullptr);
-    if (file == INVALID_HANDLE_VALUE) {
-        throw HspError(ERR_FILE_IO,
-            std::format("Failed to open file: {}", filename));
-    }
-
-    DWORD written = 0;
-    const DWORD size = static_cast<DWORD>(dot.size());
-    const BOOL ok = WriteFile(file, dot.data(), size, &written, nullptr);
-    CloseHandle(file);
-    if (!ok || written != size) {
-        throw HspError(ERR_FILE_IO,
-            std::format("Failed to write file: {}", filename));
-    }
+    detail::write_dot_file(filename, dot);
 
     debug_log(std::format("Graph exported to: {}", filename));
 }

@@ -55,7 +55,7 @@ public:
 | `const L& get(TState s) const` | const な `StateScope` から参照専用で取得 |
 | `L* try_get(TState s) noexcept` | 取得（無ければ `nullptr`） |
 | `const L* try_get(TState s) const noexcept` | const な `StateScope` から参照専用で取得（無ければ `nullptr`） |
-| `StateScopeReadView<TState> read_view() const noexcept` | 参照専用 view を取得 |
+| `StateScopeReadView<TState> read_view() const noexcept` | 参照専用ビューを取得 |
 | `bool contains(TState s) const noexcept` | 存在チェック |
 | `void release(TState s) noexcept` | 単一型を破棄 |
 | `void release_all_for(TState s) noexcept` | 指定ステートに紐付く全変数を破棄 |
@@ -104,7 +104,7 @@ void hspMain() {
 
 ## StateScopeReadView&lt;TState&gt;
 
-`StateScopeReadView<TState>` は、`StateScope<TState>` に登録された値を参照専用で読むための view です。非同期サブステートマシンなど、別スレッド側へ共有データを渡す場合は、可変参照ではなく `read_view()` で取得した view を渡してください。
+`StateScopeReadView<TState>` は、`StateScope<TState>` に登録された値を参照専用で読むためのビューです。非同期サブステートマシンなど、別スレッド側へ共有データを渡す場合は、可変参照ではなく `read_view()` で取得したビューを渡してください。
 
 ```cpp
 template <typename TState>

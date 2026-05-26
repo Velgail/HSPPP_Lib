@@ -593,6 +593,87 @@ namespace hsppp_test {
     }
 
     // ============================================================
+    // WM_DPICHANGED 後の m_pTargetBitmap 再生成検証 (TICKET-007 / R-B / K2)
+    // ------------------------------------------------------------
+    // 目的: WM_DPICHANGED を sendmsg で直接ディスパッチし、
+    //   onDpiChanged 経路を通った後に
+    //     (1) 描画コマンド (boxf) がクラッシュしない
+    //     (2) pget が m_pTargetBitmap から正しい色を読める
+    //     (3) bmpsave が m_pTargetBitmap を保存して例外を出さない
+    //   ことを確認する。実機 DPI 変更 (モニタ移動) が困難な環境向けの代替。
+    // 注: HspWindow::onDpiChanged は GetClientRect が同一サイズを返す前提でも
+    //   SwapChain 再構築 + m_pTargetBitmap 防御的再生成を実行するため、
+    //   隠しウィンドウ + lparam=0 (suggested RECT なし) でも経路網羅可能。
+    // ============================================================
+    bool test_dpi_changed_target_bitmap_rebind() {
+        constexpr int  WM_DPICHANGED_MSG = 0x02E0;
+        constexpr int  TestWindowId      = 95;
+        constexpr int  TestWidth         = 200;
+        constexpr int  TestHeight        = 150;
+        constexpr int  ProbeX            = 100;
+        constexpr int  ProbeY            =  60;
+        constexpr int  PreR              = 123;
+        constexpr int  PreG              =  45;
+        constexpr int  PreB              =  67;
+        constexpr int  PostR             =  11;
+        constexpr int  PostG             =  22;
+        constexpr int  PostB             =  33;
+
+        (void)screen(TestWindowId, TestWidth, TestHeight, screen_hide);
+        gsel(TestWindowId);
+
+        // Pre-DPI: 単色塗り → pget で色を確認
+        redraw(0);
+        color(PreR, PreG, PreB);
+        (void)boxf();
+        redraw(1);
+
+        pget(ProbeX, ProbeY);
+        const int rPre = ginfo(16);
+        const int gPre = ginfo(17);
+        const int bPre = ginfo(18);
+        check(rPre == PreR && gPre == PreG && bPre == PreB,
+              "pre-DPI pget returns drawn color");
+
+        // WM_DPICHANGED を直接ディスパッチ (192 DPI = 200%)
+        // wParam = MAKEWPARAM(newDpiX, newDpiY) / lParam = 0 (suggested RECT は省略)
+        const int64_t windowHwnd = hwnd();
+        check(windowHwnd != 0, "hwnd() returns non-zero for active window");
+
+        const int64_t wparam = (static_cast<int64_t>(192) << 16) | static_cast<int64_t>(192);
+        (void)sendmsg(windowHwnd, WM_DPICHANGED_MSG, wparam, 0);
+
+        // Post-DPI: 既存 m_pTargetBitmap 再生成 + CopyFromBitmap で内容引き継ぎが
+        //   行われるため、pget は元の色を返すはず (案 A 採用判断、findings 参照)。
+        pget(ProbeX, ProbeY);
+        const int rPost1 = ginfo(16);
+        const int gPost1 = ginfo(17);
+        const int bPost1 = ginfo(18);
+        check(rPost1 == PreR && gPost1 == PreG && bPost1 == PreB,
+              "post-DPI pget preserves content (CopyFromBitmap hand-off)");
+
+        // Post-DPI: 新規描画が問題なく機能することを確認
+        redraw(0);
+        color(PostR, PostG, PostB);
+        (void)boxf(0, 0, TestWidth, TestHeight);
+        redraw(1);
+
+        pget(ProbeX, ProbeY);
+        const int rPost2 = ginfo(16);
+        const int gPost2 = ginfo(17);
+        const int bPost2 = ginfo(18);
+        check(rPost2 == PostR && gPost2 == PostG && bPost2 == PostB,
+              "post-DPI boxf + pget on rebound bitmap works");
+
+        // Post-DPI: bmpsave が m_pTargetBitmap を参照しても落ちない (副作用テスト)
+        bmpsave("dpi_changed_target_bitmap.bmp");
+        check(true, "post-DPI bmpsave does not crash");
+
+        return rPre == PreR && gPre == PreG && bPre == PreB
+            && rPost2 == PostR && gPost2 == PostG && bPost2 == PostB;
+    }
+
+    // ============================================================
     // 公開テスト関数
     // ============================================================
 
@@ -618,6 +699,7 @@ namespace hsppp_test {
         test_string_functions_runtime();
         test_note_and_sendmsg();
         test_async_submachine_runtime();
+        test_dpi_changed_target_bitmap_rebind();
 
         return s_testsPassed;
     }

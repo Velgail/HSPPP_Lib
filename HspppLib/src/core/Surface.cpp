@@ -1718,8 +1718,9 @@ void HspWindow::onSize(int newWidth, int newHeight) {
 void HspWindow::onDpiChanged(UINT newDpi, const RECT* suggested) {
     // PerMonitorV2 の WM_DPICHANGED ハンドリング
     // 1. OS 提案矩形に従ってウィンドウを移動・リサイズ
-    // 2. 新しい物理クライアントサイズで SwapChain を再構築
-    // 3. m_pTargetBitmap（論理バッファ）はサイズ変更しない
+    // 2. 新しい物理クライアントサイズで SwapChain を再構築（m_pBackBufferBitmap 再生成）
+    // 3. 論理バッファ m_pTargetBitmap を防御的に再生成（D2D デバイス紐付けの確実な再確立）
+    //    既存内容は CopyFromBitmap で引き継ぐ（ベストエフォート、失敗時は空バッファで継続）
     if (!m_hwnd) return;
     if (newDpi == 0) newDpi = 96;
 
@@ -1756,6 +1757,42 @@ void HspWindow::onDpiChanged(UINT newDpi, const RECT* suggested) {
         m_clientHeight = newPhysH;
         m_physClientW = newPhysW;
         m_physClientH = newPhysH;
+
+        // m_pTargetBitmap 防御的再生成 (採用案 A / 設計書 §17 R-B 対応)
+        // 論理サイズ・BITMAP_OPTIONS_TARGET を維持し、既存内容を GPU Copy で引き継ぐ。
+        // ResizeBuffers では D2D デバイス自体は失われないが、device-context との
+        // 紐付け再確立を明示することで K2/R-B 潜在不具合（onDpiChanged 後の
+        // SetTarget / DrawBitmap / pget / bmpsave での device-bind ロスト）を排除する。
+        if (m_pDeviceContext && m_pTargetBitmap) {
+            ComPtr<ID2D1Bitmap1> oldBitmap = m_pTargetBitmap;
+            D2D1_SIZE_U logicalSize = D2D1::SizeU(m_width, m_height);
+            D2D1_BITMAP_PROPERTIES1 offscreenProps = D2D1::BitmapProperties1(
+                D2D1_BITMAP_OPTIONS_TARGET,
+                D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE)
+            );
+
+            // 旧 Bitmap が現在のターゲットの可能性があるため、一旦切り離す
+            m_pDeviceContext->SetTarget(nullptr);
+            m_pTargetBitmap.Reset();
+
+            ComPtr<ID2D1Bitmap1> newBitmap;
+            HRESULT hrBmp = m_pDeviceContext->CreateBitmap(
+                logicalSize, nullptr, 0, offscreenProps, newBitmap.GetAddressOf()
+            );
+            if (SUCCEEDED(hrBmp) && newBitmap) {
+                // 既存内容を GPU 同士の Copy で引き継ぐ（ソース・宛先が同一サイズの BITMAP_OPTIONS_TARGET）
+                D2D1_POINT_2U dstPt = D2D1::Point2U(0, 0);
+                D2D1_RECT_U srcRect = D2D1::RectU(0, 0, logicalSize.width, logicalSize.height);
+                HRESULT hrCopy = newBitmap->CopyFromBitmap(&dstPt, oldBitmap.Get(), &srcRect);
+                // 引き継ぎ失敗時は空バッファで継続（受け入れ可: HSP 流儀の redraw ループで補填される）
+                (void)hrCopy;
+                m_pTargetBitmap = newBitmap;
+            } else {
+                // 再生成失敗時は旧 Bitmap を復元してデバイスコンテキストに再バインド
+                m_pTargetBitmap = oldBitmap;
+            }
+            m_pDeviceContext->SetTarget(m_pTargetBitmap.Get());
+        }
     }
 
     if (wasDrawing) {

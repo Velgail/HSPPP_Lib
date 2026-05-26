@@ -80,9 +80,7 @@ enum class Screen {
 };
 
 void hspMain() {
-    auto sm = StateMachine<Screen>();
-    
-    // ステップ2: 各ラベルを state() に変換
+    auto sm = StateGraph<Screen>();
     
     // *title
     sm.state(Screen::Title)
@@ -174,7 +172,7 @@ enum class Screen {
 };
 
 void hspMain() {
-    auto sm = StateMachine<Screen>();
+    auto sm = StateGraph<Screen>();
     
     // ✅ ボタンは on_enter で作成、on_exit で削除
     sm.state(Screen::Title)
@@ -274,7 +272,7 @@ enum class Screen {
 };
 
 void hspMain() {
-    auto sm = StateMachine<Screen>();
+    auto sm = StateGraph<Screen>();
     
     // グローバル変数（hspMain のローカル変数として定義）
     int score = 0;
@@ -385,7 +383,7 @@ enum class GameFlow {
 };
 
 void hspMain() {
-    auto sm = StateMachine<GameFlow>();
+    auto sm = StateGraph<GameFlow>();
     
     // スプラッシュ
     sm.state(GameFlow::Splash)

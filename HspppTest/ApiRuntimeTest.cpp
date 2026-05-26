@@ -11,6 +11,11 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import hsppp;
+import <atomic>;
+import <chrono>;
+import <functional>;
+import <thread>;
+
 using namespace hsppp;
 
 namespace hsppp_test {
@@ -18,14 +23,21 @@ namespace hsppp_test {
     // テスト結果を追跡
     static int s_testsPassed = 0;
     static int s_testsFailed = 0;
+    static int s_testsRun    = 0;
+    static int s_firstFailedIndex = -1;
+    static const char* s_firstFailedName = nullptr;
 
     // 簡易テストマクロ的な関数
     inline void check(bool condition, const char* testName) {
+        ++s_testsRun;
         if (condition) {
             s_testsPassed++;
         } else {
             s_testsFailed++;
-            // デバッグ出力（OutputDebugStringA は Windows.h が必要なので省略）
+            if (s_firstFailedIndex < 0) {
+                s_firstFailedIndex = s_testsRun;
+                s_firstFailedName  = testName;
+            }
         }
     }
 
@@ -424,7 +436,11 @@ namespace hsppp_test {
         
         // 開始位置指定（HSP仕様: 結果はp2を起点とした相対位置）
         check(instr("ABCABC", 3, "ABC") == 0, "instr with offset - relative position");
-        check(instr("ABCABC", 1, "BC") == 1, "instr with offset - found at relative 1");
+        // "ABCABC" の offset=1 から探索すると "BC" は絶対位置 1 にあるが、
+        // p2 起点の相対位置では 0。HSP 仕様(結果はp2を起点とした相対位置) および
+        // 実装 hsppp_string.inl L478 (return pos - p2) と整合。
+        // ※ 旧期待値 == 1 はハーネスブロックで顕在化していなかった既存バグ。
+        check(instr("ABCABC", 1, "BC") == 0, "instr with offset - found at relative 0");
         check(instr("ABCDEF", 2, "CD") == 0, "instr exact match at offset");
         check(instr("ABCDEF", 10, "AB") == -1, "instr offset beyond string");
         check(instr("ABCDEF", -1, "AB") == -1, "instr negative offset");
@@ -475,6 +491,108 @@ namespace hsppp_test {
     }
 
     // ============================================================
+    // 非同期サブステートマシン runtime テスト
+    // ============================================================
+    enum class AsyncRuntimeParentState {
+        Main,
+        Done,
+    };
+
+    enum class AsyncRuntimeChildState {
+        Running,
+    };
+
+    struct AsyncRuntimeMonitor {
+        std::atomic<bool> launched = false;
+        std::atomic<bool> update_entered = false;
+        std::atomic<bool> stop_requested_seen = false;
+        std::atomic<bool> done_entered = false;
+        std::atomic<int> ticks = 0;
+        std::atomic<std::size_t> count_after_leave = 99;
+        std::atomic<std::size_t> main_thread_marker = 0;
+        std::atomic<std::size_t> child_thread_marker = 0;
+    };
+
+    static std::size_t current_thread_marker() {
+        return std::hash<std::thread::id>{}(std::this_thread::get_id());
+    }
+
+    bool test_async_submachine_runtime() {
+        AsyncRuntimeMonitor monitor;
+        StateGraph<AsyncRuntimeParentState> parent;
+
+        parent.state(AsyncRuntimeParentState::Main)
+          .on_enter([&]() {
+              monitor.main_thread_marker.store(current_thread_marker(), std::memory_order_relaxed);
+
+              AsyncSubMachineOptions options{};
+              options.idle_wait_ms = 1;
+              options.graphics = SubMachineGraphicsPolicy::none;
+
+              parent.start_submachine<AsyncRuntimeChildState>(
+                  AsyncRuntimeChildState::Running,
+                  [&monitor](StateGraph<AsyncRuntimeChildState>& child) {
+                      child.state(AsyncRuntimeChildState::Running)
+                        .on_enter([&monitor]() {
+                            monitor.child_thread_marker.store(current_thread_marker(), std::memory_order_relaxed);
+                            monitor.launched.store(true, std::memory_order_relaxed);
+                        })
+                        .on_update([&monitor](StateGraph<AsyncRuntimeChildState>& child_sm) {
+                            monitor.ticks.fetch_add(1, std::memory_order_relaxed);
+                            monitor.update_entered.store(true, std::memory_order_relaxed);
+                            for (int i = 0; i < 1000; ++i) {
+                                if (submachine_stop_requested()) {
+                                    monitor.stop_requested_seen.store(true, std::memory_order_relaxed);
+                                    child_sm.quit();
+                                    return;
+                                }
+                                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                            }
+                        });
+                  },
+                  options);
+          })
+          .on_update([&](StateGraph<AsyncRuntimeParentState>& sm) {
+              if (monitor.launched.load(std::memory_order_relaxed) &&
+                  monitor.update_entered.load(std::memory_order_relaxed)) {
+                  sm.jump(AsyncRuntimeParentState::Done);
+              }
+          });
+
+        parent.state(AsyncRuntimeParentState::Done)
+          .on_enter([&]() {
+              monitor.count_after_leave.store(parent.submachine_count(), std::memory_order_relaxed);
+              monitor.done_entered.store(true, std::memory_order_relaxed);
+              parent.quit();
+          });
+
+        parent.jump(AsyncRuntimeParentState::Main);
+        for (int i = 0; i < 1000 && !monitor.done_entered.load(std::memory_order_relaxed); ++i) {
+            parent.step();
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+
+        const auto main_marker = monitor.main_thread_marker.load(std::memory_order_relaxed);
+        const auto child_marker = monitor.child_thread_marker.load(std::memory_order_relaxed);
+        const bool thread_observed =
+            main_marker != 0 &&
+            child_marker != 0 &&
+            main_marker != child_marker;
+
+        check(monitor.launched.load(std::memory_order_relaxed), "async submachine launched");
+        check(monitor.update_entered.load(std::memory_order_relaxed), "async submachine update entered");
+        check(thread_observed, "async submachine runs on another thread");
+        check(monitor.stop_requested_seen.load(std::memory_order_relaxed), "async submachine observes stop request");
+        check(monitor.count_after_leave.load(std::memory_order_relaxed) == 0, "async submachine joined on parent leave");
+
+        return monitor.launched.load(std::memory_order_relaxed) &&
+               monitor.update_entered.load(std::memory_order_relaxed) &&
+               thread_observed &&
+               monitor.stop_requested_seen.load(std::memory_order_relaxed) &&
+               monitor.count_after_leave.load(std::memory_order_relaxed) == 0;
+    }
+
+    // ============================================================
     // 公開テスト関数
     // ============================================================
 
@@ -483,6 +601,9 @@ namespace hsppp_test {
     int run_runtime_tests() {
         s_testsPassed = 0;
         s_testsFailed = 0;
+        s_testsRun    = 0;
+        s_firstFailedIndex = -1;
+        s_firstFailedName  = nullptr;
 
         test_screen_creation();
         test_buffer_creation();
@@ -496,6 +617,7 @@ namespace hsppp_test {
         test_input_functions();
         test_string_functions_runtime();
         test_note_and_sendmsg();
+        test_async_submachine_runtime();
 
         return s_testsPassed;
     }
@@ -509,5 +631,8 @@ namespace hsppp_test {
     int get_passed_count() {
         return s_testsPassed;
     }
+
+    int get_first_failed_index() { return s_firstFailedIndex; }
+    const char* get_first_failed_name() { return s_firstFailedName ? s_firstFailedName : ""; }
 
 }  // namespace hsppp_test

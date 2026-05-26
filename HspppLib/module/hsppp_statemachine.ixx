@@ -9,18 +9,19 @@
 // HSPPP ステートマシン - モジュールインターフェース
 // ═══════════════════════════════════════════════════════════════════
 //
-// HSPの *label / goto を型安全に再現するステートマシンライブラリ。
-// enum class による コンパイル時チェック で、存在しないステートへの
-// 遷移を防止します（HSPと同等の安全性）。
+// HSPの *label / goto を型安全に再現する後継ステートマシンライブラリ。
+// 本体クラスは StateGraph<T>。
 //
 // 使用例:
 //   enum class Screen { Title, Game, Result };
-//   StateMachine<Screen> sm;
+//   StateGraph<Screen> sm;
 //   sm.state(Screen::Title).on_update([&](auto& sm) {
 //       if (getkey(' ')) sm.jump(Screen::Game);
 //   });
-//   sm.jump(Screen::Title);
-//   while (sm.run()) { await(16); }
+//   sm.start(Screen::Title);   // = jump + run()   ※ run() は dispatch only（内部で await を呼ばない）
+//
+// 設計根拠:
+//   §6, §7.1, §8.1, §12.1, §13(L1,L2,L6,L7), §15(F2,F6,C4,C5), §17(Risk-1,3,4)
 
 module;
 
@@ -30,19 +31,57 @@ module;
 export module hsppp:statemachine;
 
 import :types;
+import :interrupt;   // HspError / ERR_INTERNAL
 
 import <functional>;
+import <fstream>;
 import <map>;
 import <set>;
 import <deque>;
 import <optional>;
 import <string>;
+import <string_view>;
 import <type_traits>;
 import <format>;
 import <chrono>;
-import <fstream>;
+import <memory>;
+import <unordered_map>;
+import <limits>;
+import <thread>;
+import <stop_token>;
+import <atomic>;
+import <exception>;
+import <mutex>;
+import <vector>;
 
 export namespace hsppp {
+
+namespace detail {
+
+void write_dot_file(const std::string& filename, const std::string& contents)
+{
+    int wide_len = MultiByteToWideChar(CP_UTF8, 0, filename.c_str(), -1, nullptr, 0);
+    if (wide_len <= 0) {
+        throw HspError(ERR_FILE_IO,
+            std::format("Failed to convert file path to UTF-16: {}", filename));
+    }
+    std::wstring wide_filename(static_cast<std::size_t>(wide_len), L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, filename.c_str(), -1, wide_filename.data(), wide_len);
+
+    std::ofstream file(wide_filename, std::ios::binary | std::ios::trunc);
+    if (!file) {
+        throw HspError(ERR_FILE_IO,
+            std::format("Failed to open file: {}", filename));
+    }
+
+    file.write(contents.data(), static_cast<std::streamsize>(contents.size()));
+    if (!file) {
+        throw HspError(ERR_FILE_IO,
+            std::format("Failed to write file: {}", filename));
+    }
+}
+
+} // namespace detail
 
 // ═══════════════════════════════════════════════════════════════════
 // 前方宣言
@@ -50,30 +89,40 @@ export namespace hsppp {
 
 template<typename StateType>
     requires std::is_enum_v<StateType>
-class StateMachine;
+class StateGraph;
 
 template<typename StateType>
 class StateBuilder;
+
+template<typename StateType, typename LocalDataType>
+class StateBuilderWithLocal;
 
 // ═══════════════════════════════════════════════════════════════════
 // StateMachineBase - 非テンプレート基底クラス
 // ═══════════════════════════════════════════════════════════════════
 
-/// @brief StateMachineの非テンプレート基底クラス
-/// 
-/// グローバル関数(await/stop/vwait)がStateMachineコンテキストを
-/// 検出するために使用されます。
+/// @brief StateGraph の非テンプレート基底クラス
+///
+/// グローバル関数 (await/stop/vwait) が StateGraph コンテキストを
+/// 検出するために使用されるほか、サブ SM をベース型経由で
+/// `step()` / `tick()` 呼出するためにも利用される。
 class StateMachineBase {
 public:
     virtual ~StateMachineBase() = default;
-    
+
     /// @brief 遷移が予約されているかチェック
-    /// @return 遷移が予約されている場合 true
     [[nodiscard]] virtual bool should_transition() const = 0;
-    
+
     /// @brief ステートマシンが実行中かチェック
-    /// @return 実行中の場合 true
     [[nodiscard]] virtual bool is_running() const = 0;
+
+    /// @brief ステート遷移が要求されているかチェック
+    [[nodiscard]] virtual bool is_transitioning() const = 0;
+
+    /// @brief 1 ステップ分だけ更新（親 on_update 内からサブ SM を駆動する用途）
+    /// @note 親 on_update 内で `child.step()` を
+    ///       明示呼出する規約。`step()` は本メソッド `tick()` への inline 委譲。
+    virtual void tick() = 0;
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -83,311 +132,495 @@ public:
 namespace detail {
     /// @brief 現在のStateMachineコンテキスト（スレッドローカル）
     inline thread_local StateMachineBase* current_statemachine = nullptr;
-    
+    inline thread_local const std::stop_token* current_submachine_stop_token = nullptr;
+    inline std::atomic_bool async_submachine_graphics_owned = false;
+
     /// @brief 現在のStateMachineを取得
-    /// @return 現在のStateMachine、なければnullptr
     inline StateMachineBase* get_current_statemachine() noexcept {
         return current_statemachine;
     }
 }
 
-/// @brief RAIIによるStateMachineコンテキスト管理
-/// 
-/// StateMachine::run()内でスコープガードとして使用し、
+/// @brief 非同期サブステートマシンの描画ポリシー
+enum class SubMachineGraphicsPolicy {
+    none,
+    exclusive
+};
+
+/// @brief 非同期サブステートマシンの実行オプション
+struct AsyncSubMachineOptions {
+    int idle_wait_ms = 1;
+    SubMachineGraphicsPolicy graphics = SubMachineGraphicsPolicy::none;
+};
+
+/// @brief 現在のサブステートマシンに停止要求が出ているかを取得
+[[nodiscard]] inline bool submachine_stop_requested() noexcept {
+    const auto* token = detail::current_submachine_stop_token;
+    return token != nullptr && token->stop_requested();
+}
+
+namespace detail {
+    class SubMachineStopTokenScope {
+    public:
+        explicit SubMachineStopTokenScope(const std::stop_token& token) noexcept
+            : prev_(current_submachine_stop_token)
+        {
+            current_submachine_stop_token = &token;
+        }
+
+        ~SubMachineStopTokenScope() noexcept {
+            current_submachine_stop_token = prev_;
+        }
+
+        SubMachineStopTokenScope(const SubMachineStopTokenScope&) = delete;
+        SubMachineStopTokenScope& operator=(const SubMachineStopTokenScope&) = delete;
+        SubMachineStopTokenScope(SubMachineStopTokenScope&&) = delete;
+        SubMachineStopTokenScope& operator=(SubMachineStopTokenScope&&) = delete;
+
+    private:
+        const std::stop_token* prev_;
+    };
+
+    class AsyncSubMachineTaskBase {
+    public:
+        virtual ~AsyncSubMachineTaskBase() = default;
+        virtual void request_stop() noexcept = 0;
+        virtual void join() noexcept = 0;
+        [[nodiscard]] virtual bool joinable() const noexcept = 0;
+        [[nodiscard]] virtual bool has_exception() const noexcept = 0;
+        virtual void rethrow_exception_if_any() = 0;
+    };
+
+    template <typename ChildState>
+        requires std::is_enum_v<ChildState>
+    class AsyncSubMachineTask final : public AsyncSubMachineTaskBase {
+    public:
+        template <typename Configure>
+        AsyncSubMachineTask(
+            ChildState initial_state,
+            Configure&& configure,
+            AsyncSubMachineOptions options)
+            : options_(options)
+        {
+            acquire_graphics_owner_();
+            try {
+                thread_ = std::jthread(
+                    [this,
+                     initial_state,
+                     configure_fn = std::forward<Configure>(configure)]
+                    (std::stop_token token) mutable {
+                        run_thread_(token, initial_state, std::move(configure_fn));
+                    });
+            }
+            catch (const std::exception& ex) {
+                release_graphics_owner_();
+                throw HspError(ERR_INTERNAL, ex);
+            }
+        }
+
+        ~AsyncSubMachineTask() override {
+            request_stop();
+            join();
+        }
+
+        AsyncSubMachineTask(const AsyncSubMachineTask&) = delete;
+        AsyncSubMachineTask& operator=(const AsyncSubMachineTask&) = delete;
+        AsyncSubMachineTask(AsyncSubMachineTask&&) = delete;
+        AsyncSubMachineTask& operator=(AsyncSubMachineTask&&) = delete;
+
+        void request_stop() noexcept override {
+            thread_.request_stop();
+        }
+
+        void join() noexcept override {
+            if (thread_.joinable()) {
+                thread_.join();
+            }
+        }
+
+        [[nodiscard]] bool joinable() const noexcept override {
+            return thread_.joinable();
+        }
+
+        [[nodiscard]] bool has_exception() const noexcept override {
+            std::scoped_lock lock(exception_mutex_);
+            return exception_ != nullptr;
+        }
+
+        void rethrow_exception_if_any() override {
+            std::exception_ptr stored;
+            {
+                std::scoped_lock lock(exception_mutex_);
+                stored = exception_;
+            }
+            if (stored) {
+                std::rethrow_exception(stored);
+            }
+        }
+
+    private:
+        template <typename Configure>
+        void run_thread_(
+            const std::stop_token& token,
+            ChildState initial_state,
+            Configure&& configure)
+        {
+            SubMachineStopTokenScope stop_scope(token);
+            try {
+                StateGraph<ChildState> child;
+                std::forward<Configure>(configure)(child);
+                child.jump(initial_state);
+                while (!token.stop_requested() && child.is_running()) {
+                    child.step();
+                    if (options_.idle_wait_ms > 0 && !token.stop_requested()) {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(options_.idle_wait_ms));
+                    }
+                }
+            }
+            catch (const HspError&) {
+                store_current_exception_();
+            }
+            catch (const std::exception&) {
+                store_current_exception_();
+            }
+            release_graphics_owner_();
+        }
+
+        void store_current_exception_() noexcept {
+            std::scoped_lock lock(exception_mutex_);
+            exception_ = std::current_exception();
+        }
+
+        void acquire_graphics_owner_() {
+            if (options_.graphics != SubMachineGraphicsPolicy::exclusive) {
+                return;
+            }
+            bool expected = false;
+            if (!async_submachine_graphics_owned.compare_exchange_strong(expected, true)) {
+                throw HspError(ERR_INTERNAL, "Async submachine graphics owner is already active");
+            }
+            owns_graphics_ = true;
+        }
+
+        void release_graphics_owner_() noexcept {
+            if (owns_graphics_) {
+                async_submachine_graphics_owned.store(false);
+                owns_graphics_ = false;
+            }
+        }
+
+        AsyncSubMachineOptions options_{};
+        std::jthread thread_;
+        mutable std::mutex exception_mutex_;
+        std::exception_ptr exception_;
+        bool owns_graphics_ = false;
+    };
+}
+
+/// @brief RAIIによる StateGraph コンテキスト管理
+///
+/// StateGraph::run() / tick() 内でスコープガードとして使用し、
 /// 例外発生時も確実にコンテキストを復元します。
 class StateMachineScope {
 public:
-    /// @brief コンストラクタ: コンテキストを設定
-    /// @param sm 設定するStateMachine
     explicit StateMachineScope(StateMachineBase* sm) noexcept
         : prev_(detail::current_statemachine)
     {
         detail::current_statemachine = sm;
     }
-    
-    /// @brief デストラクタ: コンテキストを復元
+
     ~StateMachineScope() noexcept {
         detail::current_statemachine = prev_;
     }
-    
-    // コピー・移動禁止（スタック上でのみ使用）
+
     StateMachineScope(const StateMachineScope&) = delete;
     StateMachineScope& operator=(const StateMachineScope&) = delete;
     StateMachineScope(StateMachineScope&&) = delete;
     StateMachineScope& operator=(StateMachineScope&&) = delete;
-    
+
 private:
-    StateMachineBase* prev_;  ///< 以前のコンテキスト（ネスト対応）
+    StateMachineBase* prev_;
 };
 
 // ═══════════════════════════════════════════════════════════════════
-// StateMachine クラステンプレート
+// StateGraph クラステンプレート（design §7.1）
 // ═══════════════════════════════════════════════════════════════════
 
-/// @brief 型安全なステートマシン
-/// 
-/// HSPの *label / goto を enum class ベースで再現します。
-/// コンパイル時に存在しないステートへの遷移を検出できます。
-/// 
+/// @brief 型安全な後継ステートマシン
+///
+/// HSP の *label / goto を enum class ベースで再現する後継 API。
+///
 /// @tparam StateType ステートを表す enum class 型
-/// 
-/// @code
-/// enum class Screen { Title, Game, Result };
-/// StateMachine<Screen> sm;
-/// sm.state(Screen::Title)
-///   .on_enter([]() { button("Start", ...); })
-///   .on_update([&](auto& sm) { if (getkey(' ')) sm.jump(Screen::Game); })
-///   .on_exit([]() { clrobj(); });
-/// sm.jump(Screen::Title);
-/// while (sm.run()) { await(16); }
-/// @endcode
 template<typename StateType>
     requires std::is_enum_v<StateType>
-class StateMachine : public StateMachineBase {
+class StateGraph : public StateMachineBase {
 public:
     // ====================================================
     // 型定義
     // ====================================================
-    
-    using EnterCallback = std::function<void()>;
-    using UpdateCallback = std::function<void(StateMachine&)>;
-    using ExitCallback = std::function<void()>;
-    
+
+    using EnterCallback  = std::function<void()>;
+    /// @brief on_update コールバック型
+    /// @note on_update 1 回の呼出はユーザーが
+    ///       そのステートに与えた `repeat`-`loop` の 1 iteration を意味する。
+    ///       return すれば同ステートの on_update が再呼出される。
+    ///       `jump()` してから return すれば次ステートへ遷移する。
+    ///       on_update 内で `await` / `stop` / `vwait` / 任意ループを書くことは正規。
+    using UpdateCallback = std::function<void(StateGraph&)>;
+    using ExitCallback   = std::function<void()>;
+
     // ====================================================
     // コンストラクタ / デストラクタ
     // ====================================================
-    
-    /// @brief デフォルトコンストラクタ
-    StateMachine() = default;
-    
-    /// @brief デストラクタ
-    ~StateMachine() override = default;
-    
-    // コピー禁止（コールバック内でthisを参照するため）
-    StateMachine(const StateMachine&) = delete;
-    StateMachine& operator=(const StateMachine&) = delete;
-    
+
+    StateGraph() = default;
+    ~StateGraph() override = default;
+
+    // コピー禁止（コールバック内で this を参照するため）
+    StateGraph(const StateGraph&) = delete;
+    StateGraph& operator=(const StateGraph&) = delete;
+
     // ムーブ可能
-    StateMachine(StateMachine&&) = default;
-    StateMachine& operator=(StateMachine&&) = default;
-    
+    StateGraph(StateGraph&&) = default;
+    StateGraph& operator=(StateGraph&&) = default;
+
     // ====================================================
     // ステート定義（Builder パターン）
     // ====================================================
-    
+
     /// @brief ステートを定義
-    /// 
-    /// メソッドチェーンで on_enter / on_update / on_exit を設定します。
-    /// 
-    /// @param state_enum ステート値
-    /// @return ビルダーオブジェクト
-    /// 
-    /// @code
-    /// sm.state(Screen::Title)
-    ///   .on_enter([]() { /* 初期化 */ })
-    ///   .on_update([](auto& sm) { /* 毎フレーム */ })
-    ///   .on_exit([]() { /* 後処理 */ });
-    /// @endcode
     StateBuilder<StateType> state(StateType state_enum);
-    
+
+    /// @brief ローカルデータ付きステートを定義（旧 API 互換薄ラッパ）
+    /// @note design §13 L3-b の薄ラッパ位置付け。新規コードでは
+    ///       hsppp_state_vars.ixx の StateScope を使用すること。
+    template<typename LocalDataType, typename... Args>
+    StateBuilderWithLocal<StateType, LocalDataType> state(StateType state_enum, Args&&... args);
+
     // ====================================================
     // 状態遷移制御
     // ====================================================
-    
+
     /// @brief 状態遷移（HSP goto 相当）
-    /// 
-    /// 指定したステートに遷移を予約します。
-    /// 遷移は次の run() 呼び出し時に実行されます。
-    /// 
-    /// @param target_state 遷移先のステート
     void jump(StateType target_state);
-    
-    /// @brief 状態遷移を予約（jumpと同じ、将来拡張用）
-    /// @param target_state 遷移先のステート
-    void defer_jump(StateType target_state);
-    
+
     /// @brief 遷移ルールを追加（厳格モード用）
-    /// 
-    /// set_unrestricted_transitions(false) 時に使用します。
-    /// 
-    /// @param from 遷移元ステート
-    /// @param to 遷移先ステート
     void allow_transition(StateType from, StateType to);
-    
+
     /// @brief 遷移を禁止
-    /// @param from 遷移元ステート
-    /// @param to 遷移先ステート
     void deny_transition(StateType from, StateType to);
-    
+
     /// @brief All-to-All遷移の有効/無効設定
-    /// 
-    /// @param enabled true で制約なし（デフォルト）、false で厳格チェック
     void set_unrestricted_transitions(bool enabled);
-    
+
     // ====================================================
     // メインループ制御
     // ====================================================
-    
-    /// @brief メインループを実行
-    /// 
-    /// 各ステートの on_update 内で await/stop するため、
-    /// quit() が呼ばれるまでこの関数はブロックします。
-    /// 
-    /// @code
-    /// sm.jump(Screen::Title);
-    /// sm.run();  // quit() まで戻ってこない
-    /// @endcode
+
+    /// @brief メインループを実行（dispatch only）
+    ///
+    /// 内部は `while (running_) { tick(); }` のみで、
+    /// `await` / `Sleep` / `vwait` を一切呼ばない。フレームペーシングは
+    /// ユーザーが on_update 内で `await(ms)` 等を明示的に書く契約。
+    /// @throws HspError jump() も current_state も無いまま呼ばれた場合（design §12.1 / §7.1）。
     void run();
-    
+
     /// @brief 初期ステートを設定してメインループを実行
-    /// 
-    /// jump() と run() を一度に行う便利メソッド。
-    /// 
-    /// @param initial_state 開始するステート
-    /// 
-    /// @code
-    /// sm.start(Screen::Title);  // jump + run の代わり
-    /// @endcode
     void start(StateType initial_state);
-    
+
+    /// @brief 1 ステップ分だけ更新（手動駆動・サブ SM 駆動用）
+    /// @note 親 on_update 内から
+    ///       `child.step()` を明示呼出することでサブ SM を進行させる。
+    ///       `step()` は本メソッドへの inline 委譲（同義）。
+    void tick() override;
+
+    /// @brief `tick()` の推奨 alias
+    /// @note 親 on_update 内でサブ SM を駆動する用途では `step()` を推奨。
+    ///       `tick()` は後方互換のため維持。
+    void step();
+
     /// @brief メインループを終了
     void quit();
-    
+
     // ====================================================
-    // 状態クエリ
+    // 非同期サブステートマシン制御
     // ====================================================
-    
+
+    /// @brief 現在の親ステートに紐づくサブステートマシンを別 thread で開始
+    template <typename ChildState, typename Configure>
+        requires std::is_enum_v<ChildState>
+    void start_submachine(
+        ChildState initial_state,
+        Configure&& configure,
+        AsyncSubMachineOptions options = {});
+
+    /// @brief 現在の親ステートに紐づくサブステートマシンへ停止要求を送る
+    void request_stop_submachines() noexcept;
+
+    /// @brief 現在の親ステートに紐づくサブステートマシンを join する
+    void join_submachines();
+
+    /// @brief 現在の親ステートに紐づくサブステートマシンへ停止要求を送り join する
+    void stop_submachines() noexcept;
+
+    /// @brief 現在の親ステートに紐づくサブステートマシン内で保存された例外を再送出する
+    void rethrow_submachine_exceptions();
+
+    /// @brief 登録中のサブステートマシン数を取得
+    [[nodiscard]] std::size_t submachine_count() const noexcept;
+
+    // ====================================================
+    // 状態クエリ（design §7.1: optional 化）
+    // ====================================================
+
     /// @brief 現在のステートを取得
-    [[nodiscard]] StateType current_state() const noexcept;
-    
+    /// @return まだ jump() されていない場合は std::nullopt
+    [[nodiscard]] std::optional<StateType> current_state() const noexcept;
+
     /// @brief 前回のステートを取得
-    [[nodiscard]] StateType previous_state() const noexcept;
-    
+    [[nodiscard]] std::optional<StateType> previous_state() const noexcept;
+
     /// @brief ステート名を取得（デバッグ用）
-    /// @return ステートの数値表現
-    [[nodiscard]] std::string current_state_name() const;
-    
+    [[nodiscard]] std::string_view current_state_name() const;
+
     /// @brief グローバルフレームカウンタ（HSP cnt 相当）
-    /// @return 起動からの総フレーム数
     [[nodiscard]] int frame_count() const noexcept;
-    
-    /// @brief 現在のステートに滞在しているフレーム数
-    [[nodiscard]] int state_frame_count() const noexcept;
-    
+
+    /// @brief 現在のステートに滞在している経過時間 (ms)
+    [[nodiscard]] int state_elapsed_ms() const noexcept;
+
     // ====================================================
     // 履歴機能
     // ====================================================
-    
+
     /// @brief 履歴記録を有効化
-    /// @param max_size 最大履歴サイズ（デフォルト: 10）
     void enable_history(int max_size = 10);
-    
+
     /// @brief 前のステートに戻る
-    void back();
-    
+    /// @return 戻る履歴がある場合 true、空の場合 false
+    bool back();
+
     /// @brief 履歴をクリア
     void clear_history();
-    
+
     // ====================================================
-    // タイマー機能
+    // タイマー機能（ms 統一・design §7.1）
     // ====================================================
-    
+
     /// @brief タイマーを設定（指定ミリ秒後に自動遷移）
-    /// @param target_state 遷移先ステート
-    /// @param milliseconds ミリ秒
     void set_timer(StateType target_state, int milliseconds);
-    
+
     /// @brief タイマーをキャンセル
     void cancel_timer();
-    
+
+    /// @brief タイマーを一時停止（経過時間は引き継がれる）
+    /// @details paused 状態のタイマーは perform_transition による自動 cancel から
+    ///          保護される。Pause UI のように state を跨いで継続したいケースで使用する。
+    ///          ユーザー明示の cancel_timer() は paused でも無条件で wipe する。
+    void pause_timer();
+
+    /// @brief タイマーを再開
+    /// @details pause_timer() で保持された timer を再開する。state を跨いで保持
+    ///          された場合は、復帰先 state の on_enter で呼ぶのが推奨。
+    void resume_timer();
+
     // ====================================================
     // デバッグ支援
     // ====================================================
-    
+
     /// @brief デバッグログを有効化
-    /// @param enabled true でログ出力
     void enable_debug_log(bool enabled = true);
-    
+
     /// @brief 状態遷移グラフをGraphviz dot形式で出力
-    /// @param filename 出力ファイル名
     void export_graph(const std::string& filename);
-    
+
     /// @brief ステート名を登録（デバッグ用）
-    /// @param state ステート値
-    /// @param name ステート名
     void set_state_name(StateType state, std::string_view name);
-    
+
     // ====================================================
     // StateMachineBase インターフェース実装
     // ====================================================
-    
-    /// @brief 遷移が予約されているかチェック
-    [[nodiscard]] bool should_transition() const noexcept override;
-    
-    /// @brief ステートマシンが実行中かチェック
-    [[nodiscard]] bool is_running() const noexcept override;
-    
+
+    [[nodiscard]] bool should_transition() const override;
+    [[nodiscard]] bool is_running() const override;
+    [[nodiscard]] bool is_transitioning() const override;
+
 private:
     // ====================================================
     // 内部データ構造
     // ====================================================
-    
+
     struct StateData {
         EnterCallback on_enter;
         UpdateCallback on_update;
         ExitCallback on_exit;
         bool entered = false;  // on_enter実行済みフラグ
     };
-    
+
+    struct TimerState {
+        std::optional<StateType> target;
+        int target_ms = 0;
+        std::chrono::steady_clock::time_point start{};
+        long long accumulated_ms = 0;
+        bool paused = false;
+
+        [[nodiscard]] bool active() const noexcept { return target.has_value(); }
+    };
+
     std::map<StateType, StateData> states_;
     std::optional<StateType> current_state_;
     std::optional<StateType> previous_state_;
     std::optional<StateType> next_state_;
-    
+
+    // ローカルデータストレージ（型消去・旧 API 互換）
+    std::map<StateType, std::shared_ptr<void>> local_data_storage_;
+
     int global_frame_count_ = 0;
-    int state_frame_count_ = 0;
+    std::chrono::steady_clock::time_point state_enter_time_{};
     bool running_ = true;
     bool unrestricted_transitions_ = true;
-    bool first_run_ = true;  // 初回run()フラグ
-    
+    bool first_run_ = true;
+
     // 遷移ルール（上級者向け）
     std::set<std::pair<StateType, StateType>> allowed_transitions_;
     std::set<std::pair<StateType, StateType>> denied_transitions_;
-    
+
     // 履歴機能
     std::deque<StateType> history_;
     int max_history_size_ = 0;
-    
-    // タイマー機能
-    std::optional<StateType> timer_target_;
-    std::chrono::steady_clock::time_point timer_start_;
-    int timer_duration_ms_ = 0;
-    
+
+    // タイマー機能（design §7.1: pause 引き継ぎ対応）
+    TimerState timer_{};
+
+    // 非同期サブステートマシン（親ステートごとの所有 registry）
+    std::map<StateType, std::vector<std::unique_ptr<detail::AsyncSubMachineTaskBase>>> submachines_;
+
     // デバッグ機能
     bool debug_enabled_ = false;
     std::set<std::pair<StateType, StateType>> transition_graph_;
-    std::unordered_map<int, std::string> state_names_;  // enum値 -> 名前マップ
-    
+    std::unordered_map<int, std::string> state_names_;
+
+    mutable std::string current_state_name_cache_;  // string_view 戻り値の生存延長用
+
     // ====================================================
     // 内部ヘルパー
     // ====================================================
-    
-    /// @brief 遷移可否をチェック
+
     [[nodiscard]] bool check_transition_allowed(StateType from, StateType to) const;
-    
-    /// @brief enum → string 変換（デバッグ用）
     [[nodiscard]] std::string state_to_string(StateType state) const;
-    
-    /// @brief デバッグログ出力
-    void debug_log(const std::string& message);
-    
-    /// @brief ステート遷移実行
+    void debug_log(const std::string& message) const;
     void perform_transition(StateType new_state);
-    
-    /// @brief タイマー更新
     void update_timer();
-    
+    void process_pending_transition();
+    void step_once();   // 1 フレーム分の本体処理（tick / run 共通）
+    void request_stop_submachines_for_(StateType state) noexcept;
+    void join_submachines_for_(StateType state) noexcept;
+    void rethrow_submachine_exceptions_for_(StateType state);
+    void stop_submachines_for_(StateType state) noexcept;
+    [[nodiscard]] std::size_t submachine_count_for_(StateType state) const noexcept;
+
     friend class StateBuilder<StateType>;
+    template<typename, typename> friend class StateBuilderWithLocal;
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -395,49 +628,46 @@ private:
 // ═══════════════════════════════════════════════════════════════════
 
 /// @brief ステート定義用ビルダークラス
-/// 
-/// StateMachine::state() から返され、メソッドチェーンで
-/// コールバックを設定します。
-/// 
-/// @tparam StateType ステートを表す enum class 型
 template<typename StateType>
 class StateBuilder {
 public:
-    /// @brief 初回実行時のコールバックを設定
-    /// 
-    /// ステートに入るたびに1回だけ実行されます。
-    /// GUIオブジェクトの作成、リソースロードなどに使用します。
-    /// 
-    /// @param callback 初回実行関数
-    /// @return 自身の参照（メソッドチェーン用）
-    StateBuilder& on_enter(typename StateMachine<StateType>::EnterCallback callback);
-    
-    /// @brief 毎フレーム実行のコールバックを設定
-    /// 
-    /// run() が呼ばれるたびに実行されます。
-    /// 入力チェック、描画など軽い処理に使用します。
-    /// 
-    /// @param callback 毎フレーム実行関数
-    /// @return 自身の参照（メソッドチェーン用）
-    StateBuilder& on_update(typename StateMachine<StateType>::UpdateCallback callback);
-    
-    /// @brief 離脱時のコールバックを設定
-    /// 
-    /// ステートから出るときに1回だけ実行されます。
-    /// GUIオブジェクトの削除、リソース解放に使用します。
-    /// 
-    /// @param callback 離脱時実行関数
-    /// @return 自身の参照（メソッドチェーン用）
-    StateBuilder& on_exit(typename StateMachine<StateType>::ExitCallback callback);
-    
+    StateBuilder& on_enter(typename StateGraph<StateType>::EnterCallback callback);
+    StateBuilder& on_update(typename StateGraph<StateType>::UpdateCallback callback);
+    StateBuilder& on_exit(typename StateGraph<StateType>::ExitCallback callback);
+
 private:
-    friend class StateMachine<StateType>;
-    
-    /// @brief コンストラクタ（StateMachine からのみ呼び出し可能）
-    StateBuilder(StateMachine<StateType>& sm, StateType state);
-    
-    StateMachine<StateType>& sm_;
+    friend class StateGraph<StateType>;
+
+    StateBuilder(StateGraph<StateType>& sm, StateType state);
+
+    StateGraph<StateType>& sm_;
     StateType state_;
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// StateBuilderWithLocal - ローカルデータ付きステートビルダー
+// ═══════════════════════════════════════════════════════════════════
+
+/// @brief ローカルデータ付きステート定義ビルダー（旧 API 互換薄ラッパ）
+template<typename StateType, typename LocalDataType>
+class StateBuilderWithLocal {
+public:
+    using EnterCallbackWithLocal  = std::function<void(LocalDataType&)>;
+    using UpdateCallbackWithLocal = std::function<void(StateGraph<StateType>&, LocalDataType&)>;
+    using ExitCallbackWithLocal   = std::function<void(LocalDataType&)>;
+
+    StateBuilderWithLocal& on_enter(EnterCallbackWithLocal callback);
+    StateBuilderWithLocal& on_update(UpdateCallbackWithLocal callback);
+    StateBuilderWithLocal& on_exit(ExitCallbackWithLocal callback);
+
+private:
+    friend class StateGraph<StateType>;
+
+    StateBuilderWithLocal(StateGraph<StateType>& sm, StateType state, std::shared_ptr<LocalDataType> data);
+
+    StateGraph<StateType>& sm_;
+    StateType state_;
+    std::shared_ptr<LocalDataType> local_data_;
 };
 
 }  // namespace hsppp
@@ -453,18 +683,17 @@ namespace hsppp {
 // ═══════════════════════════════════════════════════════════════════
 
 template<typename StateType>
-StateBuilder<StateType>::StateBuilder(StateMachine<StateType>& sm, StateType state)
+StateBuilder<StateType>::StateBuilder(StateGraph<StateType>& sm, StateType state)
     : sm_(sm), state_(state)
 {
-    // states_ に登録されていなければ作成
     if (sm_.states_.find(state) == sm_.states_.end()) {
-        sm_.states_[state] = typename StateMachine<StateType>::StateData{};
+        sm_.states_[state] = typename StateGraph<StateType>::StateData{};
     }
 }
 
 template<typename StateType>
 StateBuilder<StateType>& StateBuilder<StateType>::on_enter(
-    typename StateMachine<StateType>::EnterCallback callback)
+    typename StateGraph<StateType>::EnterCallback callback)
 {
     sm_.states_[state_].on_enter = std::move(callback);
     return *this;
@@ -472,7 +701,7 @@ StateBuilder<StateType>& StateBuilder<StateType>::on_enter(
 
 template<typename StateType>
 StateBuilder<StateType>& StateBuilder<StateType>::on_update(
-    typename StateMachine<StateType>::UpdateCallback callback)
+    typename StateGraph<StateType>::UpdateCallback callback)
 {
     sm_.states_[state_].on_update = std::move(callback);
     return *this;
@@ -480,230 +709,393 @@ StateBuilder<StateType>& StateBuilder<StateType>::on_update(
 
 template<typename StateType>
 StateBuilder<StateType>& StateBuilder<StateType>::on_exit(
-    typename StateMachine<StateType>::ExitCallback callback)
+    typename StateGraph<StateType>::ExitCallback callback)
 {
     sm_.states_[state_].on_exit = std::move(callback);
     return *this;
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// StateMachine 実装 - ステート定義
+// StateBuilderWithLocal 実装
+// ═══════════════════════════════════════════════════════════════════
+
+template<typename StateType, typename LocalDataType>
+StateBuilderWithLocal<StateType, LocalDataType>::StateBuilderWithLocal(
+    StateGraph<StateType>& sm, StateType state, std::shared_ptr<LocalDataType> data)
+    : sm_(sm), state_(state), local_data_(data)
+{
+    if (sm_.states_.find(state) == sm_.states_.end()) {
+        sm_.states_[state] = typename StateGraph<StateType>::StateData{};
+    }
+}
+
+template<typename StateType, typename LocalDataType>
+StateBuilderWithLocal<StateType, LocalDataType>&
+StateBuilderWithLocal<StateType, LocalDataType>::on_enter(EnterCallbackWithLocal callback)
+{
+    auto data_ptr = local_data_;
+    sm_.states_[state_].on_enter = [data_ptr, callback]() {
+        callback(*data_ptr);
+    };
+    return *this;
+}
+
+template<typename StateType, typename LocalDataType>
+StateBuilderWithLocal<StateType, LocalDataType>&
+StateBuilderWithLocal<StateType, LocalDataType>::on_update(UpdateCallbackWithLocal callback)
+{
+    auto data_ptr = local_data_;
+    sm_.states_[state_].on_update = [data_ptr, callback](StateGraph<StateType>& sm) {
+        callback(sm, *data_ptr);
+    };
+    return *this;
+}
+
+template<typename StateType, typename LocalDataType>
+StateBuilderWithLocal<StateType, LocalDataType>&
+StateBuilderWithLocal<StateType, LocalDataType>::on_exit(ExitCallbackWithLocal callback)
+{
+    auto data_ptr = local_data_;
+    sm_.states_[state_].on_exit = [data_ptr, callback]() {
+        callback(*data_ptr);
+    };
+    return *this;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// StateGraph 実装 - ステート定義
 // ═══════════════════════════════════════════════════════════════════
 
 template<typename StateType>
     requires std::is_enum_v<StateType>
-StateBuilder<StateType> StateMachine<StateType>::state(StateType state_enum)
+StateBuilder<StateType> StateGraph<StateType>::state(StateType state_enum)
 {
     return StateBuilder<StateType>(*this, state_enum);
 }
 
+template<typename StateType>
+    requires std::is_enum_v<StateType>
+template<typename LocalDataType, typename... Args>
+StateBuilderWithLocal<StateType, LocalDataType>
+StateGraph<StateType>::state(StateType state_enum, Args&&... args)
+{
+    auto data = std::make_shared<LocalDataType>(std::forward<Args>(args)...);
+    local_data_storage_[state_enum] = data;
+    return StateBuilderWithLocal<StateType, LocalDataType>(*this, state_enum, data);
+}
+
 // ═══════════════════════════════════════════════════════════════════
-// StateMachine 実装 - 状態遷移制御
+// StateGraph 実装 - 状態遷移制御
 // ═══════════════════════════════════════════════════════════════════
 
 template<typename StateType>
     requires std::is_enum_v<StateType>
-void StateMachine<StateType>::jump(StateType target_state)
+void StateGraph<StateType>::jump(StateType target_state)
 {
     next_state_ = target_state;
 }
 
 template<typename StateType>
     requires std::is_enum_v<StateType>
-void StateMachine<StateType>::defer_jump(StateType target_state)
-{
-    // jumpと同じ（将来的な拡張用に分離）
-    next_state_ = target_state;
-}
-
-template<typename StateType>
-    requires std::is_enum_v<StateType>
-void StateMachine<StateType>::allow_transition(StateType from, StateType to)
+void StateGraph<StateType>::allow_transition(StateType from, StateType to)
 {
     allowed_transitions_.insert(std::make_pair(from, to));
-    
-    // 遷移グラフに記録（デバッグ用）
     transition_graph_.insert(std::make_pair(from, to));
 }
 
 template<typename StateType>
     requires std::is_enum_v<StateType>
-void StateMachine<StateType>::deny_transition(StateType from, StateType to)
+void StateGraph<StateType>::deny_transition(StateType from, StateType to)
 {
     denied_transitions_.insert(std::make_pair(from, to));
 }
 
 template<typename StateType>
     requires std::is_enum_v<StateType>
-void StateMachine<StateType>::set_unrestricted_transitions(bool enabled)
+void StateGraph<StateType>::set_unrestricted_transitions(bool enabled)
 {
     unrestricted_transitions_ = enabled;
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// StateMachine 実装 - メインループ制御
+// StateGraph 実装 - メインループ制御
 // ═══════════════════════════════════════════════════════════════════
 
 template<typename StateType>
     requires std::is_enum_v<StateType>
-void StateMachine<StateType>::run()
+void StateGraph<StateType>::process_pending_transition()
 {
-    // RAIIによるコンテキスト管理
-    // 例外発生時も確実に復元される
-    StateMachineScope scope(this);
-    
+    if (!next_state_.has_value()) {
+        return;
+    }
+
+    StateType new_state = next_state_.value();
+    next_state_.reset();
+
+    if (current_state_.has_value()) {
+        if (!check_transition_allowed(current_state_.value(), new_state)) {
+            // design §12.1 L7: Warning を HspError に格上げ
+            throw HspError(ERR_INTERNAL,
+                std::format("Transition denied: {} -> {}",
+                    state_to_string(current_state_.value()),
+                    state_to_string(new_state)));
+        }
+        perform_transition(new_state);
+    }
+    else {
+        // 初回遷移
+        perform_transition(new_state);
+    }
+}
+
+template<typename StateType>
+    requires std::is_enum_v<StateType>
+void StateGraph<StateType>::step_once()
+{
     if (!running_) {
         return;
     }
-    
-    // 初回呼び出し時のチェック
+
+    // タイマー更新（pause 中は経過進めない）
+    update_timer();
+
+    // 遷移処理
+    process_pending_transition();
+
+    // 現在のステートがなければ何もしない
+    if (!current_state_.has_value()) {
+        return;
+    }
+
+    // 現在のステートのデータを取得
+    auto it = states_.find(current_state_.value());
+    if (it == states_.end()) {
+        // design §12.1 L7: 未定義ステートは HspError 化
+        throw HspError(ERR_INTERNAL,
+            std::format("State {} has no definition",
+                state_to_string(current_state_.value())));
+    }
+
+    auto& state_data = it->second;
+
+    // on_enter 実行（初回のみ）
+    if (!state_data.entered) {
+        state_data.entered = true;
+        state_enter_time_ = std::chrono::steady_clock::now();
+        debug_log(std::format("Enter state: {}", state_to_string(current_state_.value())));
+        if (state_data.on_enter) {
+            state_data.on_enter();
+        }
+    }
+
+    // on_update 実行
+    if (state_data.on_update) {
+        state_data.on_update(*this);
+    }
+
+    // フレームカウンタ更新
+    global_frame_count_++;
+}
+
+template<typename StateType>
+    requires std::is_enum_v<StateType>
+void StateGraph<StateType>::run()
+{
+    // RAII によるコンテキスト管理
+    StateMachineScope scope(this);
+
+    if (!running_) {
+        return;
+    }
+
+    // 初回呼び出し時のチェック（design §12.1 L7: HspError 化）
     if (first_run_) {
         first_run_ = false;
-        
-        // jump()が呼ばれていない場合はエラー
         if (!next_state_.has_value() && !current_state_.has_value()) {
-            debug_log("Warning: run() called without initial state. Call jump() first.");
-            return;
+            throw HspError(ERR_INTERNAL,
+                "run() called without initial state. Call jump() or start() first.");
         }
     }
-    
-    // ✅ HSP的構造: quit() されるまで内部でループ
-    // 各ステートの on_update 内で await/stop するため、
-    // 外側にループは不要
+
+    // dispatch only。
+    // フレームペーシング（await / stop / vwait）はユーザーが on_update 内で明示。
     while (running_) {
-        // タイマー更新
-        update_timer();
-        
-        // 遷移処理
-        if (next_state_.has_value()) {
-            StateType new_state = next_state_.value();
-            next_state_.reset();
-            
-            // 遷移チェック（current_state_がある場合のみ）
-            if (current_state_.has_value()) {
-                if (!check_transition_allowed(current_state_.value(), new_state)) {
-                    debug_log(std::format("Transition denied: {} -> {}",
-                        state_to_string(current_state_.value()),
-                        state_to_string(new_state)));
-                    // 遷移を拒否するが、ループは継続
-                }
-                else {
-                    perform_transition(new_state);
-                }
-            }
-            else {
-                // 初回遷移
-                perform_transition(new_state);
-            }
-        }
-        
-        // 現在のステートがなければ終了
-        if (!current_state_.has_value()) {
-            return;
-        }
-        
-        // 現在のステートのデータを取得
-        auto it = states_.find(current_state_.value());
-        if (it == states_.end()) {
-            // 未定義のステート
-            debug_log(std::format("Warning: State {} has no definition",
-                state_to_string(current_state_.value())));
-            continue;
-        }
-        
-        auto& state_data = it->second;
-        
-        // on_enter 実行（初回のみ）
-        if (!state_data.entered) {
-            state_data.entered = true;
-            debug_log(std::format("Enter state: {}", state_to_string(current_state_.value())));
-            
-            if (state_data.on_enter) {
-                state_data.on_enter();
-            }
-        }
-        
-        // on_update 実行
-        // ✅ ここで await/stop によりブロックされる
-        if (state_data.on_update) {
-            state_data.on_update(*this);
-        }
-        
-        // フレームカウンタ更新
-        global_frame_count_++;
-        state_frame_count_++;
+        step_once();
     }
 }
 
 template<typename StateType>
     requires std::is_enum_v<StateType>
-void StateMachine<StateType>::quit()
-{
-    running_ = false;
-}
-
-template<typename StateType>
-    requires std::is_enum_v<StateType>
-void StateMachine<StateType>::start(StateType initial_state)
+void StateGraph<StateType>::start(StateType initial_state)
 {
     jump(initial_state);
     run();
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// StateMachine 実装 - 状態クエリ
-// ═══════════════════════════════════════════════════════════════════
-
 template<typename StateType>
     requires std::is_enum_v<StateType>
-StateType StateMachine<StateType>::current_state() const noexcept
+void StateGraph<StateType>::tick()
 {
-    // current_state_が設定されていない場合はデフォルト値を返す
-    return current_state_.value_or(static_cast<StateType>(0));
+    // RAII によるコンテキスト管理（サブ SM 駆動経由でも有効に）
+    StateMachineScope scope(this);
+    step_once();
 }
 
 template<typename StateType>
     requires std::is_enum_v<StateType>
-StateType StateMachine<StateType>::previous_state() const noexcept
+void StateGraph<StateType>::step()
 {
-    return previous_state_.value_or(static_cast<StateType>(0));
+    // step() は tick() への委譲（推奨 alias）
+    tick();
 }
 
 template<typename StateType>
     requires std::is_enum_v<StateType>
-std::string StateMachine<StateType>::current_state_name() const
+void StateGraph<StateType>::quit()
+{
+    running_ = false;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// StateGraph 実装 - 非同期サブステートマシン制御
+// ═══════════════════════════════════════════════════════════════════
+
+template<typename StateType>
+    requires std::is_enum_v<StateType>
+template <typename ChildState, typename Configure>
+    requires std::is_enum_v<ChildState>
+void StateGraph<StateType>::start_submachine(
+    ChildState initial_state,
+    Configure&& configure,
+    AsyncSubMachineOptions options)
+{
+    if (!current_state_.has_value()) {
+        throw HspError(ERR_INTERNAL, "start_submachine() requires an active parent state");
+    }
+
+    auto task = std::make_unique<detail::AsyncSubMachineTask<ChildState>>(
+        initial_state,
+        std::forward<Configure>(configure),
+        options);
+    submachines_[current_state_.value()].push_back(std::move(task));
+}
+
+template<typename StateType>
+    requires std::is_enum_v<StateType>
+void StateGraph<StateType>::request_stop_submachines() noexcept
+{
+    if (!current_state_.has_value()) {
+        return;
+    }
+    request_stop_submachines_for_(current_state_.value());
+}
+
+template<typename StateType>
+    requires std::is_enum_v<StateType>
+void StateGraph<StateType>::join_submachines()
+{
+    if (!current_state_.has_value()) {
+        return;
+    }
+    join_submachines_for_(current_state_.value());
+}
+
+template<typename StateType>
+    requires std::is_enum_v<StateType>
+void StateGraph<StateType>::stop_submachines() noexcept
+{
+    if (!current_state_.has_value()) {
+        return;
+    }
+    stop_submachines_for_(current_state_.value());
+}
+
+template<typename StateType>
+    requires std::is_enum_v<StateType>
+void StateGraph<StateType>::rethrow_submachine_exceptions()
+{
+    if (!current_state_.has_value()) {
+        return;
+    }
+    rethrow_submachine_exceptions_for_(current_state_.value());
+}
+
+template<typename StateType>
+    requires std::is_enum_v<StateType>
+std::size_t StateGraph<StateType>::submachine_count() const noexcept
+{
+    std::size_t count = 0;
+    for (const auto& [state, tasks] : submachines_) {
+        (void)state;
+        count += tasks.size();
+    }
+    return count;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// StateGraph 実装 - 状態クエリ
+// ═══════════════════════════════════════════════════════════════════
+
+template<typename StateType>
+    requires std::is_enum_v<StateType>
+std::optional<StateType> StateGraph<StateType>::current_state() const noexcept
+{
+    return current_state_;
+}
+
+template<typename StateType>
+    requires std::is_enum_v<StateType>
+std::optional<StateType> StateGraph<StateType>::previous_state() const noexcept
+{
+    return previous_state_;
+}
+
+template<typename StateType>
+    requires std::is_enum_v<StateType>
+std::string_view StateGraph<StateType>::current_state_name() const
 {
     if (current_state_.has_value()) {
-        return state_to_string(current_state_.value());
+        current_state_name_cache_ = state_to_string(current_state_.value());
     }
-    return "(none)";
+    else {
+        current_state_name_cache_ = "(none)";
+    }
+    return current_state_name_cache_;
 }
 
 template<typename StateType>
     requires std::is_enum_v<StateType>
-int StateMachine<StateType>::frame_count() const noexcept
+int StateGraph<StateType>::frame_count() const noexcept
 {
     return global_frame_count_;
 }
 
 template<typename StateType>
     requires std::is_enum_v<StateType>
-int StateMachine<StateType>::state_frame_count() const noexcept
+int StateGraph<StateType>::state_elapsed_ms() const noexcept
 {
-    return state_frame_count_;
+    if (!current_state_.has_value()) {
+        return 0;
+    }
+    using namespace std::chrono;
+    auto now = steady_clock::now();
+    auto elapsed = duration_cast<milliseconds>(now - state_enter_time_).count();
+    if (elapsed < 0) elapsed = 0;
+    if (elapsed > static_cast<long long>(std::numeric_limits<int>::max())) {
+        elapsed = std::numeric_limits<int>::max();
+    }
+    return static_cast<int>(elapsed);
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// StateMachine 実装 - 履歴機能
+// StateGraph 実装 - 履歴機能
 // ═══════════════════════════════════════════════════════════════════
 
 template<typename StateType>
     requires std::is_enum_v<StateType>
-void StateMachine<StateType>::enable_history(int max_size)
+void StateGraph<StateType>::enable_history(int max_size)
 {
     max_history_size_ = max_size;
-    
-    // 既存履歴がサイズを超えていれば縮小
     while (static_cast<int>(history_.size()) > max_history_size_ && !history_.empty()) {
         history_.pop_front();
     }
@@ -711,169 +1103,181 @@ void StateMachine<StateType>::enable_history(int max_size)
 
 template<typename StateType>
     requires std::is_enum_v<StateType>
-void StateMachine<StateType>::back()
+bool StateGraph<StateType>::back()
 {
     if (history_.empty()) {
-        debug_log("Warning: back() called but history is empty");
-        return;
+        return false;
     }
-    
     StateType prev = history_.back();
     history_.pop_back();
-    
-    // 履歴に追加せずに遷移
     next_state_ = prev;
+    return true;
 }
 
 template<typename StateType>
     requires std::is_enum_v<StateType>
-void StateMachine<StateType>::clear_history()
+void StateGraph<StateType>::clear_history()
 {
     history_.clear();
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// StateMachine 実装 - タイマー機能
+// StateGraph 実装 - タイマー機能（design §7.1: pause 引き継ぎ）
 // ═══════════════════════════════════════════════════════════════════
 
 template<typename StateType>
     requires std::is_enum_v<StateType>
-void StateMachine<StateType>::set_timer(StateType target_state, int milliseconds)
+void StateGraph<StateType>::set_timer(StateType target_state, int milliseconds)
 {
-    timer_target_ = target_state;
-    timer_duration_ms_ = milliseconds;
-    timer_start_ = std::chrono::steady_clock::now();
-    
+    timer_.target = target_state;
+    timer_.target_ms = milliseconds;
+    timer_.start = std::chrono::steady_clock::now();
+    timer_.accumulated_ms = 0;
+    timer_.paused = false;
+
     debug_log(std::format("Timer set: {} -> {} in {}ms",
-        current_state_name(),
+        std::string(current_state_name()),
         state_to_string(target_state),
         milliseconds));
 }
 
 template<typename StateType>
     requires std::is_enum_v<StateType>
-void StateMachine<StateType>::cancel_timer()
+void StateGraph<StateType>::cancel_timer()
 {
-    if (timer_target_.has_value()) {
+    if (timer_.active()) {
         debug_log("Timer cancelled");
     }
-    timer_target_.reset();
-    timer_duration_ms_ = 0;
+    timer_ = TimerState{};
 }
 
 template<typename StateType>
     requires std::is_enum_v<StateType>
-void StateMachine<StateType>::update_timer()
+void StateGraph<StateType>::pause_timer()
 {
-    if (!timer_target_.has_value()) {
+    if (!timer_.active() || timer_.paused) {
         return;
     }
-    
-    auto now = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-        now - timer_start_).count();
-    
-    if (elapsed >= timer_duration_ms_) {
-        StateType target = timer_target_.value();
-        timer_target_.reset();
-        timer_duration_ms_ = 0;
-        
+    using namespace std::chrono;
+    auto now = steady_clock::now();
+    timer_.accumulated_ms += duration_cast<milliseconds>(now - timer_.start).count();
+    timer_.paused = true;
+    debug_log("Timer paused");
+}
+
+template<typename StateType>
+    requires std::is_enum_v<StateType>
+void StateGraph<StateType>::resume_timer()
+{
+    if (!timer_.active() || !timer_.paused) {
+        return;
+    }
+    timer_.start = std::chrono::steady_clock::now();
+    timer_.paused = false;
+    debug_log("Timer resumed");
+}
+
+template<typename StateType>
+    requires std::is_enum_v<StateType>
+void StateGraph<StateType>::update_timer()
+{
+    if (!timer_.active() || timer_.paused) {
+        return;
+    }
+    using namespace std::chrono;
+    auto now = steady_clock::now();
+    auto elapsed = timer_.accumulated_ms + duration_cast<milliseconds>(now - timer_.start).count();
+    if (elapsed >= timer_.target_ms) {
+        StateType target = timer_.target.value();
+        timer_ = TimerState{};
         debug_log(std::format("Timer fired: -> {}", state_to_string(target)));
         jump(target);
     }
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// StateMachine 実装 - デバッグ支援
+// StateGraph 実装 - デバッグ支援
 // ═══════════════════════════════════════════════════════════════════
 
 template<typename StateType>
     requires std::is_enum_v<StateType>
-void StateMachine<StateType>::enable_debug_log(bool enabled)
+void StateGraph<StateType>::enable_debug_log(bool enabled)
 {
     debug_enabled_ = enabled;
 }
 
 template<typename StateType>
     requires std::is_enum_v<StateType>
-void StateMachine<StateType>::export_graph(const std::string& filename)
+void StateGraph<StateType>::export_graph(const std::string& filename)
 {
-    std::ofstream ofs(filename);
-    if (!ofs) {
-        debug_log(std::format("Failed to open file: {}", filename));
-        return;
-    }
-    
-    ofs << "digraph StateMachine {\n";
-    ofs << "    rankdir=LR;\n";
-    ofs << "    node [shape=box, style=rounded];\n";
-    
-    // 登録されたステートをノードとして出力
+    std::string dot;
+    dot += "digraph StateMachine {\n";
+    dot += "    rankdir=LR;\n";
+    dot += "    node [shape=box, style=rounded];\n";
+
     for (const auto& [state, _] : states_) {
-        ofs << std::format("    \"{}\";\n", state_to_string(state));
+        dot += std::format("    \"{}\";\n", state_to_string(state));
     }
-    
-    // 遷移をエッジとして出力
     for (const auto& [from, to] : transition_graph_) {
-        ofs << std::format("    \"{}\" -> \"{}\";\n",
+        dot += std::format("    \"{}\" -> \"{}\";\n",
             state_to_string(from), state_to_string(to));
     }
-    
-    ofs << "}\n";
-    
+    dot += "}\n";
+
+    detail::write_dot_file(filename, dot);
+
     debug_log(std::format("Graph exported to: {}", filename));
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// StateMachine 実装 - StateMachineBase インターフェース
+// StateGraph 実装 - StateMachineBase インターフェース
 // ═══════════════════════════════════════════════════════════════════
 
 template<typename StateType>
     requires std::is_enum_v<StateType>
-bool StateMachine<StateType>::should_transition() const noexcept
+bool StateGraph<StateType>::should_transition() const
 {
     return next_state_.has_value() || !running_;
 }
 
 template<typename StateType>
     requires std::is_enum_v<StateType>
-bool StateMachine<StateType>::is_running() const noexcept
+bool StateGraph<StateType>::is_running() const
 {
     return running_;
 }
 
+template<typename StateType>
+    requires std::is_enum_v<StateType>
+bool StateGraph<StateType>::is_transitioning() const
+{
+    return next_state_.has_value();
+}
+
 // ═══════════════════════════════════════════════════════════════════
-// StateMachine 実装 - 内部ヘルパー
+// StateGraph 実装 - 内部ヘルパー
 // ═══════════════════════════════════════════════════════════════════
 
 template<typename StateType>
     requires std::is_enum_v<StateType>
-bool StateMachine<StateType>::check_transition_allowed(StateType from, StateType to) const
+bool StateGraph<StateType>::check_transition_allowed(StateType from, StateType to) const
 {
-    // All-to-All モードなら常に許可
     if (unrestricted_transitions_) {
         return true;
     }
-    
     auto key = std::make_pair(from, to);
-    
-    // 明示的に拒否されていればNG
     if (denied_transitions_.contains(key)) {
         return false;
     }
-    
-    // 明示的に許可されていればOK
     if (allowed_transitions_.contains(key)) {
         return true;
     }
-    
-    // 制約モードでルール未定義ならNG
     return false;
 }
 
 template<typename StateType>
     requires std::is_enum_v<StateType>
-void StateMachine<StateType>::set_state_name(StateType state, std::string_view name)
+void StateGraph<StateType>::set_state_name(StateType state, std::string_view name)
 {
     int key = static_cast<int>(state);
     state_names_[key] = std::string(name);
@@ -882,29 +1286,22 @@ void StateMachine<StateType>::set_state_name(StateType state, std::string_view n
 
 template<typename StateType>
     requires std::is_enum_v<StateType>
-std::string StateMachine<StateType>::state_to_string(StateType state) const
+std::string StateGraph<StateType>::state_to_string(StateType state) const
 {
     int key = static_cast<int>(state);
-    
-    // 登録済みの名前があればそれを使用
     auto it = state_names_.find(key);
     if (it != state_names_.end()) {
         return it->second;
     }
-    
-    // 登録されていない場合は数値で表示
     return std::format("State({})", key);
 }
 
 template<typename StateType>
     requires std::is_enum_v<StateType>
-void StateMachine<StateType>::debug_log(const std::string& message)
+void StateGraph<StateType>::debug_log(const std::string& message) const
 {
     if (debug_enabled_) {
-        // Windows APIを使用してデバッグ出力
-        std::string output = "[StateMachine] " + message + "\n";
-        
-        // UTF-8からUTF-16へ変換
+        std::string output = "[StateGraph] " + message + "\n";
         int wide_len = MultiByteToWideChar(CP_UTF8, 0, output.c_str(), -1, nullptr, 0);
         if (wide_len > 0) {
             std::wstring wide_output(wide_len, L'\0');
@@ -916,15 +1313,78 @@ void StateMachine<StateType>::debug_log(const std::string& message)
 
 template<typename StateType>
     requires std::is_enum_v<StateType>
-void StateMachine<StateType>::perform_transition(StateType new_state)
+void StateGraph<StateType>::request_stop_submachines_for_(StateType state) noexcept
 {
-    // 現在のステートがあればon_exitを呼び出し
+    auto it = submachines_.find(state);
+    if (it == submachines_.end()) {
+        return;
+    }
+    for (auto& task : it->second) {
+        task->request_stop();
+    }
+}
+
+template<typename StateType>
+    requires std::is_enum_v<StateType>
+void StateGraph<StateType>::join_submachines_for_(StateType state) noexcept
+{
+    auto it = submachines_.find(state);
+    if (it == submachines_.end()) {
+        return;
+    }
+    for (auto& task : it->second) {
+        task->join();
+    }
+}
+
+template<typename StateType>
+    requires std::is_enum_v<StateType>
+void StateGraph<StateType>::rethrow_submachine_exceptions_for_(StateType state)
+{
+    auto it = submachines_.find(state);
+    if (it == submachines_.end()) {
+        return;
+    }
+    for (auto& task : it->second) {
+        task->rethrow_exception_if_any();
+    }
+}
+
+template<typename StateType>
+    requires std::is_enum_v<StateType>
+void StateGraph<StateType>::stop_submachines_for_(StateType state) noexcept
+{
+    request_stop_submachines_for_(state);
+    join_submachines_for_(state);
+}
+
+template<typename StateType>
+    requires std::is_enum_v<StateType>
+std::size_t StateGraph<StateType>::submachine_count_for_(StateType state) const noexcept
+{
+    auto it = submachines_.find(state);
+    if (it == submachines_.end()) {
+        return 0;
+    }
+    return it->second.size();
+}
+
+template<typename StateType>
+    requires std::is_enum_v<StateType>
+void StateGraph<StateType>::perform_transition(StateType new_state)
+{
     if (current_state_.has_value()) {
+        const StateType leaving_state = current_state_.value();
+        request_stop_submachines_for_(leaving_state);
+        join_submachines_for_(leaving_state);
+        rethrow_submachine_exceptions_for_(leaving_state);
+        submachines_.erase(leaving_state);
+
         auto it = states_.find(current_state_.value());
         if (it != states_.end() && it->second.on_exit) {
             it->second.on_exit();
         }
-        
+
         // 履歴に追加
         if (max_history_size_ > 0) {
             history_.push_back(current_state_.value());
@@ -932,29 +1392,33 @@ void StateMachine<StateType>::perform_transition(StateType new_state)
                 history_.pop_front();
             }
         }
-        
+
         // 遷移グラフに記録
         transition_graph_.insert(std::make_pair(current_state_.value(), new_state));
-        
+
         debug_log(std::format("Transition: {} -> {} (frame: {})",
             state_to_string(current_state_.value()),
             state_to_string(new_state),
             global_frame_count_));
     }
-    
-    // ステート更新
+
     previous_state_ = current_state_;
     current_state_ = new_state;
-    state_frame_count_ = 0;
-    
-    // 新しいステートのenteredフラグをリセット
+    state_enter_time_ = std::chrono::steady_clock::now();
+
     auto it = states_.find(new_state);
     if (it != states_.end()) {
         it->second.entered = false;
     }
-    
-    // タイマーをキャンセル（遷移時にリセット）
-    cancel_timer();
+
+    // 遷移完了時にタイマーをキャンセル。
+    // ただし pause_timer() で明示的に「state を跨いで保持」する
+    // 意思表示がされている場合は保持する。
+    // ユーザー明示の cancel_timer() は paused でも無条件 wipe する
+    // ためのエスケープハッチとして従来通り機能する（§5.3）。
+    if (!timer_.paused) {
+        cancel_timer();
+    }
 }
 
 }  // namespace hsppp

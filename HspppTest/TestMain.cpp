@@ -10,6 +10,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import hsppp;
+import <string>;
 using namespace hsppp;
 
 // テストモジュールからインポート
@@ -18,6 +19,16 @@ namespace hsppp_test {
     int run_runtime_tests();
     int get_failed_count();
     int get_passed_count();
+
+    // StateVarsRuntimeTest.cpp（state_vars / savedata ランタイム検証）
+    int run_state_vars_tests();
+    int get_state_vars_failed_count();
+    int get_state_vars_passed_count();
+    int get_state_vars_last_failed_id();
+
+    // ApiRuntimeTest.cpp 拡張診断
+    int get_first_failed_index();
+    const char* get_first_failed_name();
 }
 
 // ユーザーのエントリーポイント（テスト実行用）
@@ -66,6 +77,23 @@ void hspMain() {
         printLine("    ✗ FAILED - Some runtime tests failed");
     }
     resultWin.color(0, 0, 0);
+    y += 10;
+
+    // state_vars / savedata ランタイムテスト
+    printLine("[3] StateVars/SaveData Runtime Tests");
+    int svPassed = hsppp_test::run_state_vars_tests();
+    int svFailed = hsppp_test::get_state_vars_failed_count();
+    runtimePassed += svPassed;
+    runtimeFailed += svFailed;
+
+    if (svFailed == 0) {
+        resultWin.color(0, 128, 0);
+        printLine("    ✓ PASSED - state_vars/savedata observations 1-7");
+    } else {
+        resultWin.color(255, 0, 0);
+        printLine("    ✗ FAILED - state_vars/savedata observation(s) failed");
+    }
+    resultWin.color(0, 0, 0);
 
     y += 10;
     printLine("───────────────────────────────────────");
@@ -107,6 +135,34 @@ void hspMain() {
     y += 20;
     resultWin.color(128, 128, 128);
     printLine("Press any key or close window to exit...");
+
+    // ─────────────────────────────────────────────────────────────────
+    // ハーネス健全化の一環としてテスト結果を text file へ
+    // 永続化する（GUI を観測できない CI / 自動テスト環境向け診断出力）。
+    // std::fstream header unit は環境依存で解決不能なため、既存の UTF-16 Win32
+    // file API 経由で実装されている bsave を使う。
+    // 出力先: 実行時 CWD 直下 "hsppp_test_result.txt"
+    // ─────────────────────────────────────────────────────────────────
+    {
+        std::string result = "HSPPP Test Suite Result\n";
+        result += "  compile_block_ok = ";
+        result += (compileOk ? "true" : "false");
+        result += "\n";
+        result += "  runtime_passed   = " + std::to_string(runtimePassed - svPassed) + "\n";
+        result += "  runtime_failed   = " + std::to_string(runtimeFailed - svFailed) + "\n";
+        result += "  sv_passed        = " + std::to_string(svPassed) + "\n";
+        result += "  sv_failed        = " + std::to_string(svFailed) + "\n";
+        result += "  sv_last_failed_id= " + std::to_string(hsppp_test::get_state_vars_last_failed_id()) + "\n";
+        result += "  rt_first_failed_index = " + std::to_string(hsppp_test::get_first_failed_index()) + "\n";
+        result += "  rt_first_failed_name  = ";
+        result += hsppp_test::get_first_failed_name();
+        result += "\n";
+        result += "  total_passed     = " + std::to_string(runtimePassed) + "\n";
+        result += "  total_failed     = " + std::to_string(runtimeFailed) + "\n";
+        result += "  exit_code        = " + std::to_string((compileOk && runtimeFailed == 0) ? 0 : 1) + "\n";
+
+        bsave("hsppp_test_result.txt", result);
+    }
 
     // 結果を表示して待機
     await(10000);  // 10秒待機

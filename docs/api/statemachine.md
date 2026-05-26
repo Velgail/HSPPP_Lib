@@ -15,17 +15,18 @@ HSP の `*label` / `goto` を型安全に実装するステートマシンライ
 - [状態遷移](#状態遷移)
 - [状態クエリ](#状態クエリ)
 - [高度な機能](#高度な機能)
+- [非同期サブステートマシン](#非同期サブステートマシン)
 
 ---
 
 ## 概要
 
-### StateMachine クラス
+### StateGraph クラス
 
 ```cpp
 template<typename StateType>
     requires std::is_enum_v<StateType>
-class StateMachine;
+class StateGraph;
 ```
 
 enum class ベースの型安全なステートマシン。HSP の `*label` / `goto` と同等のコンパイル時チェックを提供します。
@@ -42,7 +43,7 @@ enum class ベースの型安全なステートマシン。HSP の `*label` / `g
 ```cpp
 enum class Screen { Title, Game, Result };
 
-auto sm = StateMachine<Screen>();
+auto sm = StateGraph<Screen>();
 
 sm.state(Screen::Title)
   .on_enter([]() { button("Start", []() { /* ... */ }); })
@@ -84,7 +85,7 @@ sm.state(Screen::Title)
 
 ### run
 
-メインループを実行します。
+メインループ（dispatcher）を実行します。
 
 ```cpp
 void run();
@@ -92,14 +93,23 @@ void run();
 
 **戻り値:** なし（`quit()` が呼ばれるまでブロック）
 
-内部で `while` ループを持ち、各ステートの `on_update` コールバックを実行します。`on_update` 内で `await()` や `stop()` を使用してフレーム制御を行います。`quit()` が呼ばれるまでこの関数から戻りません。
+内部で `while (running_) { tick(); }` を回し、各ステートの `on_update` コールバックを呼び出します。
 
-**使用例:**
+**重要 — `run()` は dispatch only:**
+
+- `run()` 自身は `await()` / `Sleep()` などの待機を **一切呼びません**。
+- フレーム制御（`await(16)` 等）は **必ず `on_update` 内でユーザーが書く** こと。書かなければ busy loop になります（ライブラリは警告も出しません）。
+- これは HSP の「`stop` で待ち、`await` で間を空ける」感覚を温存するための明示的な責務分担です。
 
 ```cpp
-sm.jump(Screen::Title);  // 初期ステート設定
-sm.run();  // quit()まで実行
-// ここには quit() されるまで到達しない
+sm.state(Screen::Game)
+  .on_update([](auto& sm) {
+      // ... 描画 / 入力 ...
+      await(16);   // ← ユーザーが書く（必須）
+  });
+
+sm.jump(Screen::Title);
+sm.run();           // dispatch only
 ```
 
 ---
@@ -172,10 +182,10 @@ sm.state(Screen::Menu)
 毎フレーム実行されるコールバックを設定します。
 
 ```cpp
-StateBuilder& on_update(std::function<void(StateMachine&)> callback);
+StateBuilder& on_update(std::function<void(StateGraph&)> callback);
 ```
 
-入力チェック、画面描画など、軽い処理に使用します。コールバックは `StateMachine&` を受け取ります。
+入力チェック、画面描画など、軽い処理に使用します。コールバックは `StateGraph&` を受け取ります。
 
 **使用例:**
 
@@ -231,15 +241,14 @@ void jump(StateType target_state);
 
 ---
 
-### defer_jump
+### on_update の契約（重要）
 
-状態遷移を予約します。
+`on_update` は **「名前付き repeat-loop の 1 iteration」** として定義されます。
 
-```cpp
-void defer_jump(StateType target_state);
-```
-
-`jump()` と同じですが、将来的な拡張用に分離しています。
+- `on_update` から `return` すると、dispatcher は **遷移予約があれば exit→enter→次ステートの on_update**、なければ **同じステートの on_update を再度呼び出します**（= repeat の継続）。
+- 利用者は `while (!sm.is_transitioning()) { ... }` を**書かなくてもよい**（return すれば同じ効果）。書いてもよい（ステート内で完結する待機を組みたい場合）。
+- 待機（`await` / `stop` / `vwait`）は **on_update 内でユーザーが書く**。dispatcher は介入しない。
+- `jump()` を呼んだ場合、同じ on_update 呼出の続きは実行され、return 後に遷移が処理されます。
 
 ---
 
@@ -275,12 +284,12 @@ int frame_count() const;
 
 ---
 
-### state_frame_count
+### state_elapsed_ms
 
-現在のステートに滞在しているフレーム数を取得します。
+現在のステートに滞在している経過ミリ秒数を取得します（`steady_clock` 由来 / dispatcher 周回非依存）。
 
 ```cpp
-int state_frame_count() const;
+int state_elapsed_ms() const;
 ```
 
 **使用例:**
@@ -291,7 +300,7 @@ sm.state(Screen::Splash)
       color(0, 0, 0);
       boxf();
       mes("Loading...");
-      if (sm.state_frame_count() > 120) {  // 2秒経過
+      if (sm.state_elapsed_ms() > 2000) {  // 2 秒経過
           sm.jump(Screen::Title);
       }
       await(16);
@@ -301,6 +310,270 @@ sm.state(Screen::Splash)
 ---
 
 ## 高度な機能
+
+### ローカルデータ: state<T>()
+
+ステート固有のデータを `on_enter`, `on_update`, `on_exit` で共有できます。
+
+```cpp
+template<typename LocalDataType>
+StateBuilderWithLocal<StateType, LocalDataType>& state(StateType state_enum);
+```
+
+| パラメータ | 説明 |
+|-----------|------|
+| `state_enum` | 定義するステート |
+
+**戻り値:** `StateBuilderWithLocal` オブジェクト（メソッドチェーン用）
+
+ローカルデータは自動的に初期化・破棄されます。
+
+**使用例:**
+
+```cpp
+struct GameSceneData {
+    int score = 0;
+    int lives = 3;
+};
+
+sm.state<GameSceneData>(Scene::Game)
+  .on_enter([](auto& sm, GameSceneData& data) {
+      // ✅ ステート開始時に初期化
+      data.score = 0;
+      data.lives = 3;
+  })
+  .on_update([](auto& sm, GameSceneData& data) {
+      while (!sm.is_transitioning()) {
+          data.score += 10;
+          
+          if (stick(256)) {  // ESC
+              data.lives--;
+              if (data.lives == 0) {
+                  sm.jump(Scene::Title);
+              }
+          }
+          
+          mes(strf("Score: %d, Lives: %d", data.score, data.lives));
+          await(16);
+      }
+  })
+  .on_exit([](auto& sm, GameSceneData& data) {
+      // ✅ ステート終了時に後処理
+      auto& profile = services().data<PlayerProfile>();
+      if (data.score > profile.high_score) {
+          profile.high_score = data.score;
+      }
+  });
+```
+
+**注意点:**
+- ローカルデータはステートが終了すると破棄される
+- シーンをまたいで保持したいデータは `Repository<T>` を使用
+
+---
+
+### is_transitioning()
+
+`jump()` が呼ばれて状態遷移中かどうかを確認します。
+
+```cpp
+bool is_transitioning() const;
+```
+
+**戻り値:** 遷移中なら `true`、それ以外は `false`
+
+`on_update` 内のループで使用します。`jump()` が呼ばれると `true` になるため、ループを抜けてステート遷移が実行されます。
+
+**使用例:**
+
+```cpp
+sm.state(Scene::Game)
+  .on_update([](auto& sm) {
+      while (!sm.is_transitioning()) {  // ✅ 遷移が始まるまでループ
+          // ゲームロジック
+          
+          if (stick(256)) {  // ESC
+              sm.jump(Scene::Title);  // ← ここで is_transitioning() == true
+          }
+          
+          await(16);
+      }
+  });
+```
+
+**is_running() との違い:**
+- `is_running()`: ステートマシン全体が動いているか（メインループ用）
+- `is_transitioning()`: ステート遷移が始まったか（`on_update` 内のループ用）
+
+---
+
+### tick / step
+
+`on_update` を 1 回だけ実行し、遷移予約があれば処理します（ブロックしません）。
+
+```cpp
+void tick();   // 後方互換 alias
+void step();   // 推奨名（HSPPP 流儀の小文字、サブ SM 用）
+```
+
+**戻り値:** なし
+
+`run()` と違い、`tick()` / `step()` は **1 iteration だけ実行してすぐ戻ります**。`step()` が推奨名で、`tick()` は等価な後方互換 alias です。
+
+**サブステートマシン駆動の規約変更（重要）:**
+
+旧 API にあった `attach_child()` / `detach_child()` は **撤去されました**。サブ SM が必要な場合は、親 SM の `on_update` 内で **明示的に `child.step()` を呼ぶ** のが正規パターンです。
+
+```cpp
+enum class BattlePhase { Start, PlayerTurn, EnemyTurn, End };
+
+sm.state(Scene::Battle)
+  .on_update([&](auto& sm) {
+      // ✅ サブ SM を作成して明示的に step() する
+      static StateGraph<BattlePhase> battle;
+      static bool initialized = false;
+      if (!initialized) {
+          battle.state(BattlePhase::Start).on_update([](auto& b) {
+              if (b.state_elapsed_ms() > 1000) b.jump(BattlePhase::PlayerTurn);
+          });
+          // ... 他フェーズ定義 ...
+          battle.start(BattlePhase::Start);
+          initialized = true;
+      }
+
+      battle.step();                      // 明示駆動
+      if (!battle.is_running()) sm.jump(Scene::Result);
+      await(16);                          // 待機はユーザーが書く
+  });
+```
+
+**run() との違い:**
+- `run()`: `quit()` が呼ばれるまでループ（メインループ用）
+- `step()` / `tick()`: 1 iteration だけ実行してすぐ戻る（サブ SM 用 / 任意の手動ティック）
+
+---
+
+### 非同期サブステートマシン
+
+サブステートマシンを親ステートに紐づけて別スレッドで実行できます。用途は「親ステートの処理から独立して進む、描画を伴わない補助処理」です。メインステートマシン全体を非同期化する API ではありません。
+
+#### 描画ポリシーとオプション
+
+```cpp
+enum class SubMachineGraphicsPolicy {
+    none,
+    exclusive
+};
+
+struct AsyncSubMachineOptions {
+    int idle_wait_ms = 1;
+    SubMachineGraphicsPolicy graphics = SubMachineGraphicsPolicy::none;
+};
+```
+
+| 項目 | 説明 |
+|------|------|
+| `idle_wait_ms` | 子 `step()` の間隔。`0` の場合は待機しません。 |
+| `graphics = none` | 既定。サブステートマシン内で描画・UI・ウィンドウ操作を行わない前提です。 |
+| `graphics = exclusive` | 描画を行うサブステートマシンをプロセス内で 1 つだけ許可します。2 つ目の取得は `HspError` になります。 |
+
+> **重要:** サブステートマシンでは、描画処理をしない構成を推奨します。描画が必要な場合も、同時に描画するサブステートマシンは 1 つだけにしてください。
+
+#### 親 `StateGraph` 側 API
+
+```cpp
+template <typename ChildState, typename Configure>
+    requires std::is_enum_v<ChildState>
+void start_submachine(
+    ChildState initial_state,
+    Configure&& configure,
+    AsyncSubMachineOptions options = {});
+
+void request_stop_submachines() noexcept;
+void join_submachines();
+void stop_submachines() noexcept;
+void rethrow_submachine_exceptions();
+std::size_t submachine_count() const noexcept;
+```
+
+| API | 説明 |
+|-----|------|
+| `start_submachine()` | 現在の親ステートに紐づく子 `StateGraph` を別スレッドで開始します。親ステートが未開始の場合は `HspError` になります。 |
+| `request_stop_submachines()` | 現在の親ステート配下の全サブステートマシンに停止要求を送ります。 |
+| `join_submachines()` | 現在の親ステート配下のサブステートマシン終了を待ちます。 |
+| `stop_submachines()` | 停止要求と join をまとめて行います。 |
+| `rethrow_submachine_exceptions()` | 子スレッドで保存された例外を親スレッド側で再送出します。親 `on_update` などで定期的に呼んでください。 |
+| `submachine_count()` | 登録中のサブステートマシン数を返します。 |
+
+親ステートから別ステートへ遷移すると、離脱する親ステートに紐づくサブステートマシンへ停止要求が送られ、join 後に registry から回収されます。
+
+#### サブステートマシン側の停止確認
+
+```cpp
+bool submachine_stop_requested() noexcept;
+```
+
+サブステートマシンのスレッド内で停止要求を確認するための関数です。`true` になったら、子ステートマシン側で `quit()` するなどして速やかに終了してください。
+
+停止は協調キャンセルです。実行中の 1 回の `on_update` を OS レベルで強制中断するものではないため、長時間ブロックする処理はサブステートマシンの `on_update` に書かないでください。
+
+#### 使用例
+
+```cpp
+enum class Scene { Game, Pause };
+enum class WorkerPhase { Observe, WaitForStop };
+
+StateGraph<Scene> sm;
+
+sm.state(Scene::Game)
+  .on_enter([&] {
+      AsyncSubMachineOptions options{};
+      options.idle_wait_ms = 5;
+      options.graphics = SubMachineGraphicsPolicy::none;
+
+      sm.start_submachine<WorkerPhase>(
+          WorkerPhase::Observe,
+          [](StateGraph<WorkerPhase>& worker) {
+              worker.state(WorkerPhase::Observe)
+                .on_update([](auto& worker_sm) {
+                    // 描画しない補助処理
+                    worker_sm.jump(WorkerPhase::WaitForStop);
+                });
+
+              worker.state(WorkerPhase::WaitForStop)
+                .on_update([](auto& worker_sm) {
+                    if (submachine_stop_requested()) {
+                        worker_sm.quit();
+                        return;
+                    }
+                    // 短時間で戻る処理だけを書く
+                });
+          },
+          options);
+  })
+  .on_update([&](auto& sm) {
+      sm.rethrow_submachine_exceptions();
+
+      if (getkey(VK_ESCAPE)) {
+          sm.jump(Scene::Pause);
+      }
+      await(16);
+  });
+```
+
+#### マルチスレッド利用時の注意点
+
+- サブステートマシンから親 `StateGraph` を直接操作しないでください。
+- 親ステート離脱時に停止要求が送られますが、子側は `submachine_stop_requested()` を確認して自分で終了する必要があります。
+- 子側の `on_update` は短時間で戻るようにしてください。長時間ブロックすると親の join も待たされます。
+- 共有データは参照専用 view などを使い、子スレッド稼働中に親スレッドから同じ object を書き換えないでください。
+- 子スレッドで発生した例外は `rethrow_submachine_exceptions()` で親側へ伝播させてください。
+
+#### サンプル
+
+`HspppStateSample/StateSampleMain.cpp` に、`SubMachineGraphicsPolicy::none`、`StateScope::read_view()`、`submachine_stop_requested()` を組み合わせた非同期サブステートマシン例があります。
+
+---
 
 ### 遷移制約
 
@@ -421,11 +694,55 @@ sm.state(Screen::Splash)
 
 #### cancel_timer
 
-タイマーをキャンセルします。
+タイマーをキャンセルします（明示 escape hatch）。
 
 ```cpp
 void cancel_timer();
 ```
+
+`pause_timer()` で paused 状態のタイマーも **明示 `cancel_timer()` は上書き破棄** します（「二層契約」）。
+
+---
+
+#### pause_timer / resume_timer
+
+タイマーの一時停止／再開。
+
+```cpp
+void pause_timer();
+void resume_timer();
+```
+
+**意味論で確立:**
+
+- `pause_timer()` は単に「カウントを止める」だけでなく、**「次の状態遷移を跨いでタイマー状態を保持する明示的意思表示」** を表します。
+- これに伴い、`perform_transition()` 内の自動 `cancel_timer()` は **paused 中のタイマーに限り skip** されます（一方、明示の `cancel_timer()` は意思表示を上書きして破棄）。
+- これにより `Pause → 別ステート → 元のステート` に戻った後 `resume_timer()` を呼ぶと、保持されていた残時間からカウントが再開できます。
+
+**典型ユースケース — Pause 画面:**
+
+```cpp
+sm.state(GameScreen::Game)
+  .on_enter([&]() {
+      if (sm.previous_state() == GameScreen::Pause) {
+          // Pause から復帰: 残時間を再開
+          sm.resume_timer();
+      } else {
+          // 通常開始: 30 秒の GameOver タイマーを仕掛ける
+          sm.set_timer(GameScreen::GameOver, 30000);
+      }
+  })
+  .on_update([&](auto& sm) {
+      if (getkey(VK_ESCAPE)) {
+          sm.pause_timer();        // ← 「Pause を跨いで保持する」意思表示
+          sm.jump(GameScreen::Pause);
+      }
+      // ...
+      await(16);
+  });
+```
+
+> ⚠️ 旧実装では `perform_transition` が無条件で `cancel_timer()` を呼んでいたため、`Pause → Game` 復帰後にタイマーが永久失効していました（TR-6）。API 側で内部契約を整え、サンプル側を `Game::on_enter` で `resume_timer()` を呼ぶ形に整理しています。詳細は設計文書の該当箇所を参照してください。
 
 ---
 
@@ -442,8 +759,8 @@ void enable_debug_log(bool enabled = true);
 **出力例:**
 
 ```
-[StateMachine] Enter state: Title
-[StateMachine] Transition: Title -> Game (frame: 120)
+[StateGraph] Enter state: Title
+[StateGraph] Transition: Title -> Game (frame: 120)
 ```
 
 ---
@@ -467,5 +784,8 @@ sm.export_graph("state_graph.dot");
 
 ## 参照
 
+- [Data Sharing Guide](../guides/data-sharing.md) - データ共有のベストプラクティス
+- [Repository API](repository.md) - 永続データ管理
+- [State Vars / Save Data ガイド](state-vars-savedata.md) - StateScope / state_vars / Serializable / SaveWriter
 - [ステートパターンガイド](../guides/state-pattern.md)
 - [HSP goto 移行ガイド](../guides/hsp-goto-migration.md)

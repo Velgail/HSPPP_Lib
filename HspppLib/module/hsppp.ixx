@@ -26,4 +26,7 @@ export import :file;
 export import :interrupt;
 export import :media;
 export import :statemachine;
+export import :repository;
+export import :savedata;
+export import :state_vars;
 export import :version;

@@ -60,16 +60,16 @@ std::vector<int> arr(10);
 HSP では変数はすべてグローバルですが、C++ では関数内で宣言した変数はローカル変数となり、関数を抜けると破棄されます。
 
 ```cpp
-// ❌ 危険: ローカル変数
+// 危険: ローカル変数
 void setup() {
     int count = 0;
-    button("Click", [&count]() {  // count はすでに破棄されている！
+    button("Click", [&count]() {  // count はすでに破棄されている
         count++;
         return 0;
     });
 }
 
-// ✅ 安全: グローバル変数またはstatic
+// 安全: グローバル変数または static
 int count = 0;  // グローバル
 void setup() {
     button("Click", []() {
@@ -224,7 +224,7 @@ input s, 200, 24
 ```
 
 ```cpp
-// HSPPP (shared_ptr版のみ提供)
+// HSPPP (shared_ptr 版のみ提供)
 auto s = std::make_shared<std::string>("");
 input(s, 200, 24);
 ```
@@ -338,8 +338,6 @@ void hspMain() {
         
         await(16);
     }
-    
-    return 0;
 }
 ```
 
@@ -349,7 +347,7 @@ void hspMain() {
 
 ## goto / gosub の置き換え
 
-HSPの `goto` と `gosub` を C++ で実装する方法は、複雑さによって異なります。
+HSP の `goto` と `gosub` を C++ で実装する方法は、複雑さによって異なります。
 
 ### Simple goto: 単純な制御フロー
 
@@ -367,9 +365,9 @@ HSPの `goto` と `gosub` を C++ で実装する方法は、複雑さによっ�
 ```
 
 ```cpp
-// HSPPP推奨: StateMachine を使用
+// HSPPP推奨: StateGraph を使用
 enum class Screen { Title, Game };
-auto sm = StateMachine<Screen>();
+auto sm = StateGraph<Screen>();
 
 sm.state(Screen::Title)
   .on_update([&](auto& sm) {
@@ -436,7 +434,7 @@ void hspMain() {
 - [ ] `void hspMain()` を定義したか（`main()` ではない）
 - [ ] 変数はすべて型を指定して宣言したか
 - [ ] 行末に `;` を付けたか
-- [ ] `goto` を ステートマシン（`sm.jump()`）に置き換えたか
+- [ ] `goto` をステートマシン（`sm.jump()`）に置き換えたか
 - [ ] `gosub` を関数呼び出しに置き換えたか
 - [ ] `chkbox`/`combox`/`listbox` は `shared_ptr` を使用しているか
 - [ ] ローカル変数を GUI コールバックで使用していないか

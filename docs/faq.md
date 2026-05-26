@@ -170,7 +170,7 @@ void hspMain() {
 
 ```cpp
 enum class Screen { Title, Game, Result };
-auto sm = StateMachine<Screen>();
+auto sm = StateGraph<Screen>();
 
 sm.state(Screen::Title)
   .on_update([&](auto& sm) {

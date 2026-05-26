@@ -158,6 +158,9 @@
     <ClCompile Include="module\hsppp_interrupt.ixx" />
     <ClCompile Include="module\hsppp_media.ixx" />
     <ClCompile Include="module\hsppp_statemachine.ixx" />
+    <ClCompile Include="module\hsppp_repository.ixx" />
+    <ClCompile Include="module\hsppp_state_vars.ixx" />
+    <ClCompile Include="module\hsppp_savedata.ixx" />
     <ClCompile Include="module\hsppp_version.ixx" />
     <ClCompile Include="src\boot\WinMain.cpp" />
     <ClCompile Include="src\core\hsppp.cpp" />

@@ -66,7 +66,7 @@ enum class Screen {
     Result
 };
 
-auto sm = StateMachine<Screen>();
+auto sm = StateGraph<Screen>();
 
 sm.state(Screen::Title)
   .on_enter([]() {
@@ -101,7 +101,7 @@ enum class GameScreen {
 };
 
 void hspMain() {
-    auto sm = StateMachine<GameScreen>();
+    auto sm = StateGraph<GameScreen>();
     int score = 0;
     
     // ═══════════════════════════════════════════
@@ -167,7 +167,68 @@ void hspMain() {
 
 ---
 
-## パターン2: GUIオブジェクトの効率的管理
+## パターン2: 非同期サブステートマシン
+
+親ステートの処理とは別スレッドで、描画を伴わない補助処理を進めたい場合は `start_submachine()` を使います。サブステートマシンは親ステートに紐づくため、親が別ステートへ遷移すると停止要求と join によって回収されます。
+
+```cpp
+enum class Scene { Game, Pause };
+enum class WorkerPhase { Observe, WaitForStop };
+
+void hspMain() {
+    StateGraph<Scene> sm;
+
+    sm.state(Scene::Game)
+      .on_enter([&] {
+          AsyncSubMachineOptions options{};
+          options.graphics = SubMachineGraphicsPolicy::none;  // 子側は描画しない
+          options.idle_wait_ms = 5;
+
+          sm.start_submachine<WorkerPhase>(
+              WorkerPhase::Observe,
+              [](StateGraph<WorkerPhase>& worker) {
+                  worker.state(WorkerPhase::Observe)
+                    .on_update([](auto& worker_sm) {
+                        // AI、ロード監視、計算などの短い補助処理
+                        worker_sm.jump(WorkerPhase::WaitForStop);
+                    });
+
+                  worker.state(WorkerPhase::WaitForStop)
+                    .on_update([](auto& worker_sm) {
+                        if (submachine_stop_requested()) {
+                            worker_sm.quit();
+                            return;
+                        }
+                    });
+              },
+              options);
+      })
+      .on_update([&](auto& sm) {
+          sm.rethrow_submachine_exceptions();
+
+          if (getkey(VK_ESCAPE)) {
+              sm.jump(Scene::Pause);  // Game 離脱時に子が停止・回収される
+          }
+          await(16);
+      });
+
+    sm.start(Scene::Game);
+}
+```
+
+### 使うときの約束
+
+- サブステートマシンは簡単に書けますが、実行スレッドは親とは別です。親 `StateGraph` を子スレッドから直接操作しないでください。
+- 子側では描画・UI・ウィンドウ操作をしない構成を推奨します。描画する場合も同時に 1 つだけにしてください。
+- 停止は協調キャンセルです。子側は `submachine_stop_requested()` を見て `quit()` してください。
+- 子側の `on_update` は短時間で戻る処理にしてください。長くブロックすると親ステート離脱時の join も待たされます。
+- 共有データは `StateScope::read_view()` などの参照専用 API で渡してください。
+
+サンプル実装は `HspppStateSample/StateSampleMain.cpp` を参照してください。
+
+---
+
+## パターン3: GUIオブジェクトの効率的管理
 
 ### 問題: 毎フレーム作り直すと重い
 
@@ -216,7 +277,7 @@ enum class Screen {
 };
 
 void hspMain() {
-    auto sm = StateMachine<Screen>();
+    auto sm = StateGraph<Screen>();
     
     // 設定値（ステート間で共有）
     auto volume = std::make_shared<int>(50);
@@ -292,7 +353,7 @@ void hspMain() {
 
 ---
 
-## パターン3: ポーズ機能の実装
+## パターン4: ポーズ機能の実装
 
 ```cpp
 enum class GameState {
@@ -302,7 +363,7 @@ enum class GameState {
 };
 
 void hspMain() {
-    auto sm = StateMachine<GameState>();
+    auto sm = StateGraph<GameState>();
     
     int score = 0;
     int player_x = 320;
@@ -362,7 +423,7 @@ void hspMain() {
 
 ---
 
-## パターン4: 遷移制約（上級者向け）
+## パターン5: 遷移制約（上級者向け）
 
 ### いつ使う？
 
@@ -382,7 +443,7 @@ enum class GameFlow {
 };
 
 void hspMain() {
-    auto sm = StateMachine<GameFlow>();
+    auto sm = StateGraph<GameFlow>();
     
     // 厳格モードを有効化
     sm.set_unrestricted_transitions(false);
@@ -420,7 +481,7 @@ void hspMain() {
 
 ---
 
-## パターン5: 階層的な状態管理
+## パターン6: 階層的な状態管理
 
 ### サブステートの実装（応用編）
 
@@ -443,9 +504,9 @@ enum class InGameState {
 };
 
 void hspMain() {
-    auto main_sm = StateMachine<MainState>();
-    auto frontend_sm = StateMachine<FrontendState>();
-    auto ingame_sm = StateMachine<InGameState>();
+    auto main_sm = StateGraph<MainState>();
+    auto frontend_sm = StateGraph<FrontendState>();
+    auto ingame_sm = StateGraph<InGameState>();
     
     main_sm.state(MainState::Frontend)
       .on_update([&](auto& sm) {
@@ -459,7 +520,7 @@ void hspMain() {
 
 ---
 
-## パターン6: 複数ファイルに分割したシーン管理
+## パターン7: 複数ファイルに分割したシーン管理
 
 大規模プロジェクトでは、各ステートを別ファイルに分割することで保守性が向上します。
 
@@ -490,7 +551,7 @@ enum class Scene {
 };
 
 // ステートマシン型の別名
-using SceneManager = hsppp::StateMachine<Scene>;
+using SceneManager = hsppp::StateGraph<Scene>;
 
 // 各シーンの登録関数（前方宣言）
 void registerTitleScene(SceneManager& sm);

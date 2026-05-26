@@ -242,7 +242,28 @@ namespace hsppp::internal {
     void MediaManager_initialize();
     void MediaManager_shutdown();
 
+    // DPI awareness 宣言（最初のウィンドウ作成より前に呼出）
+    // PerMonitorV2 → PerMonitor → System の順に fallback し、いずれも失敗時は Unaware で続行。
+    // user32.dll の動的取得で Windows 10 1703 未満も安全に無視する。
+    namespace {
+        void enable_dpi_awareness() {
+            using FnSetCtx = BOOL(WINAPI*)(DPI_AWARENESS_CONTEXT);
+            HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
+            if (!hUser32) return;
+            auto pSet = reinterpret_cast<FnSetCtx>(
+                GetProcAddress(hUser32, "SetProcessDpiAwarenessContext"));
+            if (!pSet) return;  // Windows 10 1703 未満 → 既定挙動
+            if (pSet(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2)) return;
+            if (pSet(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE)) return;
+            if (pSet(DPI_AWARENESS_CONTEXT_SYSTEM_AWARE)) return;
+            // 失敗時は Unaware のまま続行（OS 仮想化）
+        }
+    }
+
     void init_system([[maybe_unused]] const std::source_location& location) {
+        // DPI awareness の宣言（COM 初期化前・最初のウィンドウ作成前に行う）
+        enable_dpi_awareness();
+
         // COM初期化
         CoInitialize(nullptr);
 

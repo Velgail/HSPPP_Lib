@@ -203,19 +203,47 @@ LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
     {
         if (pWindow != nullptr) {
             auto pMinMax = reinterpret_cast<MINMAXINFO*>(lParam);
-            
+
             // バッファサイズ（m_width, m_height）を最大クライアントサイズとする
+            // HiDPI 対応: バッファサイズは論理 px なので、現在の DPI に合わせて
+            // 物理 px に換算した値を最大値とする（PerMonitorV2 の作法）
             int maxClientW = pWindow->getWidth();
             int maxClientH = pWindow->getHeight();
-            
-            // クライアントサイズからウィンドウサイズを計算
+            UINT dpi = pWindow->getCurrentDpi();
+            if (dpi != 96 && dpi != 0) {
+                maxClientW = MulDiv(maxClientW, dpi, 96);
+                maxClientH = MulDiv(maxClientH, dpi, 96);
+            }
+
+            // クライアントサイズからウィンドウサイズを計算（DPI 対応版を優先）
             DWORD style = static_cast<DWORD>(GetWindowLongPtr(hwnd, GWL_STYLE));
             DWORD exStyle = static_cast<DWORD>(GetWindowLongPtr(hwnd, GWL_EXSTYLE));
             RECT rect = { 0, 0, maxClientW, maxClientH };
-            AdjustWindowRectEx(&rect, style, FALSE, exStyle);
-            
+            using FnAdjForDpi = BOOL(WINAPI*)(LPRECT, DWORD, BOOL, DWORD, UINT);
+            HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
+            auto pAdjForDpi = hUser32
+                ? reinterpret_cast<FnAdjForDpi>(GetProcAddress(hUser32, "AdjustWindowRectExForDpi"))
+                : nullptr;
+            if (pAdjForDpi && dpi != 0) {
+                pAdjForDpi(&rect, style, FALSE, exStyle, dpi);
+            } else {
+                AdjustWindowRectEx(&rect, style, FALSE, exStyle);
+            }
+
             pMinMax->ptMaxTrackSize.x = rect.right - rect.left;
             pMinMax->ptMaxTrackSize.y = rect.bottom - rect.top;
+        }
+        return 0;
+    }
+
+    // DPI 変更（モニタ間移動・スケール変更）
+    // PerMonitorV2 の作法に従い、suggested rect で SetWindowPos → SwapChain 再構築
+    case WM_DPICHANGED:
+    {
+        if (pWindow != nullptr) {
+            UINT newDpi = HIWORD(wParam);  // X DPI（X と Y は同一）
+            const RECT* pSuggested = reinterpret_cast<const RECT*>(lParam);
+            pWindow->onDpiChanged(newDpi, pSuggested);
         }
         return 0;
     }

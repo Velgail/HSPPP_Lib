@@ -501,6 +501,59 @@ namespace hsppp {
         return pt.y;
     }
 
+    // ============================================================
+    // 仮想画面（screen_mode_virtual）連携 公開API
+    //   - 既存 internal HspWindow::physToLogical / logicalToPhys / m_letterboxColor を
+    //     ObjectManager 経由で取得した HspWindow へ委譲する（Screen::mousex() と同パターン）。
+    //   - Window 以外（buffer / bgscr 後の HspSurface 派生）や無効ハンドルでは
+    //     恒等変換 / no-op としてフォールバックする。
+    // ============================================================
+
+    void Screen::physToLogical(int physX, int physY, int& outLogX, int& outLogY,
+                               const std::source_location& location) const {
+        // 既定: 恒等変換（OFF / 無効時のフォールバック）
+        outLogX = physX;
+        outLogY = physY;
+        safe_call(location, [&] {
+            auto surface = getSurfaceById(m_id);
+            if (!surface) return;
+            auto pWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
+            if (!pWindow) return;
+            int lx = 0, ly = 0;
+            pWindow->physToLogical(physX, physY, lx, ly);
+            outLogX = lx;
+            outLogY = ly;
+        });
+    }
+
+    void Screen::logicalToPhys(int logX, int logY, int& outPhysX, int& outPhysY,
+                               const std::source_location& location) const {
+        // 既定: 恒等変換（OFF / 無効時のフォールバック）
+        outPhysX = logX;
+        outPhysY = logY;
+        safe_call(location, [&] {
+            auto surface = getSurfaceById(m_id);
+            if (!surface) return;
+            auto pWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
+            if (!pWindow) return;
+            int px = 0, py = 0;
+            pWindow->logicalToPhys(logX, logY, px, py);
+            outPhysX = px;
+            outPhysY = py;
+        });
+    }
+
+    Screen& Screen::letterboxColor(int r, int g, int b, const std::source_location& location) {
+        safe_call(location, [&] {
+            auto surface = getSurfaceById(m_id);
+            if (!surface) return;
+            auto pWindow = std::dynamic_pointer_cast<internal::HspWindow>(surface);
+            if (!pWindow) return;
+            pWindow->setLetterboxColor(r, g, b);
+        });
+        return *this;
+    }
+
     Screen& Screen::picload(std::string_view filename, int mode, const std::source_location& location) {
         safe_call(location, [&] {
             auto surface = getSurfaceById(m_id);

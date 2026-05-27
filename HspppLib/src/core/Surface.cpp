@@ -1882,6 +1882,15 @@ void HspWindow::setVirtualInterpolation(D2D1_BITMAP_INTERPOLATION_MODE mode) {
     m_virtualScreenInterp = mode;
 }
 
+void HspWindow::setLetterboxColor(int r, int g, int b) {
+    auto clamp01 = [](int v) -> float {
+        if (v < 0)   v = 0;
+        if (v > 255) v = 255;
+        return static_cast<float>(v) / 255.0f;
+    };
+    m_letterboxColor = D2D1::ColorF(clamp01(r), clamp01(g), clamp01(b), 1.0f);
+}
+
 void HspWindow::physToLogical(int physX, int physY, int& outLogX, int& outLogY) const {
     if (!m_virtualEnabled) {
         outLogX = physX;

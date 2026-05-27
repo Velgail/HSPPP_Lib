@@ -615,6 +615,13 @@ public:
     void setVirtualInterpolation(D2D1_BITMAP_INTERPOLATION_MODE mode);
     D2D1_BITMAP_INTERPOLATION_MODE getVirtualInterpolation() const { return m_virtualScreenInterp; }
 
+    // レターボックス／ピラーボックス領域の塗り潰し色を設定する。
+    // 各成分は 0..255 を期待し、内部で D2D1_COLOR_F に正規化する。
+    // 仮想画面 OFF 時は present で参照されないため副作用は無いが、
+    // 設定値は保持される（後で仮想画面を有効化したときに反映される）。
+    void setLetterboxColor(int r, int g, int b);
+    D2D1_COLOR_F getLetterboxColor() const { return m_letterboxColor; }
+
     // 物理クライアント px → 論理 px 逆変換
     // 仮想画面 OFF 時は単位変換（恒等）。マウス座標 ginfo_mx/my / mousex / mousey 等で使用。
     void physToLogical(int physX, int physY, int& outLogX, int& outLogY) const;

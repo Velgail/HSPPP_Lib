@@ -28,10 +28,9 @@ using namespace hsppp;
 // グローバル状態（DemoDrawDisplay 専用 / 実体は UserApp.cpp）
 // ═══════════════════════════════════════════════════════════════════
 
-// 仮想画面比較用サブウィンドウ（hspMain で生成）
-extern Screen g_virtOffScreen;
-extern Screen g_virtOnScreen;
-extern bool   g_displaySubVisible;   // 仮想画面比較ウィンドウが表示中か
+// 仮想画面スケーリングデモ用サブウィンドウ（hspMain で生成・論理 640x480 / virtual_resolution=true）
+extern Screen g_virtScalingScreen;
+extern bool   g_displaySubVisible;   // Virtual サブウィンドウが表示中か
 
 // HiDPI 状態
 extern int         g_dpiChangeCount;   // WM_DPICHANGED 受信回数
@@ -41,6 +40,11 @@ extern std::string g_dpiChangeLog;     // WM_DPICHANGED ログ（末尾 8 件）
 // アンカーデモ用
 extern int g_anchorPresetIndex;        // 0=320x240, 1=480x320, 2=600x420
 
+// Virtual スケーリングデモ用
+extern int g_virtPresetIndex;          // 物理サイズプリセット index
+extern int g_virtScaleModeIndex;       // vscalemode プリセット index (0=nearest,1=linear,2=cubic)
+extern int g_virtLetterColorIndex;     // letterbox 色プリセット index
+
 namespace {
 
 constexpr int kAnchorPresets[3][2] = {
@@ -49,15 +53,47 @@ constexpr int kAnchorPresets[3][2] = {
     {600, 420},
 };
 
-// 仮想画面比較ウィンドウへの共通テストパターン描画
-void drawVirtualTestPattern(Screen& w, const char* label) {
+// 物理サイズプリセット: (width, height, label)
+struct PhysPreset { int w; int h; const char* label; };
+constexpr PhysPreset kPhysPresets[] = {
+    { 640, 480, "640x480  (x1.0, 4:3)" },
+    { 800, 600, "800x600  (x1.25, 4:3)" },
+    { 960, 720, "960x720  (x1.5, 4:3)" },
+    {1088, 816, "1088x816 (x1.7, 4:3)" },
+    {1280, 960, "1280x960 (x2.0, 4:3)" },
+    {1280, 720, "1280x720 (16:9)" },
+    {1280, 800, "1280x800 (16:10)" },
+    { 720, 720, "720x720  (1:1)" },
+};
+constexpr int kPhysPresetCount = sizeof(kPhysPresets) / sizeof(kPhysPresets[0]);
+
+// vscalemode プリセット
+struct ScaleModePreset { int mode; const char* label; };
+constexpr ScaleModePreset kScaleModePresets[] = {
+    { vscale_nearest, "nearest (vscale_nearest)" },
+    { vscale_linear,  "linear  (vscale_linear)"  },
+    { vscale_aniso,   "aniso   (vscale_aniso)"   },
+};
+constexpr int kScaleModePresetCount = sizeof(kScaleModePresets) / sizeof(kScaleModePresets[0]);
+
+// letterbox 色プリセット
+struct LetterColorPreset { int r; int g; int b; const char* label; };
+constexpr LetterColorPreset kLetterColors[] = {
+    {   0,   0,   0, "black (0,0,0)" },
+    {   0,  96, 128, "dark cyan (0,96,128)" },
+    { 200, 200, 200, "light gray (200,200,200)" },
+};
+constexpr int kLetterColorCount = sizeof(kLetterColors) / sizeof(kLetterColors[0]);
+
+// 仮想 640x480 論理画面に描くテストパターン
+void drawScalingTestPattern(Screen& w) {
     w.select();
     w.redraw(0);
     w.cls(4);
 
-    // 色付きグリッド（16x12）
-    const int gw = 320 / 16;
-    const int gh = 240 / 12;
+    // 色付きグリッド 16x12 (各 40x40)
+    const int gw = 640 / 16;
+    const int gh = 480 / 12;
     for (int y = 0; y < 12; ++y) {
         for (int x = 0; x < 16; ++x) {
             int r = (x * 16) & 0xFF;
@@ -67,38 +103,54 @@ void drawVirtualTestPattern(Screen& w, const char* label) {
         }
     }
 
-    // 細線（ピクセル整合の視認用）
+    // 8 px 刻みの細線（補間モード差を視認）
     w.color(255, 255, 255);
-    for (int i = 0; i < 320; i += 8) {
-        w.line(i, 0, i, 4);
+    for (int i = 0; i < 640; i += 8) {
+        w.line(i, 0, i, 6);
     }
-    for (int j = 0; j < 240; j += 8) {
-        w.line(0, j, 4, j);
+    for (int j = 0; j < 480; j += 8) {
+        w.line(0, j, 6, j);
     }
 
-    // ラベル
-    w.color(0, 0, 0).boxf(0, 0, 320, 18);
-    w.color(255, 255, 0).pos(6, 2);
-    w.font("MS Gothic", 12, 1);
-    w.mes(label);
+    // 中央十字 + 対角
+    w.color(255, 255, 0).line(0, 0, 640, 480);
+    w.color(255, 255, 0).line(640, 0, 0, 480);
+    w.color(255, 255, 255).line(320, 0, 320, 480);
+    w.color(255, 255, 255).line(0, 240, 640, 240);
+
+    // ラベル帯
+    w.color(0, 0, 0).boxf(0, 0, 640, 24);
+    w.color(255, 255, 0).pos(8, 4);
+    w.font("MS Gothic", 14, 1);
+    w.mes("Virtual Scaling Demo (logical 640x480)");
 
     w.redraw(1);
 }
 
-void ensureVirtualSubWindows(bool visible) {
+// 現在の preset を Virtual サブウィンドウに適用する
+void applyVirtualScalingPresets() {
+    if (!g_virtScalingScreen.valid()) return;
+    const PhysPreset& p = kPhysPresets[g_virtPresetIndex];
+    g_virtScalingScreen.select();
+    // 物理クライアントサイズを切り替え（virtual_resolution=true なのでバッファに依らずリサイズ可能）
+    g_virtScalingScreen.width(p.w, p.h);
+    // vscalemode 切替（current-surface 基準）
+    vscalemode(kScaleModePresets[g_virtScaleModeIndex].mode);
+    // letterbox 色切替
+    const LetterColorPreset& lc = kLetterColors[g_virtLetterColorIndex];
+    g_virtScalingScreen.letterboxColor(lc.r, lc.g, lc.b);
+}
+
+void ensureVirtualSubVisible(bool visible) {
     if (visible == g_displaySubVisible) return;
-    if (g_virtOffScreen.valid()) {
-        gsel(g_virtOffScreen.id(), visible ? 1 : -1);
-    }
-    if (g_virtOnScreen.valid()) {
-        gsel(g_virtOnScreen.id(), visible ? 1 : -1);
+    if (g_virtScalingScreen.valid()) {
+        gsel(g_virtScalingScreen.id(), visible ? 1 : -1);
     }
     g_displaySubVisible = visible;
 
     if (visible) {
-        // 初回 / 再表示時に共通パターンを再描画しておく
-        if (g_virtOffScreen.valid()) drawVirtualTestPattern(g_virtOffScreen, "screen_mode_virtual = OFF");
-        if (g_virtOnScreen.valid())  drawVirtualTestPattern(g_virtOnScreen,  "screen_mode_virtual = ON  (vscale_linear)");
+        applyVirtualScalingPresets();
+        drawScalingTestPattern(g_virtScalingScreen);
     }
 }
 
@@ -160,59 +212,70 @@ void drawHiDPIDemo(Screen& win) {
 }
 
 void drawVirtualScreenDemo(Screen& win) {
-    ensureVirtualSubWindows(true);
+    ensureVirtualSubVisible(true);
 
     win.color(0, 0, 0).pos(20, 85);
     win.font("MS Gothic", 14, 1);
-    win.mes("[仮想画面] screen_mode_virtual = 128 の ON/OFF 比較デモ");
+    win.mes("[仮想画面] Virtual Scaling デモ (実行時切替)");
+
+    const PhysPreset&        pp = kPhysPresets[g_virtPresetIndex];
+    const ScaleModePreset&   sp = kScaleModePresets[g_virtScaleModeIndex];
+    const LetterColorPreset& cp = kLetterColors[g_virtLetterColorIndex];
 
     win.font("MS Gothic", 12, 0);
     win.color(0, 0, 0).pos(20, 112);
-    win.mes("  左サブウィンドウ : 仮想画面 OFF（物理 px = 論理 px、リサイズはバッファでクランプ）");
+    win.mes("  サブウィンドウ : 論理 640x480 固定 / virtual_resolution=true");
     win.pos(20, 130);
-    win.mes("  右サブウィンドウ : 仮想画面 ON  （論理→物理 自動拡縮、vscale_linear）");
+    win.mes(std::format("  物理サイズ : ({:1}/{}) {}",
+                        g_virtPresetIndex + 1, kPhysPresetCount, pp.label));
+    win.pos(20, 148);
+    win.mes(std::format("  vscalemode : ({}/{}) {}",
+                        g_virtScaleModeIndex + 1, kScaleModePresetCount, sp.label));
+    win.pos(20, 166);
+    win.mes(std::format("  letterbox色: ({}/{}) {}",
+                        g_virtLetterColorIndex + 1, kLetterColorCount, cp.label));
 
-    win.color(0, 0, 128).pos(20, 158);
-    win.mes(std::format("  サブウィンドウ表示状態:  {}",
-                        g_displaySubVisible ? "表示中" : "非表示"));
-
-    win.color(64, 64, 64).pos(20, 180);
+    win.color(64, 64, 64).pos(20, 194);
     win.mes("操作:");
-    win.pos(40, 198);
-    win.mes("  v : 仮想画面比較サブウィンドウの表示 / 非表示トグル");
-    win.pos(40, 216);
-    win.mes("  r : サブウィンドウへテストパターン再描画");
+    win.pos(40, 212);
+    win.mes("  S / Shift+S : 物理サイズプリセット 次 / 前");
+    win.pos(40, 230);
+    win.mes("  M           : vscalemode 切替 (nearest / linear / aniso)");
+    win.pos(40, 248);
+    win.mes("  C           : letterbox 色切替");
+    win.pos(40, 266);
+    win.mes("  V           : サブウィンドウ 表示 / 非表示");
+    win.pos(40, 284);
+    win.mes("  R           : 既定値へリセット (640x480 / linear / dark cyan)");
 
-    win.color(0, 0, 0).pos(20, 244);
-    win.mes("見方:");
-    win.pos(40, 262);
-    win.mes("  両ウィンドウを手動でドラッグリサイズすると差分が視認できます。");
-    win.pos(40, 280);
-    win.mes("    OFF 側: 描画は 320x240 物理 px のまま、超過分は灰色帯 / クランプ");
-    win.pos(40, 298);
-    win.mes("    ON  側: 内容全体が物理クライアントに合わせ自動拡縮（letterbox 動作）");
+    // 論理↔物理 round-trip 検証（サブウィンドウのマウス座標）
+    int logX = 0, logY = 0;
+    int physX = 0, physY = 0;
+    int rtLogX = 0, rtLogY = 0;
+    if (g_virtScalingScreen.valid()) {
+        logX = g_virtScalingScreen.mousex();
+        logY = g_virtScalingScreen.mousey();
+        g_virtScalingScreen.logicalToPhys(logX, logY, physX, physY);
+        g_virtScalingScreen.physToLogical(physX, physY, rtLogX, rtLogY);
+    }
+    const int dx = rtLogX - logX;
+    const int dy = rtLogY - logY;
 
-    // 論理↔物理 変換ログ（マウス座標）
-    const int mouseLogicalX = ginfo(ginfo_type_mx);
-    const int mouseLogicalY = ginfo(ginfo_type_my);
-    const int clientPhysW   = ginfo(ginfo_type_mesx);
-    const int clientPhysH   = ginfo(ginfo_type_mesy);
-    const int initLogicalW  = ginfo(ginfo_type_sx);
-    const int initLogicalH  = ginfo(ginfo_type_sy);
+    win.color(0, 64, 0).pos(20, 314);
+    win.mes("論理 <-> 物理 変換 (Virtual サブウィンドウ上のマウス):");
+    win.pos(40, 332);
+    win.mes(std::format("  logical (Screen::mousex/mousey)            = ({:4}, {:4})", logX, logY));
+    win.pos(40, 350);
+    win.mes(std::format("  physical = logicalToPhys(logical)          = ({:4}, {:4})", physX, physY));
+    win.pos(40, 368);
+    win.mes(std::format("  round-trip logical = physToLogical(phys)   = ({:4}, {:4})", rtLogX, rtLogY));
+    win.color((dx == 0 && dy == 0) ? 0 : 128, 0, (dx == 0 && dy == 0) ? 128 : 0).pos(40, 386);
+    win.mes(std::format("  差分 (round-trip - original) = ({:+d}, {:+d})  -> {}",
+                        dx, dy,
+                        (dx == 0 && dy == 0) ? "OK (整合)" : "letterbox 領域 or rounding"));
 
-    win.color(0, 64, 0).pos(20, 326);
-    win.mes(std::format("論理↔物理 変換ログ (メインウィンドウ):"));
-    win.pos(40, 344);
-    win.mes(std::format("  ginfo(mx,my)= ({}, {}) 論理 px",
-                        mouseLogicalX, mouseLogicalY));
-    win.pos(40, 362);
-    win.mes(std::format("  クライアント物理 px= {}x{}  / 初期化論理 px= {}x{}",
-                        clientPhysW, clientPhysH, initLogicalW, initLogicalH));
-
-    win.color(128, 0, 0).pos(20, 395);
-    win.mes("注意: 仮想画面 ON/OFF は生成時パラメータです（screen() の virtual_resolution）。");
     win.color(128, 0, 0).pos(20, 412);
-    win.mes("       本デモは『起動時に両方生成済の 2 ウィンドウ』を比較表示します。");
+    win.mes("注: 物理サイズと論理 4:3 アスペクト比が一致しない場合、letterbox 帯が出現します。");
 }
 
 void drawAnchorDemo(Screen& win) {
@@ -306,7 +369,7 @@ void drawDisplayDemo(Screen& win) {
     // Virtual サブウィンドウは Virtual デモ以外では非表示にする
     if (g_displaySubVisible &&
         static_cast<DisplayDemo>(g_demoIndex) != DisplayDemo::Virtual) {
-        ensureVirtualSubWindows(false);
+        ensureVirtualSubVisible(false);
         win.select();
     }
 
@@ -326,28 +389,57 @@ void drawDisplayDemo(Screen& win) {
 }
 
 void processDisplayAction(Screen& win) {
-    if (isModifierKeyPressed()) return;
-
     switch (static_cast<DisplayDemo>(g_demoIndex)) {
     case DisplayDemo::HiDPI:
-        // 現状アクションなし（DPI 表示は常時更新）
+        // 現状アクションなし
         break;
-    case DisplayDemo::Virtual:
-        if (getkey('V')) {
-            ensureVirtualSubWindows(!g_displaySubVisible);
-            g_actionLog = std::format("仮想画面比較サブウィンドウを{}にしました",
-                                      g_displaySubVisible ? "表示" : "非表示");
-            await(180);
-        }
-        if (getkey('R')) {
-            if (g_virtOffScreen.valid()) drawVirtualTestPattern(g_virtOffScreen, "screen_mode_virtual = OFF");
-            if (g_virtOnScreen.valid())  drawVirtualTestPattern(g_virtOnScreen,  "screen_mode_virtual = ON  (vscale_linear)");
+    case DisplayDemo::Virtual: {
+        // Ctrl/Alt/Win 押下中は無視（Shift は preset 前送り用に許可）
+        if (hsppp::getkey(VK::CONTROL) || hsppp::getkey(VK::MENU) ||
+            hsppp::getkey(VK::LWIN)    || hsppp::getkey(VK::RWIN)) return;
+        const bool shift = hsppp::getkey(VK::SHIFT) != 0;
+        if (getkey('S')) {
+            if (shift) {
+                g_virtPresetIndex = (g_virtPresetIndex + kPhysPresetCount - 1) % kPhysPresetCount;
+            } else {
+                g_virtPresetIndex = (g_virtPresetIndex + 1) % kPhysPresetCount;
+            }
+            applyVirtualScalingPresets();
             win.select();
-            g_actionLog = "サブウィンドウへテストパターン再描画";
-            await(180);
+            g_actionLog = std::format("物理サイズ -> {}", kPhysPresets[g_virtPresetIndex].label);
+            await(200);
+        } else if (getkey('M') && !shift) {
+            g_virtScaleModeIndex = (g_virtScaleModeIndex + 1) % kScaleModePresetCount;
+            applyVirtualScalingPresets();
+            win.select();
+            g_actionLog = std::format("vscalemode -> {}", kScaleModePresets[g_virtScaleModeIndex].label);
+            await(200);
+        } else if (getkey('C') && !shift) {
+            g_virtLetterColorIndex = (g_virtLetterColorIndex + 1) % kLetterColorCount;
+            applyVirtualScalingPresets();
+            win.select();
+            g_actionLog = std::format("letterboxColor -> {}", kLetterColors[g_virtLetterColorIndex].label);
+            await(200);
+        } else if (getkey('V') && !shift) {
+            ensureVirtualSubVisible(!g_displaySubVisible);
+            win.select();
+            g_actionLog = std::format("Virtual サブウィンドウを{}にしました",
+                                      g_displaySubVisible ? "表示" : "非表示");
+            await(200);
+        } else if (getkey('R') && !shift) {
+            g_virtPresetIndex      = 0;
+            g_virtScaleModeIndex   = 1;
+            g_virtLetterColorIndex = 1;
+            applyVirtualScalingPresets();
+            drawScalingTestPattern(g_virtScalingScreen);
+            win.select();
+            g_actionLog = "Virtual プリセットをリセットしました";
+            await(200);
         }
         break;
+    }
     case DisplayDemo::Anchor:
+        if (isModifierKeyPressed()) return;
         if (getkey('1')) { g_anchorPresetIndex = 0; await(180); }
         else if (getkey('3')) { g_anchorPresetIndex = 1; await(180); }
         else if (getkey('5')) { g_anchorPresetIndex = 2; await(180); }
@@ -360,6 +452,6 @@ void processDisplayAction(Screen& win) {
 // デモ離脱時の後始末（UserApp.cpp から onDemoChanged で呼ぶ）
 void onDisplayDemoLeft() {
     if (g_displaySubVisible) {
-        ensureVirtualSubWindows(false);
+        ensureVirtualSubVisible(false);
     }
 }

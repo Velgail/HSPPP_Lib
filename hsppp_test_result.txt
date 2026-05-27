@@ -1,9 +1,9 @@
 HSPPP Test Suite Result
   compile_block_ok = true
-  runtime_passed   = 102
+  runtime_passed   = 113
   runtime_failed   = 0
   rt_first_failed_index = -1
   rt_first_failed_name  = 
-  total_passed     = 102
+  total_passed     = 113
   total_failed     = 0
   exit_code        = 0

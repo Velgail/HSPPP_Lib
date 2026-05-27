@@ -75,13 +75,15 @@ std::string g_lastErrorMessage = "";
 std::string g_actionLog = "";
 
 // 表示系デモ (Display) 実体
-Screen      g_virtOffScreen;
-Screen      g_virtOnScreen;
-bool        g_displaySubVisible = false;
-int         g_dpiChangeCount    = 0;
-int         g_dpiLastReported   = 0;
-std::string g_dpiChangeLog      = "";
-int         g_anchorPresetIndex = 1;  // 既定: 480x320
+Screen      g_virtScalingScreen;
+bool        g_displaySubVisible    = false;
+int         g_dpiChangeCount       = 0;
+int         g_dpiLastReported      = 0;
+std::string g_dpiChangeLog         = "";
+int         g_anchorPresetIndex    = 1;  // 既定: 480x320
+int         g_virtPresetIndex      = 0;  // 既定: 640x480 (×1.0)
+int         g_virtScaleModeIndex   = 1;  // 既定: linear
+int         g_virtLetterColorIndex = 1;  // 既定: 濃シアン (letterbox 視認性確保)
 
 // ═══════════════════════════════════════════════════════════════════
 // デモ切り替え時のリセット処理
@@ -188,9 +190,11 @@ void drawHelpWindow(Screen& helpWin) {
     helpWin.color(200, 200, 200).pos(20, 522);
     helpWin.mes("  Alt+Shift+1: HiDPI/DPI    Alt+Shift+2: 仮想画面  Alt+Shift+3: アンカー");
     helpWin.color(180, 180, 180).pos(20, 538);
+    helpWin.mes("  ※仮想画面: S=拡大率/物理サイズ循環 M=vscalemode C=letter色 V=表示 R=既定復帰");
+    helpWin.color(180, 180, 180).pos(20, 552);
     helpWin.mes("  ※アンカー表示中は 1 / 3 / 5 がプリセット切替に割当（基本デモ遷移は無効）");
 
-    helpWin.color(255, 200, 0).pos(20, 560);
+    helpWin.color(255, 200, 0).pos(20, 568);
     helpWin.mes("※修飾キー(Ctrl/Alt/Shift)押下中はアクション無効");
 
     helpWin.redraw(1);
@@ -441,22 +445,19 @@ void hspMain() {
     auto win = screen({.width = 640, .height = 480, .title = "HSPPP Feature Demo - Press F1 for Help"});
     
     // ヘルプウィンドウ作成（初期は非表示）
-    auto helpWin = screen({.width = 320, .height = 580, .mode = screen_hide, .title = "HSPPP Help"});
+    auto helpWin = screen({.width = 320, .height = 600, .mode = screen_hide, .title = "HSPPP Help"});
 
-    // 表示系デモ用 仮想画面比較サブウィンドウ
-    //   - g_virtOffScreen : screen_mode_virtual OFF（HSP 既定挙動: クライアントはバッファ上限でクランプ）
-    //   - g_virtOnScreen  : screen_mode_virtual ON （論理→物理 自動拡縮、letterbox）
-    // 初期は非表示。Display::Virtual デモ突入時に gsel で可視化する。
-    g_virtOffScreen = screen({
-        .width = 320, .height = 240, .mode = screen_hide,
-        .title = "Virtual OFF (HSPPP Display Demo)",
-        .virtual_resolution = false,
-    });
-    g_virtOnScreen = screen({
-        .width = 320, .height = 240, .mode = screen_hide,
-        .title = "Virtual ON  (HSPPP Display Demo / vscale_linear)",
+    // 表示系デモ用 仮想画面 Scaling サブウィンドウ
+    //   - 論理 640x480 / virtual_resolution=true / vscale_linear（既定）
+    //   - Display::Virtual サブデモ突入時に gsel で可視化し、ホットキーで
+    //     物理クライアントサイズ・vscalemode・letterboxColor を実行時切替する。
+    //   - 起動直後は非表示。letterboxColor は視認性の高い濃シアンを既定とする。
+    g_virtScalingScreen = screen({
+        .width = 640, .height = 480, .mode = screen_hide,
+        .title = "Virtual Scaling Demo (HSPPP Display Demo)",
         .virtual_resolution = true,
     });
+    g_virtScalingScreen.letterboxColor(0, 96, 128);  // 既定: 濃シアン
 
     // メインウィンドウへフォーカスを戻す
     win.select();

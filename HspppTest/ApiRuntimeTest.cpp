@@ -805,6 +805,98 @@ namespace hsppp_test {
     }
 
     // ============================================================
+    // 仮想画面 公開API: Screen::physToLogical / logicalToPhys / letterboxColor
+    // ============================================================
+    bool test_virtual_screen_public_api() {
+        bool allPassed = true;
+        auto absi = [](int v) -> int { return v < 0 ? -v : v; };
+
+        // (1) 仮想画面 OFF: 恒等変換となること
+        {
+            auto scrOff = screen({
+                .width = 320, .height = 240, .mode = screen_hide,
+                .virtual_resolution = false,
+            });
+            check(scrOff.valid(), "virtual API: OFF screen created");
+
+            int lx = -1, ly = -1;
+            scrOff.physToLogical(100, 50, lx, ly);
+            check(lx == 100 && ly == 50, "virtual API: physToLogical identity on OFF");
+
+            int px = -1, py = -1;
+            scrOff.logicalToPhys(123, 45, px, py);
+            check(px == 123 && py == 45, "virtual API: logicalToPhys identity on OFF");
+
+            // letterboxColor は no-op で良いが、クラッシュせず呼べること
+            auto& ref = scrOff.letterboxColor(0, 128, 255);
+            check(&ref == &scrOff, "virtual API: letterboxColor returns *this for chaining");
+
+            allPassed &= scrOff.valid();
+        }
+
+        // (2) 仮想画面 ON: 物理 = 論理 = 320x240 のとき恒等になることを確認
+        //     hidden mode では client サイズが width/height で初期化されるため
+        //     uniform スケール = 1.0, offset = 0 となる。
+        {
+            auto scrOn = screen({
+                .width = 320, .height = 240, .mode = screen_hide,
+                .virtual_resolution = true,
+            });
+            check(scrOn.valid(), "virtual API: ON screen created");
+
+            // letterboxColor は範囲外もクランプして受理されること
+            scrOn.letterboxColor(255, 0, 0);
+            scrOn.letterboxColor(-10, 999, 64);  // クランプされる想定（クラッシュしないこと）
+            check(true, "virtual API: letterboxColor accepts out-of-range without crash");
+
+            // 物理 → 論理 → 物理 の往復一貫性
+            // hidden mode で physClient = (width,height) のとき scale=1.0 / offset=0
+            // → 往復差分は 0 で安定する。
+            int totalDiff = 0;
+            const int samples[][2] = { {0,0}, {1,1}, {160,120}, {319,239}, {50,200} };
+            for (auto& s : samples) {
+                int lx = 0, ly = 0;
+                scrOn.physToLogical(s[0], s[1], lx, ly);
+                int rx = 0, ry = 0;
+                scrOn.logicalToPhys(lx, ly, rx, ry);
+                totalDiff += absi(rx - s[0]) + absi(ry - s[1]);
+            }
+            check(totalDiff == 0,
+                  "virtual API: phys->log->phys round-trip is exact at scale=1.0");
+
+            // 逆向き: 論理 → 物理 → 論理 の往復一貫性
+            int totalDiff2 = 0;
+            const int samples2[][2] = { {0,0}, {10,10}, {160,120}, {319,239} };
+            for (auto& s : samples2) {
+                int px = 0, py = 0;
+                scrOn.logicalToPhys(s[0], s[1], px, py);
+                int lx = 0, ly = 0;
+                scrOn.physToLogical(px, py, lx, ly);
+                totalDiff2 += absi(lx - s[0]) + absi(ly - s[1]);
+            }
+            check(totalDiff2 == 0,
+                  "virtual API: log->phys->log round-trip is exact at scale=1.0");
+
+            allPassed &= scrOn.valid();
+        }
+
+        // (3) 無効ハンドルでも安全に呼べる（恒等フォールバック / no-op）
+        {
+            Screen invalid;
+            int lx = 7, ly = 9;
+            invalid.physToLogical(11, 13, lx, ly);
+            check(lx == 11 && ly == 13, "virtual API: physToLogical fallback on invalid handle");
+            int px = 0, py = 0;
+            invalid.logicalToPhys(11, 13, px, py);
+            check(px == 11 && py == 13, "virtual API: logicalToPhys fallback on invalid handle");
+            invalid.letterboxColor(64, 64, 64);
+            check(true, "virtual API: letterboxColor no-op on invalid handle");
+        }
+
+        return allPassed;
+    }
+
+    // ============================================================
     // 公開テスト関数
     // ============================================================
 
@@ -832,6 +924,7 @@ namespace hsppp_test {
         test_async_submachine_runtime();
         test_dpi_changed_target_bitmap_rebind();
         test_anchor_layout();
+        test_virtual_screen_public_api();
 
         return s_testsPassed;
     }

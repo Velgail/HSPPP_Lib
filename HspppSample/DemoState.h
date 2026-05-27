@@ -184,13 +184,15 @@ extern bool g_videoMode;       // 動画再生モード中か（描画スキッ�
 extern std::string g_actionLog;
 
 // 表示系デモ (Display) 用
-extern hsppp::Screen g_virtOffScreen;   // 仮想画面 OFF 比較用サブウィンドウ
-extern hsppp::Screen g_virtOnScreen;    // 仮想画面 ON  比較用サブウィンドウ
-extern bool          g_displaySubVisible;
+extern hsppp::Screen g_virtScalingScreen;   // 仮想画面 Scaling サブデモ用サブウィンドウ
+extern bool          g_displaySubVisible;   // Virtual サブウィンドウが表示中か
 extern int           g_dpiChangeCount;
 extern int           g_dpiLastReported;
 extern std::string   g_dpiChangeLog;
 extern int           g_anchorPresetIndex;
+extern int           g_virtPresetIndex;       // 0..(N-1) 物理サイズ／拡大率プリセット
+extern int           g_virtScaleModeIndex;    // 0=nearest, 1=linear, 2=aniso
+extern int           g_virtLetterColorIndex;  // 0=黒 / 1=濃シアン / 2=マゼンタ
 
 // ═══════════════════════════════════════════════════════════════════
 // 修飾キー状態チェック

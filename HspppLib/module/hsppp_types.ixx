@@ -675,6 +675,40 @@ export namespace hsppp {
         [[nodiscard]] int mousey() const;
 
         // ============================================================
+        // 仮想画面（screen_mode_virtual）連携 公開API
+        // ============================================================
+        //
+        // 仮想画面 ON のウィンドウでは、論理バッファ（screen() の width/height）
+        // と物理クライアント領域（HiDPI / リサイズ後の実 px 領域）の間で
+        // アスペクト維持の uniform スケール + letterbox 変換が行われる。
+        // 以下 3 API はこの変換に関する公開アクセサである。
+        // 仮想画面 OFF / 不適格なハンドル / Window 以外のサーフェスでは
+        // 変換は恒等（出力 = 入力）となり、setter は no-op となる。
+
+        /// @brief 物理クライアント座標 → 論理座標 変換
+        /// @details 仮想画面 ON 時はアスペクト維持 uniform スケール + letterbox
+        ///          オフセットの逆変換を行う。OFF 時は恒等変換。
+        ///          ginfo(ginfo_type_mx/my) や mousex()/mousey() は内部で本変換
+        ///          相当を行っているが、本 API は任意の物理座標を対象にできる。
+        void physToLogical(int physX, int physY, int& outLogX, int& outLogY,
+                           const std::source_location& location = std::source_location::current()) const;
+
+        /// @brief 論理座標 → 物理クライアント座標 変換
+        /// @details 仮想画面 ON 時はアスペクト維持 uniform スケール + letterbox
+        ///          オフセットの正方向変換を行う。OFF 時は恒等変換。
+        void logicalToPhys(int logX, int logY, int& outPhysX, int& outPhysY,
+                           const std::source_location& location = std::source_location::current()) const;
+
+        /// @brief 仮想画面 letterbox / pillarbox 領域の塗り潰し色を設定
+        /// @param r 赤成分 (0..255)
+        /// @param g 緑成分 (0..255)
+        /// @param b 青成分 (0..255)
+        /// @details 仮想画面 ON のウィンドウで present 時に黒帯領域の背景色として使用される。
+        ///          範囲外値はクランプされる。仮想画面 OFF / 非 Window では no-op。
+        Screen& letterboxColor(int r, int g, int b,
+                               const std::source_location& location = std::source_location::current());
+
+        // ============================================================
         // 割り込みハンドラ（OOP版・ウィンドウ別設定）
         // ============================================================
 

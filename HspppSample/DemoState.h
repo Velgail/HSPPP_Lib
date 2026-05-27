@@ -189,7 +189,13 @@ extern bool          g_displaySubVisible;   // Virtual サブウィンドウが�
 extern int           g_dpiChangeCount;
 extern int           g_dpiLastReported;
 extern std::string   g_dpiChangeLog;
-extern int           g_anchorPresetIndex;
+// Anchor Playground サブデモ用
+extern hsppp::Screen g_anchorPlaygroundScreen;  // Anchor 専用サブウィンドウ（virtual_resolution=false）
+extern bool          g_anchorPlaygroundVisible; // Anchor Playground 表示中か
+extern int           g_anchorAspectIndex;       // 0..(N-1) アスペクト比プリセット
+extern bool          g_anchorShowFixed;         // 比較対照 (Fixed 側) 表示 ON/OFF
+extern bool          g_anchorShowGrid;          // 9 アンカー リファレンスグリッドモード ON/OFF
+extern bool          g_anchorShowGuides;        // ガイド矢印 + 実測値表示 ON/OFF
 extern int           g_virtPresetIndex;       // 0..(N-1) 物理サイズ／拡大率プリセット
 extern int           g_virtScaleModeIndex;    // 0=nearest, 1=linear, 2=aniso
 extern int           g_virtLetterColorIndex;  // 0=黒 / 1=濃シアン / 2=マゼンタ

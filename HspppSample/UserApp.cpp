@@ -80,10 +80,17 @@ bool        g_displaySubVisible    = false;
 int         g_dpiChangeCount       = 0;
 int         g_dpiLastReported      = 0;
 std::string g_dpiChangeLog         = "";
-int         g_anchorPresetIndex    = 1;  // 既定: 480x320
 int         g_virtPresetIndex      = 0;  // 既定: 640x480 (×1.0)
 int         g_virtScaleModeIndex   = 1;  // 既定: linear
 int         g_virtLetterColorIndex = 1;  // 既定: 濃シアン (letterbox 視認性確保)
+
+// Anchor Playground サブデモ実体
+Screen      g_anchorPlaygroundScreen;
+bool        g_anchorPlaygroundVisible = false;
+int         g_anchorAspectIndex       = 2;     // 既定: 960x540 (16:9)
+bool        g_anchorShowFixed         = true;  // 既定: 比較対照 ON
+bool        g_anchorShowGrid          = false; // 既定: リファレンスグリッド OFF
+bool        g_anchorShowGuides        = true;  // 既定: ガイド矢印 + 実測値 ON
 
 // ═══════════════════════════════════════════════════════════════════
 // デモ切り替え時のリセット処理
@@ -192,7 +199,7 @@ void drawHelpWindow(Screen& helpWin) {
     helpWin.color(180, 180, 180).pos(20, 538);
     helpWin.mes("  ※仮想画面: S=拡大率/物理サイズ循環 M=vscalemode C=letter色 V=表示 R=既定復帰");
     helpWin.color(180, 180, 180).pos(20, 552);
-    helpWin.mes("  ※アンカー表示中は 1 / 3 / 5 がプリセット切替に割当（基本デモ遷移は無効）");
+    helpWin.mes("  ※アンカー: A/Shift+A=比率 G=リファレンスグリッド C=Fixed列 H=ガイド R=既定 V=表示");
 
     helpWin.color(255, 200, 0).pos(20, 568);
     helpWin.mes("※修飾キー(Ctrl/Alt/Shift)押下中はアクション無効");
@@ -408,8 +415,9 @@ void processDemoSelection(Screen& win) {
                            && g_category != DemoCategory::Display) {
                     // 数字のみ: 基本デモ
                     // Display カテゴリ表示中はサブデモ側 (processDisplayAction) が
-                    // '1' / '3' / '5' をアンカープリセット切替に使用するため、
-                    // ここでの修飾なし数字キーによる Basic カテゴリ強制遷移を抑止する。
+                    // 文字キー (Virtual: S/M/C/V/R, Anchor: A/G/C/H/R/V) を専用ホットキーに
+                    // 使用するため、ここでの修飾なし数字キーによる Basic カテゴリ強制遷移は
+                    // ユーザーの誤操作で表示系デモから抜けてしまうのを抑止するために無効化する。
                     if (i <= static_cast<int>(BasicDemo::COUNT)) {
                         newCategory = DemoCategory::Basic;
                         newIndex = i - 1;
@@ -458,6 +466,17 @@ void hspMain() {
         .virtual_resolution = true,
     });
     g_virtScalingScreen.letterboxColor(0, 96, 128);  // 既定: 濃シアン
+
+    // 表示系デモ用 Anchor Playground サブウィンドウ
+    //   - 物理クライアントサイズ 960x540 / virtual_resolution=false（バッファ=物理クライアント）
+    //   - Display::Anchor 突入時に gsel で可視化し、A/Shift+A でアスペクト比プリセットを実時間切替する。
+    //   - 仮想画面を使わないことで、物理リサイズに anchor_box が直接追従する様子を訴求できる。
+    //   - 起動直後は非表示。
+    g_anchorPlaygroundScreen = screen({
+        .width = 960, .height = 540, .mode = screen_hide,
+        .title = "Anchor Playground (HSPPP Display Demo)",
+        .virtual_resolution = false,
+    });
 
     // メインウィンドウへフォーカスを戻す
     win.select();

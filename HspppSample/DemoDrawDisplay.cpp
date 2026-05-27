@@ -37,8 +37,12 @@ extern int         g_dpiChangeCount;   // WM_DPICHANGED 受信回数
 extern int         g_dpiLastReported;  // 最後に通知された DPI (0=未受信)
 extern std::string g_dpiChangeLog;     // WM_DPICHANGED ログ（末尾 8 件）
 
-// アンカーデモ用
-extern int g_anchorPresetIndex;        // 0=320x240, 1=480x320, 2=600x420
+// アンカー Playground 用 (実装は DemoDrawDisplayAnchor.cpp)
+extern void drawAnchorDemo(Screen& mainWin);
+extern void processAnchorAction(Screen& mainWin);
+extern void onAnchorDemoLeft();
+extern void ensureAnchorPlaygroundVisible(bool show);
+extern bool g_anchorPlaygroundVisible;
 
 // Virtual スケーリングデモ用
 extern int g_virtPresetIndex;          // 物理サイズプリセット index
@@ -46,12 +50,6 @@ extern int g_virtScaleModeIndex;       // vscalemode プリセット index (0=ne
 extern int g_virtLetterColorIndex;     // letterbox 色プリセット index
 
 namespace {
-
-constexpr int kAnchorPresets[3][2] = {
-    {320, 240},
-    {480, 320},
-    {600, 420},
-};
 
 // 物理サイズプリセット: (width, height, label)
 struct PhysPreset { int w; int h; const char* label; };
@@ -278,86 +276,7 @@ void drawVirtualScreenDemo(Screen& win) {
     win.mes("注: 物理サイズと論理 4:3 アスペクト比が一致しない場合、letterbox 帯が出現します。");
 }
 
-void drawAnchorDemo(Screen& win) {
-    // メイン画面でのアンカー実例:
-    //   現在のバッファ (= 640x480 論理 px) に対し anchor_box を使う
-    win.color(0, 0, 0).pos(20, 85);
-    win.font("MS Gothic", 14, 1);
-    win.mes("[アンカー] AnchorRect / anchor_box / anchor_pos 目視デモ");
-
-    win.font("MS Gothic", 12, 0);
-    win.color(64, 64, 64).pos(20, 110);
-    win.mes("(a) メインバッファ (640x480) に対するアンカー矩形:");
-
-    // 9 アンカー組合せの矩形を本物の anchor_box で描画
-    struct A { int h; int v; int r; int g; int b; const char* name; };
-    constexpr A kAnchors[] = {
-        { ah_left,   av_top,    255,   0,   0, "LT" },
-        { ah_center, av_top,      0, 200,   0, "CT" },
-        { ah_right,  av_top,      0,   0, 255, "RT" },
-        { ah_left,   av_middle, 255, 128,   0, "LM" },
-        { ah_center, av_middle, 255, 255,   0, "CM" },
-        { ah_right,  av_middle,   0, 255, 255, "RM" },
-        { ah_left,   av_bottom, 255,   0, 255, "LB" },
-        { ah_center, av_bottom, 128, 128, 128, "CB" },
-        { ah_right,  av_bottom,  64, 128, 192, "RB" },
-    };
-    constexpr int boxW = 60;
-    constexpr int boxH = 28;
-    for (const auto& a : kAnchors) {
-        // 描画領域 (20,130) - (620,460) 内に押し込めるため offset で内側オフセット
-        int ox = (a.h == ah_left)  ?  20 : (a.h == ah_right)  ? -20 : 0;
-        int oy = (a.v == av_top)   ? 130 : (a.v == av_bottom) ? -20 : 55; // 中段は +55 で 130～ 領域中央寄り
-        win.color(a.r, a.g, a.b).anchor_box(a.h, a.v, ox, oy, boxW, boxH);
-        win.color(0, 0, 0).anchor_pos(a.h, a.v, ox + 4, oy + 6);
-        win.font("MS Gothic", 11, 1);
-        win.mes(a.name);
-    }
-
-    // (b) 疑似バッファサイズ切替: AnchorRect::resolve を使い、別矩形枠内に並置
-    win.font("MS Gothic", 12, 0);
-    int presetW = kAnchorPresets[g_anchorPresetIndex][0];
-    int presetH = kAnchorPresets[g_anchorPresetIndex][1];
-
-    win.color(64, 64, 64).pos(20, 410);
-    win.mes(std::format("(b) 疑似バッファ {}x{} に対する AnchorRect 解決結果（1 / 3 / 5 キーで切替）",
-                        presetW, presetH));
-    // 枠
-    constexpr int frameX = 250;
-    constexpr int frameY = 430;
-    const int frameW = (presetW * 200) / 600; // 最大幅 200px に正規化表示
-    const int frameH = (presetH * 200) / 600;
-    win.color(180, 180, 180).boxf(frameX, frameY, frameX + frameW, frameY + 1);
-    win.color(180, 180, 180).boxf(frameX, frameY, frameX + 1,        frameY + frameH);
-    win.color(180, 180, 180).boxf(frameX + frameW - 1, frameY, frameX + frameW, frameY + frameH);
-    win.color(180, 180, 180).boxf(frameX, frameY + frameH - 1, frameX + frameW, frameY + frameH);
-
-    // 4 角 + 中央のアンカー矩形（small）
-    struct A2 { AnchorH h; AnchorV v; int r; int g; int b; };
-    constexpr A2 kAnchors2[] = {
-        { ah_left,   av_top,    255,   0,   0 },
-        { ah_right,  av_top,      0,   0, 255 },
-        { ah_left,   av_bottom, 255, 128,   0 },
-        { ah_right,  av_bottom,   0, 200,   0 },
-        { ah_center, av_middle, 255, 255,   0 },
-    };
-    for (const auto& a : kAnchors2) {
-        AnchorRect rect{ a.h, a.v, 0, 0, 16, 10 };
-        RectI r = rect.resolve(presetW, presetH);
-        // 表示は presetW x presetH を frameW x frameH に縮小投影
-        const int rx1 = frameX + (r.x1 * frameW) / presetW;
-        const int ry1 = frameY + (r.y1 * frameH) / presetH;
-        const int rx2 = frameX + (r.x2 * frameW) / presetW;
-        const int ry2 = frameY + (r.y2 * frameH) / presetH;
-        win.color(a.r, a.g, a.b).boxf(rx1, ry1, rx2, ry2);
-    }
-
-    win.font("MS Gothic", 11, 0);
-    win.color(0, 0, 128).pos(20, 440);
-    win.mes("(a) 実際のメインバッファに対する anchor_box");
-    win.pos(20, 458);
-    win.mes("(b) 疑似バッファ枠 (右側枠) 内で resolve した矩形を縮尺投影");
-}
+// 旧 drawAnchorDemo は DemoDrawDisplayAnchor.cpp の新 drawAnchorDemo (Anchor Playground 委譲版) に置換済。
 
 } // namespace
 
@@ -370,6 +289,12 @@ void drawDisplayDemo(Screen& win) {
     if (g_displaySubVisible &&
         static_cast<DisplayDemo>(g_demoIndex) != DisplayDemo::Virtual) {
         ensureVirtualSubVisible(false);
+        win.select();
+    }
+    // Anchor Playground サブウィンドウも Anchor デモ以外では非表示にする
+    if (g_anchorPlaygroundVisible &&
+        static_cast<DisplayDemo>(g_demoIndex) != DisplayDemo::Anchor) {
+        ensureAnchorPlaygroundVisible(false);
         win.select();
     }
 
@@ -439,10 +364,7 @@ void processDisplayAction(Screen& win) {
         break;
     }
     case DisplayDemo::Anchor:
-        if (isModifierKeyPressed()) return;
-        if (getkey('1')) { g_anchorPresetIndex = 0; await(180); }
-        else if (getkey('3')) { g_anchorPresetIndex = 1; await(180); }
-        else if (getkey('5')) { g_anchorPresetIndex = 2; await(180); }
+        processAnchorAction(win);
         break;
     default:
         break;
@@ -453,5 +375,8 @@ void processDisplayAction(Screen& win) {
 void onDisplayDemoLeft() {
     if (g_displaySubVisible) {
         ensureVirtualSubVisible(false);
+    }
+    if (g_anchorPlaygroundVisible) {
+        onAnchorDemoLeft();
     }
 }

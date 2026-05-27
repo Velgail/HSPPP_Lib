@@ -71,6 +71,9 @@ void boxf(int x1, int y1, int x2, int y2);
 
 // 画面全体版
 void boxf();
+
+// AnchorRect 指定版（HSP / OOP 共用）
+void boxf(const AnchorRect& rect);
 ```
 
 **使用例:**
@@ -81,7 +84,67 @@ boxf(10, 10, 100, 100);   // 赤い矩形
 
 color(0, 0, 0);
 boxf();                    // 画面全体を黒で塗りつぶし
+
+// アンカー基準: 画面中央に 200x100
+color(255, 200, 0);
+boxf(AnchorRect{
+    .h_anchor = ah_center, .v_anchor = av_middle,
+    .width    = 200,       .height   = 100,
+});
 ```
+
+> `AnchorRect` を使った解像度独立なレイアウト記述については
+> [アンカーレイアウト API](/HSPPP_Lib/AnchorLayout) を参照してください。
+
+---
+
+### anchor_pos
+
+バッファのアンカー辺基準でカレント描画位置を設定します（`pos` のアンカー版）。
+
+```cpp
+void anchor_pos(int anchorH, int anchorV, int offsetX, int offsetY);
+```
+
+| パラメータ | 値 | 説明 |
+|-----------|-----|------|
+| `anchorH` | `ah_left` / `ah_center` / `ah_right` | 水平基準 |
+| `anchorV` | `av_top` / `av_middle` / `av_bottom` | 垂直基準 |
+| `offsetX` | int | 基準点からの X オフセット（論理座標 / 負値可） |
+| `offsetY` | int | 基準点からの Y オフセット（論理座標 / 負値可） |
+
+**使用例:**
+
+```cpp
+// 右下から内側 10px の位置に "OK"
+color(255, 255, 255);
+anchor_pos(ah_right, av_bottom, -10, -10);
+mes("OK");
+```
+
+> 仮想画面 ON 時は論理 px、OFF 時は物理クライアント px が基準となります。
+> 詳細は [アンカーレイアウト API](/HSPPP_Lib/AnchorLayout) を参照してください。
+
+---
+
+### anchor_box
+
+矩形側の基準角を `(anchorH, anchorV)` でバッファ側基準点に合わせ、
+`(offsetX, offsetY)` だけずらして `w × h` の矩形を塗りつぶします。
+
+```cpp
+void anchor_box(int anchorH, int anchorV, int offsetX, int offsetY, int w, int h);
+```
+
+**使用例:**
+
+```cpp
+// 右上端から 10,10 px 内側に 64x64
+color(0, 0, 0);
+anchor_box(ah_right, av_top, -10, 10, 64, 64);
+```
+
+詳細は [アンカーレイアウト API](/HSPPP_Lib/AnchorLayout) を参照してください。
 
 ---
 

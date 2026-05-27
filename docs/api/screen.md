@@ -31,13 +31,13 @@ title: 画面API
 // HSP互換版（ID明示指定）
 Screen screen(
     int id,
-    OptInt width    = {},      // 画面サイズX（デフォルト: 640）
-    OptInt height   = {},      // 画面サイズY（デフォルト: 480）
-    OptInt mode     = {},      // 画面モード（screen_* フラグ）
+    OptInt width    = {},      // 画面サイズX（仮想画面 ON 時は論理 px。デフォルト: 640）
+    OptInt height   = {},      // 画面サイズY（仮想画面 ON 時は論理 px。デフォルト: 480）
+    OptInt mode     = {},      // 画面モード（screen_* フラグ。screen_mode_virtual で仮想画面 ON）
     OptInt pos_x    = {},      // ウィンドウ位置X（-1=システム規定）
     OptInt pos_y    = {},      // ウィンドウ位置Y（-1=システム規定）
-    OptInt client_w = {},      // クライアントサイズX（0=widthと同じ）
-    OptInt client_h = {},      // クライアントサイズY（0=heightと同じ）
+    OptInt client_w = {},      // クライアントサイズX（物理 px。0=widthと同じ）
+    OptInt client_h = {},      // クライアントサイズY（物理 px。0=heightと同じ）
     std::string_view title = "HSPPP Window"
 );
 ```
@@ -48,12 +48,26 @@ Screen screen(
 // HSP互換スタイル
 screen(0, 800, 600);
 
+// HSP互換スタイル + 仮想画面（論理 1920x1080）
+screen(0, 1920, 1080, screen_mode_virtual);
+
 // OOP版（構造体）
 auto win = screen({.width = 800, .height = 600, .title = "My App"});
+
+// OOP版（構造体 / 仮想画面）
+auto win = screen({
+    .width  = 1920, .height  = 1080,
+    .client_w = 1280, .client_h = 720,
+    .virtual_resolution = true,
+});
 
 // OOP版（デフォルト設定）
 auto win = screen();
 ```
+
+> 仮想画面（`virtual_resolution = true` または `screen_mode_virtual` 指定）の詳細は
+> [仮想画面ガイド](/HSPPP_Lib/VirtualScreen) を参照してください。
+> HiDPI awareness は標準で有効化されています（[HiDPI ガイド](/HSPPP_Lib/HiDPI) 参照）。
 
 ---
 
@@ -210,6 +224,31 @@ void groll(int scrollX, int scrollY);
 
 ---
 
+### vscalemode
+
+仮想画面有効時の論理→物理 拡縮で使用される補間モードを設定します。
+
+```cpp
+void vscalemode(int mode);
+```
+
+| 定数 | 値 | 用途 |
+|------|----|------|
+| `vscale_nearest` | 0 | ニアレストネイバー（ピクセルアート向け） |
+| `vscale_linear`  | 1 | バイリニア（既定 / 写真・図形・テキスト） |
+| `vscale_aniso`   | 2 | 異方性（高品質・高負荷） |
+
+**使用例:**
+
+```cpp
+vscalemode(vscale_nearest);  // ドット絵向けにシャープ拡大
+```
+
+> 仮想画面 OFF 時に呼び出しても状態を保持するのみで、描画には影響しません。
+> 仮想画面の有効化方法は [仮想画面ガイド](/HSPPP_Lib/VirtualScreen) を参照してください。
+
+---
+
 ## 画像操作
 
 ### gmode
@@ -362,14 +401,26 @@ win.color(255, 0, 0)
 ### 画面モードフラグ
 
 ```cpp
-inline constexpr int screen_normal     = 0;    // フルカラーモード
-inline constexpr int screen_palette    = 1;    // パレットモード（未実装）
-inline constexpr int screen_hide       = 2;    // 非表示ウィンドウ
-inline constexpr int screen_fixedsize  = 4;    // サイズ固定
-inline constexpr int screen_tool       = 8;    // ツールウィンドウ
-inline constexpr int screen_frame      = 16;   // 深い縁のあるウィンドウ
-inline constexpr int screen_offscreen  = 32;   // 描画先として初期化
-inline constexpr int screen_fullscreen = 256;  // フルスクリーン（bgscr用）
+inline constexpr int screen_normal      = 0;    // フルカラーモード
+inline constexpr int screen_palette     = 1;    // パレットモード（未実装）
+inline constexpr int screen_hide        = 2;    // 非表示ウィンドウ
+inline constexpr int screen_fixedsize   = 4;    // サイズ固定
+inline constexpr int screen_tool        = 8;    // ツールウィンドウ
+inline constexpr int screen_frame       = 16;   // 深い縁のあるウィンドウ
+inline constexpr int screen_offscreen   = 32;   // 描画先として初期化
+inline constexpr int screen_usergcopy   = 64;   // 描画用シェーダー (HGIMG4)
+inline constexpr int screen_mode_virtual = 128; // 仮想画面（論理→物理 自動拡縮）
+inline constexpr int screen_fullscreen  = 256;  // フルスクリーン（bgscr用）
+```
+
+> `screen_mode_virtual`（`0x80`）は HSPPP 拡張です。詳細は [仮想画面ガイド](/HSPPP_Lib/VirtualScreen) 参照。
+
+### 仮想画面 補間モード定数
+
+```cpp
+inline constexpr int vscale_nearest = 0;  // ニアレストネイバー
+inline constexpr int vscale_linear  = 1;  // バイリニア（既定）
+inline constexpr int vscale_aniso   = 2;  // 異方性（高品質・高負荷）
 ```
 
 ### コピーモード定数

@@ -22,8 +22,13 @@ HSPPP の全 API リファレンスです。
 | [`cls`](/HSPPP_Lib/api/screen#cls) | 画面クリア | mode: 0=白, 1=明灰, 2=灰, 3=暗灰, 4=黒 |
 | [`redraw`](/HSPPP_Lib/api/screen#redraw) | 再描画制御 | 0=開始, 1=終了 |
 | [`groll`](/HSPPP_Lib/api/screen#groll) | スクロール位置設定 | 描画基点座標を設定 |
+| [`vscalemode`](/HSPPP_Lib/api/screen#vscalemode) | 仮想画面の補間モード設定 | `vscale_nearest` / `vscale_linear` / `vscale_aniso` |
 
 **詳細:** [画面制御 API](/HSPPP_Lib/api/screen)
+
+**関連ガイド:**
+- [HiDPI 対応](/HSPPP_Lib/HiDPI) - Per Monitor V2 と manifest サンプル
+- [仮想画面（論理→物理 自動拡縮）](/HSPPP_Lib/VirtualScreen) - `virtual_resolution` / `screen_mode_virtual`
 
 ---
 
@@ -42,8 +47,13 @@ HSPPP の全 API リファレンスです。
 | [`print`](/HSPPP_Lib/api/drawing#mes--print) | テキストの描画 | `mes` の別名 |
 | [`gradf`](/HSPPP_Lib/api/drawing#gradf) | グラデーション矩形 | mode: 0=横, 1=縦 |
 | [`grect`](/HSPPP_Lib/api/drawing#grect) | 回転矩形 | 角度はラジアン |
+| [`anchor_pos`](/HSPPP_Lib/api/drawing#anchor_pos) | アンカー基準でカレント位置を設定 | `ah_*` / `av_*` 定数使用 |
+| [`anchor_box`](/HSPPP_Lib/api/drawing#anchor_box) | アンカー基準矩形を塗りつぶし | `ah_*` / `av_*` 定数使用 |
+| [`boxf(AnchorRect)`](/HSPPP_Lib/api/drawing#boxf) | `AnchorRect` を塗りつぶし | OOP / HSP 共用 |
 
 **詳細:** [描画 API](/HSPPP_Lib/api/drawing)
+
+**関連ガイド:** [アンカーレイアウト API](/HSPPP_Lib/AnchorLayout)
 
 ---
 

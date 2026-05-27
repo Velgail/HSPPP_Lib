@@ -26,7 +26,8 @@ enum class DemoCategory {
     Image,      // 画像デモ (Shift + 1-3)
     Interrupt,  // 割り込みデモ (Alt + 1-3)
     GUI,        // GUIデモ (Win + 1-2)
-    Media       // マルチメディアデモ (Alt+Shift + 1)
+    Media,      // マルチメディアデモ (Alt+Shift + 1)
+    Display     // 表示系デモ HiDPI/Virtual/Anchor (Alt+Shift + 1-3)
 };
 
 enum class BasicDemo {
@@ -85,6 +86,13 @@ enum class GUIDemo {
 
 enum class MediaDemo {
     AudioPlayback = 0,  // Alt+Shift+1: 音声再生デモ
+    COUNT
+};
+
+enum class DisplayDemo {
+    HiDPI = 0,      // Alt+Shift+1: HiDPI / WM_DPICHANGED ログ
+    Virtual,        // Alt+Shift+2: 仮想画面 ON/OFF 比較
+    Anchor,         // Alt+Shift+3: アンカー基準レイアウト
     COUNT
 };
 
@@ -175,6 +183,15 @@ extern bool g_videoMode;       // 動画再生モード中か（描画スキッ�
 // アクション実行結果表示用
 extern std::string g_actionLog;
 
+// 表示系デモ (Display) 用
+extern hsppp::Screen g_virtOffScreen;   // 仮想画面 OFF 比較用サブウィンドウ
+extern hsppp::Screen g_virtOnScreen;    // 仮想画面 ON  比較用サブウィンドウ
+extern bool          g_displaySubVisible;
+extern int           g_dpiChangeCount;
+extern int           g_dpiLastReported;
+extern std::string   g_dpiChangeLog;
+extern int           g_anchorPresetIndex;
+
 // ═══════════════════════════════════════════════════════════════════
 // 修飾キー状態チェック
 // ═══════════════════════════════════════════════════════════════════
@@ -197,6 +214,7 @@ void drawImageDemo(hsppp::Screen& win);
 void drawInterruptDemo(hsppp::Screen& win);
 void drawGUIDemo(hsppp::Screen& win);
 void drawMediaDemo(hsppp::Screen& win);
+void drawDisplayDemo(hsppp::Screen& win);
 
 // アクション処理関数（各デモ固有の入力処理）
 void processBasicAction(hsppp::Screen& win);
@@ -205,6 +223,10 @@ void processImageAction(hsppp::Screen& win);
 void processInterruptAction(hsppp::Screen& win);
 void processGUIAction(hsppp::Screen& win);
 void processMediaAction(hsppp::Screen& win);
+void processDisplayAction(hsppp::Screen& win);
+
+// 表示系デモ離脱処理
+void onDisplayDemoLeft();
 
 // GUIオブジェクトクリア関数
 void clearGUIObjects();

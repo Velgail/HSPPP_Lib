@@ -14,6 +14,7 @@
   <ItemGroup>
     <ClCompile Include="UserApp.cpp" />
     <ClCompile Include="DemoDrawBasic.cpp" />
+    <ClCompile Include="DemoDrawDisplay.cpp" />
     <ClCompile Include="DemoDrawExtended.cpp" />
     <ClCompile Include="DemoDrawGUI.cpp" />
     <ClCompile Include="DemoDrawImage.cpp" />

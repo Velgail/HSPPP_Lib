@@ -187,8 +187,10 @@ void drawHelpWindow(Screen& helpWin) {
     helpWin.mes("【表示系デモ - Alt+Shift + 数字キー】");
     helpWin.color(200, 200, 200).pos(20, 522);
     helpWin.mes("  Alt+Shift+1: HiDPI/DPI    Alt+Shift+2: 仮想画面  Alt+Shift+3: アンカー");
+    helpWin.color(180, 180, 180).pos(20, 538);
+    helpWin.mes("  ※アンカー表示中は 1 / 3 / 5 がプリセット切替に割当（基本デモ遷移は無効）");
 
-    helpWin.color(255, 200, 0).pos(20, 546);
+    helpWin.color(255, 200, 0).pos(20, 560);
     helpWin.mes("※修飾キー(Ctrl/Alt/Shift)押下中はアクション無効");
 
     helpWin.redraw(1);
@@ -398,8 +400,12 @@ void processDemoSelection(Screen& win) {
                         newIndex = i - 1;
                         changed = true;
                     }
-                } else if (!ctrlPressed && !shiftPressed && !altPressed) {
+                } else if (!ctrlPressed && !shiftPressed && !altPressed
+                           && g_category != DemoCategory::Display) {
                     // 数字のみ: 基本デモ
+                    // Display カテゴリ表示中はサブデモ側 (processDisplayAction) が
+                    // '1' / '3' / '5' をアンカープリセット切替に使用するため、
+                    // ここでの修飾なし数字キーによる Basic カテゴリ強制遷移を抑止する。
                     if (i <= static_cast<int>(BasicDemo::COUNT)) {
                         newCategory = DemoCategory::Basic;
                         newIndex = i - 1;

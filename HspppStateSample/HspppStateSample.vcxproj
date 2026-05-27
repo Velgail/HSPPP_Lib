@@ -139,6 +139,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="StateSampleMain.cpp" />
+    <ClCompile Include="StateVarsRuntimeCheck.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\HspppLib\HspppLib.vcxproj">

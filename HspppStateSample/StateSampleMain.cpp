@@ -25,7 +25,11 @@
 //   旧構成:
 //     - StateSampleMain.cpp       … StateMachine デモ + グローバル変数 g_score 等
 //     - NewStateSampleMain.cpp    … Repository / state<T>() / tick() デモ（削除済）
-//     - 旧手動テスト群             … HspppTest プロジェクトへ移管（StateVarsRuntimeTest 等）
+//     - 旧手動目視試験群           … 一度 HspppTest プロジェクトへ移管されたが、
+//                                    思想違反（自動テストでは目視確認できない）として
+//                                    HspppStateSample 側へ差し戻し済。
+//                                    現在は本サンプル内 StateVarsRuntimeCheck.cpp と
+//                                    GameScreen::StateVarsCheck 画面が担当する。
 //
 //   旧 NewStateSampleMain.cpp 等は
 //   `hsppp::GameServices::register_repository<>()` を呼んでおり、これは過去 BLOCKER として
@@ -43,7 +47,8 @@
 //     - 旧 NewStateSample のサブステートマシン  → 非同期サブステートマシン例として
 //       Game ステートに統合。子側は描画せず、StateScopeReadView から高スコアを
 //       const 参照するだけのバックグラウンド処理に限定する。
-//     - 旧 NewStateSample 系の手動テスト        → HspppTest プロジェクトへ移管済
+//     - 旧 NewStateSample 系の手動目視試験      → 本サンプル StateVarsRuntimeCheck.cpp に統合
+//                                                  （Title メニュー「StateVars 検証」から到達可能）
 //
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -79,8 +84,22 @@ enum class GameScreen {
     Game,
     Pause,
     GameOver,
-    Result
+    Result,
+    StateVarsCheck   // state_vars / savedata の手動目視検証画面（Title から到達）
 };
+
+// ─────────────────────────────────────────────────────────────────
+// StateVars/SaveData ランタイム検証（StateVarsRuntimeCheck.cpp）
+// ─────────────────────────────────────────────────────────────────
+namespace hsppp_state_sample::vars_check {
+    int  observation_count() noexcept;
+    const char* observation_name(int observation_id) noexcept;
+    int  observation_state(int observation_id) noexcept;  // -1=未実行 / 0=FAIL / 1=PASS
+    int  run_all();         // returns failed count
+    int  passed_count() noexcept;
+    int  failed_count() noexcept;
+    int  last_failed_id() noexcept;
+}
 
 enum class AsyncWorkerPhase {
     ObserveParameters,
@@ -217,6 +236,7 @@ void hspMain() {
     sm.set_state_name(GameScreen::Pause,     "Pause");
     sm.set_state_name(GameScreen::GameOver,  "GameOver");
     sm.set_state_name(GameScreen::Result,    "Result");
+    sm.set_state_name(GameScreen::StateVarsCheck, "StateVarsCheck");
 
     // ────────────────────────────────────────────────
     // StateScope 構築・永続変数の bind
@@ -299,6 +319,9 @@ void hspMain() {
           button("遊び方", [&]() { sm.jump(GameScreen::HowToPlay); });
 
           pos(220, 350);
+          button("StateVars 検証", [&]() { sm.jump(GameScreen::StateVarsCheck); });
+
+          pos(220, 400);
           button("終了", [&]() { sm.quit(); });
       })
       .on_update([&](StateGraph<GameScreen>&) {
@@ -673,6 +696,98 @@ void hspMain() {
           else if (score_now >= 100) mes("評価: ★★ いい調子！");
           else if (score_now >= 50)  mes("評価: ★ がんばろう！");
           else                       mes("評価: もっと練習！");
+
+          redraw(1);
+          await(16);
+      })
+      .on_exit([&]() {
+          clrobj();
+          font(msgothic, 16);
+      });
+
+    // ────────────────────────────────────────────────
+    // StateVarsCheck 画面: state_vars / savedata の手動目視検証
+    // ────────────────────────────────────────────────
+    // 旧 HspppTest プロジェクトへ「移管」されていた StateVarsRuntimeTest.cpp を
+    // Sample 側へ差し戻し、Title メニューから到達できるようにしたもの。
+    // 観測 1〜8 の PASS/FAIL を画面上にカラー表示し、ユーザーが起動 1 回で
+    // 状態と挙動を目視確認できる（retrospective L-019 / AP-013 対応）。
+    sm.state(GameScreen::StateVarsCheck)
+      .on_enter([&]() {
+          // 検証を実行（純粋ロジック。所要時間はミリ秒オーダー）。
+          (void)hsppp_state_sample::vars_check::run_all();
+
+          objsize(200, 40);
+          pos(220, 410);
+          button("タイトルへ", [&]() { sm.jump(GameScreen::Title); });
+      })
+      .on_update([&](StateGraph<GameScreen>&) {
+          redraw(0);
+          color(20, 30, 40);
+          boxf();
+
+          color(255, 255, 255);
+          font(msgothic, 24);
+          pos(140, 20);
+          mes("StateVars / SaveData ランタイム検証");
+
+          font(msgothic, 14);
+          color(200, 200, 200);
+          pos(40, 60);
+          mes("旧 HspppTest プロジェクトに移管されていた手動目視試験を");
+          pos(40, 78);
+          mes("HspppStateSample 側へ差し戻したものです。");
+
+          // サマリー行
+          const int passed = hsppp_state_sample::vars_check::passed_count();
+          const int failed = hsppp_state_sample::vars_check::failed_count();
+          if (failed == 0) {
+              color(120, 255, 120);
+          } else {
+              color(255, 120, 120);
+          }
+          font(msgothic, 16);
+          pos(40, 110);
+          mes(strf("Summary: PASS checks=%d / FAIL checks=%d / last_failed_id=%d",
+                   passed, failed,
+                   hsppp_state_sample::vars_check::last_failed_id()));
+
+          // 観測 1..8 の状態を 1 行ずつ表示
+          font(msgothic, 14);
+          const int total = hsppp_state_sample::vars_check::observation_count();
+          int y = 140;
+          for (int i = 1; i <= total; ++i) {
+              const int st = hsppp_state_sample::vars_check::observation_state(i);
+              const char* tag;
+              if (st == 1) {
+                  color(120, 255, 120);
+                  tag = "[ PASS ]";
+              } else if (st == 0) {
+                  color(255, 120, 120);
+                  tag = "[ FAIL ]";
+              } else {
+                  color(180, 180, 180);
+                  tag = "[ ---- ]";
+              }
+              pos(40, y);
+              {
+                  std::string line = tag;
+                  line += "  Obs ";
+                  line += std::to_string(i);
+                  line += ": ";
+                  line += hsppp_state_sample::vars_check::observation_name(i);
+                  mes(line);
+              }
+              y += 24;
+          }
+
+          color(180, 180, 220);
+          pos(40, y + 16);
+          mes("Title メニューから再到達するたびに検証は再実行されます。");
+
+          if (getkey(KEY_ESCAPE)) {
+              sm.jump(GameScreen::Title);
+          }
 
           redraw(1);
           await(16);

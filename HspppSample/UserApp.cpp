@@ -80,9 +80,10 @@ bool        g_displaySubVisible    = false;
 int         g_dpiChangeCount       = 0;
 int         g_dpiLastReported      = 0;
 std::string g_dpiChangeLog         = "";
-int         g_virtPresetIndex      = 0;  // 既定: 640x480 (×1.0)
+int         g_virtPresetIndex      = 0;  // 既定: 1920x1080 (FHD, uniform scale=2.25)
 int         g_virtScaleModeIndex   = 1;  // 既定: linear
 int         g_virtLetterColorIndex = 1;  // 既定: 濃シアン (letterbox 視認性確保)
+int         g_virtInterpIndex      = 1;  // 既定: linear (gmode_interp: 0=nearest / 1=linear / 2=aniso)
 
 // Anchor Playground サブデモ実体
 Screen      g_anchorPlaygroundScreen;

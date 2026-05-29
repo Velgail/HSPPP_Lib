@@ -22,6 +22,7 @@
 #include <Windows.h>
 
 import hsppp;
+import hsppp_testing;   // TICKET-032: LogicalRenderContext 白箱テスト用シム
 import <atomic>;
 import <chrono>;
 import <functional>;
@@ -964,6 +965,117 @@ namespace hsppp_test {
         return allPassed;
     }
 
+    // ============================================================
+    // LogicalRenderContext (hsppp_testing module) 白箱テスト
+    // TICKET-032: DPI 100/150/200% × 仮想 ON/OFF × 3 API (compute_present_mapping
+    //   / phys_to_logical / logical_to_phys) の純関数シム経由検証。
+    // 直接の Internal-Public 分離破壊を伴わず、export された自由関数シムのみ使用。
+    // ============================================================
+    static inline bool lrc_nearly_eq(float a, float b) {
+        float d = a - b;
+        if (d < 0.0f) d = -d;
+        return d <= 0.001f;
+    }
+
+    static inline bool lrc_mapping_equal(const ::hsppp::testing::PresentMappingView& m,
+                                         float scale, float ox, float oy, float dw, float dh) {
+        return lrc_nearly_eq(m.scale,   scale)
+            && lrc_nearly_eq(m.offsetX, ox)
+            && lrc_nearly_eq(m.offsetY, oy)
+            && lrc_nearly_eq(m.destW,   dw)
+            && lrc_nearly_eq(m.destH,   dh);
+    }
+
+    // --- compute_present_mapping: 6 ケース ---
+    // 仮想 OFF: physClient = logical * (DPI/96) 前提で scale = DPI/96, offset=(0,0)
+    void test_lrc_cpm_dpi100_virt_off() {
+        auto m = ::hsppp::testing::compute_present_mapping(640, 480, 640, 480, 96u, false);
+        check(lrc_mapping_equal(m, 1.0f, 0.0f, 0.0f, 640.0f, 480.0f),
+              "test_lrc_cpm_dpi100_virt_off");
+    }
+    void test_lrc_cpm_dpi150_virt_off() {
+        auto m = ::hsppp::testing::compute_present_mapping(640, 480, 960, 720, 144u, false);
+        check(lrc_mapping_equal(m, 1.5f, 0.0f, 0.0f, 960.0f, 720.0f),
+              "test_lrc_cpm_dpi150_virt_off");
+    }
+    void test_lrc_cpm_dpi200_virt_off() {
+        auto m = ::hsppp::testing::compute_present_mapping(640, 480, 1280, 960, 192u, false);
+        check(lrc_mapping_equal(m, 2.0f, 0.0f, 0.0f, 1280.0f, 960.0f),
+              "test_lrc_cpm_dpi200_virt_off");
+    }
+    // 仮想 ON: uniform = min(sx, sy), 余白を中央寄せ
+    void test_lrc_cpm_dpi100_virt_on_letterbox_x() {
+        // log 640x480, phys 1024x600 → sx=1.6, sy=1.25 → scale=1.25
+        // destW=800, destH=600, offsetX=(1024-800)/2=112, offsetY=0
+        auto m = ::hsppp::testing::compute_present_mapping(640, 480, 1024, 600, 96u, true);
+        check(lrc_mapping_equal(m, 1.25f, 112.0f, 0.0f, 800.0f, 600.0f),
+              "test_lrc_cpm_dpi100_virt_on_letterbox_x");
+    }
+    void test_lrc_cpm_dpi150_virt_on_letterbox_x() {
+        // log 640x480, phys 1920x1080 → sx=3.0, sy=2.25 → scale=2.25
+        // destW=1440, destH=1080, offsetX=(1920-1440)/2=240, offsetY=0
+        auto m = ::hsppp::testing::compute_present_mapping(640, 480, 1920, 1080, 144u, true);
+        check(lrc_mapping_equal(m, 2.25f, 240.0f, 0.0f, 1440.0f, 1080.0f),
+              "test_lrc_cpm_dpi150_virt_on_letterbox_x");
+    }
+    void test_lrc_cpm_dpi200_virt_on_letterbox_y() {
+        // log 640x480, phys 1280x1024 → sx=2.0, sy=2.1333 → scale=2.0
+        // destW=1280, destH=960, offsetX=0, offsetY=(1024-960)/2=32
+        auto m = ::hsppp::testing::compute_present_mapping(640, 480, 1280, 1024, 192u, true);
+        check(lrc_mapping_equal(m, 2.0f, 0.0f, 32.0f, 1280.0f, 960.0f),
+              "test_lrc_cpm_dpi200_virt_on_letterbox_y");
+    }
+
+    // --- phys_to_logical: 3 ケース ---
+    void test_lrc_p2l_dpi100_virt_off() {
+        int lx = -1, ly = -1;
+        ::hsppp::testing::phys_to_logical(640, 480, 640, 480, 96u, false, 320, 240, lx, ly);
+        check(lx == 320 && ly == 240, "test_lrc_p2l_dpi100_virt_off");
+    }
+    void test_lrc_p2l_dpi150_virt_off() {
+        // scale=1.5: phys(450,75) → (300,50)
+        int lx = -1, ly = -1;
+        ::hsppp::testing::phys_to_logical(640, 480, 960, 720, 144u, false, 450, 75, lx, ly);
+        check(lx == 300 && ly == 50, "test_lrc_p2l_dpi150_virt_off");
+    }
+    void test_lrc_p2l_dpi150_virt_on_letterbox() {
+        // scale=2.25, offsetX=240, offsetY=0; phys(465,225) → ((465-240)/2.25, 225/2.25) = (100,100)
+        int lx = -1, ly = -1;
+        ::hsppp::testing::phys_to_logical(640, 480, 1920, 1080, 144u, true, 465, 225, lx, ly);
+        check(lx == 100 && ly == 100, "test_lrc_p2l_dpi150_virt_on_letterbox");
+    }
+
+    // --- logical_to_phys: 3 ケース ---
+    void test_lrc_l2p_dpi100_virt_off() {
+        int px = -1, py = -1;
+        ::hsppp::testing::logical_to_phys(640, 480, 640, 480, 96u, false, 320, 240, px, py);
+        check(px == 320 && py == 240, "test_lrc_l2p_dpi100_virt_off");
+    }
+    void test_lrc_l2p_dpi200_virt_off() {
+        // scale=2.0: log(100,100) → phys(200,200)
+        int px = -1, py = -1;
+        ::hsppp::testing::logical_to_phys(640, 480, 1280, 960, 192u, false, 100, 100, px, py);
+        check(px == 200 && py == 200, "test_lrc_l2p_dpi200_virt_off");
+    }
+    void test_lrc_l2p_dpi150_virt_on_letterbox() {
+        // scale=2.25, offsetX=240; log(100,100) → (240+225, 0+225) = (465, 225)
+        int px = -1, py = -1;
+        ::hsppp::testing::logical_to_phys(640, 480, 1920, 1080, 144u, true, 100, 100, px, py);
+        check(px == 465 && py == 225, "test_lrc_l2p_dpi150_virt_on_letterbox");
+    }
+
+    // --- 往復一貫性 (logical → phys → logical) ---
+    void test_lrc_roundtrip_dpi200_virt_on_letterbox_y() {
+        // log 640x480, phys 1280x1024 (DPI200 virt ON): scale=2.0, offsetY=32
+        // log(50,80) → phys(0+100, 32+160) = (100, 192) → back to (50,80)
+        int px = -1, py = -1;
+        ::hsppp::testing::logical_to_phys(640, 480, 1280, 1024, 192u, true, 50, 80, px, py);
+        int lx = -1, ly = -1;
+        ::hsppp::testing::phys_to_logical(640, 480, 1280, 1024, 192u, true, px, py, lx, ly);
+        check(px == 100 && py == 192 && lx == 50 && ly == 80,
+              "test_lrc_roundtrip_dpi200_virt_on_letterbox_y");
+    }
+
     /// @brief すべてのランタイムテストを実行
     /// @return 成功したテスト数
     int run_runtime_tests() {
@@ -990,6 +1102,21 @@ namespace hsppp_test {
         test_anchor_layout();
         test_virtual_screen_public_api();
         test_virtual_resize_no_max_track_clamp();
+
+        // TICKET-032: LogicalRenderContext 白箱テスト (hsppp_testing module 経由)
+        test_lrc_cpm_dpi100_virt_off();
+        test_lrc_cpm_dpi150_virt_off();
+        test_lrc_cpm_dpi200_virt_off();
+        test_lrc_cpm_dpi100_virt_on_letterbox_x();
+        test_lrc_cpm_dpi150_virt_on_letterbox_x();
+        test_lrc_cpm_dpi200_virt_on_letterbox_y();
+        test_lrc_p2l_dpi100_virt_off();
+        test_lrc_p2l_dpi150_virt_off();
+        test_lrc_p2l_dpi150_virt_on_letterbox();
+        test_lrc_l2p_dpi100_virt_off();
+        test_lrc_l2p_dpi200_virt_off();
+        test_lrc_l2p_dpi150_virt_on_letterbox();
+        test_lrc_roundtrip_dpi200_virt_on_letterbox_y();
 
         return s_testsPassed;
     }

@@ -87,16 +87,22 @@ Visual Studio プロジェクトで同梱する場合の `.vcxproj` 設定:
 
 HiDPI 対応の本 Sprint では、`picload` / `celload` 等で読み込んだ
 **ラスタ画像（テクスチャ等）の高品質スケーリングは対象外** です。
-ラスタ素材は読み込み時の元解像度で扱われ、拡縮品質は補間モード（`vscalemode`）と
-`gzoom` の `mode` に依存します。高 DPI 環境でドット感のない画像表示が必要な場合は、
+ラスタ素材は読み込み時の元解像度で扱われ、拡縮品質は補間モード（`gmode_interp()` / 既定 LINEAR）と
+`gzoom` の `mode` 指定に依存します。高 DPI 環境でドット感のない画像表示が必要な場合は、
 利用者側で高解像度素材を用意してください。
+
+> ベクトル描画（`boxf` / `line` / `circle` / `mes` 等）は、内部オフスクリーンビットマップが
+> **物理サイズ** で保持されるため、最終物理解像度で直接ラスタライズされます。
+> HiDPI 環境ではテキストの DWrite サブピクセル AA が物理解像度で動作するため、
+> 100% DPI 環境と比較してテキスト品質が向上します。
 
 ## 6. 関連 API
 
 | 機能 | API | 詳細 |
 |------|-----|------|
 | 仮想画面（論理→物理 自動拡縮） | `screen({.virtual_resolution = true})` / `screen_mode_virtual` | [VirtualScreen](/HSPPP_Lib/VirtualScreen) |
-| 補間モード切替 | `vscalemode(vscale_nearest / vscale_linear / vscale_aniso)` | [画面 API](/HSPPP_Lib/api/screen#vscalemode) |
+| ラスタ画像の補間モード切替 | `gmode_interp(0=NEAREST / 1=LINEAR / 2=ANISOTROPIC)` | [VirtualScreen §3](/HSPPP_Lib/VirtualScreen#3-補間モードの切替) |
+| 線幅指定 | `gline_width(w)`（論理 px / 既定 1.0） | [VirtualScreen §8](/HSPPP_Lib/VirtualScreen#8-関連-api) |
 | アンカー基準レイアウト | `anchor_pos` / `anchor_box` / `AnchorRect` | [AnchorLayout](/HSPPP_Lib/AnchorLayout) |
 
 ---
@@ -106,3 +112,4 @@ HiDPI 対応の本 Sprint では、`picload` / `celload` 等で読み込んだ
 - [仮想画面ガイド](/HSPPP_Lib/VirtualScreen)
 - [アンカーレイアウト API](/HSPPP_Lib/AnchorLayout)
 - [画面制御 API](/HSPPP_Lib/api/screen)
+- [SPRINT-007 移行ガイド](MigrationGuide-SPRINT007.md)

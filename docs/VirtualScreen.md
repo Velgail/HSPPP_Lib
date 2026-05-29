@@ -22,9 +22,14 @@ title: 仮想画面（論理→物理 自動拡縮）
 | 物理クライアントサイズ | OS から見た実際のクライアント px（ウィンドウサイズ + DPI 倍率） |
 
 描画コマンド（`boxf`, `mes`, `line`, `circle` …）はすべて **論理サイズ** の座標で発行します。
-ライブラリは内部のオフスクリーンビットマップに論理サイズで描画したあと、
-`present()` で SwapChain のバックバッファへ **アスペクト比を保ったまま拡縮転送** します。
-余白はレターボックス / ピラーボックスになります。
+ライブラリは描画コマンド発行時点で論理座標を **物理ピクセル** に変換し、
+ウィンドウのレターボックス内有効描画領域と同じ **物理サイズ** のオフスクリーンビットマップへ
+直接描画します。`present()` は SwapChain のバックバッファへ **単純転送するだけ** で、
+拡縮処理は行いません。余白はレターボックス / ピラーボックスとして背景色で塗られ、
+オフスクリーンビットマップは余白の内側にオフセット配置されます。
+
+これにより、テキスト（DWrite）や線描画は最終物理解像度で直接ラスタライズされ、
+HiDPI 環境でもサブピクセル精度のアンチエイリアスが効きます。
 
 マウス座標（`ginfo_mx` / `ginfo_my`）も、仮想画面 ON 時は **論理 px** が返されます。
 
@@ -85,21 +90,31 @@ void hspMain() {
 
 ## 3. 補間モードの切替
 
-論理→物理 拡縮時の補間アルゴリズムを `vscalemode()` で切り替えられます。
+オフスクリーンビットマップは物理サイズで保持され、`present()` は単純転送のみを行うため、
+**仮想画面の「論理→物理」変換時に追加の補間処理は発生しません**。代わりに、
+`picload` / `celput` / `gcopy` / `gzoom` 等の **ラスタ画像転送系コマンド** で使用される
+D2D 補間モードを `gmode_interp()` で切り替えます（仮想画面 OFF 時も同じ命令で制御可能）。
 
 ```cpp
-vscalemode(vscale_linear);    // バイリニア（既定 / 写真・滑らかな描画向け）
-vscalemode(vscale_nearest);   // ニアレストネイバー（ピクセルアート向け）
-vscalemode(vscale_aniso);     // 異方性（高品質・高負荷）
+gmode_interp(1);    // LINEAR（既定 / 写真・滑らかな描画向け）
+gmode_interp(0);    // NEAREST（ピクセルアート向け）
+gmode_interp(2);    // ANISOTROPIC（拡大率が大きく品質を最優先する場合）
 ```
 
-| 定数 | 値 | 用途 |
-|------|----|------|
-| `vscale_nearest` | 0 | ドット絵・ピクセルアート |
-| `vscale_linear`  | 1 | 既定。写真・図形・テキスト |
-| `vscale_aniso`   | 2 | 拡大率が大きく品質を最優先する場合 |
+| 値 | 意味 | 用途 |
+|----|------|------|
+| 0 | NEAREST | ドット絵・ピクセルアート |
+| 1 | LINEAR（既定） | 写真・図形・テキスト |
+| 2 | ANISOTROPIC | 拡大率が大きく品質を最優先する場合 |
 
-`vscalemode()` は仮想画面 OFF 時に呼び出しても状態を保持するだけで描画には影響しません。
+> **後方互換性に関する重要な変更（SPRINT-007）:** `gcopy` / `gzoom` を `mode` 省略で
+> 呼び出した場合の既定補間モードは、旧 NEAREST から **新 LINEAR** に変更されました。
+> 詳細と従来挙動への復帰方法は [SPRINT-007 移行ガイド](MigrationGuide-SPRINT007.md) を参照してください。
+
+> **`vscalemode()` について（SPRINT-007 で機能縮退）:** 従来は present 時の論理→物理
+> 拡縮補間モードを切り替える命令でしたが、v2 では present が単純転送になったため、
+> `vscalemode()` の指定は present 経路では作用しません。命令自体は後方互換のため
+> 残置されていますが、新規コードでは `gmode_interp()` の利用を推奨します。
 
 ## 4. 座標変換モデル
 
@@ -134,8 +149,10 @@ ly = (py - offsetY) / s
 | `width` / `height` の意味 | 物理クライアント px | 論理 px |
 | `client_w` / `client_h` | （無視されることが多い） | 物理クライアント px の初期サイズ |
 | `ginfo_mx` / `ginfo_my` | 物理クライアント px | 論理 px |
-| `picload` / `bmpsave` / `celload` | 物理 px | **論理 px**（バッファ自体が論理座標空間） |
+| `picload` / `bmpsave` / `celload` | 物理 px | **論理 px**（ユーザ IF は論理 px 座標／内部の `m_pTargetBitmap` は物理 px で保持し、転送時に DPI スケーリングが自動適用される）[^impl-physical] |
 | 余白 | なし | レターボックス / ピラーボックス（クリア色は黒） |
+
+[^impl-physical]: 内部実装は SPRINT-007 で「オフスクリーン物理 px / 描画時点で論理→物理スケール変換」に改修されました。利用者から見える IF（座標単位）は **論理 px のまま** ですが、`pget` / `bmpsave` 等の細部挙動には注意点があります。詳細は [SPRINT-007 移行ガイド](MigrationGuide-SPRINT007.md) を参照してください。
 
 `picload` 等のラスタ画像入出力は仮想画面 ON 時も **論理 px** で扱われます。
 バッファ自体が論理座標空間であるため、HSP 既存仕様（バッファ座標基準）と整合します。
@@ -153,10 +170,14 @@ ly = (py - offsetY) / s
 
 ## 7. ラスタ画像のスコープ外事項
 
-仮想画面で拡縮されるのは **ベクトル描画コマンドの結果（オフスクリーンビットマップ）**
-であり、`picload` / `celload` で読み込んだ素材自体は元解像度のまま扱われます。
-論理 1920×1080 で設計したラスタ素材を 4K で表示すると `vscalemode` の補間
-で拡大されるため、ピクセルアート以外では `vscale_linear` 以上の品質モードを推奨します。
+仮想画面で扱われるオフスクリーンビットマップは **物理サイズ** で保持されるため、
+`boxf` / `line` / `circle` / `mes` 等のベクトル描画コマンドは最終物理解像度で直接
+ラスタライズされます（HiDPI 環境でもサブピクセル AA が効きます）。
+
+一方、`picload` / `celload` で読み込んだ **ラスタ素材自体** は元解像度のまま扱われます。
+論理 1920×1080 で設計したラスタ素材を 4K で表示する場合、`gmode_interp()` で指定した
+補間モード（既定 LINEAR）で拡大されるため、ピクセルアート以外では LINEAR 以上の品質
+モードを推奨します。
 
 高 DPI でもクリアに見せたいラスタ素材は、利用者側で高解像度版を用意してください。
 
@@ -167,7 +188,9 @@ ly = (py - offsetY) / s
 | `screen({.virtual_resolution = true})` | OOP 版で仮想画面を有効化 |
 | `bgscr({.virtual_resolution = true})` | 枠なしウィンドウで仮想画面を有効化 |
 | `screen_mode_virtual` (=128) | HSP 互換 `mode` ビットフラグ |
-| `vscalemode(int mode)` | 拡縮補間モード切替 |
+| `gmode_interp(int mode)` | ラスタ画像転送の補間モード切替（0=NEAREST / 1=LINEAR / 2=ANISOTROPIC、既定 LINEAR）。引数省略時は LINEAR にリセット |
+| `gline_width(float w)` | 線描画の幅指定（論理 px / 既定 1.0、`w <= 0` は 1.0 にクランプ） |
+| `vscalemode(int mode)` | （v2 で機能縮退）API 後方互換のため残置。新規コードでは `gmode_interp()` を推奨 |
 | `anchor_pos` / `anchor_box` / `AnchorRect` | 解像度独立のレイアウト記述（[AnchorLayout](/HSPPP_Lib/AnchorLayout)） |
 
 ---
@@ -177,3 +200,4 @@ ly = (py - offsetY) / s
 - [HiDPI 対応](/HSPPP_Lib/HiDPI)
 - [アンカーレイアウト API](/HSPPP_Lib/AnchorLayout)
 - [画面制御 API](/HSPPP_Lib/api/screen)
+- [SPRINT-007 移行ガイド](MigrationGuide-SPRINT007.md)

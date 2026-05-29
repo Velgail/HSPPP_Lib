@@ -161,8 +161,10 @@
     <ClCompile Include="module\hsppp_state_vars.ixx" />
     <ClCompile Include="module\hsppp_savedata.ixx" />
     <ClCompile Include="module\hsppp_version.ixx" />
+    <ClCompile Include="module\hsppp_testing.ixx" />
     <ClCompile Include="src\boot\WinMain.cpp" />
     <ClCompile Include="src\core\hsppp.cpp" />
+    <ClCompile Include="src\core\hsppp_testing.cpp" />
     <ClCompile Include="src\core\ImageLoader.cpp" />
     <ClCompile Include="src\core\Media.cpp" />
     <ClCompile Include="src\core\MediaManager.cpp" />

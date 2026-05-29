@@ -72,6 +72,12 @@
     <ClCompile Include="module\hsppp_version.ixx">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="module\hsppp_testing.ixx">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\hsppp_testing.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
     <ClCompile Include="src\core\Media.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>

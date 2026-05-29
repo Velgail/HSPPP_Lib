@@ -371,6 +371,42 @@ namespace hsppp {
     }
 
     // ============================================================
+    // gline_width - 線描画の太さを設定（新規 / PM Q-4 命令名確定）
+    // 単位: 論理 px（仮想画面 ON / DPI 拡大時は SetTransform(Scale(s)) により物理 px へ伝搬）
+    // w <= 0 は 1.0f にクランプ（HSP3 互換 / 異常系防御）
+    // 対象: line / circle (輪郭) / pset
+    // ============================================================
+    void gline_width(OptDouble w, const std::source_location& location) {
+        safe_call(location, [&] {
+            auto currentSurface = getCurrentSurface();
+            if (!currentSurface) return;
+
+            double width = w.value_or(1.0);
+            currentSurface->setLineWidth(static_cast<float>(width));
+        });
+    }
+
+    // ============================================================
+    // gmode_interp - ラスタ転送系の補間モードを設定（新規 / design §6.8）
+    // 対象: picload / celput / gcopy / gzoom (mode 引数未指定時)
+    // mode: 0=nearest / 1=linear (デフォルト互換) / 2=anisotropic
+    // ============================================================
+    void gmode_interp(OptInt mode, const std::source_location& location) {
+        safe_call(location, [&] {
+            int m = mode.value_or(1);  // デフォルトは LINEAR（現状互換）
+            if (m < 0 || m > 2) {
+                throw HspError(ERR_OUT_OF_RANGE,
+                    "gmode_interp のモードは 0(nearest)/1(linear)/2(aniso) の範囲で指定してください",
+                    location);
+            }
+            auto currentSurface = getCurrentSurface();
+            if (currentSurface) {
+                currentSurface->setGmodeInterp(m);
+            }
+        });
+    }
+
+    // ============================================================
     // pget - 1ドットの色を取得（HSP互換）
     // ============================================================
     void pget(OptInt x, OptInt y, const std::source_location& location) {

@@ -386,10 +386,11 @@ bool HspSurface::picload(std::string_view filename, int mode) {
 
     m_pDeviceContext->DrawBitmap(
         bitmap.Get(),
-        destRect,
+        &destRect,
         1.0f,  // opacity
-        D2D1_BITMAP_INTERPOLATION_MODE_LINEAR,
-        nullptr  // sourceRect (全体)
+        m_gmodeInterp,
+        nullptr,  // sourceRect (全体)
+        nullptr   // perspectiveTransform
     );
 
     // モード1の場合、自動的にendDraw + present
@@ -432,10 +433,11 @@ void HspSurface::celput(ID2D1Bitmap1* pBitmap, const D2D1_RECT_F& srcRect, const
 
     m_pDeviceContext->DrawBitmap(
         pBitmap,
-        destRect,
+        &destRect,
         1.0f,  // opacity
-        D2D1_BITMAP_INTERPOLATION_MODE_LINEAR,
-        srcRect
+        m_gmodeInterp,
+        &srcRect,
+        nullptr   // perspectiveTransform
     );
 
     // モード1の場合、自動的にendDraw + present
@@ -680,12 +682,12 @@ void HspSurface::line(int x2, int y2, int x1, int y1, bool useStartPos) {
     float endX = static_cast<float>(x2);
     float endY = static_cast<float>(y2);
 
-    // 直線を描画（太さ1.0f）
+    // 直線を描画（太さは m_lineWidth / gline_width 命令で制御 / 論理 px）
     m_pDeviceContext->DrawLine(
         D2D1::Point2F(startX, startY),
         D2D1::Point2F(endX, endY),
         m_pBrush.Get(),
-        1.0f
+        m_lineWidth
     );
 
     // カレントポジションを終点に更新
@@ -728,8 +730,8 @@ void HspSurface::circle(int x1, int y1, int x2, int y2, int fillMode) {
         // 塗りつぶし
         m_pDeviceContext->FillEllipse(ellipse, m_pBrush.Get());
     } else {
-        // 輪郭のみ
-        m_pDeviceContext->DrawEllipse(ellipse, m_pBrush.Get(), 1.0f);
+        // 輪郭のみ（太さは m_lineWidth / gline_width 命令で制御 / 論理 px）
+        m_pDeviceContext->DrawEllipse(ellipse, m_pBrush.Get(), m_lineWidth);
     }
 
     // モード1の場合、自動的にendDraw + present
@@ -748,12 +750,13 @@ void HspSurface::pset(int x, int y) {
     }
     if (!m_isDrawing) return;
 
-    // 1ドットの点を描画（1x1の矩形）
+    // m_lineWidth サイズの点を描画（m_lineWidth × m_lineWidth の矩形 / 左上 (x,y) アンカー）
+    // デフォルト m_lineWidth = 1.0f のときは従来挙動 (1x1 矩形) と一致する。
     D2D1_RECT_F rect = D2D1::RectF(
         static_cast<FLOAT>(x),
         static_cast<FLOAT>(y),
-        static_cast<FLOAT>(x + 1),
-        static_cast<FLOAT>(y + 1)
+        static_cast<FLOAT>(x) + m_lineWidth,
+        static_cast<FLOAT>(y) + m_lineWidth
     );
 
     m_pDeviceContext->FillRectangle(rect, m_pBrush.Get());

@@ -82,13 +82,17 @@ namespace hsppp {
 
             destContext->SetPrimitiveBlend(primitiveBlend);
 
+            // 補間モードはコピー先サーフェスの gmode_interp 設定を使用
+            D2D1_INTERPOLATION_MODE interpMode = destSurface->getGmodeInterp();
+
             // Direct2D 1.1では同じDeviceから作成されたビットマップを直接描画可能
             destContext->DrawBitmap(
                 srcBitmap,
-                destRect,
+                &destRect,
                 opacity,
-                D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR,
-                srcRect
+                interpMode,
+                &srcRect,
+                nullptr
             );
 
             // ブレンドモードをリセット
@@ -172,19 +176,28 @@ namespace hsppp {
             }
 
             // 補間モード
-            D2D1_BITMAP_INTERPOLATION_MODE interpMode =
-                (mode == 1) ? D2D1_BITMAP_INTERPOLATION_MODE_LINEAR
-                            : D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR;
+            // mode < 0  : サーフェスの gmode_interp 設定を使用（gmode_interp 命令と整合）
+            // mode == 0 : NEAREST_NEIGHBOR（gzoom 引数による per-call 明示指定 / HSP3 互換）
+            // mode == 1 : LINEAR （gzoom 引数による per-call 明示指定 / HSP3 互換）
+            // mode == 2 : ANISOTROPIC （gzoom 引数による per-call 明示指定）
+            D2D1_INTERPOLATION_MODE interpMode;
+            switch (mode) {
+            case 0:  interpMode = D2D1_INTERPOLATION_MODE_NEAREST_NEIGHBOR; break;
+            case 1:  interpMode = D2D1_INTERPOLATION_MODE_LINEAR;            break;
+            case 2:  interpMode = D2D1_INTERPOLATION_MODE_ANISOTROPIC;       break;
+            default: interpMode = destSurface->getGmodeInterp();             break;
+            }
 
             destContext->SetPrimitiveBlend(primitiveBlend);
 
             // Direct2D 1.1では同じDeviceから作成されたビットマップを直接描画可能
             destContext->DrawBitmap(
                 srcBitmap,
-                destRectArea,
+                &destRectArea,
                 opacity,
                 interpMode,
-                srcRect
+                &srcRect,
+                nullptr
             );
 
             // ブレンドモードをリセット
@@ -342,7 +355,7 @@ namespace hsppp {
             int p5 = src_y.value_or(0);
             int p6 = src_w.value_or(gmodeSizeX);
             int p7 = src_h.value_or(gmodeSizeY);
-            int p8 = mode.value_or(0);
+            int p8 = mode.value_or(-1);  // -1 = カレントサーフェスの gmode_interp 設定を使用
 
             // コピー元サーフェスを取得
             auto srcIt = g_surfaces.find(p3);

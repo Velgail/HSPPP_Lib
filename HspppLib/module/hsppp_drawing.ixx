@@ -79,6 +79,19 @@ export namespace hsppp {
     /// @brief 1ドットの点を描画
     void pset(OptInt x = {}, OptInt y = {}, const std::source_location& location = std::source_location::current());
 
+    /// @brief 線描画の太さを設定（論理 px / デフォルト 1.0 / HSP3 互換）
+    /// @param w 線幅（論理 px）。w <= 0 は 1.0 にクランプ。
+    /// @details 対象命令: line / circle (輪郭) / pset。
+    ///          仮想画面 ON または DPI ≠ 96 環境では SetTransform(Scale(s)) により
+    ///          物理 px へ伝搬される（論理 px 指定）。
+    void gline_width(OptDouble w = {}, const std::source_location& location = std::source_location::current());
+
+    /// @brief ラスタ転送系の補間モードを設定
+    /// @param mode 0=nearest / 1=linear (既定) / 2=anisotropic
+    /// @details 対象命令: picload / celput / gcopy / gzoom (gzoom は引数未指定時のみ)。
+    ///          既定 1=linear は従来挙動と互換。
+    void gmode_interp(OptInt mode = {}, const std::source_location& location = std::source_location::current());
+
     /// @brief 1ドットの色を取得し、選択色として設定
     void pget(OptInt x = {}, OptInt y = {}, const std::source_location& location = std::source_location::current());
 

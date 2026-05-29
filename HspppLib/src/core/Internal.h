@@ -446,6 +446,13 @@ protected:
     int m_lastMesSizeX;     // 最後のmes出力のXサイズ
     int m_lastMesSizeY;     // 最後のmes出力のYサイズ
 
+    // 線描画 strokeWidth（論理 px / gline_width 命令で設定 / デフォルト 1.0f / HSP3 互換）
+    float m_lineWidth = 1.0f;
+
+    // ラスタ転送系（picload / celput / gcopy / gzoom）の補間モード
+    // デフォルトは LINEAR（従来挙動と互換）
+    D2D1_INTERPOLATION_MODE m_gmodeInterp = D2D1_INTERPOLATION_MODE_LINEAR;
+
 public:
     HspSurface(int width, int height);
     virtual ~HspSurface() = default;
@@ -532,6 +539,26 @@ public:
     // 最後のmes出力サイズ（ginfo 14/15 用）
     int getLastMesSizeX() const { return m_lastMesSizeX; }
     int getLastMesSizeY() const { return m_lastMesSizeY; }
+
+    // 線描画 strokeWidth 制御（gline_width 命令で設定）
+    // w <= 0 は 1.0f にクランプ（HSP3 互換 / 異常系防御）
+    void setLineWidth(float w) {
+        m_lineWidth = (w <= 0.0f) ? 1.0f : w;
+    }
+    float getLineWidth() const { return m_lineWidth; }
+
+    // ラスタ転送補間モード制御（gmode_interp 命令で設定）
+    // mode: 0=NEAREST_NEIGHBOR / 1=LINEAR / 2=ANISOTROPIC
+    // 範囲外は LINEAR にフォールバック（呼出側で範囲チェック推奨）
+    void setGmodeInterp(int mode) {
+        switch (mode) {
+        case 0: m_gmodeInterp = D2D1_INTERPOLATION_MODE_NEAREST_NEIGHBOR; break;
+        case 1: m_gmodeInterp = D2D1_INTERPOLATION_MODE_LINEAR;            break;
+        case 2: m_gmodeInterp = D2D1_INTERPOLATION_MODE_ANISOTROPIC;       break;
+        default: m_gmodeInterp = D2D1_INTERPOLATION_MODE_LINEAR;           break;
+        }
+    }
+    D2D1_INTERPOLATION_MODE getGmodeInterp() const { return m_gmodeInterp; }
 
     // テキストサイズ計算（messize関数用）描画せずにテキストの全体サイズを取得
     bool measureText(std::string_view text, int& width, int& height) const;

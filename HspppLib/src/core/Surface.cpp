@@ -1314,31 +1314,30 @@ void LogicalRenderContext::update(int logW, int logH,
 }
 
 LogicalRenderContext::PresentMapping LogicalRenderContext::computePresentMapping() const {
+    // v2: 仮想 ON / OFF を統一経路で算出する（旧二分岐を削除）。
+    //   - scale は uniform = min(physW/logW, physH/logH)。
+    //     * 仮想 OFF: 物理クライアントは「論理 × (DPI/96)」に追従するため sx == sy が原則成立。
+    //       微小ズレは小さい方を採用してオフスクリーンが物理クライアントをはみ出さないようにする。
+    //     * 仮想 ON : letterbox 中央寄せのための uniform スケール。
+    //   - destW/H は logW/H * scale。
+    //   - offsetX/Y のみが仮想 ON （中央寄せ）と仮想 OFF （原点寄せ）で異なる。
     PresentMapping m{};
-    float logW  = static_cast<float>((std::max)(1, m_logW));
-    float logH  = static_cast<float>((std::max)(1, m_logH));
-    float physW = static_cast<float>((std::max)(1, m_physW));
-    float physH = static_cast<float>((std::max)(1, m_physH));
+    const float logW  = static_cast<float>((std::max)(1, m_logW));
+    const float logH  = static_cast<float>((std::max)(1, m_logH));
+    const float physW = static_cast<float>((std::max)(1, m_physW));
+    const float physH = static_cast<float>((std::max)(1, m_physH));
 
-    float sx = physW / logW;
-    float sy = physH / logH;
+    const float sx = physW / logW;
+    const float sy = physH / logH;
+    m.scale = (sx < sy) ? sx : sy;
+    if (m.scale <= 0.0f) m.scale = 1.0f;
+    m.destW = logW * m.scale;
+    m.destH = logH * m.scale;
 
     if (m_virtual) {
-        // 仮想 ON: uniform スケール + letterbox 中央寄せ
-        m.scale   = (sx < sy) ? sx : sy;
-        if (m.scale <= 0.0f) m.scale = 1.0f;
-        m.destW   = logW * m.scale;
-        m.destH   = logH * m.scale;
         m.offsetX = (physW - m.destW) * 0.5f;
         m.offsetY = (physH - m.destH) * 0.5f;
     } else {
-        // 仮想 OFF: DPI 倍率の uniform スケール（letterbox なし）
-        // 物理クライアントは「論理 × (DPI/96)」に追従するため sx == sy が原則成立。
-        // 微小ズレは小さい方を採用しオフスクリーンが物理クライアントをはみ出さないようにする。
-        m.scale   = (sx < sy) ? sx : sy;
-        if (m.scale <= 0.0f) m.scale = 1.0f;
-        m.destW   = logW * m.scale;
-        m.destH   = logH * m.scale;
         m.offsetX = 0.0f;
         m.offsetY = 0.0f;
     }
@@ -2020,20 +2019,6 @@ void HspWindow::getCurrentClientSize(int& outWidth, int& outHeight) const {
 
 // ========== 仮想画面 (Virtual Screen) 関連実装 ==========
 
-HspWindow::VirtualMapping HspWindow::computeVirtualMapping() const {
-    // v2: LogicalRenderContext::computePresentMapping() に委譲する薄ラッパ。
-    // 旧呼出側（仮想 ON のレイアウト計算）との互換のために残置。
-    // 仮想 OFF 時も letterbox なし（offset=0）の uniform スケールを返す。
-    auto mp = m_logicalCtx.computePresentMapping();
-    VirtualMapping vm{};
-    vm.scale   = mp.scale;
-    vm.destW   = mp.destW;
-    vm.destH   = mp.destH;
-    vm.offsetX = mp.offsetX;
-    vm.offsetY = mp.offsetY;
-    return vm;
-}
-
 void HspWindow::updateLogicalCtx() {
     m_logicalCtx.update(
         m_width, m_height,
@@ -2041,10 +2026,6 @@ void HspWindow::updateLogicalCtx() {
         m_currentDpi,
         m_virtualEnabled
     );
-}
-
-float HspWindow::getLogicalScale() const {
-    return m_logicalCtx.computePresentMapping().scale;
 }
 
 void HspWindow::setVirtualScreenEnabled(bool enabled) {
@@ -2293,6 +2274,14 @@ bool HspBuffer::initialize() {
     if (FAILED(hr)) return false;
 
     m_pDeviceContext->SetTarget(m_pTargetBitmap.Get());
+
+    // v2 統一テキスト経路（review-TICKET-019 N2 対応 / TICKET-023 §PM 申し送り判定）:
+    //   HspBuffer は m_pTargetBitmap が論理=物理 px / Identity Transform で動作する。
+    //   D2D Factory の既定 DPI は 96 のため CreateDeviceContext 直後の値も実質 96 だが、
+    //   将来の Factory 構成変更や DeviceContext 再利用に対する防御として明示的に 96 を設定する。
+    //   これにより mes() 冒頭コメント「HspBuffer 経路は SetDpi=96 / Identity Transform」が
+    //   実装裏付けを持つ。挙動上は no-op（既存挙動と同等）。
+    m_pDeviceContext->SetDpi(96.0f, 96.0f);
 
     // ブラシの作成
     hr = m_pDeviceContext->CreateSolidColorBrush(

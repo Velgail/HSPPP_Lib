@@ -623,16 +623,6 @@ private:
     // setClientSize / onSize / onDpiChanged / resizeSwapChain / initialize の各更新後に必ず呼ぶ
     void updateLogicalCtx();
 
-    // 仮想画面有効時の論理→物理 変換パラメータ（v2: LogicalRenderContext::PresentMapping の旧型alias）
-    struct VirtualMapping {
-        float scale;
-        float offsetX;
-        float offsetY;
-        float destW;
-        float destH;
-    };
-    VirtualMapping computeVirtualMapping() const;
-
 public:
     HspWindow(int width, int height, std::string_view title, int windowId = 0);
     virtual ~HspWindow();
@@ -717,9 +707,6 @@ public:
     // 現在の物理クライアントサイズ
     int getPhysClientWidth() const { return m_physClientW; }
     int getPhysClientHeight() const { return m_physClientH; }
-
-    // 論理 → 物理 スケール（=DPI/96 仮想 OFF 時 / =min(physW/logW, physH/logH) 仮想 ON 時）
-    float getLogicalScale() const;
 
     // pget / bmpsave は HspWindow では「論理 IF + 物理 px ターゲット」変換を要するため
     // 専用オーバーライドを行う（§6.10 互換戦略）

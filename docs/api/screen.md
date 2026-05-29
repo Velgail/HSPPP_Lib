@@ -226,26 +226,33 @@ void groll(int scrollX, int scrollY);
 
 ### vscalemode
 
-仮想画面有効時の論理→物理 拡縮で使用される補間モードを設定します。
+> ⚠️ **機能縮退（SPRINT-007 / v2）:** 本命令は **API 互換のために残置されているのみ** で、
+> v2 では描画パイプラインに **作用しません**。
+>
+> v1 では `present()` の論理→物理 拡縮で使用される補間モードを設定する命令でしたが、
+> v2 では描画コマンド発行時点で論理→物理変換が完了し、`present()` は SwapChain への
+> **単純転送のみ**を行うため、`vscalemode()` の指定は present 経路に影響しません
+> （`design-TICKET-017.md` v2 §6.8 / 移行ガイド §4.2 参照）。
 
 ```cpp
-void vscalemode(int mode);
+void vscalemode(int mode);   // 互換のため受理。状態を保持するのみ。
 ```
 
-| 定数 | 値 | 用途 |
+| 定数 | 値 | （旧）用途 |
 |------|----|------|
 | `vscale_nearest` | 0 | ニアレストネイバー（ピクセルアート向け） |
-| `vscale_linear`  | 1 | バイリニア（既定 / 写真・図形・テキスト） |
-| `vscale_aniso`   | 2 | 異方性（高品質・高負荷） |
+| `vscale_linear`  | 1 | バイリニア |
+| `vscale_aniso`   | 2 | 異方性 |
 
-**使用例:**
+**推奨対応:**
 
-```cpp
-vscalemode(vscale_nearest);  // ドット絵向けにシャープ拡大
-```
+| 状況 | 推奨対応 |
+|------|---------|
+| API 互換のため命令呼び出しを残したい | そのままで良い（命令自体は残置） |
+| ラスタ画像転送の補間モードを変えたい | `gmode_interp()` に置き換える |
+| 新規コード | 最初から `gmode_interp()` を使用する |
 
-> 仮想画面 OFF 時に呼び出しても状態を保持するのみで、描画には影響しません。
-> 仮想画面の有効化方法は [仮想画面ガイド](/HSPPP_Lib/VirtualScreen) を参照してください。
+詳細は [移行ガイド §4.2](/HSPPP_Lib/MigrationGuide-SPRINT007) を参照してください。
 
 ---
 
@@ -273,6 +280,43 @@ void gmode(
 | 4 | `gmode_alpha` | 半透明合成 |
 | 5 | `gmode_add` | 加算合成 |
 | 6 | `gmode_sub` | 減算合成 |
+
+---
+
+### gmode_interp
+
+ラスタ画像転送（`picload` / `celput` / `gcopy` / `gzoom`）の補間モードを切り替えます。
+
+```cpp
+void gmode_interp(OptInt mode = {});
+```
+
+| 値 | 定数 | 用途 |
+|----|------|------|
+| 0 | `vscale_nearest` | NEAREST（ピクセルアート向け） |
+| 1 | `vscale_linear`  | LINEAR（**既定** / 写真・図形・テキスト） |
+| 2 | `vscale_aniso`   | ANISOTROPIC（拡大率が大きいとき高品質を最優先） |
+
+**引数省略時の挙動:** `gmode_interp()` のように引数を省略した呼び出しは、補間モードを **LINEAR（既定）に強制リセット** します。
+「現状維持」を期待する場合は、引数を明示してください（例: `gmode_interp(0)`）。
+
+**使用例:**
+
+```cpp
+gmode_interp(0);            // NEAREST に変更
+gcopy(1, 0, 0, 64, 64);     // NEAREST で転送
+
+gmode_interp();             // 引数省略 → LINEAR に強制リセット
+gcopy(2, 0, 0, 64, 64);     // LINEAR で転送
+```
+
+> **HSP3 後方互換性に関する注意:** v2 では `m_gmodeInterp` 既定が LINEAR に統一されたため、
+> `gcopy` / `gzoom` を `mode` 省略で呼び出した場合の既定が **旧 NEAREST → 新 LINEAR** に変化しています。
+> ピクセルアート用途で `mode` 省略を使っていたスクリプトは、スクリプト冒頭で `gmode_interp(0)` を一度呼んで
+> NEAREST 既定に戻してください。詳細は
+> [移行ガイド §2.1 / §2.2](/HSPPP_Lib/MigrationGuide-SPRINT007) を参照してください。
+>
+> `gzoom` の `mode` 引数を **明示指定** した場合は、明示値が `m_gmodeInterp` より優先されます（per-call 指定）。
 
 ---
 

@@ -150,6 +150,35 @@ anchor_box(ah_right, av_top, -10, 10, 64, 64);
 
 ## 図形描画
 
+### gline_width
+
+線描画（`line` / `circle` / `pset`）の strokeWidth を **論理 px** 単位で設定します。
+
+```cpp
+void gline_width(float w);
+```
+
+| パラメータ | 範囲 | 説明 |
+|-----------|------|------|
+| `w` | float（論理 px / 既定 `1.0f`） | strokeWidth。`w <= 0` は内部で `1.0f` にクランプされます。|
+
+**反映先:** `line` / `circle`（`DrawEllipse`）/ `pset` の strokeWidth。
+
+**使用例:**
+
+```cpp
+gline_width(2.5f);          // 以降の線幅を 2.5 論理 px に
+line(0, 0, 100, 100);
+
+gline_width(0);             // w <= 0 は 1.0f にクランプ
+```
+
+> 仮想画面 ON / HiDPI 環境では、論理 px 指定の strokeWidth は D2D の `SetTransform(Scale(s))` により
+> 物理 `w × s` px の太さで描画されます。例えば `gline_width(1)` は仮想 ON / DPI 200% 時に物理 `1 × s` px
+> となり、論理 px 幅が物理 px に正しく反映されます。
+
+---
+
 ### line
 
 直線を描画します。

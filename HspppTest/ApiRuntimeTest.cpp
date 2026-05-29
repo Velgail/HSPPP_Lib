@@ -10,6 +10,17 @@
 // APIがクラッシュせずに動作することを確認する
 // ═══════════════════════════════════════════════════════════════════
 
+// 仮想画面リサイズ回帰テスト (test_virtual_resize_no_max_track_clamp) で
+// 実 HWND の物理クライアントサイズを Win32 GetClientRect で直接観測する必要があるため、
+// Windows.h を取り込む。NOMINMAX / WIN32_LEAN_AND_MEAN で hsppp との衝突を回避。
+#ifndef NOMINMAX
+#  define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#  define WIN32_LEAN_AND_MEAN
+#endif
+#include <Windows.h>
+
 import hsppp;
 import <atomic>;
 import <chrono>;
@@ -897,8 +908,61 @@ namespace hsppp_test {
     }
 
     // ============================================================
-    // 公開テスト関数
+    // 仮想画面リサイズ回帰テスト
+    // ------------------------------------------------------------
+    // virtual_resolution=true なウィンドウに対し Screen::width(physW, physH)
+    // で論理バッファサイズを超える物理クライアントサイズを要求した際に、
+    // OS の WM_GETMINMAXINFO クランプによって SetWindowPos が論理サイズへ
+    // 切り詰められないことを保証する。Window.cpp の WM_GETMINMAXINFO ハンドラ
+    // が m_virtualEnabled を考慮するよう修正したことの回帰検証。
+    //
+    // 実装メモ:
+    //   - screen_hide で生成した不可視ウィンドウでも CreateWindowExW 後に
+    //     SetWindowPos は WM_GETMINMAXINFO を発火するため、本バグは
+    //     hidden mode でも決定的に再現／検証可能（test artifact / 作業ログ参照）。
+    //   - Screen は HWND を直接公開しないため、scr.select() で current 化し
+    //     hsppp::hwnd() 経由で取得した HWND に GetClientRect を直接適用する。
     // ============================================================
+    bool test_virtual_resize_no_max_track_clamp() {
+        bool allPassed = true;
+
+        constexpr int kBufW    = 640;
+        constexpr int kBufH    = 480;
+        constexpr int kPhysW   = 1088;   // バッファ 640 を超える物理サイズ
+        constexpr int kPhysH   = 816;
+
+        auto scrOn = screen({
+            .width = kBufW, .height = kBufH,
+            .mode = screen_hide,
+            .title = "HSPPP T16 Regression (virtual)",
+            .virtual_resolution = true,
+        });
+        check(scrOn.valid(), "T16: virtual=ON hidden screen created");
+
+        // 旧実装では SetWindowPos が ptMaxTrackSize により 640x480 相当へ
+        // 切り詰められ、GetClientRect も論理バッファサイズに留まっていた。
+        scrOn.width(kPhysW, kPhysH);
+        scrOn.select();
+
+        HWND hOn = reinterpret_cast<HWND>(static_cast<intptr_t>(hwnd()));
+        check(hOn != nullptr, "T16: hwnd() returns non-null for virtual=ON screen");
+
+        RECT rcOn{};
+        BOOL okOn = ::GetClientRect(hOn, &rcOn);
+        check(okOn != 0, "T16: GetClientRect succeeds on virtual=ON HWND");
+
+        const int physWOn = rcOn.right - rcOn.left;
+        const int physHOn = rcOn.bottom - rcOn.top;
+        check(physWOn == kPhysW,
+              "T16 regression: virtual=ON physical client width follows requested size beyond buffer");
+        check(physHOn == kPhysH,
+              "T16 regression: virtual=ON physical client height follows requested size beyond buffer");
+        if (!(physWOn == kPhysW && physHOn == kPhysH)) {
+            allPassed = false;
+        }
+
+        return allPassed;
+    }
 
     /// @brief すべてのランタイムテストを実行
     /// @return 成功したテスト数
@@ -925,6 +989,7 @@ namespace hsppp_test {
         test_dpi_changed_target_bitmap_rebind();
         test_anchor_layout();
         test_virtual_screen_public_api();
+        test_virtual_resize_no_max_track_clamp();
 
         return s_testsPassed;
     }

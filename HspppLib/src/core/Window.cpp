@@ -204,34 +204,50 @@ LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
         if (pWindow != nullptr) {
             auto pMinMax = reinterpret_cast<MINMAXINFO*>(lParam);
 
-            // バッファサイズ（m_width, m_height）を最大クライアントサイズとする
-            // HiDPI 対応: バッファサイズは論理 px なので、現在の DPI に合わせて
-            // 物理 px に換算した値を最大値とする（PerMonitorV2 の作法）
-            int maxClientW = pWindow->getWidth();
-            int maxClientH = pWindow->getHeight();
-            UINT dpi = pWindow->getCurrentDpi();
-            if (dpi != 96 && dpi != 0) {
-                maxClientW = MulDiv(maxClientW, dpi, 96);
-                maxClientH = MulDiv(maxClientH, dpi, 96);
-            }
-
-            // クライアントサイズからウィンドウサイズを計算（DPI 対応版を優先）
-            DWORD style = static_cast<DWORD>(GetWindowLongPtr(hwnd, GWL_STYLE));
-            DWORD exStyle = static_cast<DWORD>(GetWindowLongPtr(hwnd, GWL_EXSTYLE));
-            RECT rect = { 0, 0, maxClientW, maxClientH };
-            using FnAdjForDpi = BOOL(WINAPI*)(LPRECT, DWORD, BOOL, DWORD, UINT);
-            HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
-            auto pAdjForDpi = hUser32
-                ? reinterpret_cast<FnAdjForDpi>(GetProcAddress(hUser32, "AdjustWindowRectExForDpi"))
-                : nullptr;
-            if (pAdjForDpi && dpi != 0) {
-                pAdjForDpi(&rect, style, FALSE, exStyle, dpi);
+            if (pWindow->isVirtualEnabled()) {
+                // 仮想画面有効時は「論理バッファ＝固定サイズ／物理クライアントは任意」
+                // を仕様の前提とするため、論理バッファ由来の上限を撤廃する。
+                // OS が提供する仮想スクリーン（全モニタ統合）サイズを ptMaxTrackSize に
+                // 与えることで、ユーザーリサイズ・programmatic SetWindowPos の双方で
+                // バッファサイズを超える物理拡縮（仮想画面のレターボックス含む）を許容する。
+                // GetSystemMetrics が失敗した場合はデフォルト挙動（OS 既定）に委ねる。
+                int vsW = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+                int vsH = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+                if (vsW > 0 && vsH > 0) {
+                    pMinMax->ptMaxTrackSize.x = vsW;
+                    pMinMax->ptMaxTrackSize.y = vsH;
+                }
             } else {
-                AdjustWindowRectEx(&rect, style, FALSE, exStyle);
-            }
+                // 仮想画面 OFF: 従来挙動（HSP 仕様）を維持する。
+                // バッファサイズ（m_width, m_height）を最大クライアントサイズとする。
+                // HiDPI 対応: バッファサイズは論理 px なので、現在の DPI に合わせて
+                // 物理 px に換算した値を最大値とする（PerMonitorV2 の作法）
+                int maxClientW = pWindow->getWidth();
+                int maxClientH = pWindow->getHeight();
+                UINT dpi = pWindow->getCurrentDpi();
+                if (dpi != 96 && dpi != 0) {
+                    maxClientW = MulDiv(maxClientW, dpi, 96);
+                    maxClientH = MulDiv(maxClientH, dpi, 96);
+                }
 
-            pMinMax->ptMaxTrackSize.x = rect.right - rect.left;
-            pMinMax->ptMaxTrackSize.y = rect.bottom - rect.top;
+                // クライアントサイズからウィンドウサイズを計算（DPI 対応版を優先）
+                DWORD style = static_cast<DWORD>(GetWindowLongPtr(hwnd, GWL_STYLE));
+                DWORD exStyle = static_cast<DWORD>(GetWindowLongPtr(hwnd, GWL_EXSTYLE));
+                RECT rect = { 0, 0, maxClientW, maxClientH };
+                using FnAdjForDpi = BOOL(WINAPI*)(LPRECT, DWORD, BOOL, DWORD, UINT);
+                HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
+                auto pAdjForDpi = hUser32
+                    ? reinterpret_cast<FnAdjForDpi>(GetProcAddress(hUser32, "AdjustWindowRectExForDpi"))
+                    : nullptr;
+                if (pAdjForDpi && dpi != 0) {
+                    pAdjForDpi(&rect, style, FALSE, exStyle, dpi);
+                } else {
+                    AdjustWindowRectEx(&rect, style, FALSE, exStyle);
+                }
+
+                pMinMax->ptMaxTrackSize.x = rect.right - rect.left;
+                pMinMax->ptMaxTrackSize.y = rect.bottom - rect.top;
+            }
         }
         return 0;
     }

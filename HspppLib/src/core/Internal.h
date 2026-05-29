@@ -354,6 +354,54 @@ public:
     bool isInitialized() const { return m_initialized; }
 };
 
+// ============================================================
+// LogicalRenderContext (論理 px ↔ 物理 px 中間層 / 仮想画面とDPIを統一管理)
+// ============================================================
+// HspWindow が所有する値オブジェクト + 軽量サービス。
+// 描画コマンド発行時の SetTransform スケール、present 時の配置オフセット、
+// マウス/ginfo の物理→論理写像など、全て computePresentMapping() の
+// 単一ソースに集約する。仮想画面 ON/OFF と DPI≠96 の組合せを 1 経路で扱う。
+// HspBuffer は SwapChain なし・letterbox なしのため scale=1.0, dpi=96 固定で
+// 初期化された軽量値を用いる（実体所有は HspWindow のみ）。
+class LogicalRenderContext {
+public:
+    struct PresentMapping {
+        float scale;       // 論理 → 物理 の uniform scale
+        float offsetX;     // 物理 backbuffer 上での描画開始 X（letterbox 中央寄せ込み）
+        float offsetY;     //                                 Y
+        float destW;       // 物理上の描画幅  (= logW * scale)
+        float destH;       // 物理上の描画高  (= logH * scale)
+        // 仮想 OFF: offsetX/Y = 0, destW/H = physClient （= logW * (DPI/96)）
+        // 仮想 ON : uniform = min(physW/logW, physH/logH), 余白を中央寄せ
+    };
+
+    LogicalRenderContext() = default;
+
+    // HspWindow がメンバ更新 hook から呼ぶ更新 API
+    void update(int logW, int logH,
+                int physClientW, int physClientH,
+                UINT currentDpi,
+                bool virtualEnabled);
+
+    // 公開アクセサ
+    PresentMapping computePresentMapping() const;
+    float getDpiScale() const;                  // = currentDpi / 96.0f
+    bool  isVirtualEnabled() const { return m_virtual; }
+    UINT  getCurrentDpi() const { return m_dpi; }
+
+    // 座標写像（HspWindow::physToLogical/logicalToPhys がこれに委譲）
+    void physToLogical(int physX, int physY, int& outLogX, int& outLogY) const;
+    void logicalToPhys(int logX, int logY, int& outPhysX, int& outPhysY) const;
+
+private:
+    int   m_logW    = 1;
+    int   m_logH    = 1;
+    int   m_physW   = 1;
+    int   m_physH   = 1;
+    UINT  m_dpi     = 96;
+    bool  m_virtual = false;
+};
+
 // 基底クラス: HspSurface
 // 描画対象を抽象化する（Direct2D 1.1対応）
 class HspSurface {
@@ -414,7 +462,7 @@ public:
     void line(int x2, int y2, int x1, int y1, bool useStartPos);
     void circle(int x1, int y1, int x2, int y2, int fillMode);
     void pset(int x, int y);
-    bool pget(int x, int y, int& r, int& g, int& b);
+    virtual bool pget(int x, int y, int& r, int& g, int& b);
 
     // 拡張描画命令
     void gradf(int x, int y, int w, int h, int mode, int color1, int color2);
@@ -441,12 +489,12 @@ public:
 
     // 画像操作
     bool picload(std::string_view filename, int mode);
-    bool bmpsave(std::string_view filename);
+    virtual bool bmpsave(std::string_view filename);
     void celput(ID2D1Bitmap1* pBitmap, const D2D1_RECT_F& srcRect, const D2D1_RECT_F& destRect);
 
     // 描画制御
-    void beginDraw();
-    void endDraw();
+    virtual void beginDraw();
+    virtual void endDraw();
     virtual void endDrawAndPresent();  // 派生クラスでオーバーライド
     bool isDrawing() const { return m_isDrawing; }
 
@@ -527,6 +575,11 @@ private:
     D2D1_BITMAP_INTERPOLATION_MODE m_virtualScreenInterp;
     D2D1_COLOR_F m_letterboxColor;
 
+    // 論理 ↔ 物理 中間層（v2: 仮想 ON/OFF + DPI≠96 を統一管理）
+    // m_currentDpi / m_physClientW/H / m_width/m_height / m_virtualEnabled の
+    // いずれかが変動した場合は updateLogicalCtx() を呼んで同期させる。
+    LogicalRenderContext m_logicalCtx;
+
     UniqueHwnd m_hwnd;
     
     // スクロール位置（groll用）
@@ -539,7 +592,11 @@ private:
     // 共通Present実装
     void presentInternal(UINT syncInterval, UINT flags);
 
-    // 仮想画面有効時の論理→物理 変換パラメータ
+    // m_logicalCtx を現在のメンバ状態（m_width/H, m_physClientW/H, m_currentDpi, m_virtualEnabled）と同期
+    // setClientSize / onSize / onDpiChanged / resizeSwapChain / initialize の各更新後に必ず呼ぶ
+    void updateLogicalCtx();
+
+    // 仮想画面有効時の論理→物理 変換パラメータ（v2: LogicalRenderContext::PresentMapping の旧型alias）
     struct VirtualMapping {
         float scale;
         float offsetX;
@@ -555,6 +612,8 @@ public:
 
     // 初期化
     bool initialize() override;
+    void beginDraw() override;
+    void endDraw() override;
 
     // ウィンドウ作成
     bool createWindow(
@@ -623,13 +682,22 @@ public:
     D2D1_COLOR_F getLetterboxColor() const { return m_letterboxColor; }
 
     // 物理クライアント px → 論理 px 逆変換
-    // 仮想画面 OFF 時は単位変換（恒等）。マウス座標 ginfo_mx/my / mousex / mousey 等で使用。
+    // 仮想画面 OFF + DPI=96 でのみ恒等。仮想 OFF + DPI≠96 でも DPI 倍率を吸収する。
+    // マウス座標 ginfo_mx/my / mousex / mousey 等で使用。
     void physToLogical(int physX, int physY, int& outLogX, int& outLogY) const;
     // 論理 px → 物理クライアント px 正方向変換（mouse 命令の SetCursorPos 用）
     void logicalToPhys(int logX, int logY, int& outPhysX, int& outPhysY) const;
     // 現在の物理クライアントサイズ
     int getPhysClientWidth() const { return m_physClientW; }
     int getPhysClientHeight() const { return m_physClientH; }
+
+    // 論理 → 物理 スケール（=DPI/96 仮想 OFF 時 / =min(physW/logW, physH/logH) 仮想 ON 時）
+    float getLogicalScale() const;
+
+    // pget / bmpsave は HspWindow では「論理 IF + 物理 px ターゲット」変換を要するため
+    // 専用オーバーライドを行う（§6.10 互換戦略）
+    bool pget(int x, int y, int& r, int& g, int& b) override;
+    bool bmpsave(std::string_view filename) override;
     
 private:
     // スワップチェーンをリサイズ（内部用）

@@ -409,12 +409,23 @@ namespace hsppp {
 
             // サイズ変更（-1以外の値が指定された場合、またはoption=1の場合）
             if (clientW >= 0 || clientH >= 0) {
-                // 現在のサイズを取得
+                // v2: ユーザー指定の clientW/H は「論理 px」(仮想 OFF 時 / HSP3 公式準拠)。
+                // 仮想 ON 時はサンプル既存挙動互換で物理 px として扱う (design §6.5)。
+                // 省略時 (< 0) のフォールバックは現在のクライアントサイズを論理 px 単位で返す。
                 HWND hwnd = pWindow->getHwnd();
                 RECT clientRect;
                 GetClientRect(hwnd, &clientRect);
-                int newW = (clientW >= 0) ? clientW : (clientRect.right - clientRect.left);
-                int newH = (clientH >= 0) ? clientH : (clientRect.bottom - clientRect.top);
+                int physFallW = clientRect.right - clientRect.left;
+                int physFallH = clientRect.bottom - clientRect.top;
+                UINT dpi = pWindow->getCurrentDpi();
+                int logFallW = physFallW;
+                int logFallH = physFallH;
+                if (!pWindow->isVirtualEnabled() && dpi != 0 && dpi != 96) {
+                    logFallW = MulDiv(physFallW, 96, static_cast<int>(dpi));
+                    logFallH = MulDiv(physFallH, 96, static_cast<int>(dpi));
+                }
+                int newW = (clientW >= 0) ? clientW : logFallW;
+                int newH = (clientH >= 0) ? clientH : logFallH;
                 pWindow->setClientSize(newW, newH);
             }
 

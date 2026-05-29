@@ -445,6 +445,15 @@ void HspSurface::celput(ID2D1Bitmap1* pBitmap, const D2D1_RECT_F& srcRect, const
 }
 
 void HspSurface::mes(std::string_view text, int options) {
+    // v2 統一テキスト経路（design-TICKET-017.md v2 §5.1 第 7 項 / §6.4.1 / §6.4.2 / PM Q-H / Q-J 裁定）:
+    //   - m_pTargetBitmap は HspWindow では物理 px サイズ（destW×destH）で生成され、
+    //     beginDraw() で SetDpi(96.0f) 固定 + SetTransform(Scale(s)) が適用されている。
+    //   - したがって本関数も他の描画 API と同経路で、論理 px 座標 (m_currentX, m_currentY) /
+    //     論理 DIP 単位の CreateTextLayout を発行するだけで DWrite のサブピクセル AA が
+    //     最終物理解像度に対して動作する（v1 §6.4 の SetTarget(BackBuffer) 副パイプライン廃止）。
+    //   - font_mode_buffer 命令は PM Q-H 完全廃止裁定により新設しない（旧挙動オプトインも提供しない）。
+    //   - HspBuffer 経路では m_pTargetBitmap が論理 = 物理 / SetDpi=96 / Identity Transform で
+    //     動作するため、本関数の論理 px 引数解釈はそのまま正しい。
     if (!m_pDeviceContext || !m_pBrush || !m_pTextFormat) return;
 
     // モード1の場合、自動的にbeginDraw
@@ -2133,6 +2142,9 @@ bool HspWindow::bmpsave(std::string_view filename) {
 // ========== HspSurface フォント関連実装 ==========
 
 bool HspSurface::font(std::string_view fontName, int size, int style) {
+    // v2 統一テキスト経路（design-TICKET-017.md v2 §6.4.1 / §6.4.2）:
+    //   引数 `size` は論理 DIP (= 論理 px) として扱う。SetDpi=96 固定 + SetTransform(Scale(s))
+    //   により最終描画は size*s 物理 px となり、HiDPI 環境でも自然なスケールでフォントが描画される。
     auto& deviceMgr = D2DDeviceManager::getInstance();
     if (!deviceMgr.getDWriteFactory()) return false;
 
@@ -2165,6 +2177,10 @@ bool HspSurface::font(std::string_view fontName, int size, int style) {
 }
 
 bool HspSurface::sysfont(int type) {
+    // v2 統一テキスト経路（design-TICKET-017.md v2 §6.4.1 / §6.4.2）:
+    //   システム LOGFONT から得たフォントサイズ（ポイント値換算）を論理 DIP として CreateTextFormat に渡す。
+    //   描画時は SetDpi=96 固定 + SetTransform(Scale(s)) が適用されるため、物理解像度に対する
+    //   DWrite サブピクセル AA が自動で得られる（副パイプライン不要）。
     auto& deviceMgr = D2DDeviceManager::getInstance();
     if (!deviceMgr.getDWriteFactory()) return false;
 

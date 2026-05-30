@@ -232,7 +232,7 @@ void groll(int scrollX, int scrollY);
 > v1 では `present()` の論理→物理 拡縮で使用される補間モードを設定する命令でしたが、
 > v2 では描画コマンド発行時点で論理→物理変換が完了し、`present()` は SwapChain への
 > **単純転送のみ**を行うため、`vscalemode()` の指定は present 経路に影響しません
-> （詳細は [移行ガイド](../MigrationGuide-SPRINT007.md) §4.2 参照）。
+> （詳細は [移行ガイド](../MigrationGuide-HiDPI-v2.md) §4.2 参照）。
 
 ```cpp
 void vscalemode(int mode);   // 互換のため受理。状態を保持するのみ。
@@ -252,7 +252,7 @@ void vscalemode(int mode);   // 互換のため受理。状態を保持するの
 | ラスタ画像転送の補間モードを変えたい | `gmode_interp()` に置き換える |
 | 新規コード | 最初から `gmode_interp()` を使用する |
 
-詳細は [移行ガイド §4.2](/HSPPP_Lib/MigrationGuide-SPRINT007) を参照してください。
+詳細は [移行ガイド §4.2](/HSPPP_Lib/MigrationGuide-HiDPI-v2) を参照してください。
 
 ---
 
@@ -314,7 +314,7 @@ gcopy(2, 0, 0, 64, 64);     // LINEAR で転送
 > `gcopy` / `gzoom` を `mode` 省略で呼び出した場合の既定が **旧 NEAREST → 新 LINEAR** に変化しています。
 > ピクセルアート用途で `mode` 省略を使っていたスクリプトは、スクリプト冒頭で `gmode_interp(0)` を一度呼んで
 > NEAREST 既定に戻してください。詳細は
-> [移行ガイド §2.1 / §2.2](/HSPPP_Lib/MigrationGuide-SPRINT007) を参照してください。
+> [移行ガイド §2.1 / §2.2](/HSPPP_Lib/MigrationGuide-HiDPI-v2) を参照してください。
 >
 > `gzoom` の `mode` 引数を **明示指定** した場合は、明示値が `m_gmodeInterp` より優先されます（per-call 指定）。
 

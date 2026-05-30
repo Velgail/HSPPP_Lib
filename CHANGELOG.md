@@ -32,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `docs/HiDPI.md`（NEW / v2 描画パイプライン反映改訂）
   - `docs/VirtualScreen.md`（NEW / v2 描画パイプライン反映改訂）
   - `docs/AnchorLayout.md`（NEW）
-  - `docs/MigrationGuide-SPRINT007.md`（NEW）
+  - `docs/MigrationGuide-HiDPI-v2.md`（NEW）
 - バージョン管理システムの実装
   - `version.hpp` によるバージョン番号管理
   - `hsppp::get_version()` / `hsppp::version()` 関数
@@ -70,7 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`ginfo_mx` / `ginfo_my`**: 仮想画面 ON 時は論理 px を返すように調整（OFF 時は従来通り物理クライアント px）。
 - **`screen` / `bgscr` のサイズ意味論**: `width` / `height` は仮想画面 ON 時に「論理 px」を表す。物理ウィンドウサイズは `client_w` / `client_h` で指定。
 - **`vscalemode()` の機能縮退（v2 描画パイプライン）**: present が単純転送になったため、`vscalemode()` の指定は present 経路では作用しない。API 後方互換のため命令自体は残置。新規コードでは `gmode_interp()` の利用を推奨。
-- **`gcopy` / `gzoom` の既定補間モード**: `mode` 省略時の既定補間モードを **旧 NEAREST → 新 LINEAR** に変更（v2 設計「既定 LINEAR」方針との一貫性のため意図的変更）。⚠️ HSP3 既存スクリプトで `gcopy` / `gzoom` を `mode` 省略で呼び出していた場合、描画結果が変化する。ピクセルアート利用者は `gmode_interp 0` 明示で従来挙動に復帰可能（詳細は `docs/MigrationGuide-SPRINT007.md` 参照）。
+- **`gcopy` / `gzoom` の既定補間モード**: `mode` 省略時の既定補間モードを **旧 NEAREST → 新 LINEAR** に変更（v2 設計「既定 LINEAR」方針との一貫性のため意図的変更）。⚠️ HSP3 既存スクリプトで `gcopy` / `gzoom` を `mode` 省略で呼び出していた場合、描画結果が変化する。ピクセルアート利用者は `gmode_interp 0` 明示で従来挙動に復帰可能（詳細は `docs/MigrationGuide-HiDPI-v2.md` 参照）。
 - **`bmpsave` の内部実装**: 物理 px の `m_pTargetBitmap` を論理サイズへ D2D `DrawBitmap`（LINEAR）でダウンサンプリングして WIC で BMP 出力する経路に変更。ユーザー IF（論理 px サイズで保存）は維持。
 - **`pget` の内部実装**: 仮想 ON / DPI≠96 時は「論理 1 px 内に複数の物理 px」が存在するため、中心 1 物理 px の代表値を返す。`pget` → `pset` 往復一致性は近似動作（HSP3 公式と同等）。
 - `run()` のシグネチャを `void run(int target_ms = 16)` から **`void run()`** に変更（破壊的変更）
@@ -97,7 +97,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 仮想画面（`virtual_resolution = true` または `screen_mode_virtual` 指定）は**オプトイン**。既定（OFF）では従来通り物理クライアント px がそのまま描画座標となり、既存コードは無変更で動作する。
 - HiDPI awareness の自動有効化は破壊的変更を伴わない（DPI Unaware 前提で書かれたコードは表示が一時的に大きく/鮮明に見える場合があるが、API レベルの非互換はない）。
 - ラスタ画像（`picload` / `celload` 等）の高品質スケーリングは本リリースのスコープ外。
-- ⚠️ **v2 描画パイプライン由来の互換性影響**（詳細は `docs/MigrationGuide-SPRINT007.md` 参照）:
+- ⚠️ **v2 描画パイプライン由来の互換性影響**（詳細は `docs/MigrationGuide-HiDPI-v2.md` 参照）:
   - `gcopy` / `gzoom` の `mode` 省略時既定が NEAREST → LINEAR に変更（意図的 / `gmode_interp 0` で復帰可能）
   - `pget` の往復一致性は近似動作（仮想 ON / DPI≠96 時）
   - `bmpsave` は論理 px サイズの BMP を出力（物理サイズで保存したい場合の API は将来検討）

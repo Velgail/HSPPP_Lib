@@ -109,7 +109,7 @@ gmode_interp(2);    // ANISOTROPIC（拡大率が大きく品質を最優先す�
 
 > **後方互換性に関する重要な変更:** `gcopy` / `gzoom` を `mode` 省略で
 > 呼び出した場合の既定補間モードは、旧 NEAREST から **新 LINEAR** に変更されました。
-> 詳細と従来挙動への復帰方法は [移行ガイド](MigrationGuide-SPRINT007.md) を参照してください。
+> 詳細と従来挙動への復帰方法は [移行ガイド](MigrationGuide-HiDPI-v2.md) を参照してください。
 
 > **`vscalemode()` について（v2 描画パイプラインで機能縮退）:** 従来は present 時の論理→物理
 > 拡縮補間モードを切り替える命令でしたが、v2 では present が単純転送になったため、
@@ -152,7 +152,7 @@ ly = (py - offsetY) / s
 | `picload` / `bmpsave` / `celload` | 物理 px | **論理 px**（ユーザ IF は論理 px 座標／内部の `m_pTargetBitmap` は物理 px で保持し、転送時に DPI スケーリングが自動適用される）[^impl-physical] |
 | 余白 | なし | レターボックス / ピラーボックス（クリア色は黒） |
 
-[^impl-physical]: 内部実装は v2 描画パイプライン改修で「オフスクリーン物理 px / 描画時点で論理→物理スケール変換」に改修されました。利用者から見える IF（座標単位）は **論理 px のまま** ですが、`pget` / `bmpsave` 等の細部挙動には注意点があります。詳細は [移行ガイド](MigrationGuide-SPRINT007.md) を参照してください。
+[^impl-physical]: 内部実装は v2 描画パイプライン改修で「オフスクリーン物理 px / 描画時点で論理→物理スケール変換」に改修されました。利用者から見える IF（座標単位）は **論理 px のまま** ですが、`pget` / `bmpsave` 等の細部挙動には注意点があります。詳細は [移行ガイド](MigrationGuide-HiDPI-v2.md) を参照してください。
 
 `picload` 等のラスタ画像入出力は仮想画面 ON 時も **論理 px** で扱われます。
 バッファ自体が論理座標空間であるため、HSP 既存仕様（バッファ座標基準）と整合します。
@@ -200,4 +200,4 @@ ly = (py - offsetY) / s
 - [HiDPI 対応](/HSPPP_Lib/HiDPI)
 - [アンカーレイアウト API](/HSPPP_Lib/AnchorLayout)
 - [画面制御 API](/HSPPP_Lib/api/screen)
-- [移行ガイド（HiDPI / 仮想画面 設計大改修）](MigrationGuide-SPRINT007.md)
+- [移行ガイド（HiDPI / 仮想画面 v2）](MigrationGuide-HiDPI-v2.md)

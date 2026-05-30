@@ -61,7 +61,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `docs/api/state-vars-savedata.md`（NEW）
   - `docs/api/repository.md`（NEW）
   - `docs/guides/data-sharing.md`（NEW）
-  - `docs/PROPOSAL-modern-hsppp.md`（設計提言ドラフト）
 - サンプル統合: `HspppStateSample/StateSampleMain.cpp` を StateGraph + StateScope + state_vars + SaveWriter/Reader + bsave/bload で 1 本に統合
 - テスト: `HspppTest/StateVarsRuntimeTest.cpp` 追加（ランタイム検証拡張）
 

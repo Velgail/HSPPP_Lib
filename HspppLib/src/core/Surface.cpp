@@ -447,7 +447,7 @@ void HspSurface::celput(ID2D1Bitmap1* pBitmap, const D2D1_RECT_F& srcRect, const
 }
 
 void HspSurface::mes(std::string_view text, int options) {
-    // v2 統一テキスト経路（design-TICKET-017.md v2 §5.1 第 7 項 / §6.4.1 / §6.4.2 / PM Q-H / Q-J 裁定）:
+    // v2 統一テキスト経路（HiDPI 設計大改修以降）:
     //   - m_pTargetBitmap は HspWindow では物理 px サイズ（destW×destH）で生成され、
     //     beginDraw() で SetDpi(96.0f) 固定 + SetTransform(Scale(s)) が適用されている。
     //   - したがって本関数も他の描画 API と同経路で、論理 px 座標 (m_currentX, m_currentY) /
@@ -1944,7 +1944,7 @@ void HspWindow::onDpiChanged(UINT newDpi, const RECT* suggested) {
                 UINT oldH = static_cast<UINT>(std::round(oldSizeF.height));
                 if (oldW == targetSize.width && oldH == targetSize.height) {
                     // サイズが偶然一致した場合のみピクセル単位コピー（厳密保持）。
-                    // サイズ変動時の D2D ダウン/アップサンプリングは TICKET-018 スコープでは
+                    // サイズ変動時の D2D ダウン/アップサンプリングは現スコープでは
                     // 行わず、空バッファで再生成する（HSP 慣行: 描画ループで毎フレーム再描画）。
                     D2D1_POINT_2U dstPt = D2D1::Point2U(0, 0);
                     D2D1_RECT_U srcRect = D2D1::RectU(0, 0, targetSize.width, targetSize.height);
@@ -2126,7 +2126,7 @@ bool HspWindow::bmpsave(std::string_view filename) {
 // ========== HspSurface フォント関連実装 ==========
 
 bool HspSurface::font(std::string_view fontName, int size, int style) {
-    // v2 統一テキスト経路（design-TICKET-017.md v2 §6.4.1 / §6.4.2）:
+    // v2 統一テキスト経路（HiDPI 設計大改修以降）:
     //   引数 `size` は論理 DIP (= 論理 px) として扱う。SetDpi=96 固定 + SetTransform(Scale(s))
     //   により最終描画は size*s 物理 px となり、HiDPI 環境でも自然なスケールでフォントが描画される。
     auto& deviceMgr = D2DDeviceManager::getInstance();
@@ -2161,7 +2161,7 @@ bool HspSurface::font(std::string_view fontName, int size, int style) {
 }
 
 bool HspSurface::sysfont(int type) {
-    // v2 統一テキスト経路（design-TICKET-017.md v2 §6.4.1 / §6.4.2）:
+    // v2 統一テキスト経路（HiDPI 設計大改修以降）:
     //   システム LOGFONT から得たフォントサイズ（ポイント値換算）を論理 DIP として CreateTextFormat に渡す。
     //   描画時は SetDpi=96 固定 + SetTransform(Scale(s)) が適用されるため、物理解像度に対する
     //   DWrite サブピクセル AA が自動で得られる（副パイプライン不要）。
@@ -2275,7 +2275,7 @@ bool HspBuffer::initialize() {
 
     m_pDeviceContext->SetTarget(m_pTargetBitmap.Get());
 
-    // v2 統一テキスト経路（review-TICKET-019 N2 対応 / TICKET-023 §PM 申し送り判定）:
+    // v2 統一テキスト経路（HspBuffer 防御的 SetDpi 設定）:
     //   HspBuffer は m_pTargetBitmap が論理=物理 px / Identity Transform で動作する。
     //   D2D Factory の既定 DPI は 96 のため CreateDeviceContext 直後の値も実質 96 だが、
     //   将来の Factory 構成変更や DeviceContext 再利用に対する防御として明示的に 96 を設定する。

@@ -231,7 +231,7 @@ void ensureVirtualSubVisible(bool visible) {
 void drawHiDPIDemo(Screen& win) {
     const int initLogicalW  = ginfo(ginfo_type_sx);     // 26: 初期化 X (= screen() 指定の論理 px)
     const int initLogicalH  = ginfo(ginfo_type_sy);     // 27
-    // TICKET-018 (R-A) 改修以降: ginfo_mesx/mesy は論理 px を返す。
+    // HiDPI 設計大改修 (R-A) 以降: ginfo_mesx/mesy は論理 px を返す。
     // 物理 px は (論理 px × DPI / 96) で逆算可能。基準 DPI 96 を仮定 -> WM_DPICHANGED 受信値で補正。
     const int clientLogicalW = ginfo(ginfo_type_mesx);   // 12: クライアント X (論理 px)
     const int clientLogicalH = ginfo(ginfo_type_mesy);   // 13
@@ -285,7 +285,7 @@ void drawHiDPIDemo(Screen& win) {
     win.color(0, 0, 128).pos(20, 395);
     win.mes("操作: マウスを動かすと論理座標が更新 / 別 DPI モニタへドラッグで WM_DPICHANGED 発火");
     win.color(128, 0, 0).pos(20, 412);
-    win.mes("注: ginfo_mesx/mesy は TICKET-018 以降論理 px を返します（HSP3 仕様準拠）。");
+    win.mes("注: ginfo_mesx/mesy は HSP3 仕様準拠で論理 px を返します。");
 }
 
 void drawVirtualScreenDemo(Screen& win) {

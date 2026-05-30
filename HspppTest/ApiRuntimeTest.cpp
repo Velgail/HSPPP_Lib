@@ -22,7 +22,7 @@
 #include <Windows.h>
 
 import hsppp;
-import hsppp_testing;   // TICKET-032: LogicalRenderContext 白箱テスト用シム
+import hsppp_testing;   // LogicalRenderContext 白箱テスト用シム
 import <atomic>;
 import <chrono>;
 import <functional>;
@@ -605,7 +605,7 @@ namespace hsppp_test {
     }
 
     // ============================================================
-    // WM_DPICHANGED 後の m_pTargetBitmap 再生成検証 (TICKET-007 / R-B / K2)
+    // WM_DPICHANGED 後の m_pTargetBitmap 再生成検証 (R-B / K2)
     // ------------------------------------------------------------
     // 目的: WM_DPICHANGED を sendmsg で直接ディスパッチし、
     //   onDpiChanged 経路を通った後に
@@ -967,7 +967,7 @@ namespace hsppp_test {
 
     // ============================================================
     // LogicalRenderContext (hsppp_testing module) 白箱テスト
-    // TICKET-032: DPI 100/150/200% × 仮想 ON/OFF × 3 API (compute_present_mapping
+    // DPI 100/150/200% × 仮想 ON/OFF × 3 API (compute_present_mapping
     //   / phys_to_logical / logical_to_phys) の純関数シム経由検証。
     // 直接の Internal-Public 分離破壊を伴わず、export された自由関数シムのみ使用。
     // ============================================================
@@ -1103,7 +1103,7 @@ namespace hsppp_test {
         test_virtual_screen_public_api();
         test_virtual_resize_no_max_track_clamp();
 
-        // TICKET-032: LogicalRenderContext 白箱テスト (hsppp_testing module 経由)
+        // LogicalRenderContext 白箱テスト (hsppp_testing module 経由)
         test_lrc_cpm_dpi100_virt_off();
         test_lrc_cpm_dpi150_virt_off();
         test_lrc_cpm_dpi200_virt_off();

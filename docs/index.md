@@ -71,6 +71,7 @@ void hspMain() {
 ### その他
 
 - [FAQ](/HSPPP_Lib/faq) - よくある質問
+- [HSP 命令実装ロードマップ](/HSPPP_Lib/internal/roadmap) - HSP 命令／関数／システム変数の実装状況・優先度・対応方針
 
 ## 特徴
 

@@ -50,7 +50,7 @@ void hspMain() {
 - [HiDPI 対応](/HSPPP_Lib/HiDPI) - **NEW** Per Monitor V2 と利用側 .exe の手順
 - [仮想画面（論理→物理 自動拡縮）](/HSPPP_Lib/VirtualScreen) - **NEW** 1920×1080 設計で 4K/8K/21:9 に自動適応
 - [アンカーレイアウト API](/HSPPP_Lib/AnchorLayout) - **NEW** `anchor_pos` / `AnchorRect` で解像度独立な配置
-- [SPRINT-007 移行ガイド](/HSPPP_Lib/MigrationGuide-SPRINT007) - **NEW** HiDPI / 仮想画面 設計大改修 (TICKET-017〜020) の後方互換性影響と移行手順
+- [移行ガイド（HiDPI / 仮想画面 設計大改修）](/HSPPP_Lib/MigrationGuide-SPRINT007) - **NEW** HiDPI / 仮想画面 設計大改修（v2 描画パイプライン）の後方互換性影響と移行手順
 
 ### アーキテクチャ・パターンガイド
 

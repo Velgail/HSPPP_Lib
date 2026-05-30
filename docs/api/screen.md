@@ -226,13 +226,13 @@ void groll(int scrollX, int scrollY);
 
 ### vscalemode
 
-> ⚠️ **機能縮退（SPRINT-007 / v2）:** 本命令は **API 互換のために残置されているのみ** で、
+> ⚠️ **機能縮退（v2 描画パイプライン）:** 本命令は **API 互換のために残置されているのみ** で、
 > v2 では描画パイプラインに **作用しません**。
 >
 > v1 では `present()` の論理→物理 拡縮で使用される補間モードを設定する命令でしたが、
 > v2 では描画コマンド発行時点で論理→物理変換が完了し、`present()` は SwapChain への
 > **単純転送のみ**を行うため、`vscalemode()` の指定は present 経路に影響しません
-> （`design-TICKET-017.md` v2 §6.8 / 移行ガイド §4.2 参照）。
+> （詳細は [移行ガイド](../MigrationGuide-SPRINT007.md) §4.2 参照）。
 
 ```cpp
 void vscalemode(int mode);   // 互換のため受理。状態を保持するのみ。

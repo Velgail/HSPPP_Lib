@@ -21,7 +21,7 @@ HSPPP の各機能を実機で確認するためのデモアプリです。`User
 
 ### HiDPI デモ
 
-- 初期化サイズ（論理 px）、現クライアント（論理 px / TICKET-018 以降 `ginfo_mesx/mesy` は論理 px を返します）、推定物理 px、プライマリモニタ論理 px（`ginfo_dispx/dispy` / HSP3 公式準拠）、マウス論理座標を表示。
+- 初期化サイズ（論理 px）、現クライアント（論理 px / `ginfo_mesx/mesy` は論理 px を返します）、推定物理 px、プライマリモニタ論理 px（`ginfo_dispx/dispy` / HSP3 公式準拠）、マウス論理座標を表示。
 - `WM_DPICHANGED` 受信回数 / 最終通知 DPI / 末尾 8 件ログを表示。
 
 ### Virtual デモ
@@ -40,12 +40,12 @@ HSPPP の各機能を実機で確認するためのデモアプリです。`User
 
 #### 描画内容の見どころ
 
-- **線幅スケール**: `gline_width(1/2/4/8)` + `line` で論理 px 線幅を描画。DPI / 仮想倍率に応じて物理 px へ自動拡縮されます (R-D / TICKET-020)。
-- **ラスタ転送**: `gcopy` (等倍) + `gzoom` (2.5 倍) を並置。`gmode_interp` 切替によって nearest（モザイク）と linear / aniso（平滑化）の差が可視化されます (R-C / TICKET-020)。
-- **フォント品質**: 10 / 14 / 18px の複数サイズを並置し、DWrite ネイティブ HiDPI 経路の品質を目視確認できます (R-B / TICKET-019)。
-  - なお `font_mode_buffer` 命令は PM Q-H 裁定により廃止されたため、新挙動の固定経路のみ提供しています（旧挙動切替はありません）。詳細は `docs/Migration.md` を参照。
+- **線幅スケール**: `gline_width(1/2/4/8)` + `line` で論理 px 線幅を描画。DPI / 仮想倍率に応じて物理 px へ自動拡縮されます (`gline_width` 機能)。
+- **ラスタ転送**: `gcopy` (等倍) + `gzoom` (2.5 倍) を並置。`gmode_interp` 切替によって nearest（モザイク）と linear / aniso（平滑化）の差が可視化されます (`gmode_interp` 機能)。
+- **フォント品質**: 10 / 14 / 18px の複数サイズを並置し、DWrite ネイティブ HiDPI 経路の品質を目視確認できます (テキスト副パイプライン廃止 / DWrite 統一経路)。
+  - なお `font_mode_buffer` 命令は v2 描画パイプライン設計裁定により廃止されたため、新挙動の固定経路のみ提供しています（旧挙動切替はありません）。詳細は `docs/Migration.md` を参照。
 
-### マルチウィンドウ + 異 DPI モニタ 確認手順 (PM Q-5 (b))
+### マルチウィンドウ + 異 DPI モニタ 確認手順
 
 このサンプルは、メインウィンドウと Virtual サブウィンドウの 2 ウィンドウ構成です。両者を **異なる DPI のモニタへ独立してドラッグ** することで、ウィンドウごとの `WM_DPICHANGED` と描画スケールの追従挙動を観察できます。
 

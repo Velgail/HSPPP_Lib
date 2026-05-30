@@ -100,7 +100,7 @@ void hspMain() {
 - HiDPI は **`SetProcessDpiAwarenessContext` を `init_system()` 内で呼出** するため、利用側に特別な手順は不要です。より厳密に保証したい場合は `app.manifest` 同梱を推奨します（詳細は [HiDPI ガイド](docs/HiDPI.md) 参照）。
 - 仮想画面有効時、`boxf` / `mes` / `ginfo_mx` / `picload` などはすべて **論理 px** で扱われます。内部のオフスクリーンビットマップは **物理サイズ** で保持され、描画コマンド発行時点で論理→物理スケール変換（`SetTransform(Scale(s))`）が適用されます。`present()` は SwapChain への単純転送のみで、余白はレターボックス / ピラーボックスとして背景塗りとオフセット配置で実現されます（詳細は [仮想画面ガイド](docs/VirtualScreen.md) §1 参照）。
 - ラスタ画像（`picload` / `celload` の素材）の高品質スケーリングは本機能のスコープ外です。`gmode_interp()` で補間モード（NEAREST / LINEAR / ANISOTROPIC、既定 LINEAR）を選択できます。
-- ⚠️ **SPRINT-007 後方互換性注意**: `gcopy` / `gzoom` を `mode` 省略で呼び出した場合の既定補間モードが旧 NEAREST → 新 LINEAR に変更されました。ピクセルアート利用者は `gmode_interp 0` で従来挙動に復帰可能です。詳細は [SPRINT-007 移行ガイド](docs/MigrationGuide-SPRINT007.md) を参照してください。
+- ⚠️ **後方互換性に関する重要な変更**: `gcopy` / `gzoom` を `mode` 省略で呼び出した場合の既定補間モードが旧 NEAREST → 新 LINEAR に変更されました。ピクセルアート利用者は `gmode_interp 0` で従来挙動に復帰可能です。詳細は [移行ガイド](docs/MigrationGuide-SPRINT007.md) を参照してください。
 
 📖 詳細: [HiDPI](docs/HiDPI.md) / [仮想画面](docs/VirtualScreen.md) / [アンカーレイアウト](docs/AnchorLayout.md)
 
@@ -138,7 +138,7 @@ MSBuild HspppLib.slnx /p:Configuration=Release /p:Platform=x64 /m
 - [HiDPI 対応](docs/HiDPI.md)
 - [仮想画面（論理→物理 自動拡縮）](docs/VirtualScreen.md)
 - [アンカーレイアウト API](docs/AnchorLayout.md)
-- [SPRINT-007 移行ガイド](docs/MigrationGuide-SPRINT007.md)
+- [移行ガイド（HiDPI / 仮想画面 設計大改修）](docs/MigrationGuide-SPRINT007.md)
 - [FAQ](docs/faq.md)
 
 ## 🎯 対応API一覧

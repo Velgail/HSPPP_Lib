@@ -112,4 +112,4 @@ HiDPI 対応の本 Sprint では、`picload` / `celload` 等で読み込んだ
 - [仮想画面ガイド](/HSPPP_Lib/VirtualScreen)
 - [アンカーレイアウト API](/HSPPP_Lib/AnchorLayout)
 - [画面制御 API](/HSPPP_Lib/api/screen)
-- [SPRINT-007 移行ガイド](MigrationGuide-SPRINT007.md)
+- [移行ガイド（HiDPI / 仮想画面 設計大改修）](MigrationGuide-SPRINT007.md)

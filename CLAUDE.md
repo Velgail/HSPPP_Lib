@@ -25,6 +25,34 @@
 
 ---
 
+## 🚨 ファイル編集絶対ルール（Shell 使用禁止 / Copilot ツール強制 / 絶対遵守）
+
+**背景:** AI アシスタントの PowerShell 操作ミスにより重要ファイル（29,583 bytes）が 0 bytes に上書きされる重大インシデントが発生した。本ルールを恒久ルールとして制度化する。
+
+AI アシスタントは、ファイルの **作成・編集・削除・リネーム・移動** を行うとき、**Copilot CLI の `edit` / `create` / `view` ツールのみを使用すること**。
+
+### 絶対禁止事項
+
+- ❌ PowerShell / Bash / cmd / その他 Shell を介したファイル編集（`Set-Content`, `Out-File`, `>` リダイレクト, `Add-Content`, `[System.IO.File]::WriteAllText`, `cat >`, `echo >`, ヒアドキュメント等すべて）
+- ❌ Shell からのファイル削除（`Remove-Item`, `rm`, `del` 等）
+- ❌ Shell からのリネーム・移動（`Move-Item`, `mv`, `Rename-Item` 等）。`git mv` は git の責務として許容するが、編集を伴う場合は edit ツールで編集後に git mv する
+- ❌ `.NET API`（`[System.IO.File]::*`）によるファイル操作
+- ❌ 「edit ツールでうまくいかないから Shell でやる」という回避ルートの選択（**これが本ルールの本質的禁止対象**）
+
+### 失敗時の対処
+
+`edit` ツールが失敗する場合は、**別アプローチを `edit` / `create` ツール内で探る**（`old_str` の取り方を変える、`create` で新規生成し直す、`view` で再確認する等）。Shell へのフォールバックは禁止。
+
+### Shell の許容用途
+
+以下に限定する: タイムスタンプ取得 / ファイル・ディレクトリ存在確認・一覧取得 / git 操作 / grep・検索 / ビルド・テスト実行
+
+> **判断基準:** ファイルの **中身を変える** 操作はすべて Copilot ツール。**中身を見る・場所を変える** 操作で編集を伴わないものは Shell 可。
+
+「上手くいかなかったから Shell で」は **いかなる理由でも認められない**。
+
+---
+
 ## プロジェクト概要
 
 **HSPPP** は HSP (Hot Soup Processor) 互換のC++23ライブラリです。
@@ -341,28 +369,45 @@ try {
 
 対象：*.md、コードのコメント
 
-### チケット番号・内部管理情報のコメント記載禁止
+### チケット番号・内部管理情報のコメント記載禁止（内部 ID 外部流出禁止）
 
-**実装コードおよびドキュメントに、チケット番号・内部管理情報を記載することは禁止。**
+**実装コードおよび外部公開ドキュメントに、チケット番号・内部管理情報を記載することは禁止。**
 
-禁止対象：
-- `TICKET-XXX`・`MSG-XXX` などのチケット・メッセージ番号
+禁止対象（識別子）：
+- `TICKET-XXX` / `TICKET-XXX.md` などのチケット・ファイル名表記
+- `MSG-XXX` / `MSG-XXX.md` などのメッセージ・ファイル名表記
 - Sprint 情報（`SPRINT-XXX` 等）
+- `design-TICKET-*` / `review-TICKET-*` などの artifact ファイル名
 - 内部エージェント管理パス（`.github/agents/` 配下のパス等）
+
+禁止対象（場所 = 外部公開アセット）：
+- `docs/` 配下、`README*.md`、`CHANGELOG*.md`、`LICENSE*`、`CONCEPT.md`、`VERSIONING.md` 等
+- `HspppLib/`、`HspppSample/`、`HspppTest/`、`HspppStateSample/` 配下のソースコード（コメント含む）
+- `scripts/`、`dist/` 配下
+- その他、利用者または外部に公開されるあらゆる成果物
+- Git コミットメッセージにも含めない
+
+許容範囲：
+- `.github/agents/sprints/` 配下（チケット / メッセージ / artifact / sprint-review 等）
+- `.github/agents/` 配下の agent.md / docs / templates
 
 禁止理由：
 - 利用者に公開されるコード・ドキュメントに、開発管理ツールの内部情報は不要
 - 内部管理情報が混入すると利用者の混乱・誤解を招く
 - コードの可読性・保守性を損なう
 
+> 本ルールは MCA 設計規約 `.github/agents/docs/DESIGN.md` §11「根拠記録の物理境界」と整合し、両者は同一原則の異なる表現である。
+
 禁止例：
 ```cpp
-// TICKET-012: 境界チェック追加
+// ISSUE-12345: 境界チェック追加
 if (i >= size) throw std::out_of_range("index out of range");
 
-// MSG-034 対応: デフォルト値を修正
+// 内部レビュー指摘 #34 対応: デフォルト値を修正
 int defaultValue = 0;
 ```
+
+> 上記の `ISSUE-12345` / `内部レビュー指摘 #34` のような **外部公開アセット内に開発管理ツール由来の識別子を残す** こと自体が禁止対象である。コメントの真意（境界チェック追加 / デフォルト値修正）はコード自体および Git コミットメッセージに残すこと。
 
 代わりに（変更理由を残す場合）：
 - **Git コミットメッセージ**に変更理由を記録する

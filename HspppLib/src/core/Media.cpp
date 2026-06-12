@@ -1,4 +1,4 @@
-// Source: https://github.com/Velgail/HspppLib
+﻿// Source: https://github.com/Velgail/HspppLib
 // Distributed under the Boost Software License, Version 1.0.
 // See accompanying file LICENSE or copy at
 // https://www.boost.org/LICENSE_1_0.txt
@@ -6,25 +6,25 @@
 
 // HspppLib/src/core/Media.cpp
 // OOP版メディアクラス実装
+//
+// 注意: MediaManager.h を直接インクルードするとC++モジュールと衝突するため、
+// hsppp_media.inl と同じブリッジ関数パターンを使用する。
 
-import hsppp;
-#include "MediaManager.h"
-#include <atomic>
+module hsppp;
 
 namespace hsppp {
 
-// HWND取得用外部関数（hsppp.cppで定義）
 namespace internal {
+    // MediaManager への外部関数宣言（MediaManager.cpp で定義）
+    int  MediaManager_allocateBufferId();
+    int  MediaManager_mmload(std::string_view filename, int bufferId, int mode, void* targetWindow);
+    int  MediaManager_mmplay(int bufferId);
+    void MediaManager_mmstop(int bufferId);
+    void MediaManager_mmvol(int bufferId, int vol);
+    void MediaManager_mmpan(int bufferId, int pan);
+    int  MediaManager_mmstat(int bufferId, int mode);
+    // HWND取得用外部関数（hsppp.cppで定義）
     void* getWindowHwndById(int id);
-}
-
-// ============================================================
-// 静的バッファID管理
-// ============================================================
-static std::atomic<int> s_nextBufferId{1000};  // mm系と被らないよう1000から開始
-
-static int allocateBufferId() {
-    return s_nextBufferId.fetch_add(1);
 }
 
 // ============================================================
@@ -41,11 +41,11 @@ public:
     bool m_loaded = false;
     void* m_targetWindow = nullptr;  // 動画再生用ターゲットウィンドウ
 
-    Impl() : m_bufferId(allocateBufferId()) {}
+    Impl() : m_bufferId(internal::MediaManager_allocateBufferId()) {}
     
     ~Impl() {
         if (m_loaded) {
-            internal::MediaManager::getInstance().mmstop(m_bufferId);
+            internal::MediaManager_mmstop(m_bufferId);
         }
     }
 };
@@ -72,16 +72,15 @@ bool Media::load(std::string_view filename, [[maybe_unused]] const std::source_l
     m_impl->m_filename = std::string(filename);
     
     int loadMode = m_impl->m_loop ? 1 : m_impl->m_mode;
-    bool result = internal::MediaManager::getInstance().mmload(
-        filename, m_impl->m_bufferId, loadMode,
-        static_cast<HWND>(m_impl->m_targetWindow));
-    
+    bool result = (internal::MediaManager_mmload(
+        filename, m_impl->m_bufferId, loadMode, m_impl->m_targetWindow) == 0);
+
     m_impl->m_loaded = result;
-    
+
     if (m_impl->m_loaded) {
         // 初期設定を適用
-        internal::MediaManager::getInstance().mmvol(m_impl->m_bufferId, m_impl->m_vol);
-        internal::MediaManager::getInstance().mmpan(m_impl->m_bufferId, m_impl->m_pan);
+        internal::MediaManager_mmvol(m_impl->m_bufferId, m_impl->m_vol);
+        internal::MediaManager_mmpan(m_impl->m_bufferId, m_impl->m_pan);
     }
     
     return m_impl->m_loaded;
@@ -89,7 +88,7 @@ bool Media::load(std::string_view filename, [[maybe_unused]] const std::source_l
 
 void Media::unload() {
     if (m_impl->m_loaded) {
-        internal::MediaManager::getInstance().mmstop(m_impl->m_bufferId);
+        internal::MediaManager_mmstop(m_impl->m_bufferId);
         m_impl->m_loaded = false;
         m_impl->m_filename.clear();
     }
@@ -101,13 +100,13 @@ void Media::unload() {
 bool Media::play([[maybe_unused]] const std::source_location& location) {
     // MediaManagerは例外を投げない設計なので、try-catchは不要
     if (!m_impl->m_loaded) return false;
-    return internal::MediaManager::getInstance().mmplay(m_impl->m_bufferId);
+    return (internal::MediaManager_mmplay(m_impl->m_bufferId) == 0);
 }
 
 void Media::stop([[maybe_unused]] const std::source_location& location) {
     // MediaManagerは例外を投げない設計なので、try-catchは不要
     if (m_impl->m_loaded) {
-        internal::MediaManager::getInstance().mmstop(m_impl->m_bufferId);
+        internal::MediaManager_mmstop(m_impl->m_bufferId);
     }
 }
 
@@ -118,7 +117,7 @@ Media& Media::vol(int v, [[maybe_unused]] const std::source_location& location) 
     // MediaManagerは例外を投げない設計なので、try-catchは不要
     m_impl->m_vol = v;
     if (m_impl->m_loaded) {
-        internal::MediaManager::getInstance().mmvol(m_impl->m_bufferId, v);
+        internal::MediaManager_mmvol(m_impl->m_bufferId, v);
     }
     return *this;
 }
@@ -127,7 +126,7 @@ Media& Media::pan(int p, [[maybe_unused]] const std::source_location& location) 
     // MediaManagerは例外を投げない設計なので、try-catchは不要
     m_impl->m_pan = p;
     if (m_impl->m_loaded) {
-        internal::MediaManager::getInstance().mmpan(m_impl->m_bufferId, p);
+        internal::MediaManager_mmpan(m_impl->m_bufferId, p);
     }
     return *this;
 }
@@ -163,7 +162,7 @@ int Media::get_mode() const { return m_impl->m_mode; }
 
 int Media::stat() const {
     if (!m_impl->m_loaded) return 0;
-    return internal::MediaManager::getInstance().mmstat(m_impl->m_bufferId, 16);
+    return internal::MediaManager_mmstat(m_impl->m_bufferId, 16);
 }
 
 bool Media::playing() const {

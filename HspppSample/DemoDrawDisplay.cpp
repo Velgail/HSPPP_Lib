@@ -1,4 +1,4 @@
-// Source: https://github.com/Velgail/HspppLib
+﻿// Source: https://github.com/Velgail/HspppLib
 // Distributed under the Boost Software License, Version 1.0.
 // See accompanying file LICENSE or copy at
 // https://www.boost.org/LICENSE_1_0.txt
@@ -240,8 +240,9 @@ void drawHiDPIDemo(Screen& win) {
     const int mouseLogicalX = ginfo(ginfo_type_mx);     // 0  (HSP 仕様: 論理 px)
     const int mouseLogicalY = ginfo(ginfo_type_my);     // 1
 
-    // 推定 DPI: WM_DPICHANGED 受信履歴があれば最新値、無ければ 96 を既定。
-    const int effectiveDpi = (g_dpiLastReported > 0) ? g_dpiLastReported : 96;
+    // 実効 DPI: ライブラリが管理する GetDpiForWindow ベースの値を直接取得する。
+    // WM_DPICHANGED 未受信（起動直後）でも正確な DPI が得られる。
+    const int effectiveDpi = ginfo(ginfo_type_dpi);
     const int estimatedClientPhysW = clientLogicalW * effectiveDpi / 96;
     const int estimatedClientPhysH = clientLogicalH * effectiveDpi / 96;
 

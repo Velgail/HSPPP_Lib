@@ -1,4 +1,4 @@
-// Source: https://github.com/Velgail/HspppLib
+﻿// Source: https://github.com/Velgail/HspppLib
 // Distributed under the Boost Software License, Version 1.0.
 // See accompanying file LICENSE or copy at
 // https://www.boost.org/LICENSE_1_0.txt
@@ -216,6 +216,7 @@ export namespace hsppp {
     inline constexpr int ginfo_type_sx        = 26;
     inline constexpr int ginfo_type_sy        = 27;
     inline constexpr int ginfo_type_fps       = 28;  // 画面リフレッシュレート（マルチモニター時は最大値）
+    inline constexpr int ginfo_type_dpi       = 29;  // 現在の実効 DPI（GetDpiForWindow / 既定 96）
 
     // ============================================================
     // ginfo関数

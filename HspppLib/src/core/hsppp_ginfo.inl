@@ -16,8 +16,8 @@ namespace hsppp {
     int ginfo(int type, const std::source_location& location) {
         return safe_call(location, [&]() -> int {
             // パラメータチェック
-            if (type < 0 || type > 27) {
-                throw HspError(ERR_OUT_OF_RANGE, "ginfoのtypeは0～27の範囲で指定してください", location);
+            if (type < 0 || type > 29) {
+                throw HspError(ERR_OUT_OF_RANGE, "ginfoのtypeは0～29の範囲で指定してください", location);
             }
             using namespace internal;
         
@@ -279,6 +279,8 @@ namespace hsppp {
             return currentSurface ? currentSurface->getHeight() : 0;
         case 28:  // 画面リフレッシュレート
             return get_framerate(location);
+        case 29:  // 現在の実効 DPI（GetDpiForWindow ベース / 既定 96）
+            return pWindow ? static_cast<int>(pWindow->getCurrentDpi()) : 96;
         default:
             return 0;
         }

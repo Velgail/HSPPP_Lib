@@ -168,7 +168,7 @@ public:
     
     // 割り込み
     Screen& onclick(InterruptHandler handler);
-    Screen& oncmd(InterruptHandler handler, int messageId);
+    Screen& oncmd(CommandInterruptHandler handler, int messageId);
     Screen& onkey(InterruptHandler handler);
     
     // GUIオブジェクト
@@ -219,7 +219,7 @@ public:
     [[nodiscard]] int id() const noexcept;
     
     // 操作
-    Cel& divide(int divX, int divY);
+    Cel& divide(int divX, int divY);  // OOP版: 横・縦の分割数
     Cel& put(int cellIndex, OptInt x = {}, OptInt y = {});
     
     // 情報取得
@@ -227,6 +227,9 @@ public:
     [[nodiscard]] int height() const;
 };
 ```
+
+`Cel` はHspppLibのOOP便宜APIです。HSP互換のグローバル `celdiv(id, cellWidth, cellHeight, ...)` は
+1セルの寸法を受け取り、グローバル `celput` の描画位置は `pos()` で指定します。
 
 ---
 

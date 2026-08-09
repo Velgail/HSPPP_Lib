@@ -66,7 +66,7 @@ HSPPP の全 API リファレンスです。
 | [`gcopy`](/HSPPP_Lib/api/screen#gcopy) | 画像のコピー | サイズ省略時はgmode設定 |
 | [`gzoom`](/HSPPP_Lib/api/screen#gzoom) | 拡大縮小コピー | mode: 0=高速, 1=高品質 |
 | [`grotate`](/HSPPP_Lib/api/drawing#grotate) | 回転コピー | 角度はラジアン |
-| [`gmode`](/HSPPP_Lib/api/screen#gmode) | コピーモードの設定 | gmode_copy, gmode_and, gmode_alpha等 |
+| [`gmode`](/HSPPP_Lib/api/screen#gmode) | コピーモードの設定 | gmode_gdi, gmode_rgb0, gmode_alpha, gmode_pixela等 |
 | [`gsquare`](/HSPPP_Lib/api/drawing#gsquare) | 4頂点描画 | Quad/QuadUV/QuadColors使用 |
 
 **詳細:** [画面制御 API](/HSPPP_Lib/api/screen), [描画 API](/HSPPP_Lib/api/drawing)
@@ -195,8 +195,8 @@ HSPPP の全 API リファレンスです。
 | 関数 | 説明 | 備考 |
 |------|------|------|
 | [`ginfo`](/HSPPP_Lib/api/screen#ginfo) | ウィンドウ情報取得 | ginfo_type_* 定数使用 |
-| [`ginfo_mx`](/HSPPP_Lib/api/screen#便利関数) | マウスX座標取得 | `ginfo(ginfo_type_mx)` の別名 |
-| [`ginfo_my`](/HSPPP_Lib/api/screen#便利関数) | マウスY座標取得 | `ginfo(ginfo_type_my)` の別名 |
+| [`ginfo_mx`](/HSPPP_Lib/api/screen#便利関数) | デスクトップ上のマウスX座標取得 | `ginfo(ginfo_type_mx)` の別名 |
+| [`ginfo_my`](/HSPPP_Lib/api/screen#便利関数) | デスクトップ上のマウスY座標取得 | `ginfo(ginfo_type_my)` の別名 |
 | [`ginfo_sel`](/HSPPP_Lib/api/screen#便利関数) | 描画先ID取得 | `ginfo(ginfo_type_sel)` の別名 |
 | [`ginfo_sizex`](/HSPPP_Lib/api/screen#便利関数) | 画面幅取得 | `ginfo(ginfo_type_sizex)` の別名 |
 | [`ginfo_sizey`](/HSPPP_Lib/api/screen#便利関数) | 画面高さ取得 | `ginfo(ginfo_type_sizey)` の別名 |

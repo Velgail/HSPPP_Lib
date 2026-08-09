@@ -26,7 +26,7 @@ Sample（HspppSample / HspppStateSample）のみの修正で済むものでは�
 | `font_mode_buffer` 命令 | 新設候補として言及 | **新設せず**（PM Q-H 完全廃止裁定） |
 | `vscalemode()` | present 拡縮時の補間モード切替 | **機能縮退**（present が単純転送のため作用しない / API は残置） |
 | 線幅指定 | ハードコード `1.0f` | **新規命令 `gline_width(w)`**（論理 px / 既定 1.0） |
-| ラスタ補間モード | ハードコード LINEAR / `gcopy` `gzoom` は NEAREST | **新規命令 `gmode_interp(mode)`**（NEAREST / LINEAR / ANISOTROPIC、既定 LINEAR） |
+| ラスタ補間モード | ハードコード LINEAR / `gcopy` `gzoom` は NEAREST | **新規命令 `gmode_interp(mode)`**（D2D転送用）。`gzoom` のp8省略値はHSPどおり0 |
 
 ユーザー IF（描画コマンドの座標単位）は **論理 px のまま** であり、既定挙動（仮想画面 OFF）
 では既存コードは無変更で動作します。ただし、いくつかの **後方互換性に関する注意点**
@@ -34,34 +34,24 @@ Sample（HspppSample / HspppStateSample）のみの修正で済むものでは�
 
 ---
 
-## 2. 既定値で挙動が変わる点（最重要）
+## 2. HSP互換値とHspppLib拡張の境界（最重要）
 
-### 2.1 `gcopy` / `gzoom` の既定補間モード変更
+### 2.1 `gzoom` のp8省略値
 
-**旧:** `mode` 省略時は内部で NEAREST 固定でラスタ転送  
-**新:** `mode` 省略時は `m_gmodeInterp`（既定 LINEAR）を使用
-
-これは `picload` / `celput` の既定（LINEAR）と整合させ、`design v2 §6.8`「既定 LINEAR」
-方針を全ラスタ転送に一貫適用するための **意図的な変更** です。
-
-#### 影響
-
-- HSP3 既存スクリプトで `gcopy id, sx, sy, sw, sh`（mode 省略）や
-  `gzoom dw, dh, id, sx, sy, sw, sh`（mode 省略）を **ピクセルアート用途** で使用していた
-  場合、表示が LINEAR 補間で**ぼけて見える**。
-
-#### 復帰方法
+`gzoom` のp8（C++ APIの `mode`）を省略した場合は、HSPどおり0（補間なし）です。
+`gmode_interp()` の現在値を暗黙に使う仕様ではありません。
 
 ```cpp
-// スクリプト冒頭 1 回で全 gcopy / gzoom を NEAREST に固定
-gmode_interp(0);    // 0 = NEAREST
+gmode_interp(1);  // D2D転送をLINEARへ
 
-// 以降は従来の HSP3 同等挙動でラスタ転送される
-gcopy(1, 0, 0, 64, 64);
+// p8省略: HSPどおり0。上の設定を暗黙には使わない
 gzoom(128, 128, 1, 0, 0, 64, 64);
+
+// HspppLib拡張: -1を明示した時だけgmode_interpを使う
+gzoom(128, 128, 1, 0, 0, 64, 64, -1);
 ```
 
-写真や図形を扱う一般用途では新既定（LINEAR）の方が高品質なため、明示指定不要です。
+HSPのp8=1はLINEAR、HspppLib拡張のp8=2はANISOTROPICです。
 
 ### 2.2 `gmode_interp` 引数省略時は LINEAR 強制リセット
 
@@ -192,7 +182,7 @@ gline_width(0);     // w <= 0 は 1.0f に自動クランプ
 
 ### 5.2 `gmode_interp(int mode)`
 
-ラスタ画像転送（`picload` / `celput` / `gcopy` / `gzoom`）の補間モードを切り替えます。
+D2Dラスタ画像転送（`picload` / 変形 `celput` / `gcopy`）の補間モードを切り替えます。
 
 ```cpp
 gmode_interp(0);    // NEAREST（ピクセルアート）
@@ -207,8 +197,7 @@ gmode_interp();     // 引数省略 = LINEAR 強制リセット
 | 1 | LINEAR（既定） | 写真・図形・テキスト |
 | 2 | ANISOTROPIC | 拡大率が大きく品質を最優先する場合 |
 
-`gzoom` の `mode` 引数を **明示指定** した場合は、明示値が `m_gmodeInterp` より優先されます
-（per-call 指定）。
+`gzoom` は常にp8指定を優先します。省略時は0、`-1` を明示した場合だけ `gmode_interp` を使います。
 
 ---
 
@@ -216,8 +205,7 @@ gmode_interp();     // 引数省略 = LINEAR 強制リセット
 
 既存 HSP / HSPPP プロジェクトを v2 に移行する際の確認項目です。
 
-- [ ] **ピクセルアート利用**: `gcopy` / `gzoom` を `mode` 省略で呼出している場合、
-      スクリプト冒頭で `gmode_interp(0)` を呼出して NEAREST 既定に戻す
+- [ ] **`gzoom` 利用**: p8省略はHSPどおり0。`gmode_interp` を反映したい箇所だけ拡張値 `-1` を明示する
 - [ ] **`vscalemode()` 利用**: 命令呼出は残しても害はないが、新規コードでは
       `gmode_interp()` に置き換える
 - [ ] **`font_mode_buffer` を期待していた場合**: コード上にダミー定義等を置いていれば削除可。

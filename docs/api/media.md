@@ -248,7 +248,7 @@ void hspMain() {
         await(16);
     }
     
-    return 0;
+    return;
 }
 ```
 
@@ -285,7 +285,7 @@ void hspMain() {
     }
     
     // 動画終了後の処理...
-    return 0;
+    return;
 }
 ```
 
@@ -356,7 +356,7 @@ void hspMain() {
         return 0;
     });
     
-    return 0;
+    return;
 }
 ```
 

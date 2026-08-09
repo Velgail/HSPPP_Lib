@@ -21,7 +21,7 @@ HSPPP の各機能を実機で確認するためのデモアプリです。`User
 
 ### HiDPI デモ
 
-- 初期化サイズ（論理 px）、現クライアント（論理 px / `ginfo_mesx/mesy` は論理 px を返します）、推定物理 px、プライマリモニタ論理 px（`ginfo_dispx/dispy` / HSP3 公式準拠）、マウス論理座標を表示。
+- 初期化サイズ（論理 px）、現クライアント、推定物理 px、プライマリモニタ論理 px、`ginfo_mx/my` のデスクトップ座標と `mousex/y` の論理クライアント座標を表示。
 - `WM_DPICHANGED` 受信回数 / 最終通知 DPI / 末尾 8 件ログを表示。
 
 ### Virtual デモ
@@ -34,7 +34,7 @@ HSPPP の各機能を実機で確認するためのデモアプリです。`User
 | M | `vscalemode` 切替 (nearest / linear / aniso) |
 | C | `letterboxColor` 切替 |
 | V | サブウィンドウ 表示 / 非表示 |
-| I | ラスタ補間 (`gmode_interp`) nearest / linear / aniso 切替（`gzoom` 結果に反映） |
+| I | ラスタ補間 (`gmode_interp`) nearest / linear / aniso 切替（サンプルは拡張p8=-1で `gzoom` へ明示反映） |
 | F | FHD 基準 (1920×1080) へ即時切替 |
 | R | 既定値リセット (1920×1080 / linear / dark cyan / interp=linear) |
 

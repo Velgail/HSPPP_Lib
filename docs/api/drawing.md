@@ -403,6 +403,9 @@ void picload(std::string_view filename, OptInt mode = {});
 | 1 | 現在の画面に重ねる |
 | 2 | 黒で初期化して読み込み |
 
+モード0/2は画像寸法で現在のスクリーンIDを再初期化し、モード0は白、モード2は黒を背景にして読み込みます。
+ウィンドウ・枠なしウィンドウ・bufferの種別は維持します。モード1は画面サイズを変えず、現在のカレントポジションへ重ねます。
+
 対応形式: BMP, PNG, JPEG, GIF 等
 
 **使用例:**
@@ -425,36 +428,72 @@ gcopy(1, 0, 0, 100, 100);
 void bmpsave(std::string_view filename);
 ```
 
+ウィンドウとbufferのどちらも保存できます。仮想画面を有効にしたウィンドウは論理サイズのBMPを出力します。
+
 ---
 
 ### celload
 
-画像ファイルをCelとしてロードします。
+画像ファイルを仮想画面へロードし、そのウィンドウIDを返します。これはHSP互換版です。
 
 ```cpp
-int celload(std::string_view filename, OptInt celId = {});
+int celload(std::string_view filename, OptInt windowId = {}, OptInt mode = {});
 ```
 
-**戻り値:** 割り当てられたCel ID
+| `windowId` | 動作 |
+|------------|------|
+| 省略 / `celid_reuse` (-2) | 同じファイルがロード済みならIDを再利用し、なければ未使用IDへロード |
+| `celid_auto` (-1) | 再利用せず未使用IDへロード |
+| 0以上 | 指定したウィンドウIDへロード |
+
+`mode` は0がフルカラー、1がパレット指定です。HspppLibのD2D実装ではパレット指定もフルカラーで保持します。
+戻り値は実際に割り当てられたウィンドウIDです。ロード後はそのIDが描画先になります。
 
 ---
 
 ### celdiv
 
-画像素材の分割サイズを設定します。
+画像素材の1セルあたりの寸法と描画中心を設定します。
 
 ```cpp
-void celdiv(int celId, int divX, int divY);
+void celdiv(
+    int windowId,
+    OptInt cellWidth = {},
+    OptInt cellHeight = {},
+    OptInt centerX = {},
+    OptInt centerY = {}
+);
 ```
+
+`cellWidth` / `cellHeight` は分割数ではなく1セルのドット数です。省略または0以下なら素材全体を1セルとして扱います。
+中心座標は `celput` のカレントポジションに重ねるセル内の基点で、既定は左上 `(0,0)` です。
+設定はウィンドウIDごとに保持され、画像の再読み込みや再初期化で素材全体の設定へ戻ります。
 
 ---
 
 ### celput
 
-画像素材を描画します。
+画像素材を現在のカレントポジションへ描画します。
 
 ```cpp
-void celput(int celId, int cellIndex, OptInt x = {}, OptInt y = {});
+void celput(
+    int windowId,
+    OptInt cellIndex = {},
+    OptDouble zoomX = {},
+    OptDouble zoomY = {},
+    OptDouble angle = {}
+);
+```
+
+`zoomX` / `zoomY` の既定は1.0、`angle` の既定は0ラジアンです。描画座標は引数ではなく事前の `pos()` で指定します。
+等倍・無回転時は `gcopy` と同じ経路を使うため、`gmode` 0〜7、透明色、ブレンド率、画面端クリップが反映されます。
+描画後のカレントXはセルの元幅だけ右へ進みます。拡大率や角度は移動量に含めません。
+
+```cpp
+const int spriteId = celload("sprites.png");
+celdiv(spriteId, 32, 48, 16, 24);
+pos(200, 120);
+celput(spriteId, 3, 1.5, 1.5, 0.25);
 ```
 
 ---
@@ -477,6 +516,9 @@ sprite.divide(4, 4);   // 4x4に分割
 sprite.put(0);         // セル0を描画
 sprite.put(1, 100, 50); // セル1を(100, 50)に描画
 ```
+
+`Cel::divide()` はOOP版の便宜APIで、引数は横・縦の分割数です。`Cel::put()` も描画先座標を直接取ります。
+グローバルのHSP互換 `celdiv` / `celput` とは引数の意味が異なるため、混在させないでください。
 
 ---
 
@@ -649,12 +691,14 @@ void sysfont(OptInt type = {});
 class Cel {
     bool valid() const;           // 有効なハンドルか
     int id() const;               // Cel IDを取得
-    Cel& divide(int divX, int divY);  // 分割設定
+    Cel& divide(int divX, int divY);  // OOP版: 横・縦の分割数
     Cel& put(int cellIndex, OptInt x = {}, OptInt y = {}); // 描画
     int width() const;            // 画像幅
     int height() const;           // 画像高さ
 };
 ```
+
+このOOP版の `divide` / `put` は、HSP互換のグローバル `celdiv` / `celput` とは引数設計が異なります。
 
 **使用例:**
 

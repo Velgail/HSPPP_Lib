@@ -505,7 +505,7 @@ void hspMain() {
     //   - lparam は OS 推奨ウィンドウ矩形 RECT*（ライブラリ側で適切に処理済み）
     constexpr int WM_DPICHANGED_ID = 0x02E0;
     oncmd([]() {
-        const int wp = wparam();
+        const std::int64_t wp = wparam();
         const int newDpi = wp & 0xFFFF;  // LOWORD
         g_dpiChangeCount++;
         g_dpiLastReported = newDpi;
@@ -604,8 +604,10 @@ void hspMain() {
         
         // フッター（ヘルプ表示案内）
         win.font("MS Gothic", 10, 0);
-        win.color(128, 128, 128).pos(10, 455);
-        win.mes("F1:ヘルプ ESC:終了 | 1-9:基本 Ctrl+0-9:拡張 Shift+1-4:画像 Alt+1-5:割込 Ctrl+Shift+1-2:GUI Ctrl+Alt+1:メディア Alt+Shift+1-3:表示系");
+        win.color(128, 128, 128).pos(10, 445);
+        win.mes("F1:ヘルプ ESC:終了 | 1-9:基本 Ctrl+0-9:拡張 Shift+1-4:画像 Alt+1-5:割込");
+        win.pos(10, 461);
+        win.mes("Ctrl+Shift+1-2:GUI Ctrl+Alt+1:メディア Alt+Shift+1-3:表示系");
         
         win.redraw(1);
         

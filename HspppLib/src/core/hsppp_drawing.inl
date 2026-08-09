@@ -29,6 +29,9 @@ namespace hsppp {
             if (!currentSurface) return;
 
             currentSurface->cls(mode);
+            auto& objMgr = internal::ObjectManager::getInstance();
+            objMgr.removeObjectsByWindow(g_currentScreenId);
+            objMgr.resetSettingsForCls(g_currentScreenId);
         });
     }
 
@@ -117,7 +120,7 @@ namespace hsppp {
                     if (currentTime.QuadPart >= targetTicks) break;
                     
                     // ペンディング中の割り込みを処理
-                    if (processPendingInterrupt()) {
+                    if (internal::processPendingInterrupt()) {
                         // 割り込みハンドラが呼ばれた
                     }
 
@@ -128,6 +131,9 @@ namespace hsppp {
                         }
                         TranslateMessage(&msg);
                         DispatchMessage(&msg);
+                        internal::processDispatchedMessage(
+                            reinterpret_cast<int64_t>(msg.hwnd), static_cast<int>(msg.message),
+                            static_cast<int64_t>(msg.wParam));
                     }
                     else {
                         // 残り時間が1ms以上ならSleep、そうでなければスピンウェイト
@@ -148,7 +154,7 @@ namespace hsppp {
                     }
                     
                     // ペンディング中の割り込みを処理
-                    if (processPendingInterrupt()) {
+                    if (internal::processPendingInterrupt()) {
                         // 割り込みハンドラが呼ばれた
                     }
 
@@ -158,6 +164,9 @@ namespace hsppp {
                     }
                     TranslateMessage(&msg);
                     DispatchMessage(&msg);
+                    internal::processDispatchedMessage(
+                        reinterpret_cast<int64_t>(msg.hwnd), static_cast<int>(msg.message),
+                        static_cast<int64_t>(msg.wParam));
                 }
             }
 
@@ -388,7 +397,8 @@ namespace hsppp {
 
     // ============================================================
     // gmode_interp - ラスタ転送系の補間モードを設定（新規 / design §6.8）
-    // 対象: picload / celput / gcopy / gzoom (mode 引数未指定時)
+    // 対象: picload / 変形celput / D2D経路のgcopy。
+    // gzoomはHSPのp8既定値0を優先し、負値を明示した場合だけ本設定を使う。
     // mode: 0=nearest / 1=linear (デフォルト互換) / 2=anisotropic
     // ============================================================
     void gmode_interp(OptInt mode, const std::source_location& location) {

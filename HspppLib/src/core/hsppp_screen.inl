@@ -60,7 +60,7 @@ namespace hsppp {
             // メッセージ処理（ペンディング分を処理）
             MSG msg;
             while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
-                if (processPendingInterrupt()) {
+                if (internal::processPendingInterrupt()) {
                     // 割り込みハンドラが呼ばれた
                 }
                 if (msg.message == WM_QUIT) {
@@ -69,6 +69,9 @@ namespace hsppp {
                 }
                 TranslateMessage(&msg);
                 DispatchMessage(&msg);
+                internal::processDispatchedMessage(
+                    reinterpret_cast<int64_t>(msg.hwnd), static_cast<int>(msg.message),
+                    static_cast<int64_t>(msg.wParam));
             }
             
             // メッセージ処理中に終了フラグが立った場合は早期リターン
@@ -184,6 +187,9 @@ namespace hsppp {
             auto surface = getSurfaceById(m_id);
             if (surface) {
                 surface->cls(mode);
+                auto& objMgr = internal::ObjectManager::getInstance();
+                objMgr.removeObjectsByWindow(m_id);
+                objMgr.resetSettingsForCls(m_id);
             }
         });
         return *this;
@@ -567,9 +573,10 @@ namespace hsppp {
 
     Screen& Screen::picload(std::string_view filename, int mode, const std::source_location& location) {
         safe_call(location, [&] {
-            auto surface = getSurfaceById(m_id);
-            if (!surface) return;
-            surface->picload(filename, mode);
+            if (mode < 0 || mode > 2) {
+                throw HspError(ERR_OUT_OF_RANGE, "picload: invalid mode (must be 0-2)", location);
+            }
+            (void)internal::picloadToSurface(m_id, filename, mode);
         });
         return *this;
     }
@@ -589,6 +596,15 @@ namespace hsppp {
 
     Screen& Screen::gmode(int mode, int sizeX, int sizeY, int blendRate, const std::source_location& location) {
         safe_call(location, [&] {
+            if (mode < 0 || mode > 7) {
+                throw HspError(ERR_OUT_OF_RANGE, "gmodeのモードは0～7の範囲で指定してください", location);
+            }
+            if (sizeX < 0 || sizeY < 0) {
+                throw HspError(ERR_OUT_OF_RANGE, "gmodeのサイズは0以上を指定してください", location);
+            }
+            if (blendRate < 0 || blendRate > 256) {
+                throw HspError(ERR_OUT_OF_RANGE, "gmodeのブレンド率は0～256の範囲で指定してください", location);
+            }
             auto surface = getSurfaceById(m_id);
             if (surface) {
                 surface->setGmode(mode, sizeX, sizeY, blendRate);
@@ -621,6 +637,11 @@ namespace hsppp {
 
     Screen& Screen::gzoom(int destW, int destH, int srcId, int srcX, int srcY, OptInt srcW, OptInt srcH, int mode, const std::source_location& location) {
         safe_call(location, [&] {
+            if (mode < -1 || mode > 2) {
+                throw HspError(ERR_OUT_OF_RANGE,
+                    "gzoomのモードは0(nearest)/1(linear)、またはHSP++拡張の-1/2を指定してください",
+                    location);
+            }
             auto surface = getSurfaceById(m_id);
             if (!surface) return;
 
@@ -846,7 +867,7 @@ namespace hsppp {
 
             // オブジェクトサイズを取得
             int objW, objH, objSpace;
-            objMgr.getObjSize(objW, objH, objSpace);
+            surface->getObjSize(objW, objH, objSpace);
 
             // 現在のカレントポジションを取得
             int posX = surface->getCurrentX();
@@ -863,7 +884,7 @@ namespace hsppp {
                 WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_CLIPSIBLINGS | BS_PUSHBUTTON,
                 posX, posY, objW, objH,
                 hwndParent,
-                (HMENU)(INT_PTR)(objMgr.getNextId()),
+                (HMENU)(INT_PTR)(objMgr.getNextId(windowId)),
                 GetModuleHandle(nullptr),
                 nullptr
             );
@@ -893,7 +914,7 @@ namespace hsppp {
             info.enabled = true;
             info.focusSkipMode = 1;
 
-            int objectId = objMgr.registerObject(std::move(info));
+            int objectId = objMgr.registerObject(std::move(info), *surface);
 
             // カレントポジションを次の行に移動
             int nextY = posY + std::max(objH, objSpace);
@@ -928,7 +949,7 @@ namespace hsppp {
                 WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_CLIPSIBLINGS | ES_AUTOHSCROLL,
                 posX, posY, w, h,
                 hwndParent,
-                (HMENU)(INT_PTR)(objMgr.getNextId()),
+                (HMENU)(INT_PTR)(objMgr.getNextId(windowId)),
                 GetModuleHandle(nullptr),
                 nullptr
             );
@@ -956,7 +977,7 @@ namespace hsppp {
             info.enabled = true;
             info.focusSkipMode = 1;
 
-            int objectId = objMgr.registerObject(std::move(info));
+            int objectId = objMgr.registerObject(std::move(info), *surface);
 
             int nextY = posY + std::max(h, objSpaceY);
             surface->pos(posX, nextY);
@@ -1014,7 +1035,7 @@ namespace hsppp {
                 dwStyle,
                 posX, posY, w, h,
                 hwndParent,
-                (HMENU)(INT_PTR)(objMgr.getNextId()),
+                (HMENU)(INT_PTR)(objMgr.getNextId(windowId)),
                 GetModuleHandle(nullptr),
                 nullptr
             );
@@ -1042,7 +1063,7 @@ namespace hsppp {
             info.enabled = true;
             info.focusSkipMode = 1;
 
-            int objectId = objMgr.registerObject(std::move(info));
+            int objectId = objMgr.registerObject(std::move(info), *surface);
 
             int nextY = posY + std::max(h, objSpaceY);
             surface->pos(posX, nextY);
@@ -1154,7 +1175,7 @@ namespace hsppp {
                 WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_CLIPSIBLINGS | BS_AUTOCHECKBOX,
                 posX, posY, objW, objH,
                 hwndParent,
-                (HMENU)(INT_PTR)(objMgr.getNextId()),
+                (HMENU)(INT_PTR)(objMgr.getNextId(m_id)),
                 GetModuleHandle(nullptr),
                 nullptr
             );
@@ -1179,7 +1200,7 @@ namespace hsppp {
             info.enabled = true;
             info.focusSkipMode = 1;
 
-            int objectId = objMgr.registerObject(std::move(info));
+            int objectId = objMgr.registerObject(std::move(info), *surface);
 
             int nextY = posY + std::max(objH, objSpace);
             surface->pos(posX, nextY);
@@ -1215,7 +1236,7 @@ namespace hsppp {
                 WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_CLIPSIBLINGS | CBS_DROPDOWNLIST | WS_VSCROLL,
                 posX, posY, objW, objH + expandY,
                 hwndParent,
-                (HMENU)(INT_PTR)(objMgr.getNextId()),
+                (HMENU)(INT_PTR)(objMgr.getNextId(m_id)),
                 GetModuleHandle(nullptr),
                 nullptr
             );
@@ -1256,7 +1277,7 @@ namespace hsppp {
             info.enabled = true;
             info.focusSkipMode = 1;
 
-            int objectId = objMgr.registerObject(std::move(info));
+            int objectId = objMgr.registerObject(std::move(info), *surface);
 
             int nextY = posY + std::max(objH, objSpace);
             surface->pos(posX, nextY);
@@ -1291,7 +1312,7 @@ namespace hsppp {
                 WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_CLIPSIBLINGS | WS_VSCROLL | LBS_NOTIFY,
                 posX, posY, objW, expandY,
                 hwndParent,
-                (HMENU)(INT_PTR)(objMgr.getNextId()),
+                (HMENU)(INT_PTR)(objMgr.getNextId(m_id)),
                 GetModuleHandle(nullptr),
                 nullptr
             );
@@ -1332,7 +1353,7 @@ namespace hsppp {
             info.enabled = true;
             info.focusSkipMode = 1;
 
-            int objectId = objMgr.registerObject(std::move(info));
+            int objectId = objMgr.registerObject(std::move(info), *surface);
 
             int nextY = posY + std::max(expandY, objSpace);
             surface->pos(posX, nextY);
@@ -1348,7 +1369,7 @@ namespace hsppp {
     Screen& Screen::objmode(int mode, int tabMove, const std::source_location& location) {
         safe_call(location, [&] {
             auto& objMgr = internal::ObjectManager::getInstance();
-            objMgr.setObjMode(mode, tabMove);
+            objMgr.setObjMode(m_id, mode, tabMove);
         });
         return *this;
     }
@@ -1356,7 +1377,7 @@ namespace hsppp {
     Screen& Screen::objcolor(int r, int g, int b, const std::source_location& location) {
         safe_call(location, [&] {
             auto& objMgr = internal::ObjectManager::getInstance();
-            objMgr.setObjColor(r, g, b);
+            objMgr.setObjColor(m_id, r, g, b);
         });
         return *this;
     }
@@ -1368,7 +1389,7 @@ namespace hsppp {
     Screen& Screen::objprm(int objectId, std::string_view value, const std::source_location& location) {
         safe_call(location, [&] {
             auto& objMgr = internal::ObjectManager::getInstance();
-            auto* pInfo = objMgr.getObject(objectId);
+            auto* pInfo = objMgr.getObject(m_id, objectId);
 
             if (!pInfo || !pInfo->hwnd) return;
 
@@ -1415,7 +1436,7 @@ namespace hsppp {
     Screen& Screen::objprm(int objectId, int value, const std::source_location& location) {
         safe_call(location, [&] {
             auto& objMgr = internal::ObjectManager::getInstance();
-            auto* pInfo = objMgr.getObject(objectId);
+            auto* pInfo = objMgr.getObject(m_id, objectId);
 
             if (!pInfo || !pInfo->hwnd) return;
 
@@ -1465,7 +1486,7 @@ namespace hsppp {
     Screen& Screen::objenable(int objectId, int enable, const std::source_location& location) {
         safe_call(location, [&] {
             auto& objMgr = internal::ObjectManager::getInstance();
-            auto* pInfo = objMgr.getObject(objectId);
+            auto* pInfo = objMgr.getObject(m_id, objectId);
 
             if (!pInfo || !pInfo->hwnd) return;
 
@@ -1479,7 +1500,7 @@ namespace hsppp {
     Screen& Screen::objsel(int objectId, const std::source_location& location) {
         safe_call(location, [&] {
             auto& objMgr = internal::ObjectManager::getInstance();
-            auto* pInfo = objMgr.getObject(objectId);
+            auto* pInfo = objMgr.getObject(m_id, objectId);
 
             if (pInfo && pInfo->hwnd) {
                 SetFocus(pInfo->hwnd);

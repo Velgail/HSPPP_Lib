@@ -237,8 +237,10 @@ void drawHiDPIDemo(Screen& win) {
     const int clientLogicalH = ginfo(ginfo_type_mesy);   // 13
     const int desktopLogicalW = ginfo(ginfo_type_dispx); // 20: プライマリモニタ論理 px (HSP3 公式準拠)
     const int desktopLogicalH = ginfo(ginfo_type_dispy); // 21
-    const int mouseLogicalX = ginfo(ginfo_type_mx);     // 0  (HSP 仕様: 論理 px)
-    const int mouseLogicalY = ginfo(ginfo_type_my);     // 1
+    const int mouseDesktopX = ginfo(ginfo_type_mx);     // 0: HSP仕様のデスクトップ座標
+    const int mouseDesktopY = ginfo(ginfo_type_my);     // 1
+    const int mouseClientX = win.mousex();              // 操作先ウィンドウの論理クライアント座標
+    const int mouseClientY = win.mousey();
 
     // 実効 DPI: ライブラリが管理する GetDpiForWindow ベースの値を直接取得する。
     // WM_DPICHANGED 未受信（起動直後）でも正確な DPI が得られる。
@@ -262,19 +264,21 @@ void drawHiDPIDemo(Screen& win) {
     win.pos(20, 182);
     win.mes(std::format("  デスクトップ (論理 px / Primary): {} x {}", desktopLogicalW, desktopLogicalH));
     win.pos(20, 200);
-    win.mes(std::format("  マウス座標 (論理 px):       ({}, {})", mouseLogicalX, mouseLogicalY));
+    win.mes(std::format("  マウス座標 (desktop):       ({}, {})", mouseDesktopX, mouseDesktopY));
+    win.pos(20, 218);
+    win.mes(std::format("  マウス座標 (client/logical): ({}, {})", mouseClientX, mouseClientY));
 
-    win.color(0, 0, 128).pos(20, 228);
+    win.color(0, 0, 128).pos(20, 242);
     win.mes(std::format("WM_DPICHANGED 受信回数: {}   最終通知 DPI: {}",
                         g_dpiChangeCount,
                         g_dpiLastReported == 0 ? std::string("（未受信）") : std::to_string(g_dpiLastReported)));
 
-    win.color(64, 64, 64).pos(20, 250);
+    win.color(64, 64, 64).pos(20, 264);
     win.mes("WM_DPICHANGED ログ（末尾 8 件）:");
 
     // 黒背景のログ枠
-    win.color(32, 32, 32).boxf(20, 268, 620, 380);
-    win.color(0, 255, 0).pos(28, 274);
+    win.color(32, 32, 32).boxf(20, 282, 620, 394);
+    win.color(0, 255, 0).pos(28, 288);
     win.font("MS Gothic", 11, 0);
     if (g_dpiChangeLog.empty()) {
         win.mes("(まだ受信していません。ウィンドウを別 DPI モニタへドラッグすると発火します)");
@@ -283,9 +287,9 @@ void drawHiDPIDemo(Screen& win) {
     }
 
     win.font("MS Gothic", 11, 0);
-    win.color(0, 0, 128).pos(20, 395);
-    win.mes("操作: マウスを動かすと論理座標が更新 / 別 DPI モニタへドラッグで WM_DPICHANGED 発火");
-    win.color(128, 0, 0).pos(20, 412);
+    win.color(0, 0, 128).pos(20, 409);
+    win.mes("操作: マウスを動かすと座標が更新 / 別 DPI モニタへドラッグで WM_DPICHANGED 発火");
+    win.color(128, 0, 0).pos(20, 426);
     win.mes("注: ginfo_mesx/mesy は HSP3 仕様準拠で論理 px を返します。");
 }
 

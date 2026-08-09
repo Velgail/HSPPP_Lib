@@ -18,6 +18,10 @@ import <functional>;
 import <span>;
 import <memory>;
 import <string>;
+import <concepts>;
+import <type_traits>;
+import <utility>;
+import <cstddef>;
 
 export namespace hsppp {
 
@@ -474,6 +478,44 @@ export namespace hsppp {
     /// @note ラムダ式、関数ポインタ、関数オブジェクトをサポート
     using InterruptHandler = std::function<void()>;
 
+    /// @brief oncmd用ハンドラ。void戻り値は既定処理へ渡し、int戻り値はWndProcの戻り値にする
+    class CommandInterruptHandler {
+    private:
+        std::function<std::optional<int>()> handler_;
+
+    public:
+        CommandInterruptHandler() noexcept = default;
+        CommandInterruptHandler(std::nullptr_t) noexcept {}
+
+        template <typename F>
+            requires (!std::same_as<std::remove_cvref_t<F>, CommandInterruptHandler>) &&
+                     std::invocable<F&> &&
+                     (std::is_void_v<std::invoke_result_t<F&>> ||
+                      std::convertible_to<std::invoke_result_t<F&>, int>)
+        CommandInterruptHandler(F&& handler) {
+            using Result = std::invoke_result_t<F&>;
+            if constexpr (std::is_void_v<Result>) {
+                handler_ = [callable = std::forward<F>(handler)]() mutable -> std::optional<int> {
+                    callable();
+                    return std::nullopt;
+                };
+            } else {
+                handler_ = [callable = std::forward<F>(handler)]() mutable -> std::optional<int> {
+                    return static_cast<int>(callable());
+                };
+            }
+        }
+
+        [[nodiscard]] explicit operator bool() const noexcept {
+            return static_cast<bool>(handler_);
+        }
+
+        [[nodiscard]] std::optional<int> operator()() const {
+            if (!handler_) return std::nullopt;
+            return handler_();
+        }
+    };
+
     /// @brief エラーハンドラ型（onerror用）
     /// @note HspErrorBaseオブジェクトを受け取る（HspError/HspWeakError両方に対応）
     using ErrorHandler = std::function<int(const HspErrorBase&)>;
@@ -688,8 +730,9 @@ export namespace hsppp {
         /// @brief 物理クライアント座標 → 論理座標 変換
         /// @details 仮想画面 ON 時はアスペクト維持 uniform スケール + letterbox
         ///          オフセットの逆変換を行う。OFF 時は恒等変換。
-        ///          ginfo(ginfo_type_mx/my) や mousex()/mousey() は内部で本変換
-        ///          相当を行っているが、本 API は任意の物理座標を対象にできる。
+        ///          mousex()/mousey() は内部で本変換相当を行う。
+        ///          ginfo(ginfo_type_mx/my) はHSP同様にデスクトップ座標を返す。
+        ///          本 API は任意の物理クライアント座標を対象にできる。
         void physToLogical(int physX, int physY, int& outLogX, int& outLogY,
                            const std::source_location& location = std::source_location::current()) const;
 
@@ -709,14 +752,14 @@ export namespace hsppp {
                                const std::source_location& location = std::source_location::current());
 
         // ============================================================
-        // 割り込みハンドラ（OOP版・ウィンドウ別設定）
+        // 割り込みハンドラ（OOP版。oncmdのみウィンドウ別設定）
         // ============================================================
 
         /// @brief クリック割り込みを設定
         Screen& onclick(InterruptHandler handler, const std::source_location& location = std::source_location::current());
 
         /// @brief Windowsメッセージ割り込みを設定
-        Screen& oncmd(InterruptHandler handler, int messageId, const std::source_location& location = std::source_location::current());
+        Screen& oncmd(CommandInterruptHandler handler, int messageId, const std::source_location& location = std::source_location::current());
 
         /// @brief キー割り込みを設定
         Screen& onkey(InterruptHandler handler, const std::source_location& location = std::source_location::current());

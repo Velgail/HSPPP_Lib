@@ -183,7 +183,7 @@ void drawInterruptDemo(Screen& win) {
 // 割り込みデモのアクション処理
 // ═══════════════════════════════════════════════════════════════════
 
-void processInterruptAction(Screen& win) {
+void processInterruptAction([[maybe_unused]] Screen& win) {
     // 修飾キーが押されている場合はアクション無効
     if (isModifierKeyPressed()) return;
     

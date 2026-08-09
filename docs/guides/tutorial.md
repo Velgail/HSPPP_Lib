@@ -325,7 +325,7 @@ void hspMain() {
 
 ```cpp
 // 指定色を透明として扱う
-gmode(2);  // gmode_and: 透過モード
+gmode(gmode_rgb0);  // RGB=(0,0,0)を透明色としてコピー
 color(255, 0, 255);  // 透過色（マゼンタ）
 pos(100, 100);
 gcopy(1, 0, 0, 200, 200);

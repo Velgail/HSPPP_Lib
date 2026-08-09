@@ -272,10 +272,10 @@ void drawExtendedDemo(Screen& win) {
         win.mes("gmode(0) 通常");
         
         win.pos(350, 150);
-        gmode(2, 100, 100, 128);
+        gmode(gmode_alpha, 100, 100, 128);
         gcopy(g_srcBufferId, 0, 0, 100, 100);
         win.color(0, 0, 0).pos(350, 260);
-        win.mes("gmode(2) 半透明");
+        win.mes("gmode(3) 半透明");
         
         win.pos(500, 150);
         gmode(5, 100, 100, 200);

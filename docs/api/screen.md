@@ -69,6 +69,16 @@ auto win = screen();
 > [仮想画面ガイド](/HSPPP_Lib/VirtualScreen) を参照してください。
 > HiDPI awareness は標準で有効化されています（[HiDPI ガイド](/HSPPP_Lib/HiDPI) 参照）。
 
+初期化に成功すると、指定したIDがそのまま描画先になります。同じウィンドウIDを再指定した場合も再初期化できます。
+OpenHSPのWindows版と同じく、ウィンドウを `buffer` で再初期化することは可能です。一度bufferになったIDへ
+`screen` / `bgscr` を指定した場合は、ウィンドウ型へ戻さずbufferのまま指定サイズで再初期化します。
+HspppLibでは同一IDの再初期化時にネイティブウィンドウを作り直す場合があるため、保存済みの `HWND` ではなく
+スクリーンIDまたは `Screen` ハンドルを継続利用してください。
+
+HSP互換のグローバル描画APIを画面作成前に呼んだ場合は、HSPの初期画面に相当するID 0（640×480）を遅延生成します。
+一方、OOP版の `screen(...)` / `buffer(...)` / `bgscr(...)` は、HSP風コードが使う0以上の明示IDと衝突しないよう
+内部では負のIDを自動採番します。OOP版では数値IDへ依存せず、返された `Screen` ハンドルを使ってください。
+
 ---
 
 ### buffer
@@ -264,7 +274,7 @@ void vscalemode(int mode);   // 互換のため受理。状態を保持するの
 
 ```cpp
 void gmode(
-    OptInt mode       = {},    // 画面コピーモード（0〜6）
+    OptInt mode       = {},    // 画面コピーモード（0〜7）
     OptInt size_x     = {},    // コピーする大きさX（デフォルト: 32）
     OptInt size_y     = {},    // コピーする大きさY（デフォルト: 32）
     OptInt blend_rate = {}     // ブレンド率（0〜256）
@@ -273,19 +283,23 @@ void gmode(
 
 | モード | 定数 | 説明 |
 |-------|------|------|
-| 0 | `gmode_copy` | 通常コピー |
-| 1 | `gmode_mem` | メモリ間コピー |
-| 2 | `gmode_and` | AND合成 |
-| 3 | `gmode_or` | OR合成 |
-| 4 | `gmode_alpha` | 半透明合成 |
-| 5 | `gmode_add` | 加算合成 |
-| 6 | `gmode_sub` | 減算合成 |
+| 0 | `gmode_gdi` | 通常コピー |
+| 1 | `gmode_mem` | メモリ間コピー（描画結果はモード0と同じ） |
+| 2 | `gmode_rgb0` | RGBがすべて0のピクセルを透明色としてコピー |
+| 3 | `gmode_alpha` | `blend_rate` による半透明合成 |
+| 4 | `gmode_rgb0alpha` | 現在の `color` と同じRGBを透明色とする半透明合成 |
+| 5 | `gmode_add` | `blend_rate` を反映した加算合成（255でクランプ） |
+| 6 | `gmode_sub` | `blend_rate` を反映した減算合成（0でクランプ） |
+| 7 | `gmode_pixela` | 元画像の右隣に置いたRGBマスクによるピクセル単位の合成 |
+
+`size_x` / `size_y` は0も有効です。`blend_rate` は0〜256で、256が完全なコピーです。
+設定は現在の描画先IDに保存され、`gcopy` と等倍の `celput` に反映されます。`gzoom` の合成方法には使われません。
 
 ---
 
 ### gmode_interp
 
-ラスタ画像転送（`picload` / `celput` / `gcopy` / `gzoom`）の補間モードを切り替えます。
+HspppLib独自の補間設定です。D2D経路の `picload` / 変形 `celput` / `gcopy` で使用します。
 
 ```cpp
 void gmode_interp(OptInt mode = {});
@@ -304,19 +318,14 @@ void gmode_interp(OptInt mode = {});
 
 ```cpp
 gmode_interp(0);            // NEAREST に変更
-gcopy(1, 0, 0, 64, 64);     // NEAREST で転送
+gcopy(1, 0, 0, 64, 64);    // このサーフェスの補間設定で転送
 
 gmode_interp();             // 引数省略 → LINEAR に強制リセット
-gcopy(2, 0, 0, 64, 64);     // LINEAR で転送
+gcopy(2, 0, 0, 64, 64);    // LINEAR で転送
 ```
 
-> **HSP3 後方互換性に関する注意:** v2 では `m_gmodeInterp` 既定が LINEAR に統一されたため、
-> `gcopy` / `gzoom` を `mode` 省略で呼び出した場合の既定が **旧 NEAREST → 新 LINEAR** に変化しています。
-> ピクセルアート用途で `mode` 省略を使っていたスクリプトは、スクリプト冒頭で `gmode_interp(0)` を一度呼んで
-> NEAREST 既定に戻してください。詳細は
-> [移行ガイド §2.1 / §2.2](/HSPPP_Lib/MigrationGuide-HiDPI-v2) を参照してください。
->
-> `gzoom` の `mode` 引数を **明示指定** した場合は、明示値が `m_gmodeInterp` より優先されます（per-call 指定）。
+> `gzoom` はHSPのp8を優先します。省略時は常に0（補間なし）で、`gmode_interp` の状態を引き継ぎません。
+> HspppLib拡張としてp8に `-1` を明示すると `gmode_interp` を使い、`2` でANISOTROPICを選べます。
 
 ---
 
@@ -337,9 +346,12 @@ void gcopy(
 **使用例:**
 
 ```cpp
-gmode(gmode_alpha, 0, 0, 128);  // 半透明モード、50%
+gmode(gmode_alpha, 64, 64, 128); // 半透明モード、約50%
 gcopy(1, 0, 0, 64, 64);         // バッファ1から64x64をコピー
 ```
+
+コピー先は現在のカレントポジションです。コピー元・コピー先が画面外にはみ出す場合は、HSPと同様に
+両方の矩形を対応させたままクリップします。モード3〜7のRGB演算はHSPの整数演算順に合わせています。
 
 ---
 
@@ -356,9 +368,13 @@ void gzoom(
     OptInt src_y  = {},    // コピー元Y座標
     OptInt src_w  = {},    // コピー元の幅
     OptInt src_h  = {},    // コピー元の高さ
-    OptInt mode   = {}     // 0=高速, 1=高品質
+    OptInt mode   = {}     // 0=補間なし（既定）, 1=高品質
 );
 ```
+
+`mode`（HSPのp8）を省略した場合は0です。`gmode` の合成モードやブレンド率は使用しません。
+コピー元サイズを省略した場合だけ、現在の `gmode` の `size_x` / `size_y` を使います。
+HspppLib拡張として `mode=-1` は `gmode_interp` の現在値、`mode=2` はANISOTROPICです。
 
 ---
 
@@ -374,8 +390,8 @@ int ginfo(int type);
 
 | 定数 | 値 | 説明 |
 |------|----|------|
-| `ginfo_type_mx` | 0 | マウスX座標 |
-| `ginfo_type_my` | 1 | マウスY座標 |
+| `ginfo_type_mx` | 0 | デスクトップ上のマウスX座標 |
+| `ginfo_type_my` | 1 | デスクトップ上のマウスY座標 |
 | `ginfo_type_act` | 2 | アクティブウィンドウID |
 | `ginfo_type_sel` | 3 | 描画先ウィンドウID |
 | `ginfo_type_wx1` | 4 | ウィンドウ左端座標 |
@@ -391,6 +407,7 @@ int ginfo(int type);
 | `ginfo_type_b` | 18 | 現在の描画色B |
 | `ginfo_type_dispx` | 20 | ディスプレイ幅 |
 | `ginfo_type_dispy` | 21 | ディスプレイ高さ |
+| `ginfo_type_intid` | 24 | 直近の割り込みが発生したウィンドウID |
 | `ginfo_type_fps` | 28 | モニター最大リフレッシュレート(Hz) |
 
 ### 便利関数
@@ -398,8 +415,8 @@ int ginfo(int type);
 各 `ginfo` 値に対応する便利関数も提供されています：
 
 ```cpp
-int ginfo_mx();      // マウスX座標
-int ginfo_my();      // マウスY座標
+int ginfo_mx();      // デスクトップ上のマウスX座標
+int ginfo_my();      // デスクトップ上のマウスY座標
 int ginfo_sel();     // 描画先ウィンドウID
 int ginfo_sizex();   // 画面サイズX
 int ginfo_sizey();   // 画面サイズY
@@ -470,14 +487,18 @@ inline constexpr int vscale_aniso   = 2;  // 異方性（高品質・高負荷�
 ### コピーモード定数
 
 ```cpp
-inline constexpr int gmode_copy  = 0;   // 通常コピー
-inline constexpr int gmode_mem   = 1;   // メモリ間コピー
-inline constexpr int gmode_and   = 2;   // AND合成
-inline constexpr int gmode_or    = 3;   // OR合成
-inline constexpr int gmode_alpha = 4;   // 半透明合成
-inline constexpr int gmode_add   = 5;   // 加算合成
-inline constexpr int gmode_sub   = 6;   // 減算合成
+inline constexpr int gmode_gdi       = 0; // 通常コピー
+inline constexpr int gmode_mem       = 1; // メモリ間コピー
+inline constexpr int gmode_rgb0      = 2; // 黒を透明色としてコピー
+inline constexpr int gmode_alpha     = 3; // 半透明合成
+inline constexpr int gmode_rgb0alpha = 4; // 指定色を透明色とする半透明合成
+inline constexpr int gmode_add       = 5; // 加算合成
+inline constexpr int gmode_sub       = 6; // 減算合成
+inline constexpr int gmode_pixela    = 7; // RGBマスクによるピクセルアルファ合成
 ```
+
+`gmode_copy` は `gmode_gdi` の互換別名です。旧HspppLibのソース互換用に
+`gmode_and` / `gmode_or` も残していますが、名前ではなく上表のHSPモード意味を使用してください。
 
 ---
 

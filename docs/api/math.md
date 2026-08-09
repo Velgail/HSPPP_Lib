@@ -437,7 +437,7 @@ void hspMain() {
         redraw(1);
         await(16);
     }
-    return 0;
+    return;
 }
 ```
 
@@ -457,7 +457,7 @@ void hspMain() {
         pset(x, y);
     }
     
-    return 0;
+    return;
 }
 ```
 

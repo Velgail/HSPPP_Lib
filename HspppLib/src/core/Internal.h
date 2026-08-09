@@ -210,6 +210,13 @@ struct ObjectInfo {
     // 有効/無効、フォーカススキップ
     bool enabled;
     int focusSkipMode;            // 1=移動可能, 2=移動不可, 3=スキップ, +4=全選択
+
+    // objmode配置時スナップショット（HSP同様、配置済みオブジェクトは後続設定で変化しない）
+    std::shared_ptr<void> ownedFont;
+    std::shared_ptr<void> ownedBackgroundBrush;
+    COLORREF textColor;
+    COLORREF backgroundColor;
+    bool useCustomColors;
     
     ObjectInfo() 
         : type(ObjectType::None)
@@ -220,6 +227,9 @@ struct ObjectInfo {
         , maxLength(0)
         , enabled(true)
         , focusSkipMode(1)
+        , textColor(RGB(0, 0, 0))
+        , backgroundColor(RGB(255, 255, 255))
+        , useCustomColors(false)
     {}
     
     /// @brief 文字列変数へのポインタを取得
@@ -241,21 +251,24 @@ struct ObjectInfo {
 /// @brief オブジェクトマネージャー（シングルトン）
 class ObjectManager {
 private:
-    std::map<int, ObjectInfo> m_objects;  // オブジェクトID -> ObjectInfo
-    std::map<HWND, int> m_hwndMap;        // HWND -> オブジェクトIDの逆引きマップ
-    int m_nextId;
-    
-    // 現在のオブジェクトサイズ設定 (objsize)
-    int m_objSizeX;
-    int m_objSizeY;
-    int m_objSpaceY;    // Y方向の行間
-    
-    // objmode設定
-    int m_fontMode;     // 0=HSP標準, 1=GUIフォント, 2=font命令のフォント, 4=color使用
-    bool m_tabEnabled;  // TABキーでのフォーカス移動
-    
-    // objcolor設定
-    int m_objColorR, m_objColorG, m_objColorB;
+    using ObjectKey = std::pair<int, int>;  // (ウィンドウID, オブジェクトID)
+    std::map<ObjectKey, ObjectInfo> m_objects;
+    std::map<HWND, ObjectKey> m_hwndMap;
+
+    struct ObjectSettings {
+        int objSizeX = 64;
+        int objSizeY = 24;
+        int objSpaceY = 0;
+        int fontMode = 1;
+        bool tabEnabled = true;
+        int objColorR = 0;
+        int objColorG = 0;
+        int objColorB = 0;
+    };
+    std::map<int, ObjectSettings> m_settings;
+
+    ObjectSettings& settingsFor(int windowId);
+    const ObjectSettings& settingsFor(int windowId) const;
     
     ObjectManager();
     ~ObjectManager();
@@ -268,16 +281,19 @@ public:
     
     /// @brief オブジェクトを登録（ムーブで受け取る）
     /// @return 割り当てられたオブジェクトID
-    int registerObject(ObjectInfo info);
+    int registerObject(ObjectInfo info, const HspSurface& surface);
     
     /// @brief オブジェクトを取得
-    ObjectInfo* getObject(int objectId);
+    ObjectInfo* getObject(int windowId, int objectId);
+
+    /// @brief HWNDからオブジェクトを取得
+    ObjectInfo* getObjectByHwnd(HWND hwnd);
     
     /// @brief オブジェクトを削除
-    void removeObject(int objectId);
+    void removeObject(int windowId, int objectId);
     
     /// @brief 指定範囲のオブジェクトを削除
-    void removeObjects(int startId, int endId);
+    void removeObjects(int windowId, int startId, int endId);
     
     /// @brief 指定ウィンドウのオブジェクトをすべて削除
     void removeObjectsByWindow(int windowId);
@@ -286,24 +302,30 @@ public:
     int findObjectByHwnd(HWND hwnd);
     
     /// @brief オブジェクトサイズを設定
-    void setObjSize(int x, int y, int spaceY);
+    void setObjSize(int windowId, int x, int y, int spaceY);
     
     /// @brief オブジェクトサイズを取得
-    void getObjSize(int& x, int& y, int& spaceY) const;
+    void getObjSize(int windowId, int& x, int& y, int& spaceY) const;
     
     /// @brief objmode設定
-    void setObjMode(int fontMode, int tabEnabled);
-    void getObjMode(int& fontMode, bool& tabEnabled) const;
+    void setObjMode(int windowId, int fontMode, int tabEnabled);
+    void getObjMode(int windowId, int& fontMode, bool& tabEnabled) const;
     
     /// @brief objcolor設定
-    void setObjColor(int r, int g, int b);
-    void getObjColor(int& r, int& g, int& b) const;
+    void setObjColor(int windowId, int r, int g, int b);
+    void getObjColor(int windowId, int& r, int& g, int& b) const;
     
     /// @brief 設定をリセット（screen/cls時に呼ばれる）
-    void resetSettings();
+    void resetSettings(int windowId);
+
+    /// @brief cls時の設定リセット（objmode/tabmoveはHSP同様に維持）
+    void resetSettingsForCls(int windowId);
+
+    /// @brief DispatchMessage後のTABフォーカス移動（HSPのNextObject相当）
+    void processTabKey(HWND messageWindow, UINT message, WPARAM wParam);
     
     /// @brief 次のオブジェクトIDを取得（内部用）
-    int getNextId() const { return m_nextId; }
+    int getNextId(int windowId) const;
     
     /// @brief 単一のEDITコントロールの内容を変数に同期
     /// EN_CHANGE通知時にWindowProcから呼び出す
@@ -432,10 +454,16 @@ protected:
     int m_redrawMode;
 
     // gmode設定（サーフェスごと）
-    int m_gmodeMode;        // コピーモード (0～6)
+    int m_gmodeMode;        // コピーモード (0～7)
     int m_gmodeSizeX;       // コピーサイズX
     int m_gmodeSizeY;       // コピーサイズY
     int m_gmodeBlendRate;   // ブレンド率 (0～256)
+
+    // HSP互換CEL設定（画像を保持するウィンドウIDごとに保存）
+    int m_celWidth;
+    int m_celHeight;
+    int m_celCenterX;
+    int m_celCenterY;
 
     // objsize設定（サーフェスごと）
     int m_objSizeX;         // オブジェクト幅
@@ -493,11 +521,23 @@ public:
     // フォント設定
     bool font(std::string_view fontName, int size, int style);
     bool sysfont(int type);
+    HFONT createObjectFont() const;
 
     // 画像操作
     bool picload(std::string_view filename, int mode);
     virtual bool bmpsave(std::string_view filename);
     void celput(ID2D1Bitmap1* pBitmap, const D2D1_RECT_F& srcRect, const D2D1_RECT_F& destRect);
+    void celputHsp(
+        ID2D1Bitmap1* pBitmap,
+        const D2D1_RECT_F& srcRect,
+        float cellWidth,
+        float cellHeight,
+        float centerX,
+        float centerY,
+        double zoomX,
+        double zoomY,
+        double angle
+    );
 
     // 描画制御
     virtual void beginDraw();
@@ -520,6 +560,12 @@ public:
     int getGmodeSizeX() const { return m_gmodeSizeX; }
     int getGmodeSizeY() const { return m_gmodeSizeY; }
     int getGmodeBlendRate() const { return m_gmodeBlendRate; }
+    void setCelDivision(int width, int height, int centerX, int centerY);
+    void resetCelDivision();
+    int getCelWidth() const { return m_celWidth > 0 ? m_celWidth : m_width; }
+    int getCelHeight() const { return m_celHeight > 0 ? m_celHeight : m_height; }
+    int getCelCenterX() const { return m_celCenterX; }
+    int getCelCenterY() const { return m_celCenterY; }
 
     // objsize設定
     void setObjSize(int sizeX, int sizeY, int spaceY) {
@@ -785,6 +831,9 @@ namespace hsppp::internal {
 
     // 画像読み込み・保存（ImageLoader.cpp）
     ComPtr<ID2D1Bitmap1> loadImageFile(std::string_view filename, int& width, int& height);
+
+    /// @brief picloadのHSP互換処理（mode 0/2では画像寸法で画面を再初期化）
+    bool picloadToSurface(int surfaceId, std::string_view filename, int mode);
     bool saveBitmapToFile(ID2D1Bitmap1* pBitmap, std::string_view filename);
 
     // cel素材管理（ImageLoader.cpp）

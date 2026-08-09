@@ -25,28 +25,16 @@ namespace hsppp {
         auto pWindow = currentSurface ? std::dynamic_pointer_cast<HspWindow>(currentSurface) : nullptr;
         
         switch (type) {
-        case 0:  // マウスカーソルX座標（HSP仕様: ウィンドウクライアント領域内の論理座標）
+        case 0:  // スクリーン上のマウスカーソルX座標
         {
             POINT pt;
             GetCursorPos(&pt);
-            if (pWindow && pWindow->getHwnd()) {
-                ScreenToClient(pWindow->getHwnd(), &pt);
-                int lx = 0, ly = 0;
-                pWindow->physToLogical(static_cast<int>(pt.x), static_cast<int>(pt.y), lx, ly);
-                return lx;
-            }
             return static_cast<int>(pt.x);
         }
-        case 1:  // マウスカーソルY座標（HSP仕様: ウィンドウクライアント領域内の論理座標）
+        case 1:  // スクリーン上のマウスカーソルY座標
         {
             POINT pt;
             GetCursorPos(&pt);
-            if (pWindow && pWindow->getHwnd()) {
-                ScreenToClient(pWindow->getHwnd(), &pt);
-                int lx = 0, ly = 0;
-                pWindow->physToLogical(static_cast<int>(pt.x), static_cast<int>(pt.y), lx, ly);
-                return ly;
-            }
             return static_cast<int>(pt.y);
         }
         case 2:  // アクティブなウィンドウID
@@ -264,7 +252,7 @@ namespace hsppp {
         case 23:  // カレントポジションのY座標
             return currentSurface ? currentSurface->getCurrentY() : 0;
         case 24:  // メッセージ割り込み時のウィンドウID
-            return wparam();
+            return internal::getInterruptWindowId();
         case 25:  // 未使用ウィンドウID
         {
             for (int i = 0; ; ++i) {

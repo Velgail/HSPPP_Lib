@@ -37,6 +37,10 @@ namespace hsppp {
             throw HspError(ERR_OUT_OF_RANGE, "screenのサイズが大きすぎます（16384以下）", std::source_location::current());
         }
 
+        // 再初期化では、この画面に属するGUIオブジェクトも破棄する。
+        ObjectManager::getInstance().removeObjectsByWindow(id);
+        ObjectManager::getInstance().resetSettings(id);
+
         // 既存のサーフェスを削除
         if (g_surfaces.find(id) != g_surfaces.end()) {
             g_surfaces.erase(id);
@@ -111,6 +115,7 @@ namespace hsppp {
 
         // カレントサーフェスとして設定（weak_ptrを使用）
         g_currentSurface = window;
+        g_currentScreenId = id;
 
         // 非表示フラグが立っていなければウィンドウを表示
         if (!isHidden) {
@@ -163,6 +168,12 @@ namespace hsppp {
     ) {
         return safe_call(location, [&] {
             int modeVal = mode.value_or(0);
+            // HSP Win32版のMakeBmscrと同じく、すでにbufferとして使われているIDを
+            // screenで再初期化してもウィンドウへは変換せず、bufferのまま作り直す。
+            // 逆方向（screen→buffer）はbuffer()側で通常どおり許可する。
+            if (std::dynamic_pointer_cast<internal::HspBuffer>(getSurfaceById(id))) {
+                return buffer(id, width, height, modeVal, location);
+            }
             bool virtualRes = (modeVal & screen_mode_virtual) != 0;
             return createWindowInternal(
                 id,
@@ -195,6 +206,10 @@ namespace hsppp {
             throw HspError(ERR_OUT_OF_RANGE, "bufferのサイズが大きすぎます（16384以下）", std::source_location::current());
         }
 
+        // 再初期化では、この画面に属するGUIオブジェクトも破棄する。
+        ObjectManager::getInstance().removeObjectsByWindow(id);
+        ObjectManager::getInstance().resetSettings(id);
+
         // 既存のサーフェスがある場合の処理
         // HSPでは既存のIDに対してbuffer()を呼ぶと上書きされる（エラーではない）
         auto it = g_surfaces.find(id);
@@ -216,6 +231,7 @@ namespace hsppp {
 
         // カレントサーフェスとして設定
         g_currentSurface = buf;
+        g_currentScreenId = id;
 
         // Screen ハンドルを返す
         return Screen{id, true};
@@ -272,6 +288,10 @@ namespace hsppp {
             throw HspError(ERR_OUT_OF_RANGE, "bgscrのサイズが大きすぎます（16384以下）", std::source_location::current());
         }
 
+        // 再初期化では、この画面に属するGUIオブジェクトも破棄する。
+        ObjectManager::getInstance().removeObjectsByWindow(id);
+        ObjectManager::getInstance().resetSettings(id);
+
         // 既存のサーフェスを削除
         if (g_surfaces.find(id) != g_surfaces.end()) {
             g_surfaces.erase(id);
@@ -325,6 +345,7 @@ namespace hsppp {
 
         // カレントサーフェスとして設定
         g_currentSurface = window;
+        g_currentScreenId = id;
 
         // 非表示フラグが立っていなければウィンドウを表示
         if (!isHidden) {
@@ -365,6 +386,9 @@ namespace hsppp {
                  OptInt pos_x, OptInt pos_y, OptInt client_w, OptInt client_h, const std::source_location& location) {
         return safe_call(location, [&] {
             int modeVal = mode.value_or(0);
+            if (std::dynamic_pointer_cast<internal::HspBuffer>(getSurfaceById(id))) {
+                return buffer(id, width, height, modeVal, location);
+            }
             bool virtualRes = (modeVal & screen_mode_virtual) != 0;
             return createBgscrInternal(
                 id,

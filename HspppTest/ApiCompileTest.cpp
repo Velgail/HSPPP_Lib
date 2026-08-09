@@ -350,24 +350,26 @@ namespace compile_test {
         // bmpsave - HSP互換
         bmpsave("output.bmp");
 
-        // celload - HSP互換
+        // celload - 読み込み先ウィンドウIDと初期化モード
         [[maybe_unused]] int celId1 = celload("sprite.png");
         [[maybe_unused]] int celId2 = celload("sprite.png", 1);
-        [[maybe_unused]] int celId3 = celload("sprite.png", {});
-        [[maybe_unused]] int celId4 = celload("sprite.png", omit);
+        [[maybe_unused]] int celId3 = celload("sprite.png", 2, 0);
+        [[maybe_unused]] int celId4 = celload("sprite.png", celid_auto, 1);
+        [[maybe_unused]] int celId5 = celload("sprite.png", celid_reuse);
 
-        // celdiv - HSP互換
-        celdiv(1, 8, 8);
-        celdiv(celId1, 4, 4);
+        // celdiv - 1セルのドット寸法と中心座標
+        celdiv(1, 32, 32);
+        celdiv(celId1, 64, 48, 32, 24);
+        celdiv(celId1);
 
-        // celput - HSP互換
+        // celput - pos基準、倍率、角度
         celput(1, 0);
-        celput(1, 0, 100, 100);
-        celput(1, 0, {}, {});
-        celput(1, 0, omit, omit);
+        celput(1, 0, 1.0, 1.0, 0.0);
+        celput(1, 0, 2.0, 0.5);
+        celput(1, 0, omit, omit, omit);
         celput(celId1, 5);
-        celput(celId1, 5, 200);
-        celput(celId1, 5, 200, 150);
+        celput(celId1, 5, 1.5);
+        celput(celId1, 5, 1.5, 1.5, 0.25);
     }
 
     // ============================================================
@@ -619,8 +621,8 @@ namespace compile_test {
         
         // システム変数
         [[maybe_unused]] int ip = hsppp::iparam();
-        [[maybe_unused]] int wp = hsppp::wparam();
-        [[maybe_unused]] int lp = hsppp::lparam();
+        [[maybe_unused]] std::int64_t wp = hsppp::wparam();
+        [[maybe_unused]] std::int64_t lp = hsppp::lparam();
         [[maybe_unused]] const InterruptParams& params = hsppp::getInterruptParams();
         (void)params;
     }

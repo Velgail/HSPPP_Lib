@@ -103,8 +103,23 @@ LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
         return 0;
     }
 
+    case WM_CTLCOLOREDIT:
+    {
+        auto* object = ObjectManager::getInstance().getObjectByHwnd(reinterpret_cast<HWND>(lParam));
+        if (object && object->useCustomColors && object->ownedBackgroundBrush) {
+            HDC controlDc = reinterpret_cast<HDC>(wParam);
+            SetBkMode(controlDc, OPAQUE);
+            SetTextColor(controlDc, object->textColor);
+            SetBkColor(controlDc, object->backgroundColor);
+            return reinterpret_cast<LRESULT>(object->ownedBackgroundBrush.get());
+        }
+        break;
+    }
+
     case WM_DESTROY:
-        PostQuitMessage(0);
+        // HSPの終了契機はWM_CLOSE→onexit/endであり、HWNDの破棄そのものではない。
+        // screen/bgscrによる同一IDの再初期化でもDestroyWindowは発生するため、
+        // ここでWM_QUITを投入すると後続のwait/awaitが別画面の終了と誤認する。
         return 0;
 
     case WM_CLOSE:
@@ -173,8 +188,9 @@ LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
     case WM_QUERYENDSESSION:
         // onexit で処理される可能性がある
         if (triggerOnExit(windowId, 1)) {
-            // 割り込みハンドラが設定されている場合はシャットダウンを遅延
-            return TRUE;  // 終了を許可するが、処理を実行
+            // HSPと同じく、onexit側でend()されない限り今回の終了要求は許可しない。
+            // ハンドラ本体はDispatchMessage後の安全な位置で実行する。
+            return FALSE;
         }
         return TRUE;
 
@@ -274,7 +290,7 @@ LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
         auto& objMgr = ObjectManager::getInstance();
         int objectId = objMgr.findObjectByHwnd(hwndControl);
         if (objectId >= 0) {
-            ObjectInfo* pInfo = objMgr.getObject(objectId);
+            ObjectInfo* pInfo = objMgr.getObjectByHwnd(hwndControl);
             if (pInfo) {
                 // ボタンクリック
                 if (pInfo->type == ObjectType::Button && notifyCode == BN_CLICKED) {
@@ -318,6 +334,7 @@ LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
     default:
         return DefWindowProc(hwnd, uMsg, wParam, lParam);
     }
+    return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
 
 } // namespace internal

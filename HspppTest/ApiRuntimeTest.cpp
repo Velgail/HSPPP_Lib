@@ -251,6 +251,256 @@ namespace hsppp_test {
     }
 
     // ============================================================
+    // HSP互換のカレント画面・ウィンドウ終了契機
+    // ============================================================
+    bool test_current_screen_and_window_lifecycle() {
+        constexpr int ScreenId = 201;
+        constexpr int BufferId = 202;
+        constexpr int BackgroundId = 203;
+        constexpr int RecreateId = 204;
+        constexpr int ConvertId = 205;
+
+        (void)screen(ScreenId, 80, 60, screen_hide);
+        check(ginfo(3) == ScreenId, "screen makes its ID current");
+        (void)buffer(BufferId, 16, 16);
+        check(ginfo(3) == BufferId, "buffer makes its ID current");
+        (void)bgscr(BackgroundId, 80, 60, screen_hide);
+        check(ginfo(3) == BackgroundId, "bgscr makes its ID current");
+
+        MSG msg{};
+        while (PeekMessageW(&msg, nullptr, WM_QUIT, WM_QUIT, PM_REMOVE)) {}
+        (void)screen(RecreateId, 80, 60, screen_hide);
+        (void)screen(RecreateId, 96, 72, screen_hide);
+        const bool queuedQuit = PeekMessageW(&msg, nullptr, WM_QUIT, WM_QUIT, PM_REMOVE) != 0;
+        check(!queuedQuit, "same-ID screen recreation does not enqueue WM_QUIT");
+
+        // OpenHSPのMakeBmscr分岐: screen→bufferは可能。いったんbufferになったIDを
+        // screen/bgscrで再初期化してもウィンドウ型へは戻らない。
+        (void)screen(ConvertId, 30, 20, screen_hide);
+        check(hwnd() != 0, "screen ID owns a native window before buffer conversion");
+        (void)buffer(ConvertId, 17, 19);
+        check(ginfo(3) == ConvertId && hwnd() == 0 && ginfo(26) == 17 && ginfo(27) == 19,
+              "screen ID can be reinitialized as buffer");
+        (void)screen(ConvertId, 22, 23, screen_hide);
+        check(hwnd() == 0 && ginfo(26) == 22 && ginfo(27) == 23,
+              "screen command keeps an existing buffer ID as buffer");
+        (void)bgscr(ConvertId, 24, 25, screen_hide);
+        check(hwnd() == 0 && ginfo(26) == 24 && ginfo(27) == 25,
+              "bgscr command keeps an existing buffer ID as buffer");
+
+        int exitWindowId = -1;
+        int exitReason = -1;
+        onexit([&] {
+            exitWindowId = static_cast<int>(wparam());
+            exitReason = iparam();
+        });
+        gsel(ScreenId);
+        HWND target = reinterpret_cast<HWND>(static_cast<intptr_t>(hwnd()));
+        SendMessageW(target, WM_CLOSE, 0, 0);
+        (void)internal::processPendingInterrupt();
+        check(exitWindowId == ScreenId, "WM_CLOSE on any screen reaches onexit with its window ID");
+        check(IsWindow(target) != FALSE, "onexit intercept keeps the closed screen alive");
+
+        exitWindowId = -1;
+        exitReason = -1;
+        const LRESULT queryResult = SendMessageW(target, WM_QUERYENDSESSION, 0, 0);
+        (void)internal::processPendingInterrupt();
+        check(queryResult == FALSE, "onexit intercept vetoes WM_QUERYENDSESSION until end");
+        check(exitWindowId == ScreenId && exitReason == 1,
+              "WM_QUERYENDSESSION reaches onexit with reason and window ID");
+        onexit(InterruptHandler{});
+        return !queuedQuit && exitWindowId == ScreenId;
+    }
+
+    // ============================================================
+    // gmode 0〜7のHSP整数RGB演算とgzoom既定補間
+    // ============================================================
+    bool test_hsp_gmode_pixels() {
+        constexpr int SrcId = 210;
+        constexpr int DestId = 211;
+        (void)buffer(SrcId, 2, 1);
+        redraw(0);
+        color(101, 151, 201); (void)boxf(0, 0, 1, 1);
+        color(64, 128, 255); (void)boxf(1, 0, 2, 1);
+        redraw(1);
+
+        (void)buffer(DestId, 3, 1);
+        auto fillDest = [&](int r, int g, int b) {
+            gsel(DestId);
+            redraw(0);
+            color(r, g, b);
+            (void)boxf();
+            redraw(1);
+            pos(0, 0);
+        };
+        auto pixel = [&](int x) {
+            gsel(DestId);
+            pget(x, 0);
+            return (ginfo_r() << 16) | (ginfo_g() << 8) | ginfo_b();
+        };
+        auto rgb = [](int r, int g, int b) { return (r << 16) | (g << 8) | b; };
+
+        fillDest(21, 41, 81);
+        gmode(gmode_gdi, 1, 1, 128);
+        gcopy(SrcId, 0, 0, 1, 1);
+        check(pixel(0) == rgb(101, 151, 201), "gmode 0 normal copy pixel");
+
+        fillDest(21, 41, 81);
+        gmode(gmode_rgb0, 1, 1, 128);
+        gcopy(SrcId, 0, 0, 1, 1);
+        check(pixel(0) == rgb(101, 151, 201), "gmode 2 non-black pixel copy");
+
+        fillDest(21, 41, 81);
+        gmode(gmode_alpha, 1, 1, 128);
+        gcopy(SrcId, 0, 0, 1, 1);
+        check(pixel(0) == rgb(60, 95, 140), "gmode 3 uses HSP separate integer shifts");
+
+        fillDest(21, 41, 81);
+        color(101, 151, 201);
+        gmode(gmode_rgb0alpha, 1, 1, 128);
+        gcopy(SrcId, 0, 0, 1, 1);
+        check(pixel(0) == rgb(21, 41, 81), "gmode 4 current-color key is transparent");
+
+        fillDest(21, 41, 81);
+        gmode(gmode_add, 1, 1, 128);
+        gcopy(SrcId, 0, 0, 1, 1);
+        check(pixel(0) == rgb(71, 116, 181), "gmode 5 additive integer blend");
+
+        fillDest(200, 210, 220);
+        gmode(gmode_sub, 1, 1, 128);
+        gcopy(SrcId, 0, 0, 1, 1);
+        check(pixel(0) == rgb(150, 135, 120), "gmode 6 subtractive integer blend");
+
+        fillDest(20, 40, 80);
+        gmode(gmode_pixela, 1, 1, 0);
+        gcopy(SrcId, 0, 0, 1, 1);
+        check(pixel(0) == rgb(39, 94, 201), "gmode 7 adjacent RGB mask integer blend");
+
+        // コピー先が左にはみ出した時、HSPはコピー元も同じ量だけ進めてクリップする。
+        fillDest(1, 2, 3);
+        pos(-1, 0);
+        gmode(gmode_alpha, 2, 1, 256);
+        gcopy(SrcId, 0, 0, 2, 1);
+        check(pixel(0) == rgb(64, 128, 255), "gcopy clips destination and advances source together");
+
+        // gzoomのp8省略はgmode_interp拡張値ではなくHSP既定の0（nearest）。
+        fillDest(0, 0, 0);
+        gmode_interp(1);
+        pos(0, 0);
+        gzoom(3, 1, SrcId, 0, 0, 2, 1);
+        const int middle = pixel(1);
+        check(middle == rgb(101, 151, 201) || middle == rgb(64, 128, 255),
+              "gzoom omitted p8 remains unfiltered HSP copy");
+
+        return true;
+    }
+
+    // ============================================================
+    // GUIオブジェクト: ID名前空間・再利用・objmode配置時反映
+    // ============================================================
+    bool test_hsp_gui_object_state() {
+        auto first = screen(220, 240, 160, screen_hide);
+        auto second = screen(221, 240, 160, screen_hide);
+        first.pos(4, 4);
+        second.pos(4, 4);
+        const int firstId = first.button("first", [] {});
+        const int secondId = second.button("second", [] {});
+        check(firstId == 0 && secondId == 0, "object IDs are local to each screen");
+
+        first.select();
+        clrobj(0, 0);
+        first.pos(4, 4);
+        const int reusedId = first.button("reused", [] {});
+        check(reusedId == 0, "clrobj deleted object ID is reused");
+
+        auto styled = screen(222, 260, 140, screen_hide);
+        styled.select();
+        font("Arial", 22, 1);
+        color(10, 20, 30);
+        objcolor(200, 210, 220);
+        objmode(objmode_usefont + objmode_usecolor, 0);
+        auto value = std::make_shared<std::string>("HSP++");
+        const int inputId = input(value, 180, 32, 32);
+        check(inputId == 0, "styled input receives first object ID");
+
+        HWND parent = reinterpret_cast<HWND>(static_cast<intptr_t>(hwnd()));
+        HWND control = GetWindow(parent, GW_CHILD);
+        HFONT controlFont = control ? reinterpret_cast<HFONT>(SendMessageW(control, WM_GETFONT, 0, 0)) : nullptr;
+        LOGFONTW fontInfo{};
+        const bool fontApplied = controlFont && GetObjectW(controlFont, sizeof(fontInfo), &fontInfo) == sizeof(fontInfo);
+        check(fontApplied && std::wstring_view(fontInfo.lfFaceName) == L"Arial",
+              "objmode_usefont snapshots current font at object creation");
+
+        HDC dc = control ? GetDC(control) : nullptr;
+        LRESULT brush = dc ? SendMessageW(parent, WM_CTLCOLOREDIT,
+                                           reinterpret_cast<WPARAM>(dc), reinterpret_cast<LPARAM>(control)) : 0;
+        const bool colorsApplied = dc && brush != 0 &&
+            GetBkColor(dc) == RGB(10, 20, 30) && GetTextColor(dc) == RGB(200, 210, 220);
+        check(colorsApplied, "objmode_usecolor maps color to background and objcolor to text");
+        if (dc) ReleaseDC(control, dc);
+        return firstId == 0 && secondId == 0 && reusedId == 0 && fontApplied && colorsApplied;
+    }
+
+    // ============================================================
+    // picload/celload/celdiv/celputのHSP画面ID経路
+    // ============================================================
+    bool test_hsp_image_id_commands() {
+        const std::string ImagePath = "hsppp_image_command_probe.bmp";
+        (void)buffer(230, 2, 3);
+        redraw(0);
+        color(12, 34, 56); (void)boxf();
+        color(101, 151, 201); (void)boxf(0, 0, 1, 1);
+        redraw(1);
+        bmpsave(ImagePath);
+
+        (void)screen(231, 9, 8, screen_hide);
+        picload(ImagePath, 0);
+        check(ginfo(3) == 231 && ginfo(26) == 2 && ginfo(27) == 3,
+              "picload mode 0 reinitializes current screen to image size");
+
+        (void)screen(232, 9, 8, screen_hide);
+        picload(ImagePath, 1);
+        check(ginfo(26) == 9 && ginfo(27) == 8,
+              "picload mode 1 overlays without resizing screen");
+
+        const int loadedId = celload(ImagePath, 233, 0);
+        check(loadedId == 233 && ginfo(3) == 233, "celload loads into requested screen ID and selects it");
+        celdiv(loadedId, 1, 1, 0, 0);
+        (void)buffer(234, 2, 1);
+        redraw(0); color(0, 0, 0); (void)boxf(); redraw(1);
+        pos(0, 0);
+        gmode(gmode_gdi, 1, 1, 256);
+        celput(loadedId, 0);
+        pget(0, 0);
+        check(ginfo_r() == 101 && ginfo_g() == 151 && ginfo_b() == 201,
+              "celput copies selected cell through HSP gmode path");
+        check(ginfo(22) == 1, "celput advances current X by unscaled cell width");
+
+        const int reused = celload(ImagePath);
+        const int reusedAgain = celload(ImagePath);
+        check(reused == reusedAgain, "celload omitted ID reuses previously loaded image");
+        const int alwaysNew = celload(ImagePath, celid_auto);
+        check(alwaysNew != reused, "celload ID -1 always allocates a new screen ID");
+        deletefile(ImagePath);
+        return true;
+    }
+
+    // ============================================================
+    // mouse/ginfoはデスクトップ座標、mousex/mouseyはカレント画面座標
+    // ============================================================
+    bool test_hsp_mouse_coordinate_spaces() {
+        POINT original{};
+        if (!GetCursorPos(&original)) return false;
+        (void)screen(240, 80, 60, screen_hide);
+        mouse(original.x, original.y, 1);
+        check(ginfo(0) == original.x && ginfo(1) == original.y,
+              "mouse and ginfo(0/1) use desktop coordinates");
+        [[maybe_unused]] const int localX = mousex();
+        [[maybe_unused]] const int localY = mousey();
+        return true;
+    }
+
+    // ============================================================
     // font/sysfont テスト
     // ============================================================
     bool test_font_functions() {
@@ -1091,6 +1341,11 @@ namespace hsppp_test {
         test_global_functions();
         test_ginfo();
         test_copy_functions();
+        test_current_screen_and_window_lifecycle();
+        test_hsp_gmode_pixels();
+        test_hsp_gui_object_state();
+        test_hsp_image_id_commands();
+        test_hsp_mouse_coordinate_spaces();
         test_font_functions();
         test_title_width_functions();
         test_method_chaining();

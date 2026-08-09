@@ -30,6 +30,7 @@ void objsize(OptInt sizeX, OptInt sizeY, OptInt spaceY, const std::source_locati
         // ObjectManager にも設定（後方互換性のため）
         auto& objMgr = internal::ObjectManager::getInstance();
         objMgr.setObjSize(
+            g_currentScreenId,
             sizeX.value_or(64),
             sizeY.value_or(24),
             spaceY.value_or(0)
@@ -44,6 +45,7 @@ void objmode(OptInt mode, OptInt tabMove, const std::source_location& location) 
     safe_call(location, [&] {
         auto& objMgr = internal::ObjectManager::getInstance();
         objMgr.setObjMode(
+            g_currentScreenId,
             mode.value_or(0),
             tabMove.is_default() ? -1 : tabMove.value()
         );
@@ -57,6 +59,7 @@ void objcolor(OptInt r, OptInt g, OptInt b, const std::source_location& location
     safe_call(location, [&] {
         auto& objMgr = internal::ObjectManager::getInstance();
         objMgr.setObjColor(
+            g_currentScreenId,
             r.value_or(0),
             g.value_or(0),
             b.value_or(0)
@@ -166,7 +169,7 @@ int chkbox(std::string_view label, std::shared_ptr<int> var, const std::source_l
             WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_CLIPSIBLINGS | BS_AUTOCHECKBOX,
             posX, posY, objW, objH,
             hwndParent,
-            (HMENU)(INT_PTR)(objMgr.getNextId()),
+            (HMENU)(INT_PTR)(objMgr.getNextId(windowId)),
             GetModuleHandle(nullptr),
             nullptr
         );
@@ -193,7 +196,7 @@ int chkbox(std::string_view label, std::shared_ptr<int> var, const std::source_l
         info.enabled = true;
         info.focusSkipMode = 1;
         
-        int objectId = objMgr.registerObject(std::move(info));
+        int objectId = objMgr.registerObject(std::move(info), *surface);
         
         int nextY = posY + std::max(objH, objSpace);
         surface->pos(posX, nextY);
@@ -236,7 +239,7 @@ int combox(std::shared_ptr<int> var, OptInt expandY, std::string_view items, con
             WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_CLIPSIBLINGS | CBS_DROPDOWNLIST | WS_VSCROLL,
             posX, posY, objW, objH + expandYVal,
             hwndParent,
-            (HMENU)(INT_PTR)(objMgr.getNextId()),
+            (HMENU)(INT_PTR)(objMgr.getNextId(windowId)),
             GetModuleHandle(nullptr),
             nullptr
         );
@@ -280,7 +283,7 @@ int combox(std::shared_ptr<int> var, OptInt expandY, std::string_view items, con
         info.enabled = true;
         info.focusSkipMode = 1;
         
-        int objectId = objMgr.registerObject(std::move(info));
+        int objectId = objMgr.registerObject(std::move(info), *surface);
         
         int nextY = posY + std::max(objH, objSpace);
         surface->pos(posX, nextY);
@@ -322,7 +325,7 @@ int listbox(std::shared_ptr<int> var, OptInt expandY, std::string_view items, co
             WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_CLIPSIBLINGS | WS_VSCROLL | LBS_NOTIFY,
             posX, posY, objW, height,
             hwndParent,
-            (HMENU)(INT_PTR)(objMgr.getNextId()),
+            (HMENU)(INT_PTR)(objMgr.getNextId(windowId)),
             GetModuleHandle(nullptr),
             nullptr
         );
@@ -366,7 +369,7 @@ int listbox(std::shared_ptr<int> var, OptInt expandY, std::string_view items, co
         info.enabled = true;
         info.focusSkipMode = 1;
         
-        int objectId = objMgr.registerObject(std::move(info));
+        int objectId = objMgr.registerObject(std::move(info), *surface);
         
         int nextY = posY + std::max(height, objSpace);
         surface->pos(posX, nextY);
@@ -385,7 +388,7 @@ void clrobj(OptInt startId, OptInt endId, const std::source_location& location) 
         int start = startId.value_or(0);
         int end = endId.value_or(-1);
         
-        objMgr.removeObjects(start, end);
+        objMgr.removeObjects(g_currentScreenId, start, end);
     });
 }
 
@@ -395,7 +398,7 @@ void clrobj(OptInt startId, OptInt endId, const std::source_location& location) 
 void objprm(int objectId, std::string_view value, const std::source_location& location) {
     safe_call(location, [&] {
         auto& objMgr = internal::ObjectManager::getInstance();
-        auto* pInfo = objMgr.getObject(objectId);
+        auto* pInfo = objMgr.getObject(g_currentScreenId, objectId);
         
         if (!pInfo || !pInfo->hwnd) {
             throw HspError(ERR_INVALID_HANDLE, "Invalid object ID", location);
@@ -453,7 +456,7 @@ void objprm(int objectId, std::string_view value, const std::source_location& lo
 void objprm(int objectId, int value, const std::source_location& location) {
     safe_call(location, [&] {
         auto& objMgr = internal::ObjectManager::getInstance();
-        auto* pInfo = objMgr.getObject(objectId);
+        auto* pInfo = objMgr.getObject(g_currentScreenId, objectId);
         
         if (!pInfo || !pInfo->hwnd) {
             throw HspError(ERR_INVALID_HANDLE, "Invalid object ID", location);
@@ -520,7 +523,7 @@ int objsel(OptInt objectId, const std::source_location& location) {
             return -1;
         }
         
-        auto* pInfo = objMgr.getObject(objectId.value());
+        auto* pInfo = objMgr.getObject(g_currentScreenId, objectId.value());
         if (!pInfo || !pInfo->hwnd) {
             throw HspError(ERR_INVALID_HANDLE, "Invalid object ID", location);
         }
@@ -536,7 +539,7 @@ int objsel(OptInt objectId, const std::source_location& location) {
 void objenable(int objectId, OptInt enable, const std::source_location& location) {
     safe_call(location, [&] {
         auto& objMgr = internal::ObjectManager::getInstance();
-        auto* pInfo = objMgr.getObject(objectId);
+        auto* pInfo = objMgr.getObject(g_currentScreenId, objectId);
         
         if (!pInfo || !pInfo->hwnd) {
             throw HspError(ERR_INVALID_HANDLE, "Invalid object ID", location);
@@ -554,7 +557,7 @@ void objenable(int objectId, OptInt enable, const std::source_location& location
 void objskip(int objectId, OptInt mode, const std::source_location& location) {
     safe_call(location, [&] {
         auto& objMgr = internal::ObjectManager::getInstance();
-        auto* pInfo = objMgr.getObject(objectId);
+        auto* pInfo = objMgr.getObject(g_currentScreenId, objectId);
         
         if (!pInfo || !pInfo->hwnd) {
             throw HspError(ERR_INVALID_HANDLE, "Invalid object ID", location);

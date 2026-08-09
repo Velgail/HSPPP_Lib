@@ -31,7 +31,8 @@ title: 仮想画面（論理→物理 自動拡縮）
 これにより、テキスト（DWrite）や線描画は最終物理解像度で直接ラスタライズされ、
 HiDPI 環境でもサブピクセル精度のアンチエイリアスが効きます。
 
-マウス座標（`ginfo_mx` / `ginfo_my`）も、仮想画面 ON 時は **論理 px** が返されます。
+`mousex()` / `mousey()` は仮想画面 ON 時に論理クライアント座標を返します。
+`ginfo_mx` / `ginfo_my` はHSPの意味を維持し、仮想画面の有無にかかわらずデスクトップ座標を返します。
 
 ## 2. 有効化方法
 
@@ -92,8 +93,8 @@ void hspMain() {
 
 オフスクリーンビットマップは物理サイズで保持され、`present()` は単純転送のみを行うため、
 **仮想画面の「論理→物理」変換時に追加の補間処理は発生しません**。代わりに、
-`picload` / `celput` / `gcopy` / `gzoom` 等の **ラスタ画像転送系コマンド** で使用される
-D2D 補間モードを `gmode_interp()` で切り替えます（仮想画面 OFF 時も同じ命令で制御可能）。
+`picload` / 変形 `celput` / `gcopy` 等の **D2Dラスタ画像転送** で使用される
+補間モードをHspppLib拡張の `gmode_interp()` で切り替えます（仮想画面 OFF 時も制御可能）。
 
 ```cpp
 gmode_interp(1);    // LINEAR（既定 / 写真・滑らかな描画向け）
@@ -107,9 +108,8 @@ gmode_interp(2);    // ANISOTROPIC（拡大率が大きく品質を最優先す�
 | 1 | LINEAR（既定） | 写真・図形・テキスト |
 | 2 | ANISOTROPIC | 拡大率が大きく品質を最優先する場合 |
 
-> **後方互換性に関する重要な変更:** `gcopy` / `gzoom` を `mode` 省略で
-> 呼び出した場合の既定補間モードは、旧 NEAREST から **新 LINEAR** に変更されました。
-> 詳細と従来挙動への復帰方法は [移行ガイド](MigrationGuide-HiDPI-v2.md) を参照してください。
+> `gzoom` のp8省略時はHSPどおり0（補間なし）です。`gmode_interp` の状態は暗黙には引き継ぎません。
+> HspppLib拡張としてp8に `-1` を明示した場合だけ現在の `gmode_interp` を使い、`2` はANISOTROPICです。
 
 > **`vscalemode()` について（v2 描画パイプラインで機能縮退）:** 従来は present 時の論理→物理
 > 拡縮補間モードを切り替える命令でしたが、v2 では present が単純転送になったため、
@@ -148,7 +148,8 @@ ly = (py - offsetY) / s
 | `boxf(0,0,W,H)` の意味 | 物理クライアントの (0,0)〜(W,H) | 論理 (0,0)〜(W,H)（拡縮後に物理画面へ転送） |
 | `width` / `height` の意味 | 物理クライアント px | 論理 px |
 | `client_w` / `client_h` | （無視されることが多い） | 物理クライアント px の初期サイズ |
-| `ginfo_mx` / `ginfo_my` | 物理クライアント px | 論理 px |
+| `ginfo_mx` / `ginfo_my` | デスクトップ座標 | デスクトップ座標 |
+| `mousex()` / `mousey()` | クライアント座標 | 論理クライアント座標 |
 | `picload` / `bmpsave` / `celload` | 物理 px | **論理 px**（ユーザ IF は論理 px 座標／内部の `m_pTargetBitmap` は物理 px で保持し、転送時に DPI スケーリングが自動適用される）[^impl-physical] |
 | 余白 | なし | レターボックス / ピラーボックス（クリア色は黒） |
 
@@ -175,9 +176,9 @@ ly = (py - offsetY) / s
 ラスタライズされます（HiDPI 環境でもサブピクセル AA が効きます）。
 
 一方、`picload` / `celload` で読み込んだ **ラスタ素材自体** は元解像度のまま扱われます。
-論理 1920×1080 で設計したラスタ素材を 4K で表示する場合、`gmode_interp()` で指定した
-補間モード（既定 LINEAR）で拡大されるため、ピクセルアート以外では LINEAR 以上の品質
-モードを推奨します。
+論理 1920×1080 で設計したラスタ素材を 4K で表示する場合、D2Dラスタ転送では
+`gmode_interp()` の補間設定を選択できます。`gzoom` だけはHSPのp8指定が優先されるため、
+高品質化する場合はp8に1、`gmode_interp`を使う場合は拡張値-1を明示します。
 
 高 DPI でもクリアに見せたいラスタ素材は、利用者側で高解像度版を用意してください。
 
@@ -188,7 +189,7 @@ ly = (py - offsetY) / s
 | `screen({.virtual_resolution = true})` | OOP 版で仮想画面を有効化 |
 | `bgscr({.virtual_resolution = true})` | 枠なしウィンドウで仮想画面を有効化 |
 | `screen_mode_virtual` (=128) | HSP 互換 `mode` ビットフラグ |
-| `gmode_interp(int mode)` | ラスタ画像転送の補間モード切替（0=NEAREST / 1=LINEAR / 2=ANISOTROPIC、既定 LINEAR）。引数省略時は LINEAR にリセット |
+| `gmode_interp(int mode)` | HspppLib拡張。D2Dラスタ画像転送の補間モード切替（0=NEAREST / 1=LINEAR / 2=ANISOTROPIC）。引数省略時はLINEARにリセット |
 | `gline_width(float w)` | 線描画の幅指定（論理 px / 既定 1.0、`w <= 0` は 1.0 にクランプ） |
 | `vscalemode(int mode)` | （v2 で機能縮退）API 後方互換のため残置。新規コードでは `gmode_interp()` を推奨 |
 | `anchor_pos` / `anchor_box` / `AnchorRect` | 解像度独立のレイアウト記述（[AnchorLayout](/HSPPP_Lib/AnchorLayout)） |

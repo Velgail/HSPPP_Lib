@@ -260,29 +260,43 @@ namespace hsppp::internal {
         }
     }
 
-    void init_system([[maybe_unused]] const std::source_location& location) {
+    namespace {
+        bool g_comInitialized = false;
+    }
+
+    bool init_system([[maybe_unused]] const std::source_location& location) {
         // DPI awareness の宣言（COM 初期化前・最初のウィンドウ作成前に行う）
         enable_dpi_awareness();
 
         // COM初期化
-        CoInitialize(nullptr);
+        const HRESULT comResult = CoInitialize(nullptr);
+        if (FAILED(comResult)) {
+            MessageBoxW(nullptr, L"Failed to initialize COM", L"Error", MB_OK | MB_ICONERROR);
+            return false;
+        }
+        g_comInitialized = true;
 
         // ウィンドウマネージャーの初期化
         WindowManager& windowManager = WindowManager::getInstance();
         if (!windowManager.registerWindowClass()) {
             MessageBoxW(nullptr, L"Failed to register window class", L"Error", MB_OK | MB_ICONERROR);
-            return;
+            CoUninitialize();
+            g_comInitialized = false;
+            return false;
         }
 
         // Direct2D 1.1 デバイスマネージャーの初期化
         D2DDeviceManager& deviceManager = D2DDeviceManager::getInstance();
         if (!deviceManager.initialize()) {
             MessageBoxW(nullptr, L"Failed to initialize Direct2D 1.1 device", L"Error", MB_OK | MB_ICONERROR);
-            return;
+            CoUninitialize();
+            g_comInitialized = false;
+            return false;
         }
 
         // マルチメディアマネージャーの初期化
         MediaManager_initialize();
+        return true;
     }
 
     void close_system([[maybe_unused]] const std::source_location& location) {
@@ -299,7 +313,10 @@ namespace hsppp::internal {
         // WindowManagerはスタティック変数なので明示的な削除は不要
 
         // COM終了処理
-        CoUninitialize();
+        if (g_comInitialized) {
+            CoUninitialize();
+            g_comInitialized = false;
+        }
     }
 
     // HWNDからウィンドウIDを逆引き（見つからなければ0を返す）

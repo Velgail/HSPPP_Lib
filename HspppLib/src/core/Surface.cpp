@@ -242,6 +242,10 @@ HspSurface::HspSurface(int width, int height)
     , m_gmodeSizeX(32)      // デフォルトコピーサイズ
     , m_gmodeSizeY(32)
     , m_gmodeBlendRate(0)   // ブレンドなし
+    , m_celWidth(width)
+    , m_celHeight(height)
+    , m_celCenterX(0)
+    , m_celCenterY(0)
     , m_objSizeX(64)        // デフォルトオブジェクトサイズ
     , m_objSizeY(24)
     , m_objSpaceY(0)        // デフォルト間隔
@@ -318,6 +322,11 @@ void HspSurface::cls(int mode) {
     // カレントポジションをリセット
     m_currentX = 0;
     m_currentY = 0;
+
+    // オブジェクト配置サイズも画面初期状態へ戻す
+    m_objSizeX = 64;
+    m_objSizeY = 24;
+    m_objSpaceY = 0;
 
     // フォントを初期状態に戻す
     sysfont(0);
@@ -421,6 +430,20 @@ bool HspSurface::bmpsave(std::string_view filename) {
     return result;
 }
 
+void HspSurface::setCelDivision(int width, int height, int centerX, int centerY) {
+    m_celWidth = width > 0 ? width : m_width;
+    m_celHeight = height > 0 ? height : m_height;
+    m_celCenterX = centerX;
+    m_celCenterY = centerY;
+}
+
+void HspSurface::resetCelDivision() {
+    m_celWidth = m_width;
+    m_celHeight = m_height;
+    m_celCenterX = 0;
+    m_celCenterY = 0;
+}
+
 void HspSurface::celput(ID2D1Bitmap1* pBitmap, const D2D1_RECT_F& srcRect, const D2D1_RECT_F& destRect) {
     if (!m_pDeviceContext || !pBitmap) return;
 
@@ -441,6 +464,68 @@ void HspSurface::celput(ID2D1Bitmap1* pBitmap, const D2D1_RECT_F& srcRect, const
     );
 
     // モード1の場合、自動的にendDraw + present
+    if (autoManage) {
+        endDrawAndPresent();
+    }
+}
+
+void HspSurface::celputHsp(
+    ID2D1Bitmap1* pBitmap,
+    const D2D1_RECT_F& srcRect,
+    float cellWidth,
+    float cellHeight,
+    float centerX,
+    float centerY,
+    double zoomX,
+    double zoomY,
+    double angle
+) {
+    if (!m_pDeviceContext || !pBitmap) return;
+
+    const bool autoManage = (m_redrawMode == 1 && !m_isDrawing);
+    if (autoManage) {
+        beginDraw();
+    }
+    if (!m_isDrawing) return;
+
+    D2D1_MATRIX_3X2_F oldTransform;
+    m_pDeviceContext->GetTransform(&oldTransform);
+
+    const float destinationX = static_cast<float>(m_currentX);
+    const float destinationY = static_cast<float>(m_currentY);
+    const float angleDegrees = static_cast<float>(angle * kRadToDeg);
+    const auto localTransform =
+        D2D1::Matrix3x2F::Translation(-centerX, -centerY) *
+        D2D1::Matrix3x2F::Scale(static_cast<float>(zoomX), static_cast<float>(zoomY)) *
+        D2D1::Matrix3x2F::Rotation(angleDegrees) *
+        D2D1::Matrix3x2F::Translation(destinationX, destinationY);
+    m_pDeviceContext->SetTransform(localTransform * oldTransform);
+
+    float opacity = 1.0f;
+    if (m_gmodeMode >= 3 && m_gmodeMode <= 6) {
+        opacity = static_cast<float>(m_gmodeBlendRate) / 256.0f;
+    }
+
+    const D2D1_PRIMITIVE_BLEND oldBlend = m_pDeviceContext->GetPrimitiveBlend();
+    if (m_gmodeMode == 5) {
+        m_pDeviceContext->SetPrimitiveBlend(D2D1_PRIMITIVE_BLEND_ADD);
+    } else if (m_gmodeMode == 6) {
+        m_pDeviceContext->SetPrimitiveBlend(D2D1_PRIMITIVE_BLEND_MIN);
+    }
+
+    const D2D1_RECT_F destinationRect = D2D1::RectF(0.0f, 0.0f, cellWidth, cellHeight);
+    m_pDeviceContext->DrawBitmap(
+        pBitmap,
+        destinationRect,
+        opacity,
+        static_cast<D2D1_BITMAP_INTERPOLATION_MODE>(m_gmodeInterp),
+        srcRect
+    );
+
+    m_pDeviceContext->SetPrimitiveBlend(oldBlend);
+    m_pDeviceContext->SetTransform(oldTransform);
+    m_currentX += static_cast<int>(std::round(cellWidth * zoomX));
+
     if (autoManage) {
         endDrawAndPresent();
     }
@@ -2158,6 +2243,25 @@ bool HspSurface::font(std::string_view fontName, int size, int style) {
         return true;
     }
     return false;
+}
+
+HFONT HspSurface::createObjectFont() const {
+    if (!m_pTextFormat) return nullptr;
+
+    const UINT32 familyLength = m_pTextFormat->GetFontFamilyNameLength();
+    std::wstring family(static_cast<size_t>(familyLength) + 1, L'\0');
+    if (FAILED(m_pTextFormat->GetFontFamilyName(family.data(), familyLength + 1))) {
+        return nullptr;
+    }
+    family.resize(familyLength);
+
+    const int height = -(std::max)(1, static_cast<int>(std::round(m_pTextFormat->GetFontSize())));
+    const int weight = m_pTextFormat->GetFontWeight() >= DWRITE_FONT_WEIGHT_BOLD ? FW_BOLD : FW_NORMAL;
+    const BOOL italic = m_pTextFormat->GetFontStyle() != DWRITE_FONT_STYLE_NORMAL;
+    return CreateFontW(
+        height, 0, 0, 0, weight, italic, FALSE, FALSE,
+        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+        DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, family.c_str());
 }
 
 bool HspSurface::sysfont(int type) {

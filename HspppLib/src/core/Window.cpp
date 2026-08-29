@@ -103,8 +103,23 @@ LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
         return 0;
     }
 
+    case WM_CTLCOLOREDIT:
+    {
+        auto* object = ObjectManager::getInstance().getObjectByHwnd(reinterpret_cast<HWND>(lParam));
+        if (object && object->useCustomColors && object->ownedBackgroundBrush) {
+            HDC controlDc = reinterpret_cast<HDC>(wParam);
+            SetBkMode(controlDc, OPAQUE);
+            SetTextColor(controlDc, object->textColor);
+            SetBkColor(controlDc, object->backgroundColor);
+            return reinterpret_cast<LRESULT>(object->ownedBackgroundBrush.get());
+        }
+        break;
+    }
+
     case WM_DESTROY:
-        PostQuitMessage(0);
+        // HSPの終了契機はWM_CLOSE→onexit/endであり、HWNDの破棄そのものではない。
+        // screen/bgscrによる同一IDの再初期化でもDestroyWindowは発生するため、
+        // ここでWM_QUITを投入すると後続のwait/awaitが別画面の終了と誤認する。
         return 0;
 
     case WM_CLOSE:
@@ -173,8 +188,9 @@ LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
     case WM_QUERYENDSESSION:
         // onexit で処理される可能性がある
         if (triggerOnExit(windowId, 1)) {
-            // 割り込みハンドラが設定されている場合はシャットダウンを遅延
-            return TRUE;  // 終了を許可するが、処理を実行
+            // HSPと同じく、onexit側でend()されない限り今回の終了要求は許可しない。
+            // ハンドラ本体はDispatchMessage後の安全な位置で実行する。
+            return FALSE;
         }
         return TRUE;
 
@@ -203,19 +219,63 @@ LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
     {
         if (pWindow != nullptr) {
             auto pMinMax = reinterpret_cast<MINMAXINFO*>(lParam);
-            
-            // バッファサイズ（m_width, m_height）を最大クライアントサイズとする
-            int maxClientW = pWindow->getWidth();
-            int maxClientH = pWindow->getHeight();
-            
-            // クライアントサイズからウィンドウサイズを計算
-            DWORD style = static_cast<DWORD>(GetWindowLongPtr(hwnd, GWL_STYLE));
-            DWORD exStyle = static_cast<DWORD>(GetWindowLongPtr(hwnd, GWL_EXSTYLE));
-            RECT rect = { 0, 0, maxClientW, maxClientH };
-            AdjustWindowRectEx(&rect, style, FALSE, exStyle);
-            
-            pMinMax->ptMaxTrackSize.x = rect.right - rect.left;
-            pMinMax->ptMaxTrackSize.y = rect.bottom - rect.top;
+
+            if (pWindow->isVirtualEnabled()) {
+                // 仮想画面有効時は「論理バッファ＝固定サイズ／物理クライアントは任意」
+                // を仕様の前提とするため、論理バッファ由来の上限を撤廃する。
+                // OS が提供する仮想スクリーン（全モニタ統合）サイズを ptMaxTrackSize に
+                // 与えることで、ユーザーリサイズ・programmatic SetWindowPos の双方で
+                // バッファサイズを超える物理拡縮（仮想画面のレターボックス含む）を許容する。
+                // GetSystemMetrics が失敗した場合はデフォルト挙動（OS 既定）に委ねる。
+                int vsW = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+                int vsH = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+                if (vsW > 0 && vsH > 0) {
+                    pMinMax->ptMaxTrackSize.x = vsW;
+                    pMinMax->ptMaxTrackSize.y = vsH;
+                }
+            } else {
+                // 仮想画面 OFF: 従来挙動（HSP 仕様）を維持する。
+                // バッファサイズ（m_width, m_height）を最大クライアントサイズとする。
+                // HiDPI 対応: バッファサイズは論理 px なので、現在の DPI に合わせて
+                // 物理 px に換算した値を最大値とする（PerMonitorV2 の作法）
+                int maxClientW = pWindow->getWidth();
+                int maxClientH = pWindow->getHeight();
+                UINT dpi = pWindow->getCurrentDpi();
+                if (dpi != 96 && dpi != 0) {
+                    maxClientW = MulDiv(maxClientW, dpi, 96);
+                    maxClientH = MulDiv(maxClientH, dpi, 96);
+                }
+
+                // クライアントサイズからウィンドウサイズを計算（DPI 対応版を優先）
+                DWORD style = static_cast<DWORD>(GetWindowLongPtr(hwnd, GWL_STYLE));
+                DWORD exStyle = static_cast<DWORD>(GetWindowLongPtr(hwnd, GWL_EXSTYLE));
+                RECT rect = { 0, 0, maxClientW, maxClientH };
+                using FnAdjForDpi = BOOL(WINAPI*)(LPRECT, DWORD, BOOL, DWORD, UINT);
+                HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
+                auto pAdjForDpi = hUser32
+                    ? reinterpret_cast<FnAdjForDpi>(GetProcAddress(hUser32, "AdjustWindowRectExForDpi"))
+                    : nullptr;
+                if (pAdjForDpi && dpi != 0) {
+                    pAdjForDpi(&rect, style, FALSE, exStyle, dpi);
+                } else {
+                    AdjustWindowRectEx(&rect, style, FALSE, exStyle);
+                }
+
+                pMinMax->ptMaxTrackSize.x = rect.right - rect.left;
+                pMinMax->ptMaxTrackSize.y = rect.bottom - rect.top;
+            }
+        }
+        return 0;
+    }
+
+    // DPI 変更（モニタ間移動・スケール変更）
+    // PerMonitorV2 の作法に従い、suggested rect で SetWindowPos → SwapChain 再構築
+    case WM_DPICHANGED:
+    {
+        if (pWindow != nullptr) {
+            UINT newDpi = HIWORD(wParam);  // X DPI（X と Y は同一）
+            const RECT* pSuggested = reinterpret_cast<const RECT*>(lParam);
+            pWindow->onDpiChanged(newDpi, pSuggested);
         }
         return 0;
     }
@@ -230,7 +290,7 @@ LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
         auto& objMgr = ObjectManager::getInstance();
         int objectId = objMgr.findObjectByHwnd(hwndControl);
         if (objectId >= 0) {
-            ObjectInfo* pInfo = objMgr.getObject(objectId);
+            ObjectInfo* pInfo = objMgr.getObjectByHwnd(hwndControl);
             if (pInfo) {
                 // ボタンクリック
                 if (pInfo->type == ObjectType::Button && notifyCode == BN_CLICKED) {
@@ -274,6 +334,7 @@ LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
     default:
         return DefWindowProc(hwnd, uMsg, wParam, lParam);
     }
+    return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
 
 } // namespace internal

@@ -74,6 +74,25 @@ std::string g_lastErrorMessage = "";
 // アクション実行結果表示用
 std::string g_actionLog = "";
 
+// 表示系デモ (Display) 実体
+Screen      g_virtScalingScreen;
+bool        g_displaySubVisible    = false;
+int         g_dpiChangeCount       = 0;
+int         g_dpiLastReported      = 0;
+std::string g_dpiChangeLog         = "";
+int         g_virtPresetIndex      = 0;  // 既定: 1920x1080 (FHD, uniform scale=2.25)
+int         g_virtScaleModeIndex   = 1;  // 既定: linear
+int         g_virtLetterColorIndex = 1;  // 既定: 濃シアン (letterbox 視認性確保)
+int         g_virtInterpIndex      = 1;  // 既定: linear (gmode_interp: 0=nearest / 1=linear / 2=aniso)
+
+// Anchor Playground サブデモ実体
+Screen      g_anchorPlaygroundScreen;
+bool        g_anchorPlaygroundVisible = false;
+int         g_anchorAspectIndex       = 2;     // 既定: 960x540 (16:9)
+bool        g_anchorShowFixed         = true;  // 既定: 比較対照 ON
+bool        g_anchorShowGrid          = false; // 既定: リファレンスグリッド OFF
+bool        g_anchorShowGuides        = true;  // 既定: ガイド矢印 + 実測値 ON
+
 // ═══════════════════════════════════════════════════════════════════
 // デモ切り替え時のリセット処理
 // ═══════════════════════════════════════════════════════════════════
@@ -94,6 +113,12 @@ void onDemoChanged(Screen& win) {
     if (g_prevCategory == DemoCategory::GUI) {
         clrobj();
         g_guiObjectsCreated = false;
+    }
+
+    // 前のデモが Display で、現在 Display 以外の場合、サブウィンドウを隠す
+    if (g_prevCategory == DemoCategory::Display && g_category != DemoCategory::Display) {
+        onDisplayDemoLeft();
+        win.select();
     }
 }
 
@@ -167,10 +192,19 @@ void drawHelpWindow(Screen& helpWin) {
     helpWin.mes("【GUIデモ - Ctrl+Shift + 数字キー】");
     helpWin.color(200, 200, 200).pos(20, 481);
     helpWin.mes("  Ctrl+Shift+1: button/input  Ctrl+Shift+2: chkbox/combox");
-    
-    helpWin.color(255, 200, 0).pos(20, 505);
+
+    helpWin.color(255, 255, 255).pos(20, 505);
+    helpWin.mes("【表示系デモ - Alt+Shift + 数字キー】");
+    helpWin.color(200, 200, 200).pos(20, 522);
+    helpWin.mes("  Alt+Shift+1: HiDPI/DPI    Alt+Shift+2: 仮想画面  Alt+Shift+3: アンカー");
+    helpWin.color(180, 180, 180).pos(20, 538);
+    helpWin.mes("  ※仮想画面: S=拡大率/物理サイズ循環 M=vscalemode C=letter色 V=表示 R=既定復帰");
+    helpWin.color(180, 180, 180).pos(20, 552);
+    helpWin.mes("  ※アンカー: A/Shift+A=比率 G=リファレンスグリッド C=Fixed列 H=ガイド R=既定 V=表示");
+
+    helpWin.color(255, 200, 0).pos(20, 568);
     helpWin.mes("※修飾キー(Ctrl/Alt/Shift)押下中はアクション無効");
-    
+
     helpWin.redraw(1);
 }
 
@@ -186,6 +220,7 @@ std::string getCategoryName() {
         case DemoCategory::Interrupt: return "割り込み (Alt+1-5)";
         case DemoCategory::GUI:       return "GUI (Ctrl+Shift+1-2)";
         case DemoCategory::Media:     return "マルチメディア (Ctrl+Alt+1)";
+        case DemoCategory::Display:   return "表示系 (Alt+Shift+1-3)";
     }
     return "Unknown";
 }
@@ -257,6 +292,14 @@ std::string getDemoName() {
                 default: break;
             }
             break;
+        case DemoCategory::Display:
+            switch (static_cast<DisplayDemo>(g_demoIndex)) {
+                case DisplayDemo::HiDPI:   return "HiDPI awareness / WM_DPICHANGED ログ";
+                case DisplayDemo::Virtual: return "screen_mode_virtual ON/OFF 比較";
+                case DisplayDemo::Anchor:  return "AnchorRect / anchor_box / anchor_pos";
+                default: break;
+            }
+            break;
     }
     return "Unknown";
 }
@@ -317,6 +360,19 @@ void processDemoSelection(Screen& win) {
         changed = true;
     }
     
+    // Alt+Shift + 数字: 表示系デモ (HiDPI/Virtual/Anchor)
+    if (altPressed && shiftPressed && !ctrlPressed && !winPressed) {
+        for (int i = 1; i <= 3; i++) {
+            if (getkey('0' + i)) {
+                if (i <= static_cast<int>(DisplayDemo::COUNT)) {
+                    newCategory = DemoCategory::Display;
+                    newIndex = i - 1;
+                    changed = true;
+                }
+            }
+        }
+    }
+
     // Ctrl+Alt + 数字: マルチメディアデモ
     if (altPressed && ctrlPressed && !shiftPressed) {
         for (int i = 1; i <= 1; i++) {
@@ -356,8 +412,13 @@ void processDemoSelection(Screen& win) {
                         newIndex = i - 1;
                         changed = true;
                     }
-                } else if (!ctrlPressed && !shiftPressed && !altPressed) {
+                } else if (!ctrlPressed && !shiftPressed && !altPressed
+                           && g_category != DemoCategory::Display) {
                     // 数字のみ: 基本デモ
+                    // Display カテゴリ表示中はサブデモ側 (processDisplayAction) が
+                    // 文字キー (Virtual: S/M/C/V/R, Anchor: A/G/C/H/R/V) を専用ホットキーに
+                    // 使用するため、ここでの修飾なし数字キーによる Basic カテゴリ強制遷移は
+                    // ユーザーの誤操作で表示系デモから抜けてしまうのを抑止するために無効化する。
                     if (i <= static_cast<int>(BasicDemo::COUNT)) {
                         newCategory = DemoCategory::Basic;
                         newIndex = i - 1;
@@ -393,8 +454,34 @@ void hspMain() {
     auto win = screen({.width = 640, .height = 480, .title = "HSPPP Feature Demo - Press F1 for Help"});
     
     // ヘルプウィンドウ作成（初期は非表示）
-    auto helpWin = screen({.width = 320, .height = 500, .mode = screen_hide, .title = "HSPPP Help"});
-    
+    auto helpWin = screen({.width = 320, .height = 600, .mode = screen_hide, .title = "HSPPP Help"});
+
+    // 表示系デモ用 仮想画面 Scaling サブウィンドウ
+    //   - 論理 640x480 / virtual_resolution=true / vscale_linear（既定）
+    //   - Display::Virtual サブデモ突入時に gsel で可視化し、ホットキーで
+    //     物理クライアントサイズ・vscalemode・letterboxColor を実行時切替する。
+    //   - 起動直後は非表示。letterboxColor は視認性の高い濃シアンを既定とする。
+    g_virtScalingScreen = screen({
+        .width = 640, .height = 480, .mode = screen_hide,
+        .title = "Virtual Scaling Demo (HSPPP Display Demo)",
+        .virtual_resolution = true,
+    });
+    g_virtScalingScreen.letterboxColor(0, 96, 128);  // 既定: 濃シアン
+
+    // 表示系デモ用 Anchor Playground サブウィンドウ
+    //   - 物理クライアントサイズ 960x540 / virtual_resolution=false（バッファ=物理クライアント）
+    //   - Display::Anchor 突入時に gsel で可視化し、A/Shift+A でアスペクト比プリセットを実時間切替する。
+    //   - 仮想画面を使わないことで、物理リサイズに anchor_box が直接追従する様子を訴求できる。
+    //   - 起動直後は非表示。
+    g_anchorPlaygroundScreen = screen({
+        .width = 960, .height = 540, .mode = screen_hide,
+        .title = "Anchor Playground (HSPPP Display Demo)",
+        .virtual_resolution = false,
+    });
+
+    // メインウィンドウへフォーカスを戻す
+    win.select();
+
     // 割り込みハンドラ設定
     onclick([]() {
         g_clickCount++;
@@ -412,6 +499,31 @@ void hspMain() {
             end(0);
         }
     });
+
+    // WM_DPICHANGED (0x02E0) を捕捉して HiDPI デモ用ログを蓄積
+    //   - wparam の LOWORD に新 DPI が入る
+    //   - lparam は OS 推奨ウィンドウ矩形 RECT*（ライブラリ側で適切に処理済み）
+    constexpr int WM_DPICHANGED_ID = 0x02E0;
+    oncmd([]() {
+        const std::int64_t wp = wparam();
+        const int newDpi = wp & 0xFFFF;  // LOWORD
+        g_dpiChangeCount++;
+        g_dpiLastReported = newDpi;
+        // ログ末尾 8 件保持: 単純に行数で切り詰める
+        std::string line = "[#" + std::to_string(g_dpiChangeCount) + "] DPI -> "
+                         + std::to_string(newDpi) + "  (scale "
+                         + std::to_string(newDpi * 100 / 96) + "%)\n";
+        g_dpiChangeLog += line;
+        // 8 行を超えたら先頭から削除
+        int lineCount = 0;
+        for (char c : g_dpiChangeLog) if (c == '\n') ++lineCount;
+        while (lineCount > 8) {
+            auto pos = g_dpiChangeLog.find('\n');
+            if (pos == std::string::npos) break;
+            g_dpiChangeLog.erase(0, pos + 1);
+            --lineCount;
+        }
+    }, WM_DPICHANGED_ID);
     
     // メインループ
     while (true) {
@@ -485,12 +597,17 @@ void hspMain() {
         case DemoCategory::Media:
             drawMediaDemo(win);
             break;
+        case DemoCategory::Display:
+            drawDisplayDemo(win);
+            break;
         }
         
         // フッター（ヘルプ表示案内）
         win.font("MS Gothic", 10, 0);
-        win.color(128, 128, 128).pos(10, 455);
-        win.mes("F1:ヘルプ ESC:終了 | 1-9:基本 Ctrl+0-9:拡張 Shift+1-4:画像 Alt+1-5:割り込み Ctrl+Shift+1-2:GUI Ctrl+Alt+1:メディア");
+        win.color(128, 128, 128).pos(10, 445);
+        win.mes("F1:ヘルプ ESC:終了 | 1-9:基本 Ctrl+0-9:拡張 Shift+1-4:画像 Alt+1-5:割込");
+        win.pos(10, 461);
+        win.mes("Ctrl+Shift+1-2:GUI Ctrl+Alt+1:メディア Alt+Shift+1-3:表示系");
         
         win.redraw(1);
         
@@ -518,6 +635,9 @@ void hspMain() {
             break;
         case DemoCategory::Media:
             processMediaAction(win);
+            break;
+        case DemoCategory::Display:
+            processDisplayAction(win);
             break;
         }
         

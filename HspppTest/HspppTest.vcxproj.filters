@@ -13,9 +13,6 @@
     <ClCompile Include="ApiRuntimeTest.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="StateVarsRuntimeTest.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
     <ClCompile Include="TestMain.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>

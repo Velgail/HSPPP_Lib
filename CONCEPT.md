@@ -51,6 +51,34 @@ DirectXのImmediate Mode（毎フレーム全消去）ではなく、HSPのCanva
       * `redraw(1)`: バックバッファの内容をスワップチェーン（画面）に転送し、VSync同期でフリップ。
 3.  **Auto-Repaint:** ウィンドウが隠れたり最小化から復帰した際は、`WM_PAINT` をフックしてバックバッファの内容を自動で再転送する。
 
+### 2.4. 論理解像度 vs 物理解像度（HiDPI / 仮想画面 / アンカー）
+
+「**1920×1080 を前提にレイアウトを書けば、4K でも 8K でも、21:9 でも自動でいい感じに表示される**」を実現するため、HSPPP は以下の単一座標変換パイプラインを採用する。
+
+```text
+[ユーザコード: 論理座標]
+   ↓ (任意) アンカー解決 (anchor_pos / AnchorRect::resolve)
+   ↓ 描画コマンド発行時点で SetTransform(Scale(s)) により論理→物理変換
+[HspSurface オフスクリーンビットマップ: 物理 px サイズ（letterbox 内有効領域）]
+   ↓ present() の DrawBitmap で単純転送（拡縮なし / レターボックス内側へオフセット配置）
+[SwapChain BackBuffer: 物理クライアント px（DPI 倍率込み）]
+   ↓ DXGI Present
+[物理ディスプレイ]
+```
+
+* **HiDPI 対応**: ライブラリ初期化時に `SetProcessDpiAwarenessContext` で **Per Monitor V2** を有効化（fallback: PerMonitor → SystemAware → Unaware）。`WM_DPICHANGED` でモニター跨ぎに追従する。`GetClientRect()` が返す物理 px に DPI 倍率が反映されるため、論理→物理のスケール計算に DPI 専用フィールドは不要。
+* **仮想画面**: `ScreenParams.virtual_resolution = true`（OOP）または `screen_mode_virtual` ビットフラグ（HSP 互換）で有効化。論理サイズと物理クライアントサイズを別管理し、**描画コマンド発行時点で `SetTransform(Scale(s))` により論理→物理変換**を適用してオフスクリーンビットマップ（物理 px）に直接描画する。`present()` は SwapChain への単純転送のみで拡縮処理を行わない（D2D `SetDpi` は 96 固定）。
+* **アンカー API**: `anchor_pos` / `anchor_box` / `AnchorRect` で「バッファの左右上下中央エッジから N px」を表現する。バッファサイズが論理 px か物理 px かは仮想画面の ON/OFF に従う（IF レベルでは仮想 ON 時は論理 px）。
+* **マウス座標**: `ginfo_mx` / `ginfo_my` は仮想画面 ON 時に逆変換を行い、ユーザコードから見て常にバッファ座標系（= 描画コマンドの座標系）と同じ単位で返す。
+* **ラスタ画像のスコープ外事項**: `picload` / `celload` で読み込んだ素材自体の高品質スケーリングは対象外。素材は元解像度のまま扱い、必要なら利用者側で高解像度版を用意する。
+* **線幅・補間モード**: `gline_width(w)` で線描画の幅（論理 px）、`gmode_interp(mode)` でラスタ転送の補間モード（NEAREST / LINEAR / ANISOTROPIC）を切替可能。既定はそれぞれ `1.0` / `LINEAR`。
+
+詳細は次のドキュメントを参照:
+
+* [docs/HiDPI.md](docs/HiDPI.md)
+* [docs/VirtualScreen.md](docs/VirtualScreen.md)
+* [docs/AnchorLayout.md](docs/AnchorLayout.md)
+
 -----
 
 ## 3\. API仕様ガイドライン

@@ -18,6 +18,10 @@ import <functional>;
 import <span>;
 import <memory>;
 import <string>;
+import <concepts>;
+import <type_traits>;
+import <utility>;
+import <cstddef>;
 
 export namespace hsppp {
 
@@ -150,7 +154,16 @@ export namespace hsppp {
     inline constexpr int screen_frame     = 16;   // 深い縁のあるウィンドウ
     inline constexpr int screen_offscreen = 32;   // 描画先として初期化 (HSP3Dish/HGIMG4)
     inline constexpr int screen_usergcopy = 64;   // 描画用シェーダー (HGIMG4)
+    inline constexpr int screen_mode_virtual = 128; // 仮想画面（論理→物理 自動拡縮）。
+                                                    // 既存ビット 64 (screen_usergcopy) との衝突回避のため 0x80 を選定。
     inline constexpr int screen_fullscreen = 256; // フルスクリーン (bgscr用)
+
+    // ============================================================
+    // 仮想画面の補間モード（vscalemode 用）
+    // ============================================================
+    inline constexpr int vscale_nearest = 0;  // ニアレストネイバー（ピクセルアート向け）
+    inline constexpr int vscale_linear  = 1;  // バイリニア（既定）
+    inline constexpr int vscale_aniso   = 2;  // 異方性（高品質・高負荷）
 
 
     // ============================================================
@@ -161,14 +174,15 @@ export namespace hsppp {
     /// @details 多くのパラメータを指定する場合に使用
     /// @example screen({.width = 800, .height = 600});
     struct ScreenParams {
-        int width    = 640;     ///< 画面サイズX
-        int height   = 480;     ///< 画面サイズY
+        int width    = 640;     ///< 画面サイズX（仮想画面 ON 時は論理 px）
+        int height   = 480;     ///< 画面サイズY（仮想画面 ON 時は論理 px）
         int mode     = 0;       ///< 画面モード (screen_* フラグの組み合わせ)
         int pos_x    = -1;      ///< ウィンドウ位置X (-1=システム規定)
         int pos_y    = -1;      ///< ウィンドウ位置Y (-1=システム規定)
-        int client_w = 0;       ///< クライアントサイズX (0=widthと同じ)
-        int client_h = 0;       ///< クライアントサイズY (0=heightと同じ)
+        int client_w = 0;       ///< クライアントサイズX (0=widthと同じ。物理 px)
+        int client_h = 0;       ///< クライアントサイズY (0=heightと同じ。物理 px)
         std::string_view title = "HSPPP Window";  ///< ウィンドウタイトル (HSP拡張)
+        bool virtual_resolution = false; ///< true で仮想画面（論理→物理 自動拡縮）を有効化
     };
 
     /// @brief buffer命令のパラメータ構造体
@@ -180,14 +194,15 @@ export namespace hsppp {
 
     /// @brief bgscr命令のパラメータ構造体
     struct BgscrParams {
-        int width    = 640;     ///< 画面サイズX
-        int height   = 480;     ///< 画面サイズY
+        int width    = 640;     ///< 画面サイズX（仮想画面 ON 時は論理 px）
+        int height   = 480;     ///< 画面サイズY（仮想画面 ON 時は論理 px）
         int mode     = 0;       ///< 画面モード (0=フルカラー, 2=非表示)
         int pos_x    = -1;      ///< ウィンドウ位置X (-1=システム規定)
         int pos_y    = -1;      ///< ウィンドウ位置Y (-1=システム規定)
-        int client_w = 0;       ///< クライアントサイズX (0=widthと同じ)
-        int client_h = 0;       ///< クライアントサイズY (0=heightと同じ)
+        int client_w = 0;       ///< クライアントサイズX (0=widthと同じ。物理 px)
+        int client_h = 0;       ///< クライアントサイズY (0=heightと同じ。物理 px)
         std::string_view title = "HSPPP Window";
+        bool virtual_resolution = false; ///< true で仮想画面（論理→物理 自動拡縮）を有効化
     };
 
 
@@ -224,6 +239,86 @@ export namespace hsppp {
         constexpr Point2i() noexcept = default;
         constexpr Point2i(int px, int py) noexcept : x(px), y(py) {}
     };
+
+    // ============================================================
+    // RectI / Anchor 系（アンカー基準レイアウト API 用）
+    // ============================================================
+
+    /// @brief 整数矩形（左上 (x1,y1) - 右下 (x2,y2)）
+    /// @details boxf 等と同じ x1<=x2, y1<=y2 の半開区間ではない HSP 互換の閉区間。
+    struct RectI {
+        int x1 = 0;
+        int y1 = 0;
+        int x2 = 0;
+        int y2 = 0;
+
+        constexpr RectI() noexcept = default;
+        constexpr RectI(int X1, int Y1, int X2, int Y2) noexcept
+            : x1(X1), y1(Y1), x2(X2), y2(Y2) {}
+
+        [[nodiscard]] constexpr int width()  const noexcept { return x2 - x1; }
+        [[nodiscard]] constexpr int height() const noexcept { return y2 - y1; }
+    };
+
+    /// @brief 水平アンカー定数
+    /// @details バッファ幅に対する基準位置 (左端 / 中央 / 右端) を表す。
+    enum AnchorH : int {
+        ah_left   = 0,
+        ah_center = 1,
+        ah_right  = 2,
+    };
+
+    /// @brief 垂直アンカー定数
+    /// @details バッファ高さに対する基準位置 (上端 / 中央 / 下端) を表す。
+    enum AnchorV : int {
+        av_top    = 0,
+        av_middle = 1,
+        av_bottom = 2,
+    };
+
+    /// @brief アンカー基準矩形（OOP 系レイアウト API）
+    /// @details
+    ///   バッファサイズ (= 仮想画面 ON 時は論理 px, OFF 時は物理クライアント px) に対して、
+    ///   `h_anchor` / `v_anchor` で「矩形のどの角・辺をどの基準点に合わせるか」を指定し、
+    ///   `offset_x` / `offset_y` で更にオフセットを加える。
+    ///
+    ///   - `ah_left  / av_top`    : 矩形の左上を (0,0) に合わせる
+    ///   - `ah_right / av_bottom` : 矩形の右下を (bufferW, bufferH) に合わせる
+    ///   - `ah_center/ av_middle` : 矩形の中心を (bufferW/2, bufferH/2) に合わせる
+    ///
+    ///   これによりウィンドウ／論理解像度のアスペクト比 (4:3 / 16:9 / 16:10 / 21:9 等)
+    ///   が変わってもアンカー側エッジからの相対位置が保たれる。
+    struct AnchorRect {
+        AnchorH h_anchor   = ah_left;
+        AnchorV v_anchor   = av_top;
+        int     offset_x   = 0;
+        int     offset_y   = 0;
+        int     width      = 0;
+        int     height     = 0;
+
+        /// @brief バッファサイズから具体的な矩形座標を解決
+        /// @param bufferW 解決基準となるバッファ幅 (Surface::getWidth())
+        /// @param bufferH 解決基準となるバッファ高さ (Surface::getHeight())
+        /// @return 解決後の RectI (boxf 等にそのまま渡せる座標)
+        [[nodiscard]] constexpr RectI resolve(int bufferW, int bufferH) const noexcept {
+            int baseX = 0;
+            switch (h_anchor) {
+                case ah_left:   baseX = 0; break;
+                case ah_center: baseX = bufferW / 2 - width / 2; break;
+                case ah_right:  baseX = bufferW - width; break;
+            }
+            int baseY = 0;
+            switch (v_anchor) {
+                case av_top:    baseY = 0; break;
+                case av_middle: baseY = bufferH / 2 - height / 2; break;
+                case av_bottom: baseY = bufferH - height; break;
+            }
+            const int x1 = baseX + offset_x;
+            const int y1 = baseY + offset_y;
+            return RectI{ x1, y1, x1 + width, y1 + height };
+        }
+    };
+
 
     /// @brief 4頂点座標（gsquareコピー先用）
     /// @details 頂点順序: 左上, 右上, 右下, 左下（時計回り）
@@ -383,6 +478,44 @@ export namespace hsppp {
     /// @note ラムダ式、関数ポインタ、関数オブジェクトをサポート
     using InterruptHandler = std::function<void()>;
 
+    /// @brief oncmd用ハンドラ。void戻り値は既定処理へ渡し、int戻り値はWndProcの戻り値にする
+    class CommandInterruptHandler {
+    private:
+        std::function<std::optional<int>()> handler_;
+
+    public:
+        CommandInterruptHandler() noexcept = default;
+        CommandInterruptHandler(std::nullptr_t) noexcept {}
+
+        template <typename F>
+            requires (!std::same_as<std::remove_cvref_t<F>, CommandInterruptHandler>) &&
+                     std::invocable<F&> &&
+                     (std::is_void_v<std::invoke_result_t<F&>> ||
+                      std::convertible_to<std::invoke_result_t<F&>, int>)
+        CommandInterruptHandler(F&& handler) {
+            using Result = std::invoke_result_t<F&>;
+            if constexpr (std::is_void_v<Result>) {
+                handler_ = [callable = std::forward<F>(handler)]() mutable -> std::optional<int> {
+                    callable();
+                    return std::nullopt;
+                };
+            } else {
+                handler_ = [callable = std::forward<F>(handler)]() mutable -> std::optional<int> {
+                    return static_cast<int>(callable());
+                };
+            }
+        }
+
+        [[nodiscard]] explicit operator bool() const noexcept {
+            return static_cast<bool>(handler_);
+        }
+
+        [[nodiscard]] std::optional<int> operator()() const {
+            if (!handler_) return std::nullopt;
+            return handler_();
+        }
+    };
+
     /// @brief エラーハンドラ型（onerror用）
     /// @note HspErrorBaseオブジェクトを受け取る（HspError/HspWeakError両方に対応）
     using ErrorHandler = std::function<int(const HspErrorBase&)>;
@@ -500,6 +633,21 @@ export namespace hsppp {
         /// @brief 画面全体を塗りつぶし
         Screen& boxf(const std::source_location& location = std::source_location::current());
 
+        /// @brief アンカー基準で描画位置を設定（OOP版）
+        /// @details 現在のバッファサイズに対し、(anchorH, anchorV) で示される基準点から
+        ///          (offsetX, offsetY) だけずらした論理座標を pos に設定する。
+        Screen& anchor_pos(int anchorH, int anchorV, int offsetX, int offsetY,
+                           const std::source_location& location = std::source_location::current());
+
+        /// @brief アンカー基準矩形を塗りつぶし（OOP版）
+        /// @details (anchorH, anchorV) を矩形側の基準角とし、bufferW/bufferH に合わせた位置を計算して boxf する。
+        Screen& anchor_box(int anchorH, int anchorV, int offsetX, int offsetY, int w, int h,
+                           const std::source_location& location = std::source_location::current());
+
+        /// @brief AnchorRect を塗りつぶし（OOP版）
+        Screen& boxf(const AnchorRect& rect,
+                     const std::source_location& location = std::source_location::current());
+
         /// @brief 画面クリア
         /// @param mode クリアする時の色 (0=白, 1=明るい灰色, 2=灰色, 3=暗い灰色, 4=黒)
         Screen& cls(int mode = 0, const std::source_location& location = std::source_location::current());
@@ -569,14 +717,49 @@ export namespace hsppp {
         [[nodiscard]] int mousey() const;
 
         // ============================================================
-        // 割り込みハンドラ（OOP版・ウィンドウ別設定）
+        // 仮想画面（screen_mode_virtual）連携 公開API
+        // ============================================================
+        //
+        // 仮想画面 ON のウィンドウでは、論理バッファ（screen() の width/height）
+        // と物理クライアント領域（HiDPI / リサイズ後の実 px 領域）の間で
+        // アスペクト維持の uniform スケール + letterbox 変換が行われる。
+        // 以下 3 API はこの変換に関する公開アクセサである。
+        // 仮想画面 OFF / 不適格なハンドル / Window 以外のサーフェスでは
+        // 変換は恒等（出力 = 入力）となり、setter は no-op となる。
+
+        /// @brief 物理クライアント座標 → 論理座標 変換
+        /// @details 仮想画面 ON 時はアスペクト維持 uniform スケール + letterbox
+        ///          オフセットの逆変換を行う。OFF 時は恒等変換。
+        ///          mousex()/mousey() は内部で本変換相当を行う。
+        ///          ginfo(ginfo_type_mx/my) はHSP同様にデスクトップ座標を返す。
+        ///          本 API は任意の物理クライアント座標を対象にできる。
+        void physToLogical(int physX, int physY, int& outLogX, int& outLogY,
+                           const std::source_location& location = std::source_location::current()) const;
+
+        /// @brief 論理座標 → 物理クライアント座標 変換
+        /// @details 仮想画面 ON 時はアスペクト維持 uniform スケール + letterbox
+        ///          オフセットの正方向変換を行う。OFF 時は恒等変換。
+        void logicalToPhys(int logX, int logY, int& outPhysX, int& outPhysY,
+                           const std::source_location& location = std::source_location::current()) const;
+
+        /// @brief 仮想画面 letterbox / pillarbox 領域の塗り潰し色を設定
+        /// @param r 赤成分 (0..255)
+        /// @param g 緑成分 (0..255)
+        /// @param b 青成分 (0..255)
+        /// @details 仮想画面 ON のウィンドウで present 時に黒帯領域の背景色として使用される。
+        ///          範囲外値はクランプされる。仮想画面 OFF / 非 Window では no-op。
+        Screen& letterboxColor(int r, int g, int b,
+                               const std::source_location& location = std::source_location::current());
+
+        // ============================================================
+        // 割り込みハンドラ（OOP版。oncmdのみウィンドウ別設定）
         // ============================================================
 
         /// @brief クリック割り込みを設定
         Screen& onclick(InterruptHandler handler, const std::source_location& location = std::source_location::current());
 
         /// @brief Windowsメッセージ割り込みを設定
-        Screen& oncmd(InterruptHandler handler, int messageId, const std::source_location& location = std::source_location::current());
+        Screen& oncmd(CommandInterruptHandler handler, int messageId, const std::source_location& location = std::source_location::current());
 
         /// @brief キー割り込みを設定
         Screen& onkey(InterruptHandler handler, const std::source_location& location = std::source_location::current());

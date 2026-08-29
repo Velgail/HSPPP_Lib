@@ -8,7 +8,9 @@
 // GUIオブジェクトマネージャーの実装
 
 #include "Internal.h"
+#include <algorithm>
 #include <stdexcept>
+#include <vector>
 
 namespace hsppp::internal {
 
@@ -17,15 +19,6 @@ namespace hsppp::internal {
 // ============================================================
 
 ObjectManager::ObjectManager()
-    : m_nextId(0)
-    , m_objSizeX(64)
-    , m_objSizeY(24)
-    , m_objSpaceY(0)
-    , m_fontMode(1)  // デフォルト: GUIフォント
-    , m_tabEnabled(true)
-    , m_objColorR(0)
-    , m_objColorG(0)
-    , m_objColorB(0)
 {
 }
 
@@ -41,27 +34,75 @@ ObjectManager& ObjectManager::getInstance() {
     return instance;
 }
 
-int ObjectManager::registerObject(ObjectInfo info) {
-    int newId = m_nextId++;
+int ObjectManager::registerObject(ObjectInfo info, const HspSurface& surface) {
+    const int windowId = info.windowId;
+    const int newId = getNextId(windowId);
+    const ObjectKey key{windowId, newId};
+
+    // objmodeは「以降に配置するオブジェクト」へ、配置時点の状態を反映する。
+    const auto& settings = settingsFor(windowId);
+    const int fontMode = settings.fontMode & 3;
+    HFONT font = nullptr;
+    if (fontMode == 0) {
+        font = static_cast<HFONT>(GetStockObject(SYSTEM_FONT));
+    } else if (fontMode == 1) {
+        font = static_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
+    } else {
+        font = surface.createObjectFont();
+        if (font) {
+            info.ownedFont = std::shared_ptr<void>(font, [](void* handle) {
+                DeleteObject(reinterpret_cast<HGDIOBJ>(handle));
+            });
+        }
+    }
+    if (font && info.hwnd) {
+        SendMessageW(info.hwnd.get(), WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+    }
+
+    // HSP Win32版と同じく、objmode_usecolorはEDIT系に対して
+    // color=背景色、objcolor=文字色として配置時に固定する。
+    if ((settings.fontMode & 4) != 0 &&
+        (info.type == ObjectType::Input || info.type == ObjectType::Mesbox)) {
+        const auto color = surface.getCurrentColor();
+        const int backgroundR = (std::clamp)(static_cast<int>(color.r * 255.0f + 0.5f), 0, 255);
+        const int backgroundG = (std::clamp)(static_cast<int>(color.g * 255.0f + 0.5f), 0, 255);
+        const int backgroundB = (std::clamp)(static_cast<int>(color.b * 255.0f + 0.5f), 0, 255);
+        info.backgroundColor = RGB(backgroundR, backgroundG, backgroundB);
+        info.textColor = RGB(settings.objColorR, settings.objColorG, settings.objColorB);
+        if (HBRUSH brush = CreateSolidBrush(info.backgroundColor)) {
+            info.ownedBackgroundBrush = std::shared_ptr<void>(brush, [](void* handle) {
+                DeleteObject(reinterpret_cast<HGDIOBJ>(handle));
+            });
+            info.useCustomColors = true;
+        }
+    }
+
     // 逆引きマップに登録（ムーブ前に HWND を取得）
     HWND hwnd = info.hwnd.get();
-    m_objects[newId] = std::move(info);
+    m_objects[key] = std::move(info);
     if (hwnd) {
-        m_hwndMap[hwnd] = newId;
+        m_hwndMap[hwnd] = key;
     }
     return newId;
 }
 
-ObjectInfo* ObjectManager::getObject(int objectId) {
-    auto it = m_objects.find(objectId);
+ObjectInfo* ObjectManager::getObject(int windowId, int objectId) {
+    auto it = m_objects.find({windowId, objectId});
     if (it != m_objects.end()) {
         return &(it->second);
     }
     return nullptr;
 }
 
-void ObjectManager::removeObject(int objectId) {
-    auto it = m_objects.find(objectId);
+ObjectInfo* ObjectManager::getObjectByHwnd(HWND hwnd) {
+    auto keyIt = m_hwndMap.find(hwnd);
+    if (keyIt == m_hwndMap.end()) return nullptr;
+    auto it = m_objects.find(keyIt->second);
+    return it != m_objects.end() ? &it->second : nullptr;
+}
+
+void ObjectManager::removeObject(int windowId, int objectId) {
+    auto it = m_objects.find({windowId, objectId});
     if (it != m_objects.end()) {
         // 逆引きマップから削除
         HWND hwnd = it->second.hwnd.get();
@@ -73,16 +114,10 @@ void ObjectManager::removeObject(int objectId) {
     }
 }
 
-void ObjectManager::removeObjects(int startId, int endId) {
-    // 効率的なイテレータベースの実装
-    auto it = m_objects.lower_bound(startId);
-    
-    // endId が -1 の場合は最後まで
-    if (endId < 0 && !m_objects.empty()) {
-        endId = m_objects.rbegin()->first;
-    }
-    
-    while (it != m_objects.end() && it->first <= endId) {
+void ObjectManager::removeObjects(int windowId, int startId, int endId) {
+    auto it = m_objects.lower_bound({windowId, startId});
+    while (it != m_objects.end() && it->first.first == windowId &&
+           (endId < 0 || it->first.second <= endId)) {
         // 逆引きマップから削除
         HWND hwnd = it->second.hwnd.get();
         if (hwnd) {
@@ -114,53 +149,126 @@ int ObjectManager::findObjectByHwnd(HWND hwnd) {
     // O(log N)の逆引きマップを使用
     auto it = m_hwndMap.find(hwnd);
     if (it != m_hwndMap.end()) {
-        return it->second;
+        return it->second.second;
     }
     return -1;
 }
 
-void ObjectManager::setObjSize(int x, int y, int spaceY) {
-    m_objSizeX = x;
-    m_objSizeY = y;
-    m_objSpaceY = spaceY;
+ObjectManager::ObjectSettings& ObjectManager::settingsFor(int windowId) {
+    return m_settings[windowId];
 }
 
-void ObjectManager::getObjSize(int& x, int& y, int& spaceY) const {
-    x = m_objSizeX;
-    y = m_objSizeY;
-    spaceY = m_objSpaceY;
+const ObjectManager::ObjectSettings& ObjectManager::settingsFor(int windowId) const {
+    static const ObjectSettings defaults{};
+    auto it = m_settings.find(windowId);
+    return it != m_settings.end() ? it->second : defaults;
 }
 
-void ObjectManager::setObjMode(int fontMode, int tabEnabled) {
-    m_fontMode = fontMode;
+int ObjectManager::getNextId(int windowId) const {
+    int id = 0;
+    while (m_objects.contains({windowId, id})) ++id;
+    return id;
+}
+
+void ObjectManager::setObjSize(int windowId, int x, int y, int spaceY) {
+    auto& settings = settingsFor(windowId);
+    settings.objSizeX = x;
+    settings.objSizeY = y;
+    settings.objSpaceY = spaceY;
+}
+
+void ObjectManager::getObjSize(int windowId, int& x, int& y, int& spaceY) const {
+    const auto& settings = settingsFor(windowId);
+    x = settings.objSizeX;
+    y = settings.objSizeY;
+    spaceY = settings.objSpaceY;
+}
+
+void ObjectManager::setObjMode(int windowId, int fontMode, int tabEnabled) {
+    auto& settings = settingsFor(windowId);
+    settings.fontMode = fontMode;
     if (tabEnabled >= 0) {
-        m_tabEnabled = (tabEnabled != 0);
+        settings.tabEnabled = (tabEnabled != 0);
     }
 }
 
-void ObjectManager::getObjMode(int& fontMode, bool& tabEnabled) const {
-    fontMode = m_fontMode;
-    tabEnabled = m_tabEnabled;
+void ObjectManager::getObjMode(int windowId, int& fontMode, bool& tabEnabled) const {
+    const auto& settings = settingsFor(windowId);
+    fontMode = settings.fontMode;
+    tabEnabled = settings.tabEnabled;
 }
 
-void ObjectManager::setObjColor(int r, int g, int b) {
-    m_objColorR = r;
-    m_objColorG = g;
-    m_objColorB = b;
+void ObjectManager::setObjColor(int windowId, int r, int g, int b) {
+    auto& settings = settingsFor(windowId);
+    settings.objColorR = r;
+    settings.objColorG = g;
+    settings.objColorB = b;
 }
 
-void ObjectManager::getObjColor(int& r, int& g, int& b) const {
-    r = m_objColorR;
-    g = m_objColorG;
-    b = m_objColorB;
+void ObjectManager::getObjColor(int windowId, int& r, int& g, int& b) const {
+    const auto& settings = settingsFor(windowId);
+    r = settings.objColorR;
+    g = settings.objColorG;
+    b = settings.objColorB;
 }
 
-void ObjectManager::resetSettings() {
-    m_objSizeX = 64;
-    m_objSizeY = 24;
-    m_objSpaceY = 0;
-    m_fontMode = 1;
-    // m_tabEnabled はリセットしない（HSP仕様）
+void ObjectManager::resetSettings(int windowId) {
+    m_settings[windowId] = ObjectSettings{};
+}
+
+void ObjectManager::resetSettingsForCls(int windowId) {
+    auto& settings = settingsFor(windowId);
+    settings.objSizeX = 64;
+    settings.objSizeY = 24;
+    settings.objSpaceY = 0;
+    settings.objColorR = 0;
+    settings.objColorG = 0;
+    settings.objColorB = 0;
+    // objmodeとtabmoveはBmscr::Clsでも変更されないため維持する。
+}
+
+void ObjectManager::processTabKey(HWND messageWindow, UINT message, WPARAM wParam) {
+    if (message != WM_KEYDOWN || wParam != VK_TAB) return;
+
+    HWND focusWindow = GetFocus();
+    auto focusKeyIt = m_hwndMap.find(focusWindow);
+    int windowId = -1;
+    int currentIndex = -1;
+    ObjectInfo* currentObject = nullptr;
+    if (focusKeyIt != m_hwndMap.end()) {
+        windowId = focusKeyIt->second.first;
+        currentObject = getObject(windowId, focusKeyIt->second.second);
+    } else if (messageWindow) {
+        HWND root = GetAncestor(messageWindow, GA_ROOT);
+        windowId = getWindowIdFromHwnd(root ? root : messageWindow);
+    }
+    if (windowId < 0 || !settingsFor(windowId).tabEnabled) return;
+    if (currentObject && (currentObject->focusSkipMode & 3) == 2) return;
+
+    std::vector<ObjectInfo*> objects;
+    auto it = m_objects.lower_bound({windowId, 0});
+    for (; it != m_objects.end() && it->first.first == windowId; ++it) {
+        if (&it->second == currentObject) currentIndex = static_cast<int>(objects.size());
+        objects.push_back(&it->second);
+    }
+    if (objects.empty()) return;
+
+    const int direction = (GetAsyncKeyState(VK_SHIFT) & 0x8000) ? -1 : 1;
+    int index = currentIndex;
+    if (index < 0 && direction < 0) index = static_cast<int>(objects.size());
+    for (size_t attempt = 0; attempt < objects.size(); ++attempt) {
+        index += direction;
+        if (index >= static_cast<int>(objects.size())) index = 0;
+        if (index < 0) index = static_cast<int>(objects.size()) - 1;
+        ObjectInfo* candidate = objects[static_cast<size_t>(index)];
+        if (!candidate->hwnd || !candidate->enabled || !IsWindowEnabled(candidate->hwnd.get())) continue;
+        if ((candidate->focusSkipMode & 3) == 3) continue;
+        if ((candidate->focusSkipMode & 4) != 0) {
+            SendMessageW(candidate->hwnd.get(), EM_SETSEL, 0, -1);
+        }
+        SetFocus(candidate->hwnd.get());
+        return;
+    }
 }
 
 void ObjectManager::syncSingleInputControl(HWND hwnd) {
@@ -170,7 +278,7 @@ void ObjectManager::syncSingleInputControl(HWND hwnd) {
         return;
     }
     
-    ObjectInfo* pInfo = getObject(it->second);
+    ObjectInfo* pInfo = getObject(it->second.first, it->second.second);
     if (!pInfo) {
         return;
     }

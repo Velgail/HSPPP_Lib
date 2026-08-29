@@ -143,7 +143,6 @@
   <ItemGroup>
     <ClCompile Include="ApiCompileTest.cpp" />
     <ClCompile Include="ApiRuntimeTest.cpp" />
-    <ClCompile Include="StateVarsRuntimeTest.cpp" />
     <ClCompile Include="TestMain.cpp" />
   </ItemGroup>
   <ItemGroup>

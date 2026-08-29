@@ -66,7 +66,7 @@ void hspMain() {
     
     // 初期化処理、または while ループでゲームループを実装
     
-    return 0;  // hspMain を抜けると stop() と同等の動作になる
+    return;  // hspMain を抜けると stop() と同等の動作になる
 }
 ```
 
@@ -105,7 +105,7 @@ void hspMain() {
         await(16);  // 約60FPS
     }
     
-    return 0;
+    return;
 }
 ```
 

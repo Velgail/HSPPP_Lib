@@ -210,6 +210,13 @@ struct ObjectInfo {
     // 有効/無効、フォーカススキップ
     bool enabled;
     int focusSkipMode;            // 1=移動可能, 2=移動不可, 3=スキップ, +4=全選択
+
+    // objmode配置時スナップショット（HSP同様、配置済みオブジェクトは後続設定で変化しない）
+    std::shared_ptr<void> ownedFont;
+    std::shared_ptr<void> ownedBackgroundBrush;
+    COLORREF textColor;
+    COLORREF backgroundColor;
+    bool useCustomColors;
     
     ObjectInfo() 
         : type(ObjectType::None)
@@ -220,6 +227,9 @@ struct ObjectInfo {
         , maxLength(0)
         , enabled(true)
         , focusSkipMode(1)
+        , textColor(RGB(0, 0, 0))
+        , backgroundColor(RGB(255, 255, 255))
+        , useCustomColors(false)
     {}
     
     /// @brief 文字列変数へのポインタを取得
@@ -241,21 +251,24 @@ struct ObjectInfo {
 /// @brief オブジェクトマネージャー（シングルトン）
 class ObjectManager {
 private:
-    std::map<int, ObjectInfo> m_objects;  // オブジェクトID -> ObjectInfo
-    std::map<HWND, int> m_hwndMap;        // HWND -> オブジェクトIDの逆引きマップ
-    int m_nextId;
-    
-    // 現在のオブジェクトサイズ設定 (objsize)
-    int m_objSizeX;
-    int m_objSizeY;
-    int m_objSpaceY;    // Y方向の行間
-    
-    // objmode設定
-    int m_fontMode;     // 0=HSP標準, 1=GUIフォント, 2=font命令のフォント, 4=color使用
-    bool m_tabEnabled;  // TABキーでのフォーカス移動
-    
-    // objcolor設定
-    int m_objColorR, m_objColorG, m_objColorB;
+    using ObjectKey = std::pair<int, int>;  // (ウィンドウID, オブジェクトID)
+    std::map<ObjectKey, ObjectInfo> m_objects;
+    std::map<HWND, ObjectKey> m_hwndMap;
+
+    struct ObjectSettings {
+        int objSizeX = 64;
+        int objSizeY = 24;
+        int objSpaceY = 0;
+        int fontMode = 1;
+        bool tabEnabled = true;
+        int objColorR = 0;
+        int objColorG = 0;
+        int objColorB = 0;
+    };
+    std::map<int, ObjectSettings> m_settings;
+
+    ObjectSettings& settingsFor(int windowId);
+    const ObjectSettings& settingsFor(int windowId) const;
     
     ObjectManager();
     ~ObjectManager();
@@ -268,16 +281,19 @@ public:
     
     /// @brief オブジェクトを登録（ムーブで受け取る）
     /// @return 割り当てられたオブジェクトID
-    int registerObject(ObjectInfo info);
+    int registerObject(ObjectInfo info, const HspSurface& surface);
     
     /// @brief オブジェクトを取得
-    ObjectInfo* getObject(int objectId);
+    ObjectInfo* getObject(int windowId, int objectId);
+
+    /// @brief HWNDからオブジェクトを取得
+    ObjectInfo* getObjectByHwnd(HWND hwnd);
     
     /// @brief オブジェクトを削除
-    void removeObject(int objectId);
+    void removeObject(int windowId, int objectId);
     
     /// @brief 指定範囲のオブジェクトを削除
-    void removeObjects(int startId, int endId);
+    void removeObjects(int windowId, int startId, int endId);
     
     /// @brief 指定ウィンドウのオブジェクトをすべて削除
     void removeObjectsByWindow(int windowId);
@@ -286,24 +302,30 @@ public:
     int findObjectByHwnd(HWND hwnd);
     
     /// @brief オブジェクトサイズを設定
-    void setObjSize(int x, int y, int spaceY);
+    void setObjSize(int windowId, int x, int y, int spaceY);
     
     /// @brief オブジェクトサイズを取得
-    void getObjSize(int& x, int& y, int& spaceY) const;
+    void getObjSize(int windowId, int& x, int& y, int& spaceY) const;
     
     /// @brief objmode設定
-    void setObjMode(int fontMode, int tabEnabled);
-    void getObjMode(int& fontMode, bool& tabEnabled) const;
+    void setObjMode(int windowId, int fontMode, int tabEnabled);
+    void getObjMode(int windowId, int& fontMode, bool& tabEnabled) const;
     
     /// @brief objcolor設定
-    void setObjColor(int r, int g, int b);
-    void getObjColor(int& r, int& g, int& b) const;
+    void setObjColor(int windowId, int r, int g, int b);
+    void getObjColor(int windowId, int& r, int& g, int& b) const;
     
     /// @brief 設定をリセット（screen/cls時に呼ばれる）
-    void resetSettings();
+    void resetSettings(int windowId);
+
+    /// @brief cls時の設定リセット（objmode/tabmoveはHSP同様に維持）
+    void resetSettingsForCls(int windowId);
+
+    /// @brief DispatchMessage後のTABフォーカス移動（HSPのNextObject相当）
+    void processTabKey(HWND messageWindow, UINT message, WPARAM wParam);
     
     /// @brief 次のオブジェクトIDを取得（内部用）
-    int getNextId() const { return m_nextId; }
+    int getNextId(int windowId) const;
     
     /// @brief 単一のEDITコントロールの内容を変数に同期
     /// EN_CHANGE通知時にWindowProcから呼び出す
@@ -354,6 +376,54 @@ public:
     bool isInitialized() const { return m_initialized; }
 };
 
+// ============================================================
+// LogicalRenderContext (論理 px ↔ 物理 px 中間層 / 仮想画面とDPIを統一管理)
+// ============================================================
+// HspWindow が所有する値オブジェクト + 軽量サービス。
+// 描画コマンド発行時の SetTransform スケール、present 時の配置オフセット、
+// マウス/ginfo の物理→論理写像など、全て computePresentMapping() の
+// 単一ソースに集約する。仮想画面 ON/OFF と DPI≠96 の組合せを 1 経路で扱う。
+// HspBuffer は SwapChain なし・letterbox なしのため scale=1.0, dpi=96 固定で
+// 初期化された軽量値を用いる（実体所有は HspWindow のみ）。
+class LogicalRenderContext {
+public:
+    struct PresentMapping {
+        float scale;       // 論理 → 物理 の uniform scale
+        float offsetX;     // 物理 backbuffer 上での描画開始 X（letterbox 中央寄せ込み）
+        float offsetY;     //                                 Y
+        float destW;       // 物理上の描画幅  (= logW * scale)
+        float destH;       // 物理上の描画高  (= logH * scale)
+        // 仮想 OFF: offsetX/Y = 0, destW/H = physClient （= logW * (DPI/96)）
+        // 仮想 ON : uniform = min(physW/logW, physH/logH), 余白を中央寄せ
+    };
+
+    LogicalRenderContext() = default;
+
+    // HspWindow がメンバ更新 hook から呼ぶ更新 API
+    void update(int logW, int logH,
+                int physClientW, int physClientH,
+                UINT currentDpi,
+                bool virtualEnabled);
+
+    // 公開アクセサ
+    PresentMapping computePresentMapping() const;
+    float getDpiScale() const;                  // = currentDpi / 96.0f
+    bool  isVirtualEnabled() const { return m_virtual; }
+    UINT  getCurrentDpi() const { return m_dpi; }
+
+    // 座標写像（HspWindow::physToLogical/logicalToPhys がこれに委譲）
+    void physToLogical(int physX, int physY, int& outLogX, int& outLogY) const;
+    void logicalToPhys(int logX, int logY, int& outPhysX, int& outPhysY) const;
+
+private:
+    int   m_logW    = 1;
+    int   m_logH    = 1;
+    int   m_physW   = 1;
+    int   m_physH   = 1;
+    UINT  m_dpi     = 96;
+    bool  m_virtual = false;
+};
+
 // 基底クラス: HspSurface
 // 描画対象を抽象化する（Direct2D 1.1対応）
 class HspSurface {
@@ -384,10 +454,16 @@ protected:
     int m_redrawMode;
 
     // gmode設定（サーフェスごと）
-    int m_gmodeMode;        // コピーモード (0～6)
+    int m_gmodeMode;        // コピーモード (0～7)
     int m_gmodeSizeX;       // コピーサイズX
     int m_gmodeSizeY;       // コピーサイズY
     int m_gmodeBlendRate;   // ブレンド率 (0～256)
+
+    // HSP互換CEL設定（画像を保持するウィンドウIDごとに保存）
+    int m_celWidth;
+    int m_celHeight;
+    int m_celCenterX;
+    int m_celCenterY;
 
     // objsize設定（サーフェスごと）
     int m_objSizeX;         // オブジェクト幅
@@ -397,6 +473,13 @@ protected:
     // 最後のmes出力サイズ（ginfo 14/15 用）
     int m_lastMesSizeX;     // 最後のmes出力のXサイズ
     int m_lastMesSizeY;     // 最後のmes出力のYサイズ
+
+    // 線描画 strokeWidth（論理 px / gline_width 命令で設定 / デフォルト 1.0f / HSP3 互換）
+    float m_lineWidth = 1.0f;
+
+    // ラスタ転送系（picload / celput / gcopy / gzoom）の補間モード
+    // デフォルトは LINEAR（従来挙動と互換）
+    D2D1_INTERPOLATION_MODE m_gmodeInterp = D2D1_INTERPOLATION_MODE_LINEAR;
 
 public:
     HspSurface(int width, int height);
@@ -414,7 +497,7 @@ public:
     void line(int x2, int y2, int x1, int y1, bool useStartPos);
     void circle(int x1, int y1, int x2, int y2, int fillMode);
     void pset(int x, int y);
-    bool pget(int x, int y, int& r, int& g, int& b);
+    virtual bool pget(int x, int y, int& r, int& g, int& b);
 
     // 拡張描画命令
     void gradf(int x, int y, int w, int h, int mode, int color1, int color2);
@@ -438,15 +521,27 @@ public:
     // フォント設定
     bool font(std::string_view fontName, int size, int style);
     bool sysfont(int type);
+    HFONT createObjectFont() const;
 
     // 画像操作
     bool picload(std::string_view filename, int mode);
-    bool bmpsave(std::string_view filename);
+    virtual bool bmpsave(std::string_view filename);
     void celput(ID2D1Bitmap1* pBitmap, const D2D1_RECT_F& srcRect, const D2D1_RECT_F& destRect);
+    void celputHsp(
+        ID2D1Bitmap1* pBitmap,
+        const D2D1_RECT_F& srcRect,
+        float cellWidth,
+        float cellHeight,
+        float centerX,
+        float centerY,
+        double zoomX,
+        double zoomY,
+        double angle
+    );
 
     // 描画制御
-    void beginDraw();
-    void endDraw();
+    virtual void beginDraw();
+    virtual void endDraw();
     virtual void endDrawAndPresent();  // 派生クラスでオーバーライド
     bool isDrawing() const { return m_isDrawing; }
 
@@ -465,6 +560,12 @@ public:
     int getGmodeSizeX() const { return m_gmodeSizeX; }
     int getGmodeSizeY() const { return m_gmodeSizeY; }
     int getGmodeBlendRate() const { return m_gmodeBlendRate; }
+    void setCelDivision(int width, int height, int centerX, int centerY);
+    void resetCelDivision();
+    int getCelWidth() const { return m_celWidth > 0 ? m_celWidth : m_width; }
+    int getCelHeight() const { return m_celHeight > 0 ? m_celHeight : m_height; }
+    int getCelCenterX() const { return m_celCenterX; }
+    int getCelCenterY() const { return m_celCenterY; }
 
     // objsize設定
     void setObjSize(int sizeX, int sizeY, int spaceY) {
@@ -484,6 +585,26 @@ public:
     // 最後のmes出力サイズ（ginfo 14/15 用）
     int getLastMesSizeX() const { return m_lastMesSizeX; }
     int getLastMesSizeY() const { return m_lastMesSizeY; }
+
+    // 線描画 strokeWidth 制御（gline_width 命令で設定）
+    // w <= 0 は 1.0f にクランプ（HSP3 互換 / 異常系防御）
+    void setLineWidth(float w) {
+        m_lineWidth = (w <= 0.0f) ? 1.0f : w;
+    }
+    float getLineWidth() const { return m_lineWidth; }
+
+    // ラスタ転送補間モード制御（gmode_interp 命令で設定）
+    // mode: 0=NEAREST_NEIGHBOR / 1=LINEAR / 2=ANISOTROPIC
+    // 範囲外は LINEAR にフォールバック（呼出側で範囲チェック推奨）
+    void setGmodeInterp(int mode) {
+        switch (mode) {
+        case 0: m_gmodeInterp = D2D1_INTERPOLATION_MODE_NEAREST_NEIGHBOR; break;
+        case 1: m_gmodeInterp = D2D1_INTERPOLATION_MODE_LINEAR;            break;
+        case 2: m_gmodeInterp = D2D1_INTERPOLATION_MODE_ANISOTROPIC;       break;
+        default: m_gmodeInterp = D2D1_INTERPOLATION_MODE_LINEAR;           break;
+        }
+    }
+    D2D1_INTERPOLATION_MODE getGmodeInterp() const { return m_gmodeInterp; }
 
     // テキストサイズ計算（messize関数用）描画せずにテキストの全体サイズを取得
     bool measureText(std::string_view text, int& width, int& height) const;
@@ -507,8 +628,30 @@ private:
     std::wstring m_title;
     
     // クライアントサイズ（実際のウィンドウ表示サイズ、m_width/m_height以下）
+    // HiDPI 対応後は「物理クライアント px」を表す
     int m_clientWidth;
     int m_clientHeight;
+
+    // === HiDPI 追加（physical client px は m_clientWidth/Height と同義） ===
+    // 仮想画面導入後、m_clientWidth/Height は物理クライアント px のままに保ち、
+    // バッファサイズ（m_width/m_height）は論理 px として扱う。
+    UINT m_currentDpi;       // 現在のウィンドウ DPI（96 = 100%）
+    int  m_physClientW;      // 物理クライアント幅（= m_clientWidth に追従）
+    int  m_physClientH;      // 物理クライアント高さ（= m_clientHeight に追従）
+
+    // === 仮想画面（論理→物理 自動拡縮）追加 ===
+    // 有効時、m_pTargetBitmap (論理サイズ m_width×m_height) を present() の
+    // DrawBitmap で物理クライアント (m_physClientW×m_physClientH) へアスペクト
+    // 維持の uniform スケールで転送する。レターボックス/ピラーボックスは
+    // m_letterboxColor で塗り潰す。
+    bool m_virtualEnabled;
+    D2D1_BITMAP_INTERPOLATION_MODE m_virtualScreenInterp;
+    D2D1_COLOR_F m_letterboxColor;
+
+    // 論理 ↔ 物理 中間層（v2: 仮想 ON/OFF + DPI≠96 を統一管理）
+    // m_currentDpi / m_physClientW/H / m_width/m_height / m_virtualEnabled の
+    // いずれかが変動した場合は updateLogicalCtx() を呼んで同期させる。
+    LogicalRenderContext m_logicalCtx;
 
     UniqueHwnd m_hwnd;
     
@@ -522,12 +665,18 @@ private:
     // 共通Present実装
     void presentInternal(UINT syncInterval, UINT flags);
 
+    // m_logicalCtx を現在のメンバ状態（m_width/H, m_physClientW/H, m_currentDpi, m_virtualEnabled）と同期
+    // setClientSize / onSize / onDpiChanged / resizeSwapChain / initialize の各更新後に必ず呼ぶ
+    void updateLogicalCtx();
+
 public:
     HspWindow(int width, int height, std::string_view title, int windowId = 0);
     virtual ~HspWindow();
 
     // 初期化
     bool initialize() override;
+    void beginDraw() override;
+    void endDraw() override;
 
     // ウィンドウ作成
     bool createWindow(
@@ -573,6 +722,42 @@ public:
     
     // WM_SIZE処理（ウィンドウリサイズ時の処理）
     void onSize(int newWidth, int newHeight);
+
+    // WM_DPICHANGED 処理（DPI 変更時の再構築）
+    // suggested は OS が提案する新しいウィンドウ矩形（lParam）。
+    // PerMonitorV2 の作法に従い SetWindowPos → GetClientRect → SwapChain 再構築する。
+    void onDpiChanged(UINT newDpi, const RECT* suggested);
+
+    // 現在のウィンドウ DPI を取得（96 = 100%）
+    UINT getCurrentDpi() const { return m_currentDpi; }
+
+    // === 仮想画面（論理→物理 自動拡縮）API ===
+    bool isVirtualEnabled() const { return m_virtualEnabled; }
+    void setVirtualScreenEnabled(bool enabled);
+    void setVirtualInterpolation(D2D1_BITMAP_INTERPOLATION_MODE mode);
+    D2D1_BITMAP_INTERPOLATION_MODE getVirtualInterpolation() const { return m_virtualScreenInterp; }
+
+    // レターボックス／ピラーボックス領域の塗り潰し色を設定する。
+    // 各成分は 0..255 を期待し、内部で D2D1_COLOR_F に正規化する。
+    // 仮想画面 OFF 時は present で参照されないため副作用は無いが、
+    // 設定値は保持される（後で仮想画面を有効化したときに反映される）。
+    void setLetterboxColor(int r, int g, int b);
+    D2D1_COLOR_F getLetterboxColor() const { return m_letterboxColor; }
+
+    // 物理クライアント px → 論理 px 逆変換
+    // 仮想画面 OFF + DPI=96 でのみ恒等。仮想 OFF + DPI≠96 でも DPI 倍率を吸収する。
+    // マウス座標 ginfo_mx/my / mousex / mousey 等で使用。
+    void physToLogical(int physX, int physY, int& outLogX, int& outLogY) const;
+    // 論理 px → 物理クライアント px 正方向変換（mouse 命令の SetCursorPos 用）
+    void logicalToPhys(int logX, int logY, int& outPhysX, int& outPhysY) const;
+    // 現在の物理クライアントサイズ
+    int getPhysClientWidth() const { return m_physClientW; }
+    int getPhysClientHeight() const { return m_physClientH; }
+
+    // pget / bmpsave は HspWindow では「論理 IF + 物理 px ターゲット」変換を要するため
+    // 専用オーバーライドを行う（§6.10 互換戦略）
+    bool pget(int x, int y, int& r, int& g, int& b) override;
+    bool bmpsave(std::string_view filename) override;
     
 private:
     // スワップチェーンをリサイズ（内部用）
@@ -646,6 +831,9 @@ namespace hsppp::internal {
 
     // 画像読み込み・保存（ImageLoader.cpp）
     ComPtr<ID2D1Bitmap1> loadImageFile(std::string_view filename, int& width, int& height);
+
+    /// @brief picloadのHSP互換処理（mode 0/2では画像寸法で画面を再初期化）
+    bool picloadToSurface(int surfaceId, std::string_view filename, int mode);
     bool saveBitmapToFile(ID2D1Bitmap1* pBitmap, std::string_view filename);
 
     // cel素材管理（ImageLoader.cpp）

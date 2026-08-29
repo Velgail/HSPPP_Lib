@@ -31,13 +31,13 @@ title: 画面API
 // HSP互換版（ID明示指定）
 Screen screen(
     int id,
-    OptInt width    = {},      // 画面サイズX（デフォルト: 640）
-    OptInt height   = {},      // 画面サイズY（デフォルト: 480）
-    OptInt mode     = {},      // 画面モード（screen_* フラグ）
+    OptInt width    = {},      // 画面サイズX（仮想画面 ON 時は論理 px。デフォルト: 640）
+    OptInt height   = {},      // 画面サイズY（仮想画面 ON 時は論理 px。デフォルト: 480）
+    OptInt mode     = {},      // 画面モード（screen_* フラグ。screen_mode_virtual で仮想画面 ON）
     OptInt pos_x    = {},      // ウィンドウ位置X（-1=システム規定）
     OptInt pos_y    = {},      // ウィンドウ位置Y（-1=システム規定）
-    OptInt client_w = {},      // クライアントサイズX（0=widthと同じ）
-    OptInt client_h = {},      // クライアントサイズY（0=heightと同じ）
+    OptInt client_w = {},      // クライアントサイズX（物理 px。0=widthと同じ）
+    OptInt client_h = {},      // クライアントサイズY（物理 px。0=heightと同じ）
     std::string_view title = "HSPPP Window"
 );
 ```
@@ -48,12 +48,36 @@ Screen screen(
 // HSP互換スタイル
 screen(0, 800, 600);
 
+// HSP互換スタイル + 仮想画面（論理 1920x1080）
+screen(0, 1920, 1080, screen_mode_virtual);
+
 // OOP版（構造体）
 auto win = screen({.width = 800, .height = 600, .title = "My App"});
+
+// OOP版（構造体 / 仮想画面）
+auto win = screen({
+    .width  = 1920, .height  = 1080,
+    .client_w = 1280, .client_h = 720,
+    .virtual_resolution = true,
+});
 
 // OOP版（デフォルト設定）
 auto win = screen();
 ```
+
+> 仮想画面（`virtual_resolution = true` または `screen_mode_virtual` 指定）の詳細は
+> [仮想画面ガイド](/HSPPP_Lib/VirtualScreen) を参照してください。
+> HiDPI awareness は標準で有効化されています（[HiDPI ガイド](/HSPPP_Lib/HiDPI) 参照）。
+
+初期化に成功すると、指定したIDがそのまま描画先になります。同じウィンドウIDを再指定した場合も再初期化できます。
+OpenHSPのWindows版と同じく、ウィンドウを `buffer` で再初期化することは可能です。一度bufferになったIDへ
+`screen` / `bgscr` を指定した場合は、ウィンドウ型へ戻さずbufferのまま指定サイズで再初期化します。
+HspppLibでは同一IDの再初期化時にネイティブウィンドウを作り直す場合があるため、保存済みの `HWND` ではなく
+スクリーンIDまたは `Screen` ハンドルを継続利用してください。
+
+HSP互換のグローバル描画APIを画面作成前に呼んだ場合は、HSPの初期画面に相当するID 0（640×480）を遅延生成します。
+一方、OOP版の `screen(...)` / `buffer(...)` / `bgscr(...)` は、HSP風コードが使う0以上の明示IDと衝突しないよう
+内部では負のIDを自動採番します。OOP版では数値IDへ依存せず、返された `Screen` ハンドルを使ってください。
 
 ---
 
@@ -210,6 +234,38 @@ void groll(int scrollX, int scrollY);
 
 ---
 
+### vscalemode
+
+> ⚠️ **機能縮退（v2 描画パイプライン）:** 本命令は **API 互換のために残置されているのみ** で、
+> v2 では描画パイプラインに **作用しません**。
+>
+> v1 では `present()` の論理→物理 拡縮で使用される補間モードを設定する命令でしたが、
+> v2 では描画コマンド発行時点で論理→物理変換が完了し、`present()` は SwapChain への
+> **単純転送のみ**を行うため、`vscalemode()` の指定は present 経路に影響しません
+> （詳細は [移行ガイド](../MigrationGuide-HiDPI-v2.md) §4.2 参照）。
+
+```cpp
+void vscalemode(int mode);   // 互換のため受理。状態を保持するのみ。
+```
+
+| 定数 | 値 | （旧）用途 |
+|------|----|------|
+| `vscale_nearest` | 0 | ニアレストネイバー（ピクセルアート向け） |
+| `vscale_linear`  | 1 | バイリニア |
+| `vscale_aniso`   | 2 | 異方性 |
+
+**推奨対応:**
+
+| 状況 | 推奨対応 |
+|------|---------|
+| API 互換のため命令呼び出しを残したい | そのままで良い（命令自体は残置） |
+| ラスタ画像転送の補間モードを変えたい | `gmode_interp()` に置き換える |
+| 新規コード | 最初から `gmode_interp()` を使用する |
+
+詳細は [移行ガイド §4.2](/HSPPP_Lib/MigrationGuide-HiDPI-v2) を参照してください。
+
+---
+
 ## 画像操作
 
 ### gmode
@@ -218,7 +274,7 @@ void groll(int scrollX, int scrollY);
 
 ```cpp
 void gmode(
-    OptInt mode       = {},    // 画面コピーモード（0〜6）
+    OptInt mode       = {},    // 画面コピーモード（0〜7）
     OptInt size_x     = {},    // コピーする大きさX（デフォルト: 32）
     OptInt size_y     = {},    // コピーする大きさY（デフォルト: 32）
     OptInt blend_rate = {}     // ブレンド率（0〜256）
@@ -227,13 +283,49 @@ void gmode(
 
 | モード | 定数 | 説明 |
 |-------|------|------|
-| 0 | `gmode_copy` | 通常コピー |
-| 1 | `gmode_mem` | メモリ間コピー |
-| 2 | `gmode_and` | AND合成 |
-| 3 | `gmode_or` | OR合成 |
-| 4 | `gmode_alpha` | 半透明合成 |
-| 5 | `gmode_add` | 加算合成 |
-| 6 | `gmode_sub` | 減算合成 |
+| 0 | `gmode_gdi` | 通常コピー |
+| 1 | `gmode_mem` | メモリ間コピー（描画結果はモード0と同じ） |
+| 2 | `gmode_rgb0` | RGBがすべて0のピクセルを透明色としてコピー |
+| 3 | `gmode_alpha` | `blend_rate` による半透明合成 |
+| 4 | `gmode_rgb0alpha` | 現在の `color` と同じRGBを透明色とする半透明合成 |
+| 5 | `gmode_add` | `blend_rate` を反映した加算合成（255でクランプ） |
+| 6 | `gmode_sub` | `blend_rate` を反映した減算合成（0でクランプ） |
+| 7 | `gmode_pixela` | 元画像の右隣に置いたRGBマスクによるピクセル単位の合成 |
+
+`size_x` / `size_y` は0も有効です。`blend_rate` は0〜256で、256が完全なコピーです。
+設定は現在の描画先IDに保存され、`gcopy` と等倍の `celput` に反映されます。`gzoom` の合成方法には使われません。
+
+---
+
+### gmode_interp
+
+HspppLib独自の補間設定です。D2D経路の `picload` / 変形 `celput` / `gcopy` で使用します。
+
+```cpp
+void gmode_interp(OptInt mode = {});
+```
+
+| 値 | 定数 | 用途 |
+|----|------|------|
+| 0 | `vscale_nearest` | NEAREST（ピクセルアート向け） |
+| 1 | `vscale_linear`  | LINEAR（**既定** / 写真・図形・テキスト） |
+| 2 | `vscale_aniso`   | ANISOTROPIC（拡大率が大きいとき高品質を最優先） |
+
+**引数省略時の挙動:** `gmode_interp()` のように引数を省略した呼び出しは、補間モードを **LINEAR（既定）に強制リセット** します。
+「現状維持」を期待する場合は、引数を明示してください（例: `gmode_interp(0)`）。
+
+**使用例:**
+
+```cpp
+gmode_interp(0);            // NEAREST に変更
+gcopy(1, 0, 0, 64, 64);    // このサーフェスの補間設定で転送
+
+gmode_interp();             // 引数省略 → LINEAR に強制リセット
+gcopy(2, 0, 0, 64, 64);    // LINEAR で転送
+```
+
+> `gzoom` はHSPのp8を優先します。省略時は常に0（補間なし）で、`gmode_interp` の状態を引き継ぎません。
+> HspppLib拡張としてp8に `-1` を明示すると `gmode_interp` を使い、`2` でANISOTROPICを選べます。
 
 ---
 
@@ -254,9 +346,12 @@ void gcopy(
 **使用例:**
 
 ```cpp
-gmode(gmode_alpha, 0, 0, 128);  // 半透明モード、50%
+gmode(gmode_alpha, 64, 64, 128); // 半透明モード、約50%
 gcopy(1, 0, 0, 64, 64);         // バッファ1から64x64をコピー
 ```
+
+コピー先は現在のカレントポジションです。コピー元・コピー先が画面外にはみ出す場合は、HSPと同様に
+両方の矩形を対応させたままクリップします。モード3〜7のRGB演算はHSPの整数演算順に合わせています。
 
 ---
 
@@ -273,9 +368,13 @@ void gzoom(
     OptInt src_y  = {},    // コピー元Y座標
     OptInt src_w  = {},    // コピー元の幅
     OptInt src_h  = {},    // コピー元の高さ
-    OptInt mode   = {}     // 0=高速, 1=高品質
+    OptInt mode   = {}     // 0=補間なし（既定）, 1=高品質
 );
 ```
+
+`mode`（HSPのp8）を省略した場合は0です。`gmode` の合成モードやブレンド率は使用しません。
+コピー元サイズを省略した場合だけ、現在の `gmode` の `size_x` / `size_y` を使います。
+HspppLib拡張として `mode=-1` は `gmode_interp` の現在値、`mode=2` はANISOTROPICです。
 
 ---
 
@@ -291,8 +390,8 @@ int ginfo(int type);
 
 | 定数 | 値 | 説明 |
 |------|----|------|
-| `ginfo_type_mx` | 0 | マウスX座標 |
-| `ginfo_type_my` | 1 | マウスY座標 |
+| `ginfo_type_mx` | 0 | デスクトップ上のマウスX座標 |
+| `ginfo_type_my` | 1 | デスクトップ上のマウスY座標 |
 | `ginfo_type_act` | 2 | アクティブウィンドウID |
 | `ginfo_type_sel` | 3 | 描画先ウィンドウID |
 | `ginfo_type_wx1` | 4 | ウィンドウ左端座標 |
@@ -308,6 +407,7 @@ int ginfo(int type);
 | `ginfo_type_b` | 18 | 現在の描画色B |
 | `ginfo_type_dispx` | 20 | ディスプレイ幅 |
 | `ginfo_type_dispy` | 21 | ディスプレイ高さ |
+| `ginfo_type_intid` | 24 | 直近の割り込みが発生したウィンドウID |
 | `ginfo_type_fps` | 28 | モニター最大リフレッシュレート(Hz) |
 
 ### 便利関数
@@ -315,8 +415,8 @@ int ginfo(int type);
 各 `ginfo` 値に対応する便利関数も提供されています：
 
 ```cpp
-int ginfo_mx();      // マウスX座標
-int ginfo_my();      // マウスY座標
+int ginfo_mx();      // デスクトップ上のマウスX座標
+int ginfo_my();      // デスクトップ上のマウスY座標
 int ginfo_sel();     // 描画先ウィンドウID
 int ginfo_sizex();   // 画面サイズX
 int ginfo_sizey();   // 画面サイズY
@@ -362,27 +462,43 @@ win.color(255, 0, 0)
 ### 画面モードフラグ
 
 ```cpp
-inline constexpr int screen_normal     = 0;    // フルカラーモード
-inline constexpr int screen_palette    = 1;    // パレットモード（未実装）
-inline constexpr int screen_hide       = 2;    // 非表示ウィンドウ
-inline constexpr int screen_fixedsize  = 4;    // サイズ固定
-inline constexpr int screen_tool       = 8;    // ツールウィンドウ
-inline constexpr int screen_frame      = 16;   // 深い縁のあるウィンドウ
-inline constexpr int screen_offscreen  = 32;   // 描画先として初期化
-inline constexpr int screen_fullscreen = 256;  // フルスクリーン（bgscr用）
+inline constexpr int screen_normal      = 0;    // フルカラーモード
+inline constexpr int screen_palette     = 1;    // パレットモード（未実装）
+inline constexpr int screen_hide        = 2;    // 非表示ウィンドウ
+inline constexpr int screen_fixedsize   = 4;    // サイズ固定
+inline constexpr int screen_tool        = 8;    // ツールウィンドウ
+inline constexpr int screen_frame       = 16;   // 深い縁のあるウィンドウ
+inline constexpr int screen_offscreen   = 32;   // 描画先として初期化
+inline constexpr int screen_usergcopy   = 64;   // 描画用シェーダー (HGIMG4)
+inline constexpr int screen_mode_virtual = 128; // 仮想画面（論理→物理 自動拡縮）
+inline constexpr int screen_fullscreen  = 256;  // フルスクリーン（bgscr用）
+```
+
+> `screen_mode_virtual`（`0x80`）は HSPPP 拡張です。詳細は [仮想画面ガイド](/HSPPP_Lib/VirtualScreen) 参照。
+
+### 仮想画面 補間モード定数
+
+```cpp
+inline constexpr int vscale_nearest = 0;  // ニアレストネイバー
+inline constexpr int vscale_linear  = 1;  // バイリニア（既定）
+inline constexpr int vscale_aniso   = 2;  // 異方性（高品質・高負荷）
 ```
 
 ### コピーモード定数
 
 ```cpp
-inline constexpr int gmode_copy  = 0;   // 通常コピー
-inline constexpr int gmode_mem   = 1;   // メモリ間コピー
-inline constexpr int gmode_and   = 2;   // AND合成
-inline constexpr int gmode_or    = 3;   // OR合成
-inline constexpr int gmode_alpha = 4;   // 半透明合成
-inline constexpr int gmode_add   = 5;   // 加算合成
-inline constexpr int gmode_sub   = 6;   // 減算合成
+inline constexpr int gmode_gdi       = 0; // 通常コピー
+inline constexpr int gmode_mem       = 1; // メモリ間コピー
+inline constexpr int gmode_rgb0      = 2; // 黒を透明色としてコピー
+inline constexpr int gmode_alpha     = 3; // 半透明合成
+inline constexpr int gmode_rgb0alpha = 4; // 指定色を透明色とする半透明合成
+inline constexpr int gmode_add       = 5; // 加算合成
+inline constexpr int gmode_sub       = 6; // 減算合成
+inline constexpr int gmode_pixela    = 7; // RGBマスクによるピクセルアルファ合成
 ```
+
+`gmode_copy` は `gmode_gdi` の互換別名です。旧HspppLibのソース互換用に
+`gmode_and` / `gmode_or` も残していますが、名前ではなく上表のHSPモード意味を使用してください。
 
 ---
 

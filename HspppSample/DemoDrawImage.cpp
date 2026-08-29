@@ -71,16 +71,17 @@ void drawImageDemo(Screen& win) {
         win.pos(50, 200);
         win.mes("loadCel(filename) - OOP版、Celオブジェクトを返す");
         win.pos(50, 220);
-        win.mes("celdiv(id, divX, divY) - セル分割サイズ設定");
+        win.mes("celdiv(id, cellW, cellH) - 1セルの寸法を設定");
         win.pos(50, 240);
-        win.mes("celput(id, index, x, y) - セル描画");
+        win.mes("pos(x,y); celput(id,index,zoomX,zoomY,angle)");
         
         if (g_celId >= 0) {
             win.color(0, 0, 200).pos(50, 280);
             win.mes("Cel loaded! Use arrows to change cell index");
-            celput(g_celId, g_celIndex, 300, 300);
+            pos(300, 300);
+            celput(g_celId, g_celIndex);
             win.color(0, 0, 0).pos(300, 420);
-            win.mes("celput(" + str(g_celId) + ", " + str(g_celIndex) + ", 300, 300)");
+            win.mes("pos(300,300); celput(" + str(g_celId) + ", " + str(g_celIndex) + ")");
         } else if (!g_testImageSaved) {
             win.color(255, 0, 0).pos(50, 280);
             win.mes("※ 先にShift+1 (bmpsave)でテスト画像を作成してください");
@@ -191,7 +192,7 @@ void processImageAction(Screen& win) {
             await(200);
         }
         if (getkey('D') && g_celId >= 0) {
-            celdiv(g_celId, 4, 4);
+            celdiv(g_celId, 160, 120);  // 640x480の画像を4x4セルとして扱う
             await(200);
         }
         if (g_celId >= 0) {

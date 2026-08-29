@@ -18,6 +18,7 @@ import <format>;
 import <source_location>;
 import <exception>;
 import <memory>;
+import <cstdint>;
 
 export namespace hsppp {
 
@@ -201,8 +202,8 @@ export namespace hsppp {
     /// @brief 割り込み発生時のパラメータ
     struct InterruptParams {
         int iparam;
-        int wparam;
-        int lparam;
+        int64_t wparam;
+        int64_t lparam;
     };
 
     /// @brief 現在の割り込みパラメータを取得
@@ -212,10 +213,10 @@ export namespace hsppp {
     int iparam(const std::source_location& location = std::source_location::current()) noexcept;
 
     /// @brief システム変数 wparam を取得
-    int wparam(const std::source_location& location = std::source_location::current()) noexcept;
+    int64_t wparam(const std::source_location& location = std::source_location::current()) noexcept;
 
     /// @brief システム変数 lparam を取得
-    int lparam(const std::source_location& location = std::source_location::current()) noexcept;
+    int64_t lparam(const std::source_location& location = std::source_location::current()) noexcept;
 
     // ============================================================
     // sysval互換（Windowsハンドル系）
@@ -257,7 +258,7 @@ export namespace hsppp {
     void onclick(int enable, const std::source_location& location = std::source_location::current()) noexcept;
 
     /// @brief Windowsメッセージ受信時の割り込みを設定
-    void oncmd(InterruptHandler handler, int messageId, const std::source_location& location = std::source_location::current());
+    void oncmd(CommandInterruptHandler handler, int messageId, const std::source_location& location = std::source_location::current());
 
     /// @brief 指定メッセージIDの割り込みの一時停止/再開
     void oncmd(int enable, int messageId, const std::source_location& location = std::source_location::current());
@@ -286,13 +287,22 @@ export namespace hsppp {
 
     namespace internal {
         /// @brief ライブラリの初期化処理
-        void init_system(const std::source_location& location = std::source_location::current());
+        [[nodiscard]] bool init_system(const std::source_location& location = std::source_location::current());
 
         /// @brief ライブラリの終了処理
         void close_system(const std::source_location& location = std::source_location::current());
 
         /// @brief HspErrorBase派生例外を処理
         void handleHspError(const HspErrorBase& error, const std::source_location& location = std::source_location::current());
+
+        /// @brief WndProcが保留した割り込みを1件処理
+        bool processPendingInterrupt();
+
+        /// @brief DispatchMessage後にHSPのオブジェクトTAB移動を処理
+        void processDispatchedMessage(int64_t hwnd, int message, int64_t wparam);
+
+        /// @brief 現在処理中の割り込みが発生したウィンドウID
+        int getInterruptWindowId() noexcept;
     }
 
 } // namespace hsppp

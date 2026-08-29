@@ -63,9 +63,14 @@ int exec(const std::string& filename, OptInt mode = {}, const std::string& comma
 
 ```cpp
 exec("notepad.exe", exec_normal);
+exec("notepad.exe memo.txt", exec_normal);              // 第1引数に実行引数も記述可能
+exec("\"C:/Program Files/App/app.exe\" --safe", exec_normal); // 空白を含む実行ファイル
 exec("https://example.com", exec_shellexec);  // ブラウザで開く
 exec("document.pdf", exec_shellexec);         // 関連付けアプリで開く
 ```
+
+`exec_normal` では第1引数を「実行ファイル + 引数」のコマンドラインとして分解します。実行ファイルのパスに空白がある場合は
+二重引用符で囲んでください。第3引数 `command` は実行引数ではなく、ShellExecuteの操作名（verb）を明示するための引数です。
 
 ---
 
@@ -290,15 +295,15 @@ if (result.stat == 6) {  // Yes
     end();
 }
 
-// ファイルを開く
-auto result = dialog("画像ファイル", dialog_open, "*.png;*.jpg");
+// ファイルを開く（message=拡張子、option=表示名。複数は | で対応付ける）
+auto result = dialog("png|jpg", dialog_open, "PNG画像|JPEG画像");
 if (result) {
     std::string filename = result;  // refstr を取得
     picload(filename);
 }
 
 // ファイルを保存
-auto result = dialog("保存先", dialog_save, "*.bmp");
+auto result = dialog("bmp", dialog_save, "BMP画像");
 if (result) {
     bmpsave(result.refstr);
 }
@@ -345,7 +350,7 @@ void hspMain() {
         mes(text);
     }
     
-    return 0;
+    return;
 }
 ```
 

@@ -41,6 +41,31 @@ export namespace hsppp {
     /// @brief 画面全体を塗りつぶし
     void boxf(const std::source_location& location = std::source_location::current());
 
+    /// @brief AnchorRect を塗りつぶし（OOP/HSP 共用）
+    /// @details 現在の描画先サーフェスのバッファサイズに対して rect.resolve() を行い、
+    ///          解決後の座標で boxf(x1,y1,x2,y2) を実行する。
+    void boxf(const AnchorRect& rect, const std::source_location& location = std::source_location::current());
+
+    /// @brief アンカー基準で描画位置を設定（HSP 互換命令）
+    /// @param anchorH ah_left / ah_center / ah_right
+    /// @param anchorV av_top  / av_middle / av_bottom
+    /// @param offsetX 基準点からの X オフセット (px、論理座標)
+    /// @param offsetY 基準点からの Y オフセット (px、論理座標)
+    /// @details 仮想画面 ON 時は論理 px、OFF 時は物理クライアント px が基準となる。
+    ///          例: anchor_pos(ah_right, av_bottom, -10, -10) で右下から内側 10px。
+    void anchor_pos(int anchorH, int anchorV, int offsetX, int offsetY,
+                    const std::source_location& location = std::source_location::current());
+
+    /// @brief アンカー基準の矩形を塗りつぶす（HSP 互換命令）
+    /// @param anchorH ah_left / ah_center / ah_right （矩形側の基準辺）
+    /// @param anchorV av_top  / av_middle / av_bottom
+    /// @param offsetX 基準点からの追加 X オフセット
+    /// @param offsetY 基準点からの追加 Y オフセット
+    /// @param w 矩形幅 (px)
+    /// @param h 矩形高さ (px)
+    void anchor_box(int anchorH, int anchorV, int offsetX, int offsetY, int w, int h,
+                    const std::source_location& location = std::source_location::current());
+
     // ============================================================
     // 図形描画
     // ============================================================
@@ -53,6 +78,19 @@ export namespace hsppp {
 
     /// @brief 1ドットの点を描画
     void pset(OptInt x = {}, OptInt y = {}, const std::source_location& location = std::source_location::current());
+
+    /// @brief 線描画の太さを設定（論理 px / デフォルト 1.0 / HSP3 互換）
+    /// @param w 線幅（論理 px）。w <= 0 は 1.0 にクランプ。
+    /// @details 対象命令: line / circle (輪郭) / pset。
+    ///          仮想画面 ON または DPI ≠ 96 環境では SetTransform(Scale(s)) により
+    ///          物理 px へ伝搬される（論理 px 指定）。
+    void gline_width(OptDouble w = {}, const std::source_location& location = std::source_location::current());
+
+    /// @brief ラスタ転送系の補間モードを設定
+    /// @param mode 0=nearest / 1=linear (既定) / 2=anisotropic
+    /// @details 対象命令: picload / celput / gcopy / gzoom (gzoom は引数未指定時のみ)。
+    ///          既定 1=linear は従来挙動と互換。
+    void gmode_interp(OptInt mode = {}, const std::source_location& location = std::source_location::current());
 
     /// @brief 1ドットの色を取得し、選択色として設定
     void pget(OptInt x = {}, OptInt y = {}, const std::source_location& location = std::source_location::current());

@@ -168,7 +168,7 @@ public:
     
     // 割り込み
     Screen& onclick(InterruptHandler handler);
-    Screen& oncmd(InterruptHandler handler, int messageId);
+    Screen& oncmd(CommandInterruptHandler handler, int messageId);
     Screen& onkey(InterruptHandler handler);
     
     // GUIオブジェクト
@@ -219,7 +219,7 @@ public:
     [[nodiscard]] int id() const noexcept;
     
     // 操作
-    Cel& divide(int divX, int divY);
+    Cel& divide(int divX, int divY);  // OOP版: 横・縦の分割数
     Cel& put(int cellIndex, OptInt x = {}, OptInt y = {});
     
     // 情報取得
@@ -227,6 +227,9 @@ public:
     [[nodiscard]] int height() const;
 };
 ```
+
+`Cel` はHspppLibのOOP便宜APIです。HSP互換のグローバル `celdiv(id, cellWidth, cellHeight, ...)` は
+1セルの寸法を受け取り、グローバル `celput` の描画位置は `pos()` で指定します。
 
 ---
 
@@ -238,14 +241,15 @@ public:
 
 ```cpp
 struct ScreenParams {
-    int width    = 640;     // 画面サイズX
-    int height   = 480;     // 画面サイズY
+    int width    = 640;     // 画面サイズX（仮想画面 ON 時は論理 px）
+    int height   = 480;     // 画面サイズY（仮想画面 ON 時は論理 px）
     int mode     = 0;       // 画面モード（screen_* フラグの組み合わせ）
     int pos_x    = -1;      // ウィンドウ位置X（-1=システム規定）
     int pos_y    = -1;      // ウィンドウ位置Y（-1=システム規定）
-    int client_w = 0;       // クライアントサイズX（0=widthと同じ）
-    int client_h = 0;       // クライアントサイズY（0=heightと同じ）
-    std::string_view title = "HSPPP Window";  // ウィンドウタイトル
+    int client_w = 0;       // クライアントサイズX（物理 px。0=widthと同じ）
+    int client_h = 0;       // クライアントサイズY（物理 px。0=heightと同じ）
+    std::string_view title = "HSPPP Window";   // ウィンドウタイトル
+    bool virtual_resolution = false;           // true で仮想画面（論理→物理 自動拡縮）を有効化
 };
 ```
 
@@ -282,16 +286,19 @@ struct BufferParams {
 
 ```cpp
 struct BgscrParams {
-    int width    = 640;
-    int height   = 480;
+    int width    = 640;     // 画面サイズX（仮想画面 ON 時は論理 px）
+    int height   = 480;     // 画面サイズY（仮想画面 ON 時は論理 px）
     int mode     = 0;       // 0=フルカラー, 2=非表示
     int pos_x    = -1;
     int pos_y    = -1;
-    int client_w = 0;
-    int client_h = 0;
+    int client_w = 0;       // クライアントサイズX（物理 px。0=widthと同じ）
+    int client_h = 0;       // クライアントサイズY（物理 px。0=heightと同じ）
     std::string_view title = "HSPPP Window";
+    bool virtual_resolution = false;  // true で仮想画面（論理→物理 自動拡縮）を有効化
 };
 ```
+
+> `virtual_resolution = true` の挙動詳細は [仮想画面ガイド](/HSPPP_Lib/VirtualScreen) を参照してください。
 
 ---
 
@@ -310,6 +317,74 @@ struct Point2i {
     constexpr Point2i(int px, int py) noexcept;
 };
 ```
+
+---
+
+### RectI
+
+`int` 矩形（左上 (x1,y1) - 右下 (x2,y2)）を表す構造体です。
+`AnchorRect::resolve()` の戻り値として使われます。
+
+```cpp
+struct RectI {
+    int x1 = 0;
+    int y1 = 0;
+    int x2 = 0;
+    int y2 = 0;
+
+    constexpr RectI() noexcept = default;
+    constexpr RectI(int X1, int Y1, int X2, int Y2) noexcept;
+
+    [[nodiscard]] constexpr int width()  const noexcept;  // x2 - x1
+    [[nodiscard]] constexpr int height() const noexcept;  // y2 - y1
+};
+```
+
+---
+
+### AnchorH / AnchorV / AnchorRect
+
+アンカー基準レイアウト API 用の定数と構造体です。
+
+```cpp
+enum AnchorH : int {
+    ah_left   = 0,   // 左端基準
+    ah_center = 1,   // 中央基準
+    ah_right  = 2,   // 右端基準
+};
+
+enum AnchorV : int {
+    av_top    = 0,   // 上端基準
+    av_middle = 1,   // 中央基準
+    av_bottom = 2,   // 下端基準
+};
+
+struct AnchorRect {
+    AnchorH h_anchor = ah_left;
+    AnchorV v_anchor = av_top;
+    int     offset_x = 0;
+    int     offset_y = 0;
+    int     width    = 0;
+    int     height   = 0;
+
+    // バッファサイズから具体的な RectI を解決
+    [[nodiscard]] constexpr RectI resolve(int bufferW, int bufferH) const noexcept;
+};
+```
+
+**使用例:**
+
+```cpp
+// 画面右下から内側 20px に 120x40 の矩形
+boxf(AnchorRect{
+    .h_anchor = ah_right,  .v_anchor = av_bottom,
+    .offset_x = -20,       .offset_y = -20,
+    .width    = 120,       .height   = 40,
+});
+```
+
+> `AnchorRect::resolve()` の解決ルール・中央寄せ時の ±1px の偏りなど詳細は
+> [アンカーレイアウト API](/HSPPP_Lib/AnchorLayout) を参照してください。
 
 ---
 

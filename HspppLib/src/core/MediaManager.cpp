@@ -1,4 +1,4 @@
-// Source: https://github.com/Velgail/HspppLib
+﻿// Source: https://github.com/Velgail/HspppLib
 // Distributed under the Boost Software License, Version 1.0.
 // See accompanying file LICENSE or copy at
 // https://www.boost.org/LICENSE_1_0.txt
@@ -1179,6 +1179,13 @@ void MediaManager_initialize() {
 
 void MediaManager_shutdown() {
     MediaManager::getInstance().shutdown();
+}
+
+// Media.cpp 用ユニークバッファID割り当て（モジュール衝突回避のためここで管理）
+static std::atomic<int> s_mediaBufferId{1000};
+
+int MediaManager_allocateBufferId() {
+    return s_mediaBufferId.fetch_add(1);
 }
 
 } // namespace internal

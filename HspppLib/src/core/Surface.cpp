@@ -22,6 +22,7 @@ module;
 #include <string_view>
 #include <cstring>
 #include <algorithm>
+#include <cmath>
 
 #include "Internal.h"
 
@@ -241,6 +242,10 @@ HspSurface::HspSurface(int width, int height)
     , m_gmodeSizeX(32)      // デフォルトコピーサイズ
     , m_gmodeSizeY(32)
     , m_gmodeBlendRate(0)   // ブレンドなし
+    , m_celWidth(width)
+    , m_celHeight(height)
+    , m_celCenterX(0)
+    , m_celCenterY(0)
     , m_objSizeX(64)        // デフォルトオブジェクトサイズ
     , m_objSizeY(24)
     , m_objSpaceY(0)        // デフォルト間隔
@@ -318,6 +323,11 @@ void HspSurface::cls(int mode) {
     m_currentX = 0;
     m_currentY = 0;
 
+    // オブジェクト配置サイズも画面初期状態へ戻す
+    m_objSizeX = 64;
+    m_objSizeY = 24;
+    m_objSpaceY = 0;
+
     // フォントを初期状態に戻す
     sysfont(0);
 
@@ -385,10 +395,11 @@ bool HspSurface::picload(std::string_view filename, int mode) {
 
     m_pDeviceContext->DrawBitmap(
         bitmap.Get(),
-        destRect,
+        &destRect,
         1.0f,  // opacity
-        D2D1_BITMAP_INTERPOLATION_MODE_LINEAR,
-        nullptr  // sourceRect (全体)
+        m_gmodeInterp,
+        nullptr,  // sourceRect (全体)
+        nullptr   // perspectiveTransform
     );
 
     // モード1の場合、自動的にendDraw + present
@@ -419,6 +430,20 @@ bool HspSurface::bmpsave(std::string_view filename) {
     return result;
 }
 
+void HspSurface::setCelDivision(int width, int height, int centerX, int centerY) {
+    m_celWidth = width > 0 ? width : m_width;
+    m_celHeight = height > 0 ? height : m_height;
+    m_celCenterX = centerX;
+    m_celCenterY = centerY;
+}
+
+void HspSurface::resetCelDivision() {
+    m_celWidth = m_width;
+    m_celHeight = m_height;
+    m_celCenterX = 0;
+    m_celCenterY = 0;
+}
+
 void HspSurface::celput(ID2D1Bitmap1* pBitmap, const D2D1_RECT_F& srcRect, const D2D1_RECT_F& destRect) {
     if (!m_pDeviceContext || !pBitmap) return;
 
@@ -431,10 +456,11 @@ void HspSurface::celput(ID2D1Bitmap1* pBitmap, const D2D1_RECT_F& srcRect, const
 
     m_pDeviceContext->DrawBitmap(
         pBitmap,
-        destRect,
+        &destRect,
         1.0f,  // opacity
-        D2D1_BITMAP_INTERPOLATION_MODE_LINEAR,
-        srcRect
+        m_gmodeInterp,
+        &srcRect,
+        nullptr   // perspectiveTransform
     );
 
     // モード1の場合、自動的にendDraw + present
@@ -443,7 +469,78 @@ void HspSurface::celput(ID2D1Bitmap1* pBitmap, const D2D1_RECT_F& srcRect, const
     }
 }
 
+void HspSurface::celputHsp(
+    ID2D1Bitmap1* pBitmap,
+    const D2D1_RECT_F& srcRect,
+    float cellWidth,
+    float cellHeight,
+    float centerX,
+    float centerY,
+    double zoomX,
+    double zoomY,
+    double angle
+) {
+    if (!m_pDeviceContext || !pBitmap) return;
+
+    const bool autoManage = (m_redrawMode == 1 && !m_isDrawing);
+    if (autoManage) {
+        beginDraw();
+    }
+    if (!m_isDrawing) return;
+
+    D2D1_MATRIX_3X2_F oldTransform;
+    m_pDeviceContext->GetTransform(&oldTransform);
+
+    const float destinationX = static_cast<float>(m_currentX);
+    const float destinationY = static_cast<float>(m_currentY);
+    const float angleDegrees = static_cast<float>(angle * kRadToDeg);
+    const auto localTransform =
+        D2D1::Matrix3x2F::Translation(-centerX, -centerY) *
+        D2D1::Matrix3x2F::Scale(static_cast<float>(zoomX), static_cast<float>(zoomY)) *
+        D2D1::Matrix3x2F::Rotation(angleDegrees) *
+        D2D1::Matrix3x2F::Translation(destinationX, destinationY);
+    m_pDeviceContext->SetTransform(localTransform * oldTransform);
+
+    float opacity = 1.0f;
+    if (m_gmodeMode >= 3 && m_gmodeMode <= 6) {
+        opacity = static_cast<float>(m_gmodeBlendRate) / 256.0f;
+    }
+
+    const D2D1_PRIMITIVE_BLEND oldBlend = m_pDeviceContext->GetPrimitiveBlend();
+    if (m_gmodeMode == 5) {
+        m_pDeviceContext->SetPrimitiveBlend(D2D1_PRIMITIVE_BLEND_ADD);
+    } else if (m_gmodeMode == 6) {
+        m_pDeviceContext->SetPrimitiveBlend(D2D1_PRIMITIVE_BLEND_MIN);
+    }
+
+    const D2D1_RECT_F destinationRect = D2D1::RectF(0.0f, 0.0f, cellWidth, cellHeight);
+    m_pDeviceContext->DrawBitmap(
+        pBitmap,
+        destinationRect,
+        opacity,
+        static_cast<D2D1_BITMAP_INTERPOLATION_MODE>(m_gmodeInterp),
+        srcRect
+    );
+
+    m_pDeviceContext->SetPrimitiveBlend(oldBlend);
+    m_pDeviceContext->SetTransform(oldTransform);
+    m_currentX += static_cast<int>(std::round(cellWidth * zoomX));
+
+    if (autoManage) {
+        endDrawAndPresent();
+    }
+}
+
 void HspSurface::mes(std::string_view text, int options) {
+    // v2 統一テキスト経路（HiDPI 設計大改修以降）:
+    //   - m_pTargetBitmap は HspWindow では物理 px サイズ（destW×destH）で生成され、
+    //     beginDraw() で SetDpi(96.0f) 固定 + SetTransform(Scale(s)) が適用されている。
+    //   - したがって本関数も他の描画 API と同経路で、論理 px 座標 (m_currentX, m_currentY) /
+    //     論理 DIP 単位の CreateTextLayout を発行するだけで DWrite のサブピクセル AA が
+    //     最終物理解像度に対して動作する（v1 §6.4 の SetTarget(BackBuffer) 副パイプライン廃止）。
+    //   - font_mode_buffer 命令は PM Q-H 完全廃止裁定により新設しない（旧挙動オプトインも提供しない）。
+    //   - HspBuffer 経路では m_pTargetBitmap が論理 = 物理 / SetDpi=96 / Identity Transform で
+    //     動作するため、本関数の論理 px 引数解釈はそのまま正しい。
     if (!m_pDeviceContext || !m_pBrush || !m_pTextFormat) return;
 
     // モード1の場合、自動的にbeginDraw
@@ -670,12 +767,12 @@ void HspSurface::line(int x2, int y2, int x1, int y1, bool useStartPos) {
     float endX = static_cast<float>(x2);
     float endY = static_cast<float>(y2);
 
-    // 直線を描画（太さ1.0f）
+    // 直線を描画（太さは m_lineWidth / gline_width 命令で制御 / 論理 px）
     m_pDeviceContext->DrawLine(
         D2D1::Point2F(startX, startY),
         D2D1::Point2F(endX, endY),
         m_pBrush.Get(),
-        1.0f
+        m_lineWidth
     );
 
     // カレントポジションを終点に更新
@@ -718,8 +815,8 @@ void HspSurface::circle(int x1, int y1, int x2, int y2, int fillMode) {
         // 塗りつぶし
         m_pDeviceContext->FillEllipse(ellipse, m_pBrush.Get());
     } else {
-        // 輪郭のみ
-        m_pDeviceContext->DrawEllipse(ellipse, m_pBrush.Get(), 1.0f);
+        // 輪郭のみ（太さは m_lineWidth / gline_width 命令で制御 / 論理 px）
+        m_pDeviceContext->DrawEllipse(ellipse, m_pBrush.Get(), m_lineWidth);
     }
 
     // モード1の場合、自動的にendDraw + present
@@ -738,12 +835,13 @@ void HspSurface::pset(int x, int y) {
     }
     if (!m_isDrawing) return;
 
-    // 1ドットの点を描画（1x1の矩形）
+    // m_lineWidth サイズの点を描画（m_lineWidth × m_lineWidth の矩形 / 左上 (x,y) アンカー）
+    // デフォルト m_lineWidth = 1.0f のときは従来挙動 (1x1 矩形) と一致する。
     D2D1_RECT_F rect = D2D1::RectF(
         static_cast<FLOAT>(x),
         static_cast<FLOAT>(y),
-        static_cast<FLOAT>(x + 1),
-        static_cast<FLOAT>(y + 1)
+        static_cast<FLOAT>(x) + m_lineWidth,
+        static_cast<FLOAT>(y) + m_lineWidth
     );
 
     m_pDeviceContext->FillRectangle(rect, m_pBrush.Get());
@@ -1286,14 +1384,90 @@ void HspSurface::gsquareGrad(const int (&dstX)[4], const int (&dstY)[4], const i
     }
 }
 
+// ========== LogicalRenderContext 実装 ==========
+
+void LogicalRenderContext::update(int logW, int logH,
+                                  int physClientW, int physClientH,
+                                  UINT currentDpi,
+                                  bool virtualEnabled) {
+    m_logW    = (logW  > 0) ? logW  : 1;
+    m_logH    = (logH  > 0) ? logH  : 1;
+    m_physW   = (physClientW > 0) ? physClientW : 1;
+    m_physH   = (physClientH > 0) ? physClientH : 1;
+    m_dpi     = (currentDpi != 0) ? currentDpi : 96;
+    m_virtual = virtualEnabled;
+}
+
+LogicalRenderContext::PresentMapping LogicalRenderContext::computePresentMapping() const {
+    // v2: 仮想 ON / OFF を統一経路で算出する（旧二分岐を削除）。
+    //   - scale は uniform = min(physW/logW, physH/logH)。
+    //     * 仮想 OFF: 物理クライアントは「論理 × (DPI/96)」に追従するため sx == sy が原則成立。
+    //       微小ズレは小さい方を採用してオフスクリーンが物理クライアントをはみ出さないようにする。
+    //     * 仮想 ON : letterbox 中央寄せのための uniform スケール。
+    //   - destW/H は logW/H * scale。
+    //   - offsetX/Y のみが仮想 ON （中央寄せ）と仮想 OFF （原点寄せ）で異なる。
+    PresentMapping m{};
+    const float logW  = static_cast<float>((std::max)(1, m_logW));
+    const float logH  = static_cast<float>((std::max)(1, m_logH));
+    const float physW = static_cast<float>((std::max)(1, m_physW));
+    const float physH = static_cast<float>((std::max)(1, m_physH));
+
+    const float sx = physW / logW;
+    const float sy = physH / logH;
+    m.scale = (sx < sy) ? sx : sy;
+    if (m.scale <= 0.0f) m.scale = 1.0f;
+    m.destW = logW * m.scale;
+    m.destH = logH * m.scale;
+
+    if (m_virtual) {
+        m.offsetX = (physW - m.destW) * 0.5f;
+        m.offsetY = (physH - m.destH) * 0.5f;
+    } else {
+        m.offsetX = 0.0f;
+        m.offsetY = 0.0f;
+    }
+    return m;
+}
+
+float LogicalRenderContext::getDpiScale() const {
+    return static_cast<float>(m_dpi) / 96.0f;
+}
+
+void LogicalRenderContext::physToLogical(int physX, int physY, int& outLogX, int& outLogY) const {
+    auto m = computePresentMapping();
+    if (m.scale <= 0.0f) {
+        outLogX = physX;
+        outLogY = physY;
+        return;
+    }
+    float fx = (static_cast<float>(physX) - m.offsetX) / m.scale;
+    float fy = (static_cast<float>(physY) - m.offsetY) / m.scale;
+    outLogX = static_cast<int>(std::floor(fx));
+    outLogY = static_cast<int>(std::floor(fy));
+}
+
+void LogicalRenderContext::logicalToPhys(int logX, int logY, int& outPhysX, int& outPhysY) const {
+    auto m = computePresentMapping();
+    float px = m.offsetX + static_cast<float>(logX) * m.scale;
+    float py = m.offsetY + static_cast<float>(logY) * m.scale;
+    outPhysX = static_cast<int>(std::floor(px));
+    outPhysY = static_cast<int>(std::floor(py));
+}
+
 // ========== HspWindow 実装 ==========
 
 HspWindow::HspWindow(int width, int height, std::string_view title, int windowId)
     : HspSurface(width, height)
     , m_pSwapChain(nullptr)
     , m_title(Utf8ToWide(title))
-    , m_clientWidth(width)      // 初期値はバッファサイズと同じ
+    , m_clientWidth(width)      // 初期値はバッファサイズと同じ（initialize() で物理 px に再確定）
     , m_clientHeight(height)
+    , m_currentDpi(96)          // HiDPI: createWindow / initialize 後に実 DPI で更新
+    , m_physClientW(width)
+    , m_physClientH(height)
+    , m_virtualEnabled(false)
+    , m_virtualScreenInterp(D2D1_BITMAP_INTERPOLATION_MODE_LINEAR)
+    , m_letterboxColor(D2D1::ColorF(0.0f, 0.0f, 0.0f, 1.0f))
     , m_hwnd(nullptr)
     , m_scrollX(0)
     , m_scrollY(0)
@@ -1313,6 +1487,36 @@ bool HspWindow::initialize() {
 
     HRESULT hr;
 
+    // HiDPI: ウィンドウ作成後に実際の DPI と物理クライアントサイズを取得し、
+    // SwapChain は物理 px ベースで初期化する（PerMonitorV2 で「ぼけない」描画の前提）
+    if (m_hwnd) {
+        using FnGetDpi = UINT(WINAPI*)(HWND);
+        HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
+        auto pGetDpi = hUser32
+            ? reinterpret_cast<FnGetDpi>(GetProcAddress(hUser32, "GetDpiForWindow"))
+            : nullptr;
+        if (pGetDpi) {
+            UINT dpi = pGetDpi(m_hwnd);
+            if (dpi != 0) m_currentDpi = dpi;
+        }
+
+        RECT rcClient = {};
+        if (GetClientRect(m_hwnd, &rcClient)) {
+            int physW = rcClient.right - rcClient.left;
+            int physH = rcClient.bottom - rcClient.top;
+            if (physW > 0 && physH > 0) {
+                m_physClientW = physW;
+                m_physClientH = physH;
+                m_clientWidth = physW;
+                m_clientHeight = physH;
+            }
+        }
+    }
+
+    // 物理クライアントサイズが確定したので LogicalRenderContext を同期する。
+    // 以降の SwapChain / m_pTargetBitmap 生成サイズ計算は m_logicalCtx に基づく。
+    updateLogicalCtx();
+
     // スワップチェーンの作成
     ComPtr<IDXGIAdapter> pAdapter;
     hr = deviceMgr.getDxgiDevice()->GetAdapter(pAdapter.GetAddressOf());
@@ -1323,8 +1527,11 @@ bool HspWindow::initialize() {
     if (FAILED(hr)) return false;
 
     DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
-    swapChainDesc.Width = m_width;
-    swapChainDesc.Height = m_height;
+    // HiDPI: SwapChain は「物理クライアント px」基準で作成する。
+    // 仮想画面 OFF 時は m_physClientW/H と m_width/m_height は通常一致するが、
+    // OS 側の DPI 仮想化（Unaware fallback）等でズレ得るため物理 px を優先する。
+    swapChainDesc.Width = static_cast<UINT>(m_physClientW);
+    swapChainDesc.Height = static_cast<UINT>(m_physClientH);
     swapChainDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
     swapChainDesc.Stereo = FALSE;
     swapChainDesc.SampleDesc.Count = 1;
@@ -1368,8 +1575,12 @@ bool HspWindow::initialize() {
     );
     if (FAILED(hr)) return false;
 
-    // オフスクリーンビットマップを作成（gcopy/gzoomソースとして使用可能）
-    D2D1_SIZE_U bitmapSize = D2D1::SizeU(m_width, m_height);
+    // オフスクリーンビットマップを作成
+    // v2: 仮想 ON/OFF を問わず、letterbox 内有効描画領域 (mp.destW × mp.destH) 物理 px で生成する。
+    auto mpInit = m_logicalCtx.computePresentMapping();
+    UINT bw = static_cast<UINT>((std::max)(1.0f, std::round(mpInit.destW)));
+    UINT bh = static_cast<UINT>((std::max)(1.0f, std::round(mpInit.destH)));
+    D2D1_SIZE_U bitmapSize = D2D1::SizeU(bw, bh);
     D2D1_BITMAP_PROPERTIES1 offscreenProps = D2D1::BitmapProperties1(
         D2D1_BITMAP_OPTIONS_TARGET,  // CANNOT_DRAWなし - gcopy可能
         D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE)
@@ -1383,8 +1594,10 @@ bool HspWindow::initialize() {
     );
     if (FAILED(hr)) return false;
 
-    // デフォルトはオフスクリーンビットマップに描画
+    // デフォルトはオフスクリーンビットマップに描画。SetDpi=96 + SetTransform(Scale(s)) を設定。
     m_pDeviceContext->SetTarget(m_pTargetBitmap.Get());
+    m_pDeviceContext->SetDpi(96.0f, 96.0f);
+    m_pDeviceContext->SetTransform(D2D1::Matrix3x2F::Scale(mpInit.scale, mpInit.scale));
 
     // ブラシの作成
     hr = m_pDeviceContext->CreateSolidColorBrush(
@@ -1408,6 +1621,62 @@ bool HspWindow::initialize() {
     return SUCCEEDED(hr);
 }
 
+void HspWindow::beginDraw() {
+    if (!m_pDeviceContext || m_isDrawing) return;
+
+    // v2: m_pTargetBitmap は常に (mp.destW × mp.destH) 物理 px とする。
+    // 仮想 OFF + DPI≠96 でも DPI 倍率を吸収した物理サイズで保持されるため、
+    // 描画は SetDpi=96 + SetTransform(Scale(s)) のみで物理解像度に展開される。
+    auto mp = m_logicalCtx.computePresentMapping();
+
+    auto ensureTargetBitmap = [&](UINT width, UINT height) -> bool {
+        if (width < 1) width = 1;
+        if (height < 1) height = 1;
+        if (m_pTargetBitmap) {
+            D2D1_SIZE_F s = m_pTargetBitmap->GetSize();
+            UINT cw = static_cast<UINT>(std::round(s.width));
+            UINT ch = static_cast<UINT>(std::round(s.height));
+            if (cw == width && ch == height) return true;
+        }
+
+        D2D1_BITMAP_PROPERTIES1 offscreenProps = D2D1::BitmapProperties1(
+            D2D1_BITMAP_OPTIONS_TARGET,
+            D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE)
+        );
+        ComPtr<ID2D1Bitmap1> newBitmap;
+        HRESULT hr = m_pDeviceContext->CreateBitmap(
+            D2D1::SizeU(width, height), nullptr, 0, offscreenProps, newBitmap.GetAddressOf()
+        );
+        if (FAILED(hr) || !newBitmap) return false;
+        // 旧 Bitmap が SetTarget 中なら一旦切り離してから差し替え
+        m_pDeviceContext->SetTarget(nullptr);
+        m_pTargetBitmap = newBitmap;
+        m_pDeviceContext->SetTarget(m_pTargetBitmap.Get());
+        return true;
+    };
+
+    UINT vw = static_cast<UINT>((std::max)(1.0f, std::round(mp.destW)));
+    UINT vh = static_cast<UINT>((std::max)(1.0f, std::round(mp.destH)));
+    if (!ensureTargetBitmap(vw, vh)) return;
+
+    m_pDeviceContext->BeginDraw();
+    m_isDrawing = true;
+
+    // SetDpi=96 + SetTransform(Scale(s)) + groll 平行移動
+    // 二重適用問題（§6.4.2）回避のため SetDpi は常に 96 固定とする。
+    m_pDeviceContext->SetDpi(96.0f, 96.0f);
+    D2D1_MATRIX_3X2_F transform = D2D1::Matrix3x2F::Scale(mp.scale, mp.scale);
+    transform._31 = -static_cast<float>(m_scrollX) * mp.scale;
+    transform._32 = -static_cast<float>(m_scrollY) * mp.scale;
+    m_pDeviceContext->SetTransform(transform);
+}
+
+void HspWindow::endDraw() {
+    if (!m_pDeviceContext || !m_isDrawing) return;
+    m_pDeviceContext->SetTransform(D2D1::Matrix3x2F::Identity());
+    HspSurface::endDraw();
+}
+
 bool HspWindow::createWindow(
     HINSTANCE hInstance,
     std::wstring_view className,
@@ -1418,8 +1687,44 @@ bool HspWindow::createWindow(
     int clientWidth,
     int clientHeight
 ) {
-    RECT rect = { 0, 0, clientWidth, clientHeight };
-    AdjustWindowRectEx(&rect, style, FALSE, exStyle);
+    // v2: ユーザー指定の clientWidth/Height は「論理 px」(HSP3 公式準拠 / design §6.5)。
+    // PerMonitorV2 では物理クライアントへの DPI 倍率変換を経由してウィンドウを作る。
+    // 仮想画面 ON 時は initialize() 直後に再レイアウトされる前提のため、ここでは
+    // 同じく論理 → 物理 換算で初期サイズを与える（過小ウィンドウ防止）。
+    UINT initDpi = 96;
+    {
+        using FnGetDpiSys = UINT(WINAPI*)();
+        HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
+        auto pGetDpiSys = hUser32
+            ? reinterpret_cast<FnGetDpiSys>(GetProcAddress(hUser32, "GetDpiForSystem"))
+            : nullptr;
+        if (pGetDpiSys) {
+            UINT d = pGetDpiSys();
+            if (d != 0) initDpi = d;
+        }
+    }
+    int physClientW = clientWidth;
+    int physClientH = clientHeight;
+    if (initDpi != 96) {
+        physClientW = MulDiv(clientWidth, static_cast<int>(initDpi), 96);
+        physClientH = MulDiv(clientHeight, static_cast<int>(initDpi), 96);
+    }
+    if (physClientW < 1) physClientW = 1;
+    if (physClientH < 1) physClientH = 1;
+
+    RECT rect = { 0, 0, physClientW, physClientH };
+    {
+        using FnAdjForDpi = BOOL(WINAPI*)(LPRECT, DWORD, BOOL, DWORD, UINT);
+        HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
+        auto pAdjForDpi = hUser32
+            ? reinterpret_cast<FnAdjForDpi>(GetProcAddress(hUser32, "AdjustWindowRectExForDpi"))
+            : nullptr;
+        if (pAdjForDpi && initDpi != 0) {
+            pAdjForDpi(&rect, style, FALSE, exStyle, initDpi);
+        } else {
+            AdjustWindowRectEx(&rect, style, FALSE, exStyle);
+        }
+    }
     int windowWidth = rect.right - rect.left;
     int windowHeight = rect.bottom - rect.top;
 
@@ -1452,57 +1757,75 @@ void HspWindow::presentInternal(UINT syncInterval, UINT flags) {
         return;
     }
 
-    // オフスクリーンビットマップの内容をバックバッファにコピー
+    // v2 (DN 第 3 項): present は SwapChain への単純転送 + 配置オフセットのみ。
+    // 拡縮ロジック (Matrix3x2F::Scale や dst≠src の DrawBitmap) は置かない。
+    // m_pTargetBitmap は (mp.destW × mp.destH) 物理 px で生成済みのため、
+    // src と dst のピクセル寸法は完全一致し、dot-by-dot 転送となる。
+    auto mp = m_logicalCtx.computePresentMapping();
+
     m_pDeviceContext->SetTarget(m_pBackBufferBitmap.Get());
     m_pDeviceContext->BeginDraw();
-    
-    // 背景をクリア（バッファサイズがクライアントサイズより大きい場合の余白対策）
-    m_pDeviceContext->Clear(D2D1::ColorF(0.0f, 0.0f, 0.0f, 1.0f));
+    // BackBuffer に対する SetTransform / SetDpi は present 時のみ Identity / 96 にリセット
+    m_pDeviceContext->SetTransform(D2D1::Matrix3x2F::Identity());
+    m_pDeviceContext->SetDpi(96.0f, 96.0f);
 
-    // ソース領域（grollで指定されたオフセットから、クライアントサイズ分）
-    // ただし、バッファの範囲を超えないようにクランプ
-    int srcRight = (std::min)(m_scrollX + m_clientWidth, m_width);
-    int srcBottom = (std::min)(m_scrollY + m_clientHeight, m_height);
-    D2D1_RECT_F srcRect = D2D1::RectF(
-        static_cast<float>(m_scrollX),
-        static_cast<float>(m_scrollY),
-        static_cast<float>(srcRight),
-        static_cast<float>(srcBottom)
-    );
-    
-    // 描画先領域（同じサイズでドットバイドットコピー）
-    D2D1_RECT_F destRect = D2D1::RectF(
-        0.0f,
-        0.0f,
-        static_cast<float>(srcRight - m_scrollX),
-        static_cast<float>(srcBottom - m_scrollY)
+    // letterbox 余白の塗り潰し。仮想 ON はユーザー指定色、仮想 OFF は黒。
+    m_pDeviceContext->Clear(m_logicalCtx.isVirtualEnabled()
+                                ? m_letterboxColor
+                                : D2D1::ColorF(0.0f, 0.0f, 0.0f, 1.0f));
+
+    // groll は論理 px 指定。物理 px の m_pTargetBitmap から取り出すために mp.scale を乗じる。
+    int srcRightL  = (std::min)(m_scrollX + m_width,  m_width);
+    int srcBottomL = (std::min)(m_scrollY + m_height, m_height);
+
+    D2D1_SIZE_F tgtSize = m_pTargetBitmap->GetSize();
+    float srcLeft   = static_cast<float>(m_scrollX) * mp.scale;
+    float srcTop    = static_cast<float>(m_scrollY) * mp.scale;
+    float srcRight  = static_cast<float>(srcRightL)  * mp.scale;
+    float srcBottom = static_cast<float>(srcBottomL) * mp.scale;
+    if (srcRight  > tgtSize.width)  srcRight  = tgtSize.width;
+    if (srcBottom > tgtSize.height) srcBottom = tgtSize.height;
+
+    float srcW = (std::max)(0.0f, srcRight  - srcLeft);
+    float srcH = (std::max)(0.0f, srcBottom - srcTop);
+
+    // 配置オフセット（平行移動のみ / 拡縮なし）。src と dst のピクセル寸法は完全一致。
+    D2D1_RECT_F srcRect = D2D1::RectF(srcLeft, srcTop, srcRight, srcBottom);
+    D2D1_RECT_F dstRect = D2D1::RectF(
+        mp.offsetX,
+        mp.offsetY,
+        mp.offsetX + srcW,
+        mp.offsetY + srcH
     );
 
-    // ドットバイドットでコピー（補間なし）
+    // dot-by-dot のため NEAREST 相当でよいが、サブピクセル整合誤差吸収のため LINEAR を採用。
+    // m_virtualScreenInterp はユーザー指定があれば尊重（縮退仕様: 視覚効果は微小）。
     m_pDeviceContext->DrawBitmap(
         m_pTargetBitmap.Get(),
-        destRect,
+        dstRect,
         1.0f,
-        D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR,
+        m_virtualScreenInterp,
         srcRect
     );
 
     m_pDeviceContext->EndDraw();
 
     // 画面に表示（syncInterval: 0=即座, 1=VSync同期）
-    // VSync待機中にウィンドウが破棄される可能性があるため、HRESULTをチェック
     if (m_pSwapChain) {
         HRESULT hr = m_pSwapChain->Present(syncInterval, flags);
-        // エラーが返った場合（ウィンドウ破棄等）は無視して継続
-        // DXGI_ERROR_INVALID_CALL、DXGI_ERROR_DEVICE_RESETなど
-        if (FAILED(hr)) {
-            // VSync待機完了後のエラーなので、静かに無視
-        }
+        // ウィンドウ破棄等によるエラーは静かに無視
+        (void)hr;
     }
 
-    // 描画先をオフスクリーンビットマップに戻す
+    // 描画先をオフスクリーンに戻し、次フレームの描画 API 用に SetDpi=96 + SetTransform(Scale(s)) を再設定。
+    // v2 §6.4.2: SetDpi は 96 固定。論理→物理スケールは SetTransform でのみ表現（二重適用回避）。
     if (m_pDeviceContext && m_pTargetBitmap) {
         m_pDeviceContext->SetTarget(m_pTargetBitmap.Get());
+        m_pDeviceContext->SetDpi(96.0f, 96.0f);
+        D2D1_MATRIX_3X2_F transform = D2D1::Matrix3x2F::Scale(mp.scale, mp.scale);
+        transform._31 = -static_cast<float>(m_scrollX) * mp.scale;
+        transform._32 = -static_cast<float>(m_scrollY) * mp.scale;
+        m_pDeviceContext->SetTransform(transform);
     }
 }
 
@@ -1528,30 +1851,60 @@ void HspWindow::setTitle(std::string_view title) {
 void HspWindow::setClientSize(int clientW, int clientH) {
     if (!m_hwnd) return;
 
-    // クライアントサイズはバッファサイズ以下にクランプ（HSP仕様）
-    clientW = (std::min)(clientW, m_width);
-    clientH = (std::min)(clientH, m_height);
-    if (clientW < 1) clientW = 1;
-    if (clientH < 1) clientH = 1;
+    // v2: 仮想 OFF 時の clientW/H は「論理 px」(HSP3 公式 width 仕様準拠)。
+    // 仮想 ON 時は従来通り「物理 px」として扱う (PM Q-2 / design §6.5)。
+    int physW, physH;
+    if (!m_virtualEnabled) {
+        // 論理 px → 物理 px = 論理 × (DPI/96)。バッファサイズ (m_width/m_height) は論理 px。
+        if (clientW < 1) clientW = 1;
+        if (clientH < 1) clientH = 1;
+        clientW = (std::min)(clientW, m_width);
+        clientH = (std::min)(clientH, m_height);
+        if (m_currentDpi != 0 && m_currentDpi != 96) {
+            physW = MulDiv(clientW, m_currentDpi, 96);
+            physH = MulDiv(clientH, m_currentDpi, 96);
+        } else {
+            physW = clientW;
+            physH = clientH;
+        }
+    } else {
+        // 仮想 ON: clientW/H は物理 px。クランプは行わない。
+        physW = (std::max)(1, clientW);
+        physH = (std::max)(1, clientH);
+    }
 
     // 現在のウィンドウスタイルを取得
     DWORD style = static_cast<DWORD>(GetWindowLongPtr(m_hwnd, GWL_STYLE));
     DWORD exStyle = static_cast<DWORD>(GetWindowLongPtr(m_hwnd, GWL_EXSTYLE));
 
-    // クライアントサイズからウィンドウサイズを計算
-    RECT rect = { 0, 0, clientW, clientH };
-    AdjustWindowRectEx(&rect, style, FALSE, exStyle);
+    // クライアントサイズ（物理 px）からウィンドウサイズを計算（DPI 対応版を優先）
+    RECT rect = { 0, 0, physW, physH };
+    {
+        using FnAdjForDpi = BOOL(WINAPI*)(LPRECT, DWORD, BOOL, DWORD, UINT);
+        HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
+        auto pAdjForDpi = hUser32
+            ? reinterpret_cast<FnAdjForDpi>(GetProcAddress(hUser32, "AdjustWindowRectExForDpi"))
+            : nullptr;
+        if (pAdjForDpi && m_currentDpi != 0) {
+            pAdjForDpi(&rect, style, FALSE, exStyle, m_currentDpi);
+        } else {
+            AdjustWindowRectEx(&rect, style, FALSE, exStyle);
+        }
+    }
     int windowWidth = rect.right - rect.left;
     int windowHeight = rect.bottom - rect.top;
 
     // ウィンドウサイズを変更（位置は維持）
-    SetWindowPos(m_hwnd, nullptr, 0, 0, windowWidth, windowHeight, 
+    SetWindowPos(m_hwnd, nullptr, 0, 0, windowWidth, windowHeight,
                  SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
 
     // スワップチェーンをリサイズ
-    if (resizeSwapChain(clientW, clientH)) {
-        m_clientWidth = clientW;
-        m_clientHeight = clientH;
+    if (resizeSwapChain(physW, physH)) {
+        m_clientWidth = physW;
+        m_clientHeight = physH;
+        m_physClientW = physW;
+        m_physClientH = physH;
+        updateLogicalCtx();
     }
 }
 
@@ -1563,13 +1916,23 @@ void HspWindow::setScroll(int x, int y) {
 }
 
 void HspWindow::onSize(int newWidth, int newHeight) {
-    // ウィンドウサイズ変更時の処理
+    // ウィンドウサイズ変更時の処理（WM_SIZE の lParam は物理 px）
     if (newWidth < 1) newWidth = 1;
     if (newHeight < 1) newHeight = 1;
-    
-    // HSP仕様：クライアントサイズはバッファサイズ（m_width, m_height）以下にクランプ
-    newWidth = (std::min)(newWidth, m_width);
-    newHeight = (std::min)(newHeight, m_height);
+
+    // HSP仕様：仮想画面 OFF 時はクライアントサイズをバッファサイズ（m_width, m_height）以下にクランプ。
+    // HiDPI 対応: バッファサイズは論理 px なので、現在の DPI に応じて物理 px に換算してクランプする。
+    // 仮想画面 ON 時は論理→物理 自動拡縮するため、ユーザーリサイズによる任意の物理サイズを許容する。
+    if (!m_virtualEnabled) {
+        int maxPhysW = m_width;
+        int maxPhysH = m_height;
+        if (m_currentDpi != 96 && m_currentDpi != 0) {
+            maxPhysW = MulDiv(m_width, m_currentDpi, 96);
+            maxPhysH = MulDiv(m_height, m_currentDpi, 96);
+        }
+        newWidth = (std::min)(newWidth, maxPhysW);
+        newHeight = (std::min)(newHeight, maxPhysH);
+    }
 
     // スワップチェーンをリサイズ（描画中の場合は一旦終了）
     bool wasDrawing = m_isDrawing;
@@ -1580,9 +1943,108 @@ void HspWindow::onSize(int newWidth, int newHeight) {
     if (resizeSwapChain(newWidth, newHeight)) {
         m_clientWidth = newWidth;
         m_clientHeight = newHeight;
+        m_physClientW = newWidth;
+        m_physClientH = newHeight;
+        updateLogicalCtx();
     }
 
     // 描画を再開
+    if (wasDrawing) {
+        beginDraw();  // beginDraw 内で m_pTargetBitmap を新 destW×destH に再生成する
+    }
+}
+
+void HspWindow::onDpiChanged(UINT newDpi, const RECT* suggested) {
+    // PerMonitorV2 の WM_DPICHANGED ハンドリング
+    // 1. OS 提案矩形に従ってウィンドウを移動・リサイズ
+    // 2. 新しい物理クライアントサイズで SwapChain を再構築（m_pBackBufferBitmap 再生成）
+    // 3. 論理バッファ m_pTargetBitmap を防御的に再生成（D2D デバイス紐付けの確実な再確立）
+    //    既存内容は CopyFromBitmap で引き継ぐ（ベストエフォート、失敗時は空バッファで継続）
+    if (!m_hwnd) return;
+    if (newDpi == 0) newDpi = 96;
+
+    m_currentDpi = newDpi;
+
+    if (suggested) {
+        SetWindowPos(
+            m_hwnd,
+            nullptr,
+            suggested->left,
+            suggested->top,
+            suggested->right - suggested->left,
+            suggested->bottom - suggested->top,
+            SWP_NOZORDER | SWP_NOACTIVATE
+        );
+    }
+
+    // 新しい物理クライアントサイズを取得
+    RECT rcClient = {};
+    if (!GetClientRect(m_hwnd, &rcClient)) return;
+    int newPhysW = rcClient.right - rcClient.left;
+    int newPhysH = rcClient.bottom - rcClient.top;
+    if (newPhysW < 1) newPhysW = 1;
+    if (newPhysH < 1) newPhysH = 1;
+
+    // 描画中なら一旦終了して SwapChain を作り直す
+    bool wasDrawing = m_isDrawing;
+    if (wasDrawing) {
+        endDraw();
+    }
+
+    if (resizeSwapChain(newPhysW, newPhysH)) {
+        m_clientWidth = newPhysW;
+        m_clientHeight = newPhysH;
+        m_physClientW = newPhysW;
+        m_physClientH = newPhysH;
+        updateLogicalCtx();
+
+        // m_pTargetBitmap 防御的再生成
+        // v2: 仮想 ON/OFF を問わず、新 mp.destW × mp.destH 物理 px で再生成する。
+        // ResizeBuffers では D2D デバイス自体は失われないが、device-context との
+        // 紐付け再確立を明示することで K2/R-B 潜在不具合（onDpiChanged 後の
+        // SetTarget / DrawBitmap / pget / bmpsave での device-bind ロスト）を排除する。
+        if (m_pDeviceContext && m_pTargetBitmap) {
+            ComPtr<ID2D1Bitmap1> oldBitmap = m_pTargetBitmap;
+            auto mpDpi = m_logicalCtx.computePresentMapping();
+            D2D1_SIZE_U targetSize = D2D1::SizeU(
+                static_cast<UINT>((std::max)(1.0f, std::round(mpDpi.destW))),
+                static_cast<UINT>((std::max)(1.0f, std::round(mpDpi.destH)))
+            );
+            D2D1_BITMAP_PROPERTIES1 offscreenProps = D2D1::BitmapProperties1(
+                D2D1_BITMAP_OPTIONS_TARGET,
+                D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE)
+            );
+
+            // 旧 Bitmap が現在のターゲットの可能性があるため、一旦切り離す
+            m_pDeviceContext->SetTarget(nullptr);
+            m_pTargetBitmap.Reset();
+
+            ComPtr<ID2D1Bitmap1> newBitmap;
+            HRESULT hrBmp = m_pDeviceContext->CreateBitmap(
+                targetSize, nullptr, 0, offscreenProps, newBitmap.GetAddressOf()
+            );
+            if (SUCCEEDED(hrBmp) && newBitmap) {
+                D2D1_SIZE_F oldSizeF = oldBitmap->GetSize();
+                UINT oldW = static_cast<UINT>(std::round(oldSizeF.width));
+                UINT oldH = static_cast<UINT>(std::round(oldSizeF.height));
+                if (oldW == targetSize.width && oldH == targetSize.height) {
+                    // サイズが偶然一致した場合のみピクセル単位コピー（厳密保持）。
+                    // サイズ変動時の D2D ダウン/アップサンプリングは現スコープでは
+                    // 行わず、空バッファで再生成する（HSP 慣行: 描画ループで毎フレーム再描画）。
+                    D2D1_POINT_2U dstPt = D2D1::Point2U(0, 0);
+                    D2D1_RECT_U srcRect = D2D1::RectU(0, 0, targetSize.width, targetSize.height);
+                    HRESULT hrCopy = newBitmap->CopyFromBitmap(&dstPt, oldBitmap.Get(), &srcRect);
+                    (void)hrCopy;
+                }
+                m_pTargetBitmap = newBitmap;
+            } else {
+                // 再生成失敗時は旧 Bitmap を復元してデバイスコンテキストに再バインド
+                m_pTargetBitmap = oldBitmap;
+            }
+            m_pDeviceContext->SetTarget(m_pTargetBitmap.Get());
+        }
+    }
+
     if (wasDrawing) {
         beginDraw();
     }
@@ -1640,9 +2102,118 @@ void HspWindow::getCurrentClientSize(int& outWidth, int& outHeight) const {
     outHeight = m_clientHeight;
 }
 
+// ========== 仮想画面 (Virtual Screen) 関連実装 ==========
+
+void HspWindow::updateLogicalCtx() {
+    m_logicalCtx.update(
+        m_width, m_height,
+        m_physClientW, m_physClientH,
+        m_currentDpi,
+        m_virtualEnabled
+    );
+}
+
+void HspWindow::setVirtualScreenEnabled(bool enabled) {
+    m_virtualEnabled = enabled;
+    updateLogicalCtx();
+}
+
+void HspWindow::setVirtualInterpolation(D2D1_BITMAP_INTERPOLATION_MODE mode) {
+    m_virtualScreenInterp = mode;
+}
+
+void HspWindow::setLetterboxColor(int r, int g, int b) {
+    auto clamp01 = [](int v) -> float {
+        if (v < 0)   v = 0;
+        if (v > 255) v = 255;
+        return static_cast<float>(v) / 255.0f;
+    };
+    m_letterboxColor = D2D1::ColorF(clamp01(r), clamp01(g), clamp01(b), 1.0f);
+}
+
+void HspWindow::physToLogical(int physX, int physY, int& outLogX, int& outLogY) const {
+    // v2: LogicalRenderContext に委譲。仮想 OFF + DPI≠96 も DPI 倍率を吸収する（R-A5 解消）。
+    m_logicalCtx.physToLogical(physX, physY, outLogX, outLogY);
+}
+
+void HspWindow::logicalToPhys(int logX, int logY, int& outPhysX, int& outPhysY) const {
+    // v2: LogicalRenderContext に委譲。
+    m_logicalCtx.logicalToPhys(logX, logY, outPhysX, outPhysY);
+}
+
+// ========== HspWindow: pget / bmpsave 互換ラッパ (§6.10) ==========
+
+bool HspWindow::pget(int x, int y, int& r, int& g, int& b) {
+    // v2: 引数 (x, y) は論理 px。m_pTargetBitmap は物理 px (mp.destW × mp.destH)。
+    // 中心 1 物理 px を代表値として取得する（PM Q-G 暫定 / 非整数倍率時は近似動作）。
+    if (!m_pDeviceContext || !m_pTargetBitmap) return false;
+    auto mp = m_logicalCtx.computePresentMapping();
+    float fx = (static_cast<float>(x) + 0.5f) * mp.scale;
+    float fy = (static_cast<float>(y) + 0.5f) * mp.scale;
+    int px = static_cast<int>(std::floor(fx));
+    int py = static_cast<int>(std::floor(fy));
+    return HspSurface::pget(px, py, r, g, b);
+}
+
+bool HspWindow::bmpsave(std::string_view filename) {
+    // v2: HSP 仕様「論理サイズの bmp として保存」。
+    // 物理 px の m_pTargetBitmap を論理サイズ (m_width × m_height) へ
+    // D2D DrawBitmap (LINEAR) でダウンサンプリングしてから WIC で BMP 出力する (§6.10)。
+    if (!m_pDeviceContext || !m_pTargetBitmap) return false;
+
+    bool wasDrawing = m_isDrawing;
+    if (wasDrawing) {
+        endDraw();
+    }
+
+    UINT logW = static_cast<UINT>((std::max)(1, m_width));
+    UINT logH = static_cast<UINT>((std::max)(1, m_height));
+
+    D2D1_BITMAP_PROPERTIES1 logicalProps = D2D1::BitmapProperties1(
+        D2D1_BITMAP_OPTIONS_TARGET,
+        D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE)
+    );
+    ComPtr<ID2D1Bitmap1> pLogicalBitmap;
+    HRESULT hr = m_pDeviceContext->CreateBitmap(
+        D2D1::SizeU(logW, logH), nullptr, 0, logicalProps, pLogicalBitmap.GetAddressOf()
+    );
+    bool result = false;
+    if (SUCCEEDED(hr) && pLogicalBitmap) {
+        m_pDeviceContext->SetTarget(pLogicalBitmap.Get());
+        m_pDeviceContext->SetDpi(96.0f, 96.0f);
+        m_pDeviceContext->SetTransform(D2D1::Matrix3x2F::Identity());
+        m_pDeviceContext->BeginDraw();
+        m_pDeviceContext->Clear(D2D1::ColorF(0.0f, 0.0f, 0.0f, 1.0f));
+
+        D2D1_SIZE_F srcSize = m_pTargetBitmap->GetSize();
+        D2D1_RECT_F srcRect = D2D1::RectF(0.0f, 0.0f, srcSize.width, srcSize.height);
+        D2D1_RECT_F dstRect = D2D1::RectF(0.0f, 0.0f, static_cast<float>(logW), static_cast<float>(logH));
+        m_pDeviceContext->DrawBitmap(
+            m_pTargetBitmap.Get(),
+            dstRect, 1.0f,
+            D2D1_BITMAP_INTERPOLATION_MODE_LINEAR,
+            srcRect
+        );
+        HRESULT hrEnd = m_pDeviceContext->EndDraw();
+        (void)hrEnd;
+        // 描画ターゲットを物理 px のオフスクリーンに戻す
+        m_pDeviceContext->SetTarget(m_pTargetBitmap.Get());
+
+        result = saveBitmapToFile(pLogicalBitmap.Get(), filename);
+    }
+
+    if (wasDrawing) {
+        beginDraw();
+    }
+    return result;
+}
+
 // ========== HspSurface フォント関連実装 ==========
 
 bool HspSurface::font(std::string_view fontName, int size, int style) {
+    // v2 統一テキスト経路（HiDPI 設計大改修以降）:
+    //   引数 `size` は論理 DIP (= 論理 px) として扱う。SetDpi=96 固定 + SetTransform(Scale(s))
+    //   により最終描画は size*s 物理 px となり、HiDPI 環境でも自然なスケールでフォントが描画される。
     auto& deviceMgr = D2DDeviceManager::getInstance();
     if (!deviceMgr.getDWriteFactory()) return false;
 
@@ -1674,7 +2245,30 @@ bool HspSurface::font(std::string_view fontName, int size, int style) {
     return false;
 }
 
+HFONT HspSurface::createObjectFont() const {
+    if (!m_pTextFormat) return nullptr;
+
+    const UINT32 familyLength = m_pTextFormat->GetFontFamilyNameLength();
+    std::wstring family(static_cast<size_t>(familyLength) + 1, L'\0');
+    if (FAILED(m_pTextFormat->GetFontFamilyName(family.data(), familyLength + 1))) {
+        return nullptr;
+    }
+    family.resize(familyLength);
+
+    const int height = -(std::max)(1, static_cast<int>(std::round(m_pTextFormat->GetFontSize())));
+    const int weight = m_pTextFormat->GetFontWeight() >= DWRITE_FONT_WEIGHT_BOLD ? FW_BOLD : FW_NORMAL;
+    const BOOL italic = m_pTextFormat->GetFontStyle() != DWRITE_FONT_STYLE_NORMAL;
+    return CreateFontW(
+        height, 0, 0, 0, weight, italic, FALSE, FALSE,
+        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+        DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, family.c_str());
+}
+
 bool HspSurface::sysfont(int type) {
+    // v2 統一テキスト経路（HiDPI 設計大改修以降）:
+    //   システム LOGFONT から得たフォントサイズ（ポイント値換算）を論理 DIP として CreateTextFormat に渡す。
+    //   描画時は SetDpi=96 固定 + SetTransform(Scale(s)) が適用されるため、物理解像度に対する
+    //   DWrite サブピクセル AA が自動で得られる（副パイプライン不要）。
     auto& deviceMgr = D2DDeviceManager::getInstance();
     if (!deviceMgr.getDWriteFactory()) return false;
 
@@ -1784,6 +2378,14 @@ bool HspBuffer::initialize() {
     if (FAILED(hr)) return false;
 
     m_pDeviceContext->SetTarget(m_pTargetBitmap.Get());
+
+    // v2 統一テキスト経路（HspBuffer 防御的 SetDpi 設定）:
+    //   HspBuffer は m_pTargetBitmap が論理=物理 px / Identity Transform で動作する。
+    //   D2D Factory の既定 DPI は 96 のため CreateDeviceContext 直後の値も実質 96 だが、
+    //   将来の Factory 構成変更や DeviceContext 再利用に対する防御として明示的に 96 を設定する。
+    //   これにより mes() 冒頭コメント「HspBuffer 経路は SetDpi=96 / Identity Transform」が
+    //   実装裏付けを持つ。挙動上は no-op（既存挙動と同等）。
+    m_pDeviceContext->SetDpi(96.0f, 96.0f);
 
     // ブラシの作成
     hr = m_pDeviceContext->CreateSolidColorBrush(

@@ -81,6 +81,11 @@ void onexit(int enable);
 onexit([]() { /* ... */ });
 ```
 
+HSPと同じく、どのウィンドウの閉じる操作（`WM_CLOSE`）でも、`onexit` が有効ならウィンドウを閉じずに
+ハンドラを実行します。ハンドラ内で `end()` しなければ実行を継続します。`onexit` が未設定または無効なら
+その閉じる操作で通常終了します。Windowsのセッション終了要求では `iparam()==1`、通常の閉じる操作では0です。
+どのウィンドウが契機だったかは `wparam()` または `ginfo(ginfo_type_intid)` で取得できます。
+
 ---
 
 ### oncmd
@@ -89,7 +94,7 @@ Windowsメッセージ受信時の割り込みを設定します。
 
 ```cpp
 // ハンドラ設定（メッセージID指定）
-void oncmd(InterruptHandler handler, int messageId);
+void oncmd(CommandInterruptHandler handler, int messageId);
 
 // 特定メッセージIDの一時停止/再開
 void oncmd(int enable, int messageId);
@@ -103,7 +108,17 @@ void oncmd(int enable);
 ```cpp
 // WM_MOUSEMOVE (0x0200) を捕捉
 oncmd([]() { /* ... */ }, 0x0200);
+
+// 戻り値をそのままWndProcの戻り値にして、既定処理を抑止
+oncmd([]() -> int { return 0; }, WM_CLOSE);
 ```
+
+グローバル版は登録時に現在選択されているスクリーンIDとメッセージIDの組へ登録します。
+`Screen::oncmd()` はその `Screen` のIDへ直接登録します。同じメッセージIDでもウィンドウごとに別のハンドラを持てます。
+
+ハンドラが `void` を返す場合は、実行後にHspppLibの通常のWndProc処理へ進みます。たとえば `WM_CLOSE` なら、
+`void` の `oncmd` の後に `onexit`、未設定なら通常終了です。`int` を返すハンドラはその値をWndProcから即時返却するため、
+`WM_CLOSE` の通常処理と `onexit` も抑止します。
 
 ---
 
@@ -132,15 +147,21 @@ onerror([](const HspErrorBase& e) { /* ... */ });
 割り込み発生時のパラメータを取得します。
 
 ```cpp
-int iparam() noexcept;   // wparam相当
-int wparam() noexcept;   // wparam相当
-int lparam() noexcept;   // lparam相当
+int iparam() noexcept;       // 割り込み種別に応じた値。oncmdではメッセージID
+int64_t wparam() noexcept;   // Win32のWPARAMを切り詰めず保持
+int64_t lparam() noexcept;   // Win32のLPARAMを切り詰めず保持
 ```
 
 **使用例:**
 
 ```cpp
-onkey([]() { /* ... */ });
+oncmd([]() {
+    const auto message = iparam();
+    const auto wp = wparam();
+    const auto lp = lparam();
+    const auto windowId = ginfo(ginfo_type_intid);
+    // ...
+}, WM_SIZE);
 ```
 
 ---
@@ -159,6 +180,10 @@ void await(int time_ms);
 - `QueryPerformanceCounter` を使用した高精度タイマー（マイクロ秒単位）
 - 待機中もWindows メッセージを処理
 - 割り込みハンドラも処理可能
+
+`await` は選択中スクリーン専用のウィンドウ待機ではなく、呼び出しスレッドのWindowsメッセージキューを処理します。
+screen 0で描画中でもscreen 1のメッセージは同じキューで処理されます。待機時間の検査は、別ウィンドウの割り込みが
+何を実行したかと分けて観測してください。
 
 **パラメータ:**
 - `time_ms` : 待機時間（ミリ秒、0以上）
@@ -286,8 +311,13 @@ void hspMain() {
 **使用例:**
 
 ```cpp
-if (getkey(27)) { /* ... */ }
+if (getkey(27)) {
+    end();
+}
 ```
+
+`end()` はHSP互換の即時終了命令で、`ExitProcess` から戻りません。WindowsがプロセスのOSリソースを回収します。
+ファイル形式の確定や外部送信など、アプリ固有の終了処理が必要な場合は `end()` の前、または `onexit` 内で明示してください。
 
 ---
 

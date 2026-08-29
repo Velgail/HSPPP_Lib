@@ -1,4 +1,4 @@
-// Source: https://github.com/Velgail/HspppLib
+﻿// Source: https://github.com/Velgail/HspppLib
 // Distributed under the Boost Software License, Version 1.0.
 // See accompanying file LICENSE or copy at
 // https://www.boost.org/LICENSE_1_0.txt
@@ -97,7 +97,7 @@ export namespace hsppp {
     void gsel(OptInt id = {}, OptInt mode = {}, const std::source_location& location = std::source_location::current());
 
     /// @brief 画面コピーモードを設定
-    /// @param mode 画面コピーモード (0～6)
+    /// @param mode 画面コピーモード (0～7)
     /// @param size_x コピーする大きさX (デフォルト: 32)
     /// @param size_y コピーする大きさY (デフォルト: 32)
     /// @param blend_rate 半透明合成時のブレンド率 (0～256)
@@ -139,16 +139,22 @@ export namespace hsppp {
     
     /// @brief 画面イメージをBMPファイルに保存
     void bmpsave(std::string_view p1, const std::source_location& location = std::source_location::current());
+
+    inline constexpr int celid_auto = -1;
+    inline constexpr int celid_reuse = -2;
     
-    /// @brief 画像ファイルをバッファにロード（仮想ID）
-    /// @return 割り当てられたcel ID
-    int celload(std::string_view p1, OptInt p2 = {}, const std::source_location& location = std::source_location::current());
+    /// @brief 画像ファイルを仮想画面へロード
+    /// @param p1 ファイル名
+    /// @param p2 読み込み先ウィンドウID（省略/-2=同一画像を再利用、-1=未使用ID）
+    /// @param p3 初期化モード（0=フルカラー、1=パレット）
+    /// @return 読み込み先ウィンドウID
+    int celload(std::string_view p1, OptInt p2 = {}, OptInt p3 = {}, const std::source_location& location = std::source_location::current());
     
-    /// @brief 画像素材の分割サイズを設定
-    void celdiv(int p1, int p2, int p3, const std::source_location& location = std::source_location::current());
+    /// @brief 仮想画面に読み込まれた画像素材のセル寸法と中心座標を設定
+    void celdiv(int p1, OptInt p2 = {}, OptInt p3 = {}, OptInt p4 = {}, OptInt p5 = {}, const std::source_location& location = std::source_location::current());
     
-    /// @brief 画像素材を描画
-    void celput(int p1, int p2, OptInt p3 = {}, OptInt p4 = {}, const std::source_location& location = std::source_location::current());
+    /// @brief 画像素材を現在のカレントポジションへ描画
+    void celput(int p1, OptInt p2 = {}, OptDouble p3 = {}, OptDouble p4 = {}, OptDouble p5 = {}, const std::source_location& location = std::source_location::current());
 
     // ============================================================
     // Cel Factory Function (OOP版)
@@ -169,6 +175,12 @@ export namespace hsppp {
 
     /// @brief グラフィック面の描画基点座標を設定
     void groll(int scrollX, int scrollY, const std::source_location& location = std::source_location::current());
+
+    /// @brief 仮想画面の補間モードを設定
+    /// @param mode vscale_nearest / vscale_linear / vscale_aniso のいずれか
+    /// @details 仮想画面有効時に論理→物理の拡縮で使われる D2D 補間モード。
+    ///          仮想画面 OFF 時の呼び出しは状態を保持するのみで描画には影響しない。
+    void vscalemode(int mode, const std::source_location& location = std::source_location::current());
 
     /// @brief 指定時間だけ実行を中断する
     /// @param time 待ち時間 (10ms単位、デフォルト: 100=1秒)
@@ -210,6 +222,7 @@ export namespace hsppp {
     inline constexpr int ginfo_type_sx        = 26;
     inline constexpr int ginfo_type_sy        = 27;
     inline constexpr int ginfo_type_fps       = 28;  // 画面リフレッシュレート（マルチモニター時は最大値）
+    inline constexpr int ginfo_type_dpi       = 29;  // 現在の実効 DPI（GetDpiForWindow / 既定 96）
 
     // ============================================================
     // ginfo関数
@@ -261,13 +274,19 @@ export namespace hsppp {
     // gmode定数
     // ============================================================
 
-    inline constexpr int gmode_copy       = 0;
+    inline constexpr int gmode_gdi        = 0;
     inline constexpr int gmode_mem        = 1;
-    inline constexpr int gmode_and        = 2;
-    inline constexpr int gmode_or         = 3;
-    inline constexpr int gmode_alpha      = 4;
+    inline constexpr int gmode_rgb0       = 2;
+    inline constexpr int gmode_alpha      = 3;
+    inline constexpr int gmode_rgb0alpha  = 4;
     inline constexpr int gmode_add        = 5;
     inline constexpr int gmode_sub        = 6;
+    inline constexpr int gmode_pixela     = 7;
+
+    // HSP++初期版で公開した名称はソース互換のため残す。
+    inline constexpr int gmode_copy       = gmode_gdi;
+    inline constexpr int gmode_and        = gmode_rgb0;
+    inline constexpr int gmode_or         = gmode_alpha;
 
     // gsquare用定数
     inline constexpr int gsquare_grad = -257;

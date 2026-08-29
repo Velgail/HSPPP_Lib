@@ -24,7 +24,8 @@ namespace hsppp {
         int pos_y,
         int client_w,
         int client_h,
-        std::string_view title
+        std::string_view title,
+        bool virtualResolution
     ) {
         using namespace internal;
 
@@ -35,6 +36,10 @@ namespace hsppp {
         if (width > 16384 || height > 16384) {
             throw HspError(ERR_OUT_OF_RANGE, "screenのサイズが大きすぎます（16384以下）", std::source_location::current());
         }
+
+        // 再初期化では、この画面に属するGUIオブジェクトも破棄する。
+        ObjectManager::getInstance().removeObjectsByWindow(id);
+        ObjectManager::getInstance().resetSettings(id);
 
         // 既存のサーフェスを削除
         if (g_surfaces.find(id) != g_surfaces.end()) {
@@ -99,11 +104,18 @@ namespace hsppp {
             return Screen{};  // 無効なScreenを返す
         }
 
+        // 仮想画面（論理→物理 自動拡縮）有効化
+        // initialize() の後で行う必要がある（m_physClientW/H が確定するため）
+        if (virtualResolution) {
+            window->setVirtualScreenEnabled(true);
+        }
+
         // Surfaceマップに追加
         g_surfaces[id] = window;
 
         // カレントサーフェスとして設定（weak_ptrを使用）
         g_currentSurface = window;
+        g_currentScreenId = id;
 
         // 非表示フラグが立っていなければウィンドウを表示
         if (!isHidden) {
@@ -130,7 +142,8 @@ namespace hsppp {
                 params.pos_y,
                 params.client_w,
                 params.client_h,
-                params.title
+                params.title,
+                params.virtual_resolution
             );
         });
     }
@@ -154,16 +167,25 @@ namespace hsppp {
         const std::source_location& location
     ) {
         return safe_call(location, [&] {
+            int modeVal = mode.value_or(0);
+            // HSP Win32版のMakeBmscrと同じく、すでにbufferとして使われているIDを
+            // screenで再初期化してもウィンドウへは変換せず、bufferのまま作り直す。
+            // 逆方向（screen→buffer）はbuffer()側で通常どおり許可する。
+            if (std::dynamic_pointer_cast<internal::HspBuffer>(getSurfaceById(id))) {
+                return buffer(id, width, height, modeVal, location);
+            }
+            bool virtualRes = (modeVal & screen_mode_virtual) != 0;
             return createWindowInternal(
                 id,
                 width.value_or(640),
                 height.value_or(480),
-                mode.value_or(0),
+                modeVal,
                 pos_x.value_or(-1),
                 pos_y.value_or(-1),
                 client_w.value_or(0),
                 client_h.value_or(0),
-                title
+                title,
+                virtualRes
             );
         });
     }
@@ -183,6 +205,10 @@ namespace hsppp {
         if (width > 16384 || height > 16384) {
             throw HspError(ERR_OUT_OF_RANGE, "bufferのサイズが大きすぎます（16384以下）", std::source_location::current());
         }
+
+        // 再初期化では、この画面に属するGUIオブジェクトも破棄する。
+        ObjectManager::getInstance().removeObjectsByWindow(id);
+        ObjectManager::getInstance().resetSettings(id);
 
         // 既存のサーフェスがある場合の処理
         // HSPでは既存のIDに対してbuffer()を呼ぶと上書きされる（エラーではない）
@@ -205,6 +231,7 @@ namespace hsppp {
 
         // カレントサーフェスとして設定
         g_currentSurface = buf;
+        g_currentScreenId = id;
 
         // Screen ハンドルを返す
         return Screen{id, true};
@@ -248,7 +275,8 @@ namespace hsppp {
         int pos_x,
         int pos_y,
         int client_w,
-        int client_h
+        int client_h,
+        bool virtualResolution
     ) {
         using namespace internal;
 
@@ -259,6 +287,10 @@ namespace hsppp {
         if (width > 16384 || height > 16384) {
             throw HspError(ERR_OUT_OF_RANGE, "bgscrのサイズが大きすぎます（16384以下）", std::source_location::current());
         }
+
+        // 再初期化では、この画面に属するGUIオブジェクトも破棄する。
+        ObjectManager::getInstance().removeObjectsByWindow(id);
+        ObjectManager::getInstance().resetSettings(id);
 
         // 既存のサーフェスを削除
         if (g_surfaces.find(id) != g_surfaces.end()) {
@@ -303,11 +335,17 @@ namespace hsppp {
             return Screen{};
         }
 
+        // 仮想画面（論理→物理 自動拡縮）有効化
+        if (virtualResolution) {
+            window->setVirtualScreenEnabled(true);
+        }
+
         // Surfaceマップに追加
         g_surfaces[id] = window;
 
         // カレントサーフェスとして設定
         g_currentSurface = window;
+        g_currentScreenId = id;
 
         // 非表示フラグが立っていなければウィンドウを表示
         if (!isHidden) {
@@ -332,7 +370,8 @@ namespace hsppp {
                 params.pos_x,
                 params.pos_y,
                 params.client_w,
-                params.client_h
+                params.client_h,
+                params.virtual_resolution
             );
         });
     }
@@ -346,15 +385,21 @@ namespace hsppp {
     Screen bgscr(int id, OptInt width, OptInt height, OptInt mode,
                  OptInt pos_x, OptInt pos_y, OptInt client_w, OptInt client_h, const std::source_location& location) {
         return safe_call(location, [&] {
+            int modeVal = mode.value_or(0);
+            if (std::dynamic_pointer_cast<internal::HspBuffer>(getSurfaceById(id))) {
+                return buffer(id, width, height, modeVal, location);
+            }
+            bool virtualRes = (modeVal & screen_mode_virtual) != 0;
             return createBgscrInternal(
                 id,
                 width.value_or(640),
                 height.value_or(480),
-                mode.value_or(0),
+                modeVal,
                 pos_x.value_or(-1),
                 pos_y.value_or(-1),
                 client_w.value_or(0),
-                client_h.value_or(0)
+                client_h.value_or(0),
+                virtualRes
             );
         });
     }

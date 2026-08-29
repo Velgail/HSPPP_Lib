@@ -109,9 +109,12 @@ bool saveBitmapToFile(ID2D1Bitmap1* pBitmap, std::string_view filename) {
     ComPtr<ID2D1DeviceContext> pContext = deviceMgr.createDeviceContext();
     if (!pContext) return false;
 
+    // CopyFromBitmap はコピー元とコピー先で同じピクセル形式を必要とする。
+    // HspWindow は ALPHA_MODE_IGNORE、HspBuffer は PREMULTIPLIED なので、
+    // 固定値にせず保存対象の形式をそのまま引き継ぐ。
     D2D1_BITMAP_PROPERTIES1 cpuReadProps = D2D1::BitmapProperties1(
         D2D1_BITMAP_OPTIONS_CPU_READ | D2D1_BITMAP_OPTIONS_CANNOT_DRAW,
-        D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE)
+        pBitmap->GetPixelFormat()
     );
 
     ComPtr<ID2D1Bitmap1> pCpuBitmap;

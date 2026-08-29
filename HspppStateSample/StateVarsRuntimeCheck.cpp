@@ -4,21 +4,38 @@
 // https://www.boost.org/LICENSE_1_0.txt
 // SPDX-License-Identifier: BSL-1.0
 
-// HspppTest/StateVarsRuntimeTest.cpp
-// HSPPP hsppp:state_vars / hsppp:savedata runtime verification
+// HspppStateSample/StateVarsRuntimeCheck.cpp
+// ─────────────────────────────────────────────────────────────────
+// hsppp:state_vars / hsppp:savedata の手動目視検証（HspppStateSample 内蔵）
 //
-// Observation IDs:
-//   1. StateScope::bind idempotent (re-bind returns existing slot, ignores args)
-//   2. snapshot -> restore roundtrip across multiple states and types
-//   3. partial restore (keys absent from snapshot keep current value)
-//   4. SaveReader exceptions (magic / version / trailing / missing key / type_tag)
-//   5. StateScope::restore type_tag mismatch -> HspError(ERR_TYPE_MISMATCH)
-//   6. release / release_all_for / release_all then try_get == nullptr
-//   7. non-Serializable bind -> enumerate() reports serializable=false
-//   8. StateScopeReadView exposes const-only accessors and no mutation API
+// 目的:
+//   StateScope / state_vars / SaveWriter / SaveReader の主要な実行時挙動を
+//   サンプル起動 1 回によって目視確認可能にする。
 //
-// Coding rules (CLAUDE.md): import hsppp only, no #include, no assert,
-//                            no ANSI APIs, no exception swallowing.
+//   ライブラリ側責務として「コードで動いていることを画面で証明する」ため、
+//   HspppStateSample の Title メニューから到達できる専用画面（GameScreen::
+//   StateVarsCheck）が本ファイルに定義された run_all() を呼び、観測 1〜8 の
+//   各 PASS/FAIL を画面上にカラー表示する。
+//
+// 観測 ID とその意味:
+//   1. StateScope::bind が idempotent（同一キー再 bind で既存スロット返却・引数無視）
+//   2. snapshot -> restore のラウンドトリップ（複数 state / 型）
+//   3. partial restore（snapshot に無いキーは現在値を維持）
+//   4. SaveReader の例外系（bad magic / version / trailing bytes / missing key / type_tag mismatch）
+//   5. StateScope::restore の type_tag mismatch -> HspError(ERR_TYPE_MISMATCH)
+//   6. release / release_all_for / release_all 後の try_get == nullptr
+//   7. 非 Serializable 型を bind しても enumerate() で serializable=false として現れる
+//   8. StateScopeReadView の API 面（const アクセサのみ・mutation API なし）
+//
+// 設計補足:
+//   - 本ファイルが行うのは状態機械の構築・bind・snapshot・restore のみで、
+//     画面描画は一切行わない。テストごとに独自の StateGraph<TestState> /
+//     StateScope<TestState> を構築するため、StateSampleMain.cpp が保持する
+//     GameScreen 系の scope/sm とは干渉しない。
+//   - 例外を握りつぶさない（CLAUDE.md 規約）。期待される例外は型と error_code を
+//     確認し、想定外の例外は throw のまま伝播させる。
+//   - assert / ANSI API / #include は使用禁止（CLAUDE.md 規約）。
+//   - header unit の明示 import は build-config.md §4.5 に従う。
 
 import hsppp;
 
@@ -29,31 +46,62 @@ import <string>;
 import <string_view>;
 import <stdexcept>;
 
-namespace hsppp_test {
+namespace hsppp_state_sample::vars_check {
 
-    // Counters independent from ApiRuntimeTest's globals.
-    static int s_svPassed = 0;
-    static int s_svFailed = 0;
-    static int s_svLastFailedId = 0;
+    // ─────────────────────────────
+    // 観測カウンタ
+    // ─────────────────────────────
+    constexpr int kObservationCount = 8;
 
-    inline void sv_check(bool cond, int observation_id) {
-        if (cond) {
-            ++s_svPassed;
+    // 観測 i (0..7) の PASS/FAIL 判定: -1=未実行 / 0=FAIL / 1=PASS。
+    // 観測内のチェックは複数回呼ばれるが、1 つでも失敗したら 0、全成功なら 1。
+    static int s_obs_state[kObservationCount];
+
+    static int s_passed = 0;            // 個別 sv_check の合計成功数
+    static int s_failed = 0;            // 個別 sv_check の合計失敗数
+    static int s_last_failed_id = 0;    // 直近で失敗した観測 ID
+
+    static void reset_counters() noexcept {
+        for (int i = 0; i < kObservationCount; ++i) {
+            s_obs_state[i] = -1;
         }
-        else {
-            ++s_svFailed;
-            s_svLastFailedId = observation_id;
+        s_passed = 0;
+        s_failed = 0;
+        s_last_failed_id = 0;
+    }
+
+    static void mark_observation_started(int observation_id) noexcept {
+        const int idx = observation_id - 1;
+        if (idx >= 0 && idx < kObservationCount && s_obs_state[idx] < 0) {
+            s_obs_state[idx] = 1;  // 暫定 PASS。失敗時に 0 に落とす。
         }
     }
 
-    // Test state enum.
+    inline void sv_check(bool cond, int observation_id) {
+        mark_observation_started(observation_id);
+        const int idx = observation_id - 1;
+        if (cond) {
+            ++s_passed;
+        }
+        else {
+            ++s_failed;
+            s_last_failed_id = observation_id;
+            if (idx >= 0 && idx < kObservationCount) {
+                s_obs_state[idx] = 0;
+            }
+        }
+    }
+
+    // ─────────────────────────────
+    // 試験用ステート enum
+    // ─────────────────────────────
     enum class TestState : int {
         Title = 0,
         Game  = 1,
         Pause = 2,
     };
 
-    // Serializable type #1.
+    // Serializable 型 #1
     struct PlayerScore {
         int score = 0;
         int hp    = 0;
@@ -87,7 +135,7 @@ namespace hsppp_test {
         }
     };
 
-    // Serializable type #2 (different type, different state).
+    // Serializable 型 #2
     struct PauseCursor {
         int index = 0;
 
@@ -112,7 +160,7 @@ namespace hsppp_test {
         }
     };
 
-    // Same payload, different type_tag (used for SaveReader::read mismatch).
+    // 同一ペイロード / 異なる type_tag（SaveReader::read mismatch 検証用）
     struct PlayerScoreV2 {
         int score = 0;
         int hp    = 0;
@@ -132,7 +180,7 @@ namespace hsppp_test {
         }
     };
 
-    // Non-Serializable type.
+    // 非 Serializable 型
     struct OpaqueHandle {
         int  raw      = 0;
         bool attached = false;
@@ -169,9 +217,9 @@ namespace hsppp_test {
     };
 
     // -----------------------------------------------------------
-    // Observation 1: bind idempotent
+    // 観測 1: bind idempotent
     // -----------------------------------------------------------
-    static void sv_test_bind_idempotent() {
+    static void obs1_bind_idempotent() {
         hsppp::StateGraph<TestState> sm;
         hsppp::StateScope<TestState> scope(sm);
 
@@ -179,22 +227,20 @@ namespace hsppp_test {
         sv_check(a.score == 100, 1);
         sv_check(a.hp    == 50,  1);
 
-        // Re-bind with the same key returns the existing slot. Args ignored.
         auto& b = scope.bind<PlayerScore>(TestState::Game, 999, 999);
         sv_check(&a == &b,       1);
         sv_check(b.score == 100, 1);
         sv_check(b.hp    == 50,  1);
 
-        // Mutating through one reference is visible through the other.
         b.score = 12345;
         sv_check(a.score == 12345, 1);
         sv_check(scope.size() == 1u, 1);
     }
 
     // -----------------------------------------------------------
-    // Observation 2: snapshot -> restore roundtrip
+    // 観測 2: snapshot -> restore roundtrip
     // -----------------------------------------------------------
-    static void sv_test_snapshot_restore_roundtrip() {
+    static void obs2_snapshot_restore_roundtrip() {
         hsppp::StateGraph<TestState> sm;
         hsppp::StateScope<TestState> scope(sm);
 
@@ -205,7 +251,6 @@ namespace hsppp_test {
         const auto blob = scope.snapshot();
         sv_check(!blob.empty(), 2);
 
-        // Pre-bind on the target scope is required (design 8.3).
         hsppp::StateGraph<TestState> sm2;
         hsppp::StateScope<TestState> scope2(sm2);
         scope2.bind<PlayerScore>(TestState::Game);
@@ -222,9 +267,9 @@ namespace hsppp_test {
     }
 
     // -----------------------------------------------------------
-    // Observation 3: partial restore
+    // 観測 3: partial restore
     // -----------------------------------------------------------
-    static void sv_test_partial_restore() {
+    static void obs3_partial_restore() {
         hsppp::StateGraph<TestState> sm;
         hsppp::StateScope<TestState> scope(sm);
         scope.bind<PlayerScore>(TestState::Game, 100, 50).score = 42;
@@ -232,8 +277,8 @@ namespace hsppp_test {
 
         hsppp::StateGraph<TestState> sm2;
         hsppp::StateScope<TestState> scope2(sm2);
-        scope2.bind<PlayerScore>(TestState::Game);            // present in snapshot
-        scope2.bind<PauseCursor>(TestState::Pause).index = 9; // NOT in snapshot -> must stay
+        scope2.bind<PlayerScore>(TestState::Game);
+        scope2.bind<PauseCursor>(TestState::Pause).index = 9;
         scope2.restore(std::span<const std::byte>(blob.data(), blob.size()));
 
         sv_check(scope2.get<PlayerScore>(TestState::Game).score  == 42, 3);
@@ -241,9 +286,9 @@ namespace hsppp_test {
     }
 
     // -----------------------------------------------------------
-    // Observation 4: SaveReader exception cases
+    // 観測 4: SaveReader 例外
     // -----------------------------------------------------------
-    static void sv_test_savereader_exceptions() {
+    static void obs4_savereader_exceptions() {
         // 4-a) bad magic -> HspError(ERR_TYPE_MISMATCH)
         {
             std::vector<std::byte> bad;
@@ -283,7 +328,7 @@ namespace hsppp_test {
             bad.push_back(static_cast<std::byte>((ver >> 8) & 0xFFu));
             bad.push_back(static_cast<std::byte>((ver >> 16) & 0xFFu));
             bad.push_back(static_cast<std::byte>((ver >> 24) & 0xFFu));
-            for (int i = 0; i < 4; ++i) bad.push_back(std::byte{ 0 });  // block_count=0
+            for (int i = 0; i < 4; ++i) bad.push_back(std::byte{ 0 });
 
             bool got = false;
             int  ec  = 0;
@@ -299,7 +344,7 @@ namespace hsppp_test {
             sv_check(ec == hsppp::ERR_UNSUPPORTED, 4);
         }
 
-        // 4-c) trailing bytes after blocks -> HspError(ERR_OUT_OF_RANGE)
+        // 4-c) trailing bytes -> HspError(ERR_OUT_OF_RANGE)
         {
             hsppp::SaveWriter w;
             PlayerScore ps{ 1, 2 };
@@ -363,11 +408,11 @@ namespace hsppp_test {
     }
 
     // -----------------------------------------------------------
-    // Observation 5: StateScope::restore type_tag mismatch
-    //   StateScope's block_key format is "sv:{state_index}:{type_tag}".
-    //   Inject a payload with the expected key but a different type_tag.
+    // 観測 5: StateScope::restore type_tag mismatch
+    //   StateScope の block_key 形式は "sv:{state_index}:{type_tag}"。
+    //   想定 key で、type_tag のみ別物のペイロードを注入する。
     // -----------------------------------------------------------
-    static void sv_test_scope_restore_type_tag_mismatch() {
+    static void obs5_scope_restore_type_tag_mismatch() {
         hsppp::StateGraph<TestState> sm;
         hsppp::StateScope<TestState> scope(sm);
         scope.bind<PlayerScore>(TestState::Game);
@@ -377,7 +422,7 @@ namespace hsppp_test {
         PlayerScore tmp{ 1, 2 };
         PlayerScore::serialize(tmp, payload);
 
-        // state_index for TestState::Game is 1; expected type_tag "TestPlayerScore/v1".
+        // state_index for TestState::Game is 1; 期待 type_tag は "TestPlayerScore/v1"
         w.write_raw(std::string_view("sv:1:TestPlayerScore/v1"),
                     std::string_view("DIFFERENT_TAG"),
                     std::span<const std::byte>(payload.data(), payload.size()));
@@ -397,9 +442,9 @@ namespace hsppp_test {
     }
 
     // -----------------------------------------------------------
-    // Observation 6: release family
+    // 観測 6: release family
     // -----------------------------------------------------------
-    static void sv_test_release_family() {
+    static void obs6_release_family() {
         hsppp::StateGraph<TestState> sm;
         hsppp::StateScope<TestState> scope(sm);
 
@@ -427,9 +472,9 @@ namespace hsppp_test {
     }
 
     // -----------------------------------------------------------
-    // Observation 7: non-Serializable type appears in enumerate
+    // 観測 7: enumerate に非 Serializable 型も現れる（serializable=false）
     // -----------------------------------------------------------
-    static void sv_test_non_serializable_enumerate() {
+    static void obs7_non_serializable_enumerate() {
         hsppp::StateGraph<TestState> sm;
         hsppp::StateScope<TestState> scope(sm);
 
@@ -454,15 +499,14 @@ namespace hsppp_test {
         sv_check(found_ser,     7);
         sv_check(found_non_ser, 7);
 
-        // snapshot must skip non-serializable entries silently.
         const auto blob = scope.snapshot();
         sv_check(!blob.empty(), 7);
     }
 
     // -----------------------------------------------------------
-    // Observation 8: StateScopeReadView read-only API surface
+    // 観測 8: StateScopeReadView の read-only API 面
     // -----------------------------------------------------------
-    static void sv_test_read_view_read_only_surface() {
+    static void obs8_read_view_read_only_surface() {
         hsppp::StateGraph<TestState> sm;
         hsppp::StateScope<TestState> scope(sm);
 
@@ -484,35 +528,48 @@ namespace hsppp_test {
     }
 
     // -----------------------------------------------------------
-    // Entry points
+    // 公開 API（StateSampleMain.cpp の StateVarsCheck 画面から呼ばれる）
     // -----------------------------------------------------------
-    int run_state_vars_tests() {
-        s_svPassed = 0;
-        s_svFailed = 0;
-        s_svLastFailedId = 0;
+    int observation_count() noexcept { return kObservationCount; }
 
-        sv_test_bind_idempotent();                 // 1
-        sv_test_snapshot_restore_roundtrip();      // 2
-        sv_test_partial_restore();                 // 3
-        sv_test_savereader_exceptions();           // 4
-        sv_test_scope_restore_type_tag_mismatch(); // 5
-        sv_test_release_family();                  // 6
-        sv_test_non_serializable_enumerate();      // 7
-        sv_test_read_view_read_only_surface();     // 8
-
-        return s_svPassed;
+    const char* observation_name(int observation_id) noexcept {
+        switch (observation_id) {
+        case 1: return "bind idempotent";
+        case 2: return "snapshot/restore roundtrip";
+        case 3: return "partial restore";
+        case 4: return "SaveReader exceptions";
+        case 5: return "Scope restore type_tag mismatch";
+        case 6: return "release family";
+        case 7: return "non-Serializable enumerate";
+        case 8: return "ReadView read-only surface";
+        default: return "(unknown)";
+        }
     }
 
-    int get_state_vars_failed_count() {
-        return s_svFailed;
+    // 観測 i (1..8) の現在状態: -1=未実行 / 0=FAIL / 1=PASS
+    int observation_state(int observation_id) noexcept {
+        const int idx = observation_id - 1;
+        if (idx < 0 || idx >= kObservationCount) return -1;
+        return s_obs_state[idx];
     }
 
-    int get_state_vars_passed_count() {
-        return s_svPassed;
+    int run_all() {
+        reset_counters();
+
+        obs1_bind_idempotent();
+        obs2_snapshot_restore_roundtrip();
+        obs3_partial_restore();
+        obs4_savereader_exceptions();
+        obs5_scope_restore_type_tag_mismatch();
+        obs6_release_family();
+        obs7_non_serializable_enumerate();
+        obs8_read_view_read_only_surface();
+
+        return s_failed;
     }
 
-    int get_state_vars_last_failed_id() {
-        return s_svLastFailedId;
-    }
+    int passed_count() noexcept { return s_passed; }
+    int failed_count() noexcept { return s_failed; }
+    int last_failed_id() noexcept { return s_last_failed_id; }
 
-}  // namespace hsppp_test
+}  // namespace hsppp_state_sample::vars_check

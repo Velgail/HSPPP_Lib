@@ -31,7 +31,9 @@ int WINAPI WinMain([[maybe_unused]] _In_ HINSTANCE hInstance,
                    [[maybe_unused]] _In_ int nCmdShow) {
     // 1. HSPPPエンジンの初期化
     // (COM, Direct2D Factory, ウィンドウクラス登録など)
-    hsppp::internal::init_system();
+    if (!hsppp::internal::init_system()) {
+        return 1;
+    }
 
     // 2. ユーザーコード (hspMain) の実行
     // エラーハンドリング: HspError例外を自動的にキャッチ
@@ -45,6 +47,10 @@ int WINAPI WinMain([[maybe_unused]] _In_ HINSTANCE hInstance,
         while (GetMessage(&msg, nullptr, 0, 0)) {
             TranslateMessage(&msg);
             DispatchMessage(&msg);
+            hsppp::internal::processDispatchedMessage(
+                reinterpret_cast<int64_t>(msg.hwnd), static_cast<int>(msg.message),
+                static_cast<int64_t>(msg.wParam));
+            (void)hsppp::internal::processPendingInterrupt();
         }
 
         // 4. エンジンの終了処理

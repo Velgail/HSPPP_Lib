@@ -15,6 +15,9 @@ HSP の親しみやすい API を C++ で使用でき、**HSP互換スタイル*
 - **📦 モダンC++** - C++23 の機能を活用した型安全・メモリ安全な設計
 - **🔧 デュアルスタイル** - HSP風のグローバル関数とOOP風のメソッドチェーン、お好みで選択
 - **🖼️ Direct2D描画** - 高品質なハードウェアアクセラレーション描画
+- **🔍 HiDPI 対応** - Per Monitor V2 を標準で有効化。4K/8K でもぼやけない描画
+- **📐 仮想画面（論理→物理 自動拡縮）** - 1920×1080 で設計すれば任意解像度に自動適応
+- **⚓ アンカー基準レイアウト** - `anchor_pos` / `AnchorRect` で 4:3 / 16:9 / 21:9 を 1 コードで吸収
 - **⚡ ゼロオーバーヘッド** - C++の哲学「使わないものにコストを払わない」
 
 ## 🚀 クイックスタート
@@ -39,7 +42,7 @@ void hspMain() {
     mes("Hello, HSPPP!");
     
     // hspMain を抜けると stop 相当（ウィンドウは閉じずに待機）
-    return 0;
+    return;
 }
 ```
 
@@ -60,9 +63,46 @@ void hspMain() {
        .pos(120, 140)
        .mes("Method Chaining!");
     
-    return 0;
+    return;
 }
 ```
+
+## 🖥️ HiDPI / 仮想画面 / アンカーレイアウト
+
+HSPPP は 4K / 8K / ウルトラワイドといった多様な表示環境を「1 つの論理座標系」で書ける仕組みを標準提供します。
+
+```cpp
+import hsppp;
+using namespace hsppp;
+
+void hspMain() {
+    // 論理 1920x1080 で設計、物理ウィンドウは 1280x720
+    // HSP互換: screen(0, 1920, 1080, screen_mode_virtual);
+    auto win = screen({
+        .width  = 1920, .height  = 1080,
+        .client_w = 1280, .client_h = 720,
+        .virtual_resolution = true,
+        .title = "Virtual Screen Demo",
+    });
+
+    color(20, 20, 30);
+    boxf(0, 0, 1920, 1080);              // 論理 px で全面塗り
+
+    // 解像度独立な右下アンカー配置
+    color(255, 255, 255);
+    anchor_pos(ah_right, av_bottom, -20, -20);
+    mes("v1.0");
+
+    redraw();
+}
+```
+
+- HiDPI は **`SetProcessDpiAwarenessContext` を `init_system()` 内で呼出** するため、利用側に特別な手順は不要です。より厳密に保証したい場合は `app.manifest` 同梱を推奨します（詳細は [HiDPI ガイド](docs/HiDPI.md) 参照）。
+- 仮想画面有効時、`boxf` / `mes` / `picload` や `mousex()` / `mousey()` は **論理 px** で扱われます。`ginfo_mx` / `ginfo_my` はHSPどおりデスクトップ座標です。内部のオフスクリーンビットマップは **物理サイズ** で保持され、描画コマンド発行時点で論理→物理スケール変換（`SetTransform(Scale(s))`）が適用されます。`present()` は SwapChain への単純転送のみです（詳細は [仮想画面ガイド](docs/VirtualScreen.md) §1 参照）。
+- ラスタ画像（`picload` / `celload` の素材）の高品質スケーリングは本機能のスコープ外です。HspppLib拡張の `gmode_interp()` でD2Dラスタ転送の補間モードを選択できます。
+- `gzoom` のp8省略時はHSPどおり0（補間なし）です。`gmode_interp` を使う場合はHspppLib拡張の `gzoom(..., -1)` を明示します。詳細は [移行ガイド](docs/MigrationGuide-HiDPI-v2.md) を参照してください。
+
+📖 詳細: [HiDPI](docs/HiDPI.md) / [仮想画面](docs/VirtualScreen.md) / [アンカーレイアウト](docs/AnchorLayout.md)
 
 ## 📋 必要環境
 
@@ -91,19 +131,26 @@ MSBuild HspppLib.slnx /p:Configuration=Release /p:Platform=x64 /m
 
 ## 📖 ドキュメント
 
-- [チュートリアル](doc/guides/tutorial.md)
-- [インストールガイド](doc/guides/installation.md)
-- [HSPからの移行ガイド](doc/guides/migration-from-hsp.md)
-- [API リファレンス](doc/api/index.md)
-- [FAQ](doc/faq.md)
+- [チュートリアル](docs/guides/tutorial.md)
+- [インストールガイド](docs/guides/installation.md)
+- [HSPからの移行ガイド](docs/guides/migration-from-hsp.md)
+- [API リファレンス](docs/api/index.md)
+- [HiDPI 対応](docs/HiDPI.md)
+- [仮想画面（論理→物理 自動拡縮）](docs/VirtualScreen.md)
+- [アンカーレイアウト API](docs/AnchorLayout.md)
+- [移行ガイド（HiDPI / 仮想画面 v2）](docs/MigrationGuide-HiDPI-v2.md)
+- [FAQ](docs/faq.md)
 
 ## 🎯 対応API一覧
 
 ### 画面制御
-`screen`, `buffer`, `bgscr`, `gsel`, `gmode`, `gcopy`, `gzoom`, `redraw`, `await`, `cls`, `title`, `width`
+`screen`, `buffer`, `bgscr`, `gsel`, `gmode`, `gcopy`, `gzoom`, `redraw`, `await`, `vwait`, `cls`, `title`, `width`, `vscalemode`（v2 で機能縮退）, `gmode_interp`, `gline_width`
 
 ### 描画命令
 `color`, `pos`, `mes`, `boxf`, `line`, `circle`, `pset`, `pget`, `gradf`, `grect`, `grotate`, `gsquare`, `font`, `sysfont`, `hsvcolor`, `rgbcolor`
+
+### レイアウト（アンカー基準）
+`anchor_pos`, `anchor_box`, `boxf(AnchorRect)`, `AnchorRect`, `RectI`, `ah_left`/`ah_center`/`ah_right`, `av_top`/`av_middle`/`av_bottom`
 
 ### 画像操作
 `picload`, `bmpsave`, `celload`, `celdiv`, `celput`, `loadCel`

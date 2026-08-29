@@ -22,8 +22,13 @@ HSPPP の全 API リファレンスです。
 | [`cls`](/HSPPP_Lib/api/screen#cls) | 画面クリア | mode: 0=白, 1=明灰, 2=灰, 3=暗灰, 4=黒 |
 | [`redraw`](/HSPPP_Lib/api/screen#redraw) | 再描画制御 | 0=開始, 1=終了 |
 | [`groll`](/HSPPP_Lib/api/screen#groll) | スクロール位置設定 | 描画基点座標を設定 |
+| [`vscalemode`](/HSPPP_Lib/api/screen#vscalemode) | 仮想画面の補間モード設定 | `vscale_nearest` / `vscale_linear` / `vscale_aniso` |
 
 **詳細:** [画面制御 API](/HSPPP_Lib/api/screen)
+
+**関連ガイド:**
+- [HiDPI 対応](/HSPPP_Lib/HiDPI) - Per Monitor V2 と manifest サンプル
+- [仮想画面（論理→物理 自動拡縮）](/HSPPP_Lib/VirtualScreen) - `virtual_resolution` / `screen_mode_virtual`
 
 ---
 
@@ -42,8 +47,13 @@ HSPPP の全 API リファレンスです。
 | [`print`](/HSPPP_Lib/api/drawing#mes--print) | テキストの描画 | `mes` の別名 |
 | [`gradf`](/HSPPP_Lib/api/drawing#gradf) | グラデーション矩形 | mode: 0=横, 1=縦 |
 | [`grect`](/HSPPP_Lib/api/drawing#grect) | 回転矩形 | 角度はラジアン |
+| [`anchor_pos`](/HSPPP_Lib/api/drawing#anchor_pos) | アンカー基準でカレント位置を設定 | `ah_*` / `av_*` 定数使用 |
+| [`anchor_box`](/HSPPP_Lib/api/drawing#anchor_box) | アンカー基準矩形を塗りつぶし | `ah_*` / `av_*` 定数使用 |
+| [`boxf(AnchorRect)`](/HSPPP_Lib/api/drawing#boxf) | `AnchorRect` を塗りつぶし | OOP / HSP 共用 |
 
 **詳細:** [描画 API](/HSPPP_Lib/api/drawing)
+
+**関連ガイド:** [アンカーレイアウト API](/HSPPP_Lib/AnchorLayout)
 
 ---
 
@@ -56,7 +66,7 @@ HSPPP の全 API リファレンスです。
 | [`gcopy`](/HSPPP_Lib/api/screen#gcopy) | 画像のコピー | サイズ省略時はgmode設定 |
 | [`gzoom`](/HSPPP_Lib/api/screen#gzoom) | 拡大縮小コピー | mode: 0=高速, 1=高品質 |
 | [`grotate`](/HSPPP_Lib/api/drawing#grotate) | 回転コピー | 角度はラジアン |
-| [`gmode`](/HSPPP_Lib/api/screen#gmode) | コピーモードの設定 | gmode_copy, gmode_and, gmode_alpha等 |
+| [`gmode`](/HSPPP_Lib/api/screen#gmode) | コピーモードの設定 | gmode_gdi, gmode_rgb0, gmode_alpha, gmode_pixela等 |
 | [`gsquare`](/HSPPP_Lib/api/drawing#gsquare) | 4頂点描画 | Quad/QuadUV/QuadColors使用 |
 
 **詳細:** [画面制御 API](/HSPPP_Lib/api/screen), [描画 API](/HSPPP_Lib/api/drawing)
@@ -185,8 +195,8 @@ HSPPP の全 API リファレンスです。
 | 関数 | 説明 | 備考 |
 |------|------|------|
 | [`ginfo`](/HSPPP_Lib/api/screen#ginfo) | ウィンドウ情報取得 | ginfo_type_* 定数使用 |
-| [`ginfo_mx`](/HSPPP_Lib/api/screen#便利関数) | マウスX座標取得 | `ginfo(ginfo_type_mx)` の別名 |
-| [`ginfo_my`](/HSPPP_Lib/api/screen#便利関数) | マウスY座標取得 | `ginfo(ginfo_type_my)` の別名 |
+| [`ginfo_mx`](/HSPPP_Lib/api/screen#便利関数) | デスクトップ上のマウスX座標取得 | `ginfo(ginfo_type_mx)` の別名 |
+| [`ginfo_my`](/HSPPP_Lib/api/screen#便利関数) | デスクトップ上のマウスY座標取得 | `ginfo(ginfo_type_my)` の別名 |
 | [`ginfo_sel`](/HSPPP_Lib/api/screen#便利関数) | 描画先ID取得 | `ginfo(ginfo_type_sel)` の別名 |
 | [`ginfo_sizex`](/HSPPP_Lib/api/screen#便利関数) | 画面幅取得 | `ginfo(ginfo_type_sizex)` の別名 |
 | [`ginfo_sizey`](/HSPPP_Lib/api/screen#便利関数) | 画面高さ取得 | `ginfo(ginfo_type_sizey)` の別名 |

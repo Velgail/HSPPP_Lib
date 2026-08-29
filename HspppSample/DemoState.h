@@ -26,7 +26,8 @@ enum class DemoCategory {
     Image,      // 画像デモ (Shift + 1-3)
     Interrupt,  // 割り込みデモ (Alt + 1-3)
     GUI,        // GUIデモ (Win + 1-2)
-    Media       // マルチメディアデモ (Alt+Shift + 1)
+    Media,      // マルチメディアデモ (Alt+Shift + 1)
+    Display     // 表示系デモ HiDPI/Virtual/Anchor (Alt+Shift + 1-3)
 };
 
 enum class BasicDemo {
@@ -85,6 +86,13 @@ enum class GUIDemo {
 
 enum class MediaDemo {
     AudioPlayback = 0,  // Alt+Shift+1: 音声再生デモ
+    COUNT
+};
+
+enum class DisplayDemo {
+    HiDPI = 0,      // Alt+Shift+1: HiDPI / WM_DPICHANGED ログ
+    Virtual,        // Alt+Shift+2: 仮想画面 ON/OFF 比較
+    Anchor,         // Alt+Shift+3: アンカー基準レイアウト
     COUNT
 };
 
@@ -175,6 +183,23 @@ extern bool g_videoMode;       // 動画再生モード中か（描画スキッ�
 // アクション実行結果表示用
 extern std::string g_actionLog;
 
+// 表示系デモ (Display) 用
+extern hsppp::Screen g_virtScalingScreen;   // 仮想画面 Scaling サブデモ用サブウィンドウ
+extern bool          g_displaySubVisible;   // Virtual サブウィンドウが表示中か
+extern int           g_dpiChangeCount;
+extern int           g_dpiLastReported;
+extern std::string   g_dpiChangeLog;
+// Anchor Playground サブデモ用
+extern hsppp::Screen g_anchorPlaygroundScreen;  // Anchor 専用サブウィンドウ（virtual_resolution=false）
+extern bool          g_anchorPlaygroundVisible; // Anchor Playground 表示中か
+extern int           g_anchorAspectIndex;       // 0..(N-1) アスペクト比プリセット
+extern bool          g_anchorShowFixed;         // 比較対照 (Fixed 側) 表示 ON/OFF
+extern bool          g_anchorShowGrid;          // 9 アンカー リファレンスグリッドモード ON/OFF
+extern bool          g_anchorShowGuides;        // ガイド矢印 + 実測値表示 ON/OFF
+extern int           g_virtPresetIndex;       // 0..(N-1) 物理サイズ／拡大率プリセット
+extern int           g_virtScaleModeIndex;    // 0=nearest, 1=linear, 2=aniso
+extern int           g_virtLetterColorIndex;  // 0=黒 / 1=濃シアン / 2=マゼンタ
+
 // ═══════════════════════════════════════════════════════════════════
 // 修飾キー状態チェック
 // ═══════════════════════════════════════════════════════════════════
@@ -197,6 +222,7 @@ void drawImageDemo(hsppp::Screen& win);
 void drawInterruptDemo(hsppp::Screen& win);
 void drawGUIDemo(hsppp::Screen& win);
 void drawMediaDemo(hsppp::Screen& win);
+void drawDisplayDemo(hsppp::Screen& win);
 
 // アクション処理関数（各デモ固有の入力処理）
 void processBasicAction(hsppp::Screen& win);
@@ -205,6 +231,10 @@ void processImageAction(hsppp::Screen& win);
 void processInterruptAction(hsppp::Screen& win);
 void processGUIAction(hsppp::Screen& win);
 void processMediaAction(hsppp::Screen& win);
+void processDisplayAction(hsppp::Screen& win);
+
+// 表示系デモ離脱処理
+void onDisplayDemoLeft();
 
 // GUIオブジェクトクリア関数
 void clearGUIObjects();

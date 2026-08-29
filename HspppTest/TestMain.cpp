@@ -20,12 +20,6 @@ namespace hsppp_test {
     int get_failed_count();
     int get_passed_count();
 
-    // StateVarsRuntimeTest.cpp（state_vars / savedata ランタイム検証）
-    int run_state_vars_tests();
-    int get_state_vars_failed_count();
-    int get_state_vars_passed_count();
-    int get_state_vars_last_failed_id();
-
     // ApiRuntimeTest.cpp 拡張診断
     int get_first_failed_index();
     const char* get_first_failed_name();
@@ -79,21 +73,11 @@ void hspMain() {
     resultWin.color(0, 0, 0);
     y += 10;
 
-    // state_vars / savedata ランタイムテスト
-    printLine("[3] StateVars/SaveData Runtime Tests");
-    int svPassed = hsppp_test::run_state_vars_tests();
-    int svFailed = hsppp_test::get_state_vars_failed_count();
-    runtimePassed += svPassed;
-    runtimeFailed += svFailed;
-
-    if (svFailed == 0) {
-        resultWin.color(0, 128, 0);
-        printLine("    ✓ PASSED - state_vars/savedata observations 1-7");
-    } else {
-        resultWin.color(255, 0, 0);
-        printLine("    ✗ FAILED - state_vars/savedata observation(s) failed");
-    }
-    resultWin.color(0, 0, 0);
+    // 注: state_vars / savedata の手動目視検証は HspppStateSample 側
+    //     （Title メニュー「StateVars 検証」/ GameScreen::StateVarsCheck 画面）
+    //     に差し戻し済。HspppTest 側では実施しない（思想: GUI ランタイム挙動の
+    //     確認はサンプル起動 1 回で目視できることが望ましい。retrospective
+    //     L-019 / AP-013 参照）。
 
     y += 10;
     printLine("───────────────────────────────────────");
@@ -148,11 +132,8 @@ void hspMain() {
         result += "  compile_block_ok = ";
         result += (compileOk ? "true" : "false");
         result += "\n";
-        result += "  runtime_passed   = " + std::to_string(runtimePassed - svPassed) + "\n";
-        result += "  runtime_failed   = " + std::to_string(runtimeFailed - svFailed) + "\n";
-        result += "  sv_passed        = " + std::to_string(svPassed) + "\n";
-        result += "  sv_failed        = " + std::to_string(svFailed) + "\n";
-        result += "  sv_last_failed_id= " + std::to_string(hsppp_test::get_state_vars_last_failed_id()) + "\n";
+        result += "  runtime_passed   = " + std::to_string(runtimePassed) + "\n";
+        result += "  runtime_failed   = " + std::to_string(runtimeFailed) + "\n";
         result += "  rt_first_failed_index = " + std::to_string(hsppp_test::get_first_failed_index()) + "\n";
         result += "  rt_first_failed_name  = ";
         result += hsppp_test::get_first_failed_name();

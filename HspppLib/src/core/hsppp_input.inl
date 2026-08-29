@@ -11,6 +11,18 @@
 namespace {
     // stick用の前回キー状態
     DWORD g_prevKeyState = 0;
+
+    // ShowCursorは呼び出し回数カウンター方式なので、同じ指定を繰り返しても
+    // 表示カウンターをドリフトさせないよう実際の表示状態を見て調整する。
+    void setCursorVisibility(bool visible) {
+        for (int i = 0; i < 32; ++i) {
+            CURSORINFO info{sizeof(CURSORINFO)};
+            if (!GetCursorInfo(&info)) return;
+            const bool currentlyVisible = (info.flags & CURSOR_SHOWING) != 0;
+            if (currentlyVisible == visible) return;
+            ShowCursor(visible ? TRUE : FALSE);
+        }
+    }
 }
 
 namespace hsppp {
@@ -115,59 +127,44 @@ namespace hsppp {
 
     // ============================================================
     // mouse - マウスカーソル座標設定（HSP互換）
-    // HSPの仕様: クライアント座標（ウィンドウ内の座標）で指定
+    // HSPの仕様: デスクトップ全体のスクリーン座標で指定
     // ============================================================
     void mouse(OptInt x, OptInt y, OptInt mode, const std::source_location& location) {
         safe_call(location, [&] {
-            using namespace internal;
-
             int p1 = x.value_or(0);
             int p2 = y.value_or(0);
             int p3 = mode.value_or(0);
 
-            // カレントウィンドウを取得
-            auto currentSurface = getCurrentSurface();
-            auto pWindow = currentSurface ? std::dynamic_pointer_cast<HspWindow>(currentSurface) : nullptr;
-
-            // 現在のクライアント座標を取得（省略時用）
+            // 省略された軸は現在のスクリーン座標を維持する。
             POINT pt;
             GetCursorPos(&pt);
-            if (pWindow && pWindow->getHwnd()) {
-                ScreenToClient(pWindow->getHwnd(), &pt);
-            }
-            if (x.is_default()) p1 = pt.x;
-            if (y.is_default()) p2 = pt.y;
-
-            // クライアント座標をスクリーン座標に変換
-            POINT screenPt = { p1, p2 };
-            if (pWindow && pWindow->getHwnd()) {
-                ClientToScreen(pWindow->getHwnd(), &screenPt);
-            }
+            if (x.is_default()) p1 = static_cast<int>(pt.x);
+            if (y.is_default()) p2 = static_cast<int>(pt.y);
 
             switch (p3) {
             case 0:
                 // p1またはp2がマイナスの時にマウスカーソルを非表示
                 // それ以外は移動して表示
                 if (p1 < 0 || p2 < 0) {
-                    ShowCursor(FALSE);
+                    setCursorVisibility(false);
                 } else {
-                    SetCursorPos(screenPt.x, screenPt.y);
-                    ShowCursor(TRUE);
+                    SetCursorPos(p1, p2);
+                    setCursorVisibility(true);
                 }
                 break;
             case -1:
                 // 移動して非表示
-                SetCursorPos(screenPt.x, screenPt.y);
-                ShowCursor(FALSE);
+                SetCursorPos(p1, p2);
+                setCursorVisibility(false);
                 break;
             case 1:
                 // 移動のみ（表示状態は維持）
-                SetCursorPos(screenPt.x, screenPt.y);
+                SetCursorPos(p1, p2);
                 break;
             case 2:
                 // 移動して表示
-                SetCursorPos(screenPt.x, screenPt.y);
-                ShowCursor(TRUE);
+                SetCursorPos(p1, p2);
+                setCursorVisibility(true);
                 break;
             }
         });
@@ -186,12 +183,15 @@ namespace hsppp {
             POINT pt;
             GetCursorPos(&pt);
 
-            // ウィンドウがあればクライアント座標に変換
+            // ウィンドウがあればクライアント座標 (物理 px) → 論理 px に変換
             if (pWindow && pWindow->getHwnd()) {
                 ScreenToClient(pWindow->getHwnd(), &pt);
+                int lx = 0, ly = 0;
+                pWindow->physToLogical(static_cast<int>(pt.x), static_cast<int>(pt.y), lx, ly);
+                return lx;
             }
 
-            return pt.x;
+            return static_cast<int>(pt.x);
         });
     }
 
@@ -208,12 +208,15 @@ namespace hsppp {
             POINT pt;
             GetCursorPos(&pt);
 
-            // ウィンドウがあればクライアント座標に変換
+            // ウィンドウがあればクライアント座標 (物理 px) → 論理 px に変換
             if (pWindow && pWindow->getHwnd()) {
                 ScreenToClient(pWindow->getHwnd(), &pt);
+                int lx = 0, ly = 0;
+                pWindow->physToLogical(static_cast<int>(pt.x), static_cast<int>(pt.y), lx, ly);
+                return ly;
             }
 
-            return pt.y;
+            return static_cast<int>(pt.y);
         });
     }
 
@@ -246,7 +249,7 @@ namespace hsppp {
             // 待機中もメッセージを処理
             while (GetTickCount() < endTime) {
                 // ペンディング中の割り込みを処理
-                if (processPendingInterrupt()) {
+                if (internal::processPendingInterrupt()) {
                     // 割り込みハンドラが呼ばれた
                 }
 
@@ -257,6 +260,9 @@ namespace hsppp {
                     }
                     TranslateMessage(&msg);
                     DispatchMessage(&msg);
+                    internal::processDispatchedMessage(
+                        reinterpret_cast<int64_t>(msg.hwnd), static_cast<int>(msg.message),
+                        static_cast<int64_t>(msg.wParam));
                 }
                 else {
                     Sleep(1);

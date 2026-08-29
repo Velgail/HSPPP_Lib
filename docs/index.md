@@ -45,6 +45,13 @@ void hspMain() {
 - [インストールガイド](/HSPPP_Lib/guides/installation) - 環境構築とビルド方法
 - [チュートリアル](/HSPPP_Lib/guides/tutorial) - 基本的な使い方を学ぶ
 
+### 表示・レイアウト（HiDPI / 仮想画面 / アンカー）
+
+- [HiDPI 対応](/HSPPP_Lib/HiDPI) - **NEW** Per Monitor V2 と利用側 .exe の手順
+- [仮想画面（論理→物理 自動拡縮）](/HSPPP_Lib/VirtualScreen) - **NEW** 1920×1080 設計で 4K/8K/21:9 に自動適応
+- [アンカーレイアウト API](/HSPPP_Lib/AnchorLayout) - **NEW** `anchor_pos` / `AnchorRect` で解像度独立な配置
+- [移行ガイド（HiDPI / 仮想画面 v2）](/HSPPP_Lib/MigrationGuide-HiDPI-v2) - **NEW** HiDPI / 仮想画面 v2 描画パイプラインの後方互換性影響と移行手順
+
 ### アーキテクチャ・パターンガイド
 
 - [ステートパターンガイド](/HSPPP_Lib/guides/state-pattern) - ゲームフロー・UI遷移の設計パターン
@@ -64,6 +71,7 @@ void hspMain() {
 ### その他
 
 - [FAQ](/HSPPP_Lib/faq) - よくある質問
+- [HSP 命令実装ロードマップ](/HSPPP_Lib/internal/roadmap) - HSP 命令／関数／システム変数の実装状況・優先度・対応方針
 
 ## 特徴
 

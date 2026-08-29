@@ -77,11 +77,34 @@ namespace hsppp {
             }
             else {
                 // ノーマル実行（プログラムを直接実行）
-                // ファイル名とパラメータを分離する
-                // ShellExecuteExWは賢く解釈してくれるため、手動での分割は不要かつ危険
+                // HSPは第1引数に「notepad file.txt」のようなコマンドラインを許す。
+                // ShellExecuteExWはlpFileをコマンドラインとしては分解しないため、
+                // 実行ファイル部と引数部を分けて渡す。
+                size_t start = filenameW.find_first_not_of(L" \t");
+                if (start == std::wstring::npos) return ERROR_FILE_NOT_FOUND;
+                size_t split = std::wstring::npos;
+                if (filenameW[start] == L'\"') {
+                    const size_t quoteEnd = filenameW.find(L'\"', start + 1);
+                    if (quoteEnd != std::wstring::npos) split = quoteEnd + 1;
+                } else {
+                    split = filenameW.find_first_of(L" \t", start);
+                }
+
+                static thread_local std::wstring executableW;
+                static thread_local std::wstring parametersW;
+                if (filenameW[start] == L'\"' && split != std::wstring::npos) {
+                    executableW = filenameW.substr(start + 1, split - start - 2);
+                } else {
+                    executableW = filenameW.substr(start, split == std::wstring::npos ? split : split - start);
+                }
+                parametersW.clear();
+                if (split != std::wstring::npos) {
+                    const size_t paramStart = filenameW.find_first_not_of(L" \t", split);
+                    if (paramStart != std::wstring::npos) parametersW = filenameW.substr(paramStart);
+                }
                 sei.lpVerb = nullptr;  // デフォルト動作
-                sei.lpFile = filenameW.c_str();
-                sei.lpParameters = nullptr;
+                sei.lpFile = executableW.c_str();
+                sei.lpParameters = parametersW.empty() ? nullptr : parametersW.c_str();
             }
 
             if (ShellExecuteExW(&sei)) {
@@ -538,7 +561,11 @@ namespace hsppp {
                 };
                 
                 if (message.empty() || message == "*") {
-                    filterW = L"すべてのファイル\0*.*\0\0";
+                    filterW.assign(L"すべてのファイル");
+                    filterW.push_back(L'\0');
+                    filterW.append(L"*.*");
+                    filterW.push_back(L'\0');
+                    filterW.push_back(L'\0');
                 }
                 else {
                     // HSP形式のフィルタを解析（|区切り）

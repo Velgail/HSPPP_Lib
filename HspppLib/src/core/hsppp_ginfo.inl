@@ -16,8 +16,8 @@ namespace hsppp {
     int ginfo(int type, const std::source_location& location) {
         return safe_call(location, [&]() -> int {
             // パラメータチェック
-            if (type < 0 || type > 27) {
-                throw HspError(ERR_OUT_OF_RANGE, "ginfoのtypeは0～27の範囲で指定してください", location);
+            if (type < 0 || type > 29) {
+                throw HspError(ERR_OUT_OF_RANGE, "ginfoのtypeは0～29の範囲で指定してください", location);
             }
             using namespace internal;
         
@@ -61,38 +61,54 @@ namespace hsppp {
             }
             return 0;
         }
-        case 4:  // ウィンドウの左上X座標
+        case 4:  // ウィンドウの左上X座標（論理 px / HSP3 公式準拠）
         {
             if (pWindow && pWindow->getHwnd()) {
                 RECT rect;
                 GetWindowRect(pWindow->getHwnd(), &rect);
+                UINT dpi = pWindow->getCurrentDpi();
+                if (dpi != 0 && dpi != 96) {
+                    return MulDiv(static_cast<int>(rect.left), 96, static_cast<int>(dpi));
+                }
                 return static_cast<int>(rect.left);
             }
             return 0;
         }
-        case 5:  // ウィンドウの左上Y座標
+        case 5:  // ウィンドウの左上Y座標（論理 px）
         {
             if (pWindow && pWindow->getHwnd()) {
                 RECT rect;
                 GetWindowRect(pWindow->getHwnd(), &rect);
+                UINT dpi = pWindow->getCurrentDpi();
+                if (dpi != 0 && dpi != 96) {
+                    return MulDiv(static_cast<int>(rect.top), 96, static_cast<int>(dpi));
+                }
                 return static_cast<int>(rect.top);
             }
             return 0;
         }
-        case 6:  // ウィンドウの右下X座標
+        case 6:  // ウィンドウの右下X座標（論理 px）
         {
             if (pWindow && pWindow->getHwnd()) {
                 RECT rect;
                 GetWindowRect(pWindow->getHwnd(), &rect);
+                UINT dpi = pWindow->getCurrentDpi();
+                if (dpi != 0 && dpi != 96) {
+                    return MulDiv(static_cast<int>(rect.right), 96, static_cast<int>(dpi));
+                }
                 return static_cast<int>(rect.right);
             }
             return 0;
         }
-        case 7:  // ウィンドウの右下Y座標
+        case 7:  // ウィンドウの右下Y座標（論理 px）
         {
             if (pWindow && pWindow->getHwnd()) {
                 RECT rect;
                 GetWindowRect(pWindow->getHwnd(), &rect);
+                UINT dpi = pWindow->getCurrentDpi();
+                if (dpi != 0 && dpi != 96) {
+                    return MulDiv(static_cast<int>(rect.bottom), 96, static_cast<int>(dpi));
+                }
                 return static_cast<int>(rect.bottom);
             }
             return 0;
@@ -111,39 +127,65 @@ namespace hsppp {
             }
             return 0;
         }
-        case 10:  // ウィンドウ全体のXサイズ
+        case 10:  // ウィンドウ全体のXサイズ（論理 px）
         {
             if (pWindow && pWindow->getHwnd()) {
                 RECT rect;
                 GetWindowRect(pWindow->getHwnd(), &rect);
-                return static_cast<int>(rect.right - rect.left);
+                int w = static_cast<int>(rect.right - rect.left);
+                UINT dpi = pWindow->getCurrentDpi();
+                if (dpi != 0 && dpi != 96) {
+                    return MulDiv(w, 96, static_cast<int>(dpi));
+                }
+                return w;
             }
             return currentSurface ? currentSurface->getWidth() : 0;
         }
-        case 11:  // ウィンドウ全体のYサイズ
+        case 11:  // ウィンドウ全体のYサイズ（論理 px）
         {
             if (pWindow && pWindow->getHwnd()) {
                 RECT rect;
                 GetWindowRect(pWindow->getHwnd(), &rect);
-                return static_cast<int>(rect.bottom - rect.top);
+                int h = static_cast<int>(rect.bottom - rect.top);
+                UINT dpi = pWindow->getCurrentDpi();
+                if (dpi != 0 && dpi != 96) {
+                    return MulDiv(h, 96, static_cast<int>(dpi));
+                }
+                return h;
             }
             return currentSurface ? currentSurface->getHeight() : 0;
         }
-        case 12:  // クライアント領域Xサイズ
+        case 12:  // クライアント領域Xサイズ（論理 px / 仮想 ON/OFF 統一）
         {
+            if (pWindow && pWindow->isVirtualEnabled()) {
+                return pWindow->getWidth();
+            }
             if (pWindow && pWindow->getHwnd()) {
                 RECT rect;
                 GetClientRect(pWindow->getHwnd(), &rect);
-                return static_cast<int>(rect.right);
+                int w = static_cast<int>(rect.right);
+                UINT dpi = pWindow->getCurrentDpi();
+                if (dpi != 0 && dpi != 96) {
+                    return MulDiv(w, 96, static_cast<int>(dpi));
+                }
+                return w;
             }
             return currentSurface ? currentSurface->getWidth() : 0;
         }
-        case 13:  // クライアント領域Yサイズ
+        case 13:  // クライアント領域Yサイズ（論理 px / 仮想 ON/OFF 統一）
         {
+            if (pWindow && pWindow->isVirtualEnabled()) {
+                return pWindow->getHeight();
+            }
             if (pWindow && pWindow->getHwnd()) {
                 RECT rect;
                 GetClientRect(pWindow->getHwnd(), &rect);
-                return static_cast<int>(rect.bottom);
+                int h = static_cast<int>(rect.bottom);
+                UINT dpi = pWindow->getCurrentDpi();
+                if (dpi != 0 && dpi != 96) {
+                    return MulDiv(h, 96, static_cast<int>(dpi));
+                }
+                return h;
             }
             return currentSurface ? currentSurface->getHeight() : 0;
         }
@@ -177,16 +219,40 @@ namespace hsppp {
         }
         case 19:  // デスクトップのカラーモード（常にフルカラー）
             return 0;
-        case 20:  // デスクトップ全体のXサイズ
-            return GetSystemMetrics(SM_CXSCREEN);
-        case 21:  // デスクトップ全体のYサイズ
-            return GetSystemMetrics(SM_CYSCREEN);
+        case 20:  // デスクトップ全体のXサイズ（プライマリモニタ論理 px / PM Q-2 HSP3 公式準拠）
+        {
+            using FnGetDpiSys = UINT(WINAPI*)();
+            HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
+            auto pGetDpiSys = hUser32
+                ? reinterpret_cast<FnGetDpiSys>(GetProcAddress(hUser32, "GetDpiForSystem"))
+                : nullptr;
+            UINT dpi = pGetDpiSys ? pGetDpiSys() : 96;
+            int physW = GetSystemMetrics(SM_CXSCREEN);
+            if (dpi != 0 && dpi != 96) {
+                return MulDiv(physW, 96, static_cast<int>(dpi));
+            }
+            return physW;
+        }
+        case 21:  // デスクトップ全体のYサイズ（プライマリモニタ論理 px）
+        {
+            using FnGetDpiSys = UINT(WINAPI*)();
+            HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
+            auto pGetDpiSys = hUser32
+                ? reinterpret_cast<FnGetDpiSys>(GetProcAddress(hUser32, "GetDpiForSystem"))
+                : nullptr;
+            UINT dpi = pGetDpiSys ? pGetDpiSys() : 96;
+            int physH = GetSystemMetrics(SM_CYSCREEN);
+            if (dpi != 0 && dpi != 96) {
+                return MulDiv(physH, 96, static_cast<int>(dpi));
+            }
+            return physH;
+        }
         case 22:  // カレントポジションのX座標
             return currentSurface ? currentSurface->getCurrentX() : 0;
         case 23:  // カレントポジションのY座標
             return currentSurface ? currentSurface->getCurrentY() : 0;
         case 24:  // メッセージ割り込み時のウィンドウID
-            return wparam();
+            return internal::getInterruptWindowId();
         case 25:  // 未使用ウィンドウID
         {
             for (int i = 0; ; ++i) {
@@ -201,6 +267,8 @@ namespace hsppp {
             return currentSurface ? currentSurface->getHeight() : 0;
         case 28:  // 画面リフレッシュレート
             return get_framerate(location);
+        case 29:  // 現在の実効 DPI（GetDpiForWindow ベース / 既定 96）
+            return pWindow ? static_cast<int>(pWindow->getCurrentDpi()) : 96;
         default:
             return 0;
         }
@@ -396,11 +464,14 @@ namespace hsppp {
                 int newH = (p2 >= 0) ? p2 : (clientRect.bottom - clientRect.top);
                 
                 // screen/buffer/bgscrの初期化サイズを超えないようにクランプ
-                int maxW = pWindow->getWidth();
-                int maxH = pWindow->getHeight();
-                if (newW > maxW) newW = maxW;
-                if (newH > maxH) newH = maxH;
-                
+                // 仮想画面 ON 時は論理→物理 拡縮するため、物理クライアントサイズを論理に縛らない。
+                if (!pWindow->isVirtualEnabled()) {
+                    int maxW = pWindow->getWidth();
+                    int maxH = pWindow->getHeight();
+                    if (newW > maxW) newW = maxW;
+                    if (newH > maxH) newH = maxH;
+                }
+
                 pWindow->setClientSize(newW, newH);
             }
 
@@ -436,6 +507,35 @@ namespace hsppp {
             if (!pWindow) return;
 
             pWindow->setScroll(scrollX, scrollY);
+        });
+    }
+
+    // ============================================================
+    // vscalemode - 仮想画面の補間モード設定
+    // ============================================================
+    void vscalemode(int mode, const std::source_location& location) {
+        safe_call(location, [&] {
+            using namespace internal;
+
+            auto currentSurface = getCurrentSurface();
+            if (!currentSurface) return;
+
+            auto pWindow = std::dynamic_pointer_cast<HspWindow>(currentSurface);
+            if (!pWindow) return;
+
+            D2D1_BITMAP_INTERPOLATION_MODE d2dMode = D2D1_BITMAP_INTERPOLATION_MODE_LINEAR;
+            switch (mode) {
+                case vscale_nearest: d2dMode = D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR; break;
+                case vscale_linear:  d2dMode = D2D1_BITMAP_INTERPOLATION_MODE_LINEAR; break;
+                case vscale_aniso:
+                    // D2D1 IDeviceContext::DrawBitmap は ANISOTROPIC 互換相当として
+                    // 高品質補間モード (linear) を採用する。専用の異方性フィルタは未提供。
+                    d2dMode = D2D1_BITMAP_INTERPOLATION_MODE_LINEAR;
+                    break;
+                default:
+                    throw HspError(ERR_OUT_OF_RANGE, "vscalemodeのmodeはvscale_nearest/linear/anisoのいずれかを指定してください", location);
+            }
+            pWindow->setVirtualInterpolation(d2dMode);
         });
     }
 

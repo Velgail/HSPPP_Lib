@@ -363,6 +363,10 @@ MigrationBackup/
 FodyWeavers.xsd
 .claude/settings.local.json
 *.hs
+
+# Test execution snapshots / per-run generated bitmaps (individual paths only; no glob)
+hsppp_test_result.txt
+dpi_changed_target_bitmap.bmp
 output.bmp
 
 # HSP reference files (not for distribution)

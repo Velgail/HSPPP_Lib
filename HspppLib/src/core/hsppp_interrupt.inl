@@ -22,6 +22,11 @@ namespace {
         bool enabled = true;       // 有効/無効
     };
 
+    struct CommandInterruptHandlerInfo {
+        CommandInterruptHandler handler;
+        bool enabled = true;
+    };
+
     // エラーハンドラ情報（HspErrorを受け取る）
     struct ErrorHandlerInfo {
         ErrorHandler handler;  // エラーハンドラ（ラムダ式対応）
@@ -34,12 +39,13 @@ namespace {
     InterruptHandlerInfo g_onexitHandler;
     InterruptHandlerInfo g_onkeyHandler;
 
-    // oncmd: メッセージID別のハンドラ
-    std::map<int, InterruptHandlerInfo> g_oncmdHandlers;
+    // oncmd: ウィンドウIDとメッセージIDの組ごとのハンドラ
+    std::map<std::pair<int, int>, CommandInterruptHandlerInfo> g_oncmdHandlers;
     bool g_oncmdGlobalEnabled = true;
 
     // 割り込みパラメータ（システム変数相当）
     InterruptParams g_interruptParams = {0, 0, 0};
+    int g_interruptWindowId = -1;
 
     // 割り込みが発生しているかのフラグ
     bool g_interruptPending = false;
@@ -49,15 +55,13 @@ namespace {
     enum class PendingInterruptType {
         None,
         OnClick,
-        OnCmd,
         OnExit,
         OnKey
     };
     PendingInterruptType g_pendingType = PendingInterruptType::None;
-    int g_pendingMessageId = 0;  // oncmd用
 
     // 割り込みを処理する内部関数
-    bool processPendingInterrupt() {
+    bool processPendingInterruptImpl() {
         if (!g_interruptPending) return false;
 
         g_interruptPending = false;
@@ -66,14 +70,6 @@ namespace {
         switch (g_pendingType) {
         case PendingInterruptType::OnClick:
             handlerInfo = &g_onclickHandler;
-            break;
-        case PendingInterruptType::OnCmd:
-            {
-                auto it = g_oncmdHandlers.find(g_pendingMessageId);
-                if (it != g_oncmdHandlers.end()) {
-                    handlerInfo = &it->second;
-                }
-            }
             break;
         case PendingInterruptType::OnExit:
             handlerInfo = &g_onexitHandler;
@@ -96,12 +92,12 @@ namespace {
     }
 
     // 割り込みをペンディングにセット
-    void setPendingInterrupt(PendingInterruptType type, int ip, int wp, int lp, int msgId = 0) {
+    void setPendingInterrupt(PendingInterruptType type, int ip, int64_t wp, int64_t lp, int windowId) {
         g_interruptParams.iparam = ip;
         g_interruptParams.wparam = wp;
         g_interruptParams.lparam = lp;
+        g_interruptWindowId = windowId;
         g_pendingType = type;
-        g_pendingMessageId = msgId;
         g_interruptPending = true;
     }
 
@@ -121,12 +117,28 @@ namespace hsppp {
         return g_interruptParams.iparam;
     }
 
-    int wparam([[maybe_unused]] const std::source_location& location) noexcept {
+    int64_t wparam([[maybe_unused]] const std::source_location& location) noexcept {
         return g_interruptParams.wparam;
     }
 
-    int lparam([[maybe_unused]] const std::source_location& location) noexcept {
+    int64_t lparam([[maybe_unused]] const std::source_location& location) noexcept {
         return g_interruptParams.lparam;
+    }
+
+    namespace internal {
+        bool processPendingInterrupt() {
+            return ::processPendingInterruptImpl();
+        }
+
+        void processDispatchedMessage(int64_t hwndValue, int message, int64_t wparamValue) {
+            auto hwnd = reinterpret_cast<HWND>(static_cast<intptr_t>(hwndValue));
+            ObjectManager::getInstance().processTabKey(
+                hwnd, static_cast<UINT>(message), static_cast<WPARAM>(wparamValue));
+        }
+
+        int getInterruptWindowId() noexcept {
+            return g_interruptWindowId;
+        }
     }
 
     // ============================================================
@@ -152,7 +164,7 @@ namespace hsppp {
                 }
                 
                 // ペンディング中の割り込みを処理
-                if (processPendingInterrupt()) {
+                if (internal::processPendingInterrupt()) {
                     return;  // 割り込みハンドラが呼ばれたら戻る
                 }
 
@@ -163,6 +175,9 @@ namespace hsppp {
                     }
                     TranslateMessage(&msg);
                     DispatchMessage(&msg);
+                    internal::processDispatchedMessage(
+                        reinterpret_cast<int64_t>(msg.hwnd), static_cast<int>(msg.message),
+                        static_cast<int64_t>(msg.wParam));
                 }
                 else {
                     Sleep(1);
@@ -190,17 +205,17 @@ namespace hsppp {
     // oncmd - Windowsメッセージ割り込み実行指定
     // ============================================================
 
-    void oncmd(InterruptHandler handler, int messageId, const std::source_location& location) {
+    void oncmd(CommandInterruptHandler handler, int messageId, const std::source_location& location) {
         safe_call(location, [&] {
-            auto& info = g_oncmdHandlers[messageId];
-            info.handler = handler;
-            info.enabled = (handler != nullptr);
+            auto& info = g_oncmdHandlers[{g_currentScreenId, messageId}];
+            info.handler = std::move(handler);
+            info.enabled = static_cast<bool>(info.handler);
         });
     }
 
     void oncmd(int enable, int messageId, const std::source_location& location) {
         safe_call(location, [&] {
-            auto it = g_oncmdHandlers.find(messageId);
+            auto it = g_oncmdHandlers.find({g_currentScreenId, messageId});
             if (it != g_oncmdHandlers.end()) {
                 it->second.enabled = (enable != 0);
             }
@@ -267,9 +282,11 @@ namespace hsppp {
         return *this;
     }
 
-    Screen& Screen::oncmd(InterruptHandler handler, int messageId, const std::source_location& location) {
+    Screen& Screen::oncmd(CommandInterruptHandler handler, int messageId, const std::source_location& location) {
         safe_call(location, [&] {
-            hsppp::oncmd(handler, messageId);
+            auto& info = g_oncmdHandlers[{m_id, messageId}];
+            info.handler = std::move(handler);
+            info.enabled = static_cast<bool>(info.handler);
         });
         return *this;
     }
@@ -289,30 +306,32 @@ namespace hsppp {
 namespace hsppp::internal {
 
     // クリック割り込みをトリガー
-    void triggerOnClick(int windowId, int buttonId, [[maybe_unused]] WPARAM wp, LPARAM lp) {
+    void triggerOnClick(int windowId, int buttonId, WPARAM wp, LPARAM lp) {
         if (g_onclickHandler.enabled && g_onclickHandler.handler) {
             setPendingInterrupt(PendingInterruptType::OnClick, 
                                buttonId,    // iparam: ボタンID
-                               windowId,    // wparam: ウィンドウID
-                               static_cast<int>(lp));
+                               static_cast<int64_t>(wp),
+                               static_cast<int64_t>(lp),
+                               windowId);
         }
     }
 
     // キー割り込みをトリガー
-    void triggerOnKey(int windowId, int charCode, [[maybe_unused]] WPARAM wp, LPARAM lp) {
+    void triggerOnKey(int windowId, int charCode, WPARAM wp, LPARAM lp) {
         if (g_onkeyHandler.enabled && g_onkeyHandler.handler) {
             setPendingInterrupt(PendingInterruptType::OnKey, 
                                charCode,    // iparam: キーコード
-                               windowId,    // wparam: ウィンドウID
-                               static_cast<int>(lp));
+                               static_cast<int64_t>(wp),
+                               static_cast<int64_t>(lp),
+                               windowId);
         }
     }
 
     // Windowsメッセージ割り込みをトリガー
-    bool triggerOnCmd(int windowId, int messageId, [[maybe_unused]] WPARAM wp, LPARAM lp, int& returnValue) {
+    bool triggerOnCmd(int windowId, int messageId, WPARAM wp, LPARAM lp, int& returnValue) {
         if (!g_oncmdGlobalEnabled) return false;
 
-        auto it = g_oncmdHandlers.find(messageId);
+        auto it = g_oncmdHandlers.find({windowId, messageId});
         if (it == g_oncmdHandlers.end()) return false;
 
         auto& info = it->second;
@@ -320,11 +339,15 @@ namespace hsppp::internal {
 
         // 即座に呼び出し
         g_interruptParams.iparam = messageId;
-        g_interruptParams.wparam = windowId;  // ウィンドウID
-        g_interruptParams.lparam = static_cast<int>(lp);
-        info.handler();
-        returnValue = 0;  // デフォルト値
-        return false;  // Windowsデフォルト処理を実行
+        g_interruptParams.wparam = static_cast<int64_t>(wp);
+        g_interruptParams.lparam = static_cast<int64_t>(lp);
+        g_interruptWindowId = windowId;
+        const auto result = info.handler();
+        if (!result.has_value()) {
+            return false;
+        }
+        returnValue = *result;
+        return true;
     }
 
     // 終了割り込みをトリガー
@@ -339,7 +362,8 @@ namespace hsppp::internal {
         setPendingInterrupt(PendingInterruptType::OnExit, 
                            reason,    // iparam: 0=ユーザー終了, 1=シャットダウン
                            windowId,  // wparam: ウィンドウID
-                           0);
+                           0,
+                           windowId);
         return true;  // 終了をブロック
     }
 

@@ -7,6 +7,10 @@ title: GUI API
 
 GUIコントロールの作成と操作に関するAPIです。
 
+オブジェクトIDはウィンドウごとのローカル番号です。各ウィンドウで0から始まり、`clrobj` で空いた番号は
+次の配置時に小さいものから再利用されます。グローバル版の操作命令は、現在 `gsel` で選ばれているウィンドウの
+オブジェクトだけを対象にします。
+
 ## 目次
 
 - [オブジェクト設定](#オブジェクト設定)
@@ -54,7 +58,12 @@ void objmode(OptInt mode = {}, OptInt tabMove = {});
 | `objmode_usefont` | 2 | 現在のフォント設定を使用 |
 | `objmode_usecolor` | 4 | 現在の色設定を使用 |
 
-フラグは組み合わせ可能です。
+ウィンドウ初期化直後は `objmode_guifont` です。`objmode_usecolor` は他のフォントモードへ加算して併用できます。
+設定は「これから配置するオブジェクト」へ配置時点で反映され、配置済みオブジェクトは後の `font` / `color` /
+`objcolor` / `objmode` 変更では変化しません。
+
+`tabMove` は0でTAB移動を無効、1で有効にします。省略時は直前の設定を引き継ぎます。
+`cls` はオブジェクトを削除し、`objsize` と `objcolor` を初期値へ戻しますが、`objmode` とTAB移動設定は維持します。
 
 ---
 
@@ -66,7 +75,8 @@ void objmode(OptInt mode = {}, OptInt tabMove = {});
 void objcolor(OptInt r = {}, OptInt g = {}, OptInt b = {});
 ```
 
-`objmode_usecolor` と併用します。
+`objmode_usecolor` と併用します。HSPのWindows版と同じく、標準EDIT系の `input` / `mesbox` では
+配置時の `color` が背景色、`objcolor` が文字色になります。標準ボタン等はWindows側の描画規則が優先されます。
 
 ---
 
@@ -316,9 +326,10 @@ void objskip(int objectId, OptInt mode = {});
 
 | mode | 説明 |
 |------|------|
-| 0 | 通常（TABキーで移動） |
-| 1 | スキップ |
-| 2 | フォーカス移動不可 |
+| 1 | TABで次のオブジェクトへ移動可能（標準） |
+| 2 | このオブジェクトから次へTAB移動しない |
+| 3 | TABの移動先としてスキップ |
+| `+4` | 移動先になった入力ボックスのテキストを全選択 |
 
 ---
 
@@ -334,6 +345,8 @@ void clrobj(OptInt startId = {}, OptInt endId = {});
 |-----------|------|
 | `startId` | 削除開始ID（省略時: 0） |
 | `endId` | 削除終了ID（省略時: 最後まで） |
+
+削除対象は現在のウィンドウに属するIDだけです。削除されたIDは、次のオブジェクト配置で再利用されます。
 
 **使用例:**
 
@@ -385,7 +398,7 @@ void hspMain() {
         dialog("Settings saved!", dialog_info);
     });
     
-    return 0;
+    return;
 }
 ```
 
@@ -445,7 +458,7 @@ void hspMain() {
         }
     });
     
-    return 0;
+    return;
 }
 ```
 
